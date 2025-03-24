@@ -4,3 +4,7 @@
 *.ptx
 *.cubin
 *.fatbin
+
+build
+.vscode
+.DS_Store
