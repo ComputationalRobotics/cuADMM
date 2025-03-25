@@ -1,4 +1,5 @@
 # cuADMM
+A CUDA-based implementation of the Alternating Direction Method of Multipliers (ADMM) algorithm to solve Semi-Definite Programming (SDP) problems.
 
 ## Execution
 Build the project using CMake:

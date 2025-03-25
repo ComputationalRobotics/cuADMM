@@ -1,6 +1,7 @@
 #include <gtest/gtest.h>
 
-#include "simple_test.hpp"
+#include "meta_test.hpp"
+#include "memory_test.hpp"
 
 // Execute all the included tests
 int main(int argc, char **argv)

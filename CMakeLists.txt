@@ -9,6 +9,7 @@ project(
 # GoogleTest requires at least C++14
 set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_C_COMPILER "/usr/bin/gcc")
 
 
 include(FetchContent)
@@ -97,6 +98,8 @@ add_executable(
 target_link_libraries(
   tests
   GTest::gtest_main
+  ${CUADMM_LIB}
+  nvJitLink
 )
 
 include(GoogleTest)
