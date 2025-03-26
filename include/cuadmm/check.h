@@ -1,3 +1,12 @@
+/*
+
+    check.h
+
+    Defines CHECK functions for CUDA, cuBLAS, cuSOLVER, and cuSPARSE.
+    These are used to check the return status of CUDA API calls.
+
+*/
+
 #ifndef CUADMM_CHECK_H
 #define CUADMM_CHECK_H
 
@@ -32,4 +41,14 @@ do {                                                                           \
     }                                                                          \
 } while (0)
 
-#endif
+// check cuSPARSE error
+#define CHECK_CUSPARSE(func)                                                   \
+{                                                                              \
+    cusparseStatus_t status = (func);                                          \
+    if (status != CUSPARSE_STATUS_SUCCESS) {                                   \
+        printf("CUSPARSE API failed at line %d with error: %s (%d)\n",         \
+               __LINE__, cusparseGetErrorString(status), status);              \
+    }                                                                          \
+}
+
+#endif // CUADMM_CHECK_H

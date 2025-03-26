@@ -99,7 +99,7 @@ target_link_libraries(
   tests
   GTest::gtest_main
   ${CUADMM_LIB}
-  nvJitLink
+  nvJitLink # avoid linking error
 )
 
 include(GoogleTest)
