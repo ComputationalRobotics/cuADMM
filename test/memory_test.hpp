@@ -1,4 +1,5 @@
 #include "cuadmm/memory.h"
+#include "cuadmm/check.h"
 
 TEST(Memory, DeviceStream)
 {
@@ -92,7 +93,6 @@ TEST(Memory, DeviceDenseVector)
     DeviceBlasHandle handle;
     handle.set_gpu_id(0);
     handle.activate();
-    handle.~DeviceBlasHandle();
 
     // test with different types
     DeviceDenseVector<double> device_dense_vector_double;
@@ -112,6 +112,48 @@ TEST(Memory, DeviceDenseVector)
     device_dense_vector_size_t.allocate(0, 10);
     device_dense_vector_size_t.~DeviceDenseVector();
 }
+
+TEST(Memory, DeviceDenseVectorNormZero)
+{
+    // create a handle
+    DeviceBlasHandle handle;
+    handle.set_gpu_id(0);
+    handle.activate();
+
+    // create a vector of zeros
+    const int SIZE = 10;
+    std::vector<double> vector(SIZE, 0.0);
+    
+    // copy the vector to the device
+    DeviceDenseVector<double> dense_vector(0, SIZE);
+    dense_vector.allocate(0, SIZE);
+    CHECK_CUDA( cudaMemcpy(&dense_vector, vector.data(), sizeof(double) * SIZE, cudaMemcpyHostToDevice) );
+
+    // check the norm
+    EXPECT_DOUBLE_EQ(dense_vector.get_norm(handle), 0.0);
+}
+
+TEST(Memory, DeviceDenseVectorNormNonZero)
+{
+    // create a handle
+    DeviceBlasHandle handle;
+    handle.set_gpu_id(0);
+    handle.activate();
+
+    // create a vector of ones
+    const int SIZE = 10;
+    std::vector<double> vector(SIZE, 1.0);
+    
+    // copy the vector to the device
+    DeviceDenseVector<double> dense_vector(0, SIZE);
+    CHECK_CUDA( cudaMemcpy(&dense_vector, vector.data(), sizeof(double) * SIZE, cudaMemcpyHostToDevice) );
+
+    dense_vector.print();
+
+    // check the norm
+    EXPECT_DOUBLE_EQ(dense_vector.get_norm(handle), std::sqrt(SIZE));
+}
+
 
 TEST(Memory, DeviceSpMatDoubleCSC)
 {

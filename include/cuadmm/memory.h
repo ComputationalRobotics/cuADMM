@@ -15,6 +15,7 @@
 #include <cuda_runtime_api.h>
 #include <cublas_v2.h>
 #include <cusolverDn.h>
+#include <vector>
 
 #include "cuadmm/check.h"
 #include "cuadmm/mapper.h"
@@ -158,41 +159,6 @@ class DeviceSparseHandle {
         }
 };
 
-// dense vector wrapper on host: double type
-class HostDnVecDouble {
-    public:
-        int size;
-        double* vals;
-
-        HostDnVecDouble(): size(0), vals(nullptr) {}
-        HostDnVecDouble(const int size, bool as_byte = false): size(size), vals(nullptr) {
-            this->allocate(size, as_byte);
-        }
-
-        inline void allocate(const int size, bool as_byte = false) {
-            if (this->vals == nullptr) {
-                if (as_byte) {
-                    this->size = (size + sizeof(double) - 1) / sizeof(double);
-                } else {
-                    this->size = size;
-                }
-                this->vals = (double*) malloc(sizeof(double) * this->size);
-            }
-            return;
-        }
-        inline double get_norm() {
-            return cblas_dnrm2(this->size, this->vals, 1);
-        }
-
-        ~HostDnVecDouble() {
-            if (this->vals != nullptr) {
-                free(this->vals);
-                this->vals = nullptr;
-            }
-            // std::cout << "HostDnVecDouble destructor called!" << std::endl;
-        }
-};
-
 // Dense vector on host (CPU)
 template <typename T>
 class HostDenseVector {
@@ -256,6 +222,7 @@ class DeviceDenseVector {
         inline T get_norm(const DeviceBlasHandle& cublas_H) {
             T norm;
             CHECK_CUDA( cudaSetDevice(this->gpu_id) );
+            // TODO: handle floats?
             CHECK_CUBLAS( cublasDnrm2_v2(
                 cublas_H.cublas_handle, this->size, this->vals, 1, &norm
             ) );
@@ -273,6 +240,18 @@ class DeviceDenseVector {
                 this->descr = NULL;
             }
             // std::cout << "DeviceDenseVector destructor called!" << std::endl;
+        }
+
+        void print() {
+            std::vector<T> vector(this->size, 1.0);
+            
+            // copy the vector to the device
+            CHECK_CUDA( cudaMemcpy(&vector, &this->vals, sizeof(T) * this->size, cudaMemcpyDeviceToHost) );
+            std::printf("[");
+            for (int i = 0; i < this->size; i++) {
+                std::printf("%f, ", vector[i]);
+            }
+            std::printf("]\n");
         }
 };
 
