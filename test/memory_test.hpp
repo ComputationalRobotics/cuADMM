@@ -1,6 +1,7 @@
 #include "cuadmm/memory.h"
 #include "cuadmm/check.h"
 
+/* DeviceStream */ 
 TEST(Memory, DeviceStream)
 {
     DeviceStream device_stream;
@@ -9,6 +10,7 @@ TEST(Memory, DeviceStream)
     device_stream.~DeviceStream();
 }
 
+/* DeviceBlasHandle */ 
 TEST(Memory, SimpleDeviceBlasHandle)
 {
     DeviceBlasHandle handle;
@@ -30,6 +32,7 @@ TEST(Memory, DeviceBlasHandleWithStream)
     device_stream.~DeviceStream();
 }
 
+/* DeviceSolverDnHandle */
 TEST(Memory, DeviceSolverDnHandle)
 {
     DeviceSolverDnHandle handle;
@@ -51,6 +54,7 @@ TEST(Memory, DeviceSolverDnHandleWithStream)
     device_stream.~DeviceStream();
 }
 
+/* DeviceSparseHandle */
 TEST(Memory, DeviceSparseHandle)
 {
     DeviceSparseHandle handle;
@@ -72,6 +76,7 @@ TEST(Memory, DeviceSparseHandleWithStream)
     device_stream.~DeviceStream();
 }
 
+/* HostDenseVector */
 TEST(Memory, HostDenseVector)
 {
     HostDenseVector<double> host_dense_vector_double;
@@ -87,6 +92,7 @@ TEST(Memory, HostDenseVector)
     host_dense_vector_int.~HostDenseVector();
 }
 
+/* DeviceDenseVector */
 TEST(Memory, DeviceDenseVector)
 {
     // create a handle
@@ -151,7 +157,7 @@ TEST(Memory, DeviceDenseVectorNormNonZero)
     EXPECT_DOUBLE_EQ(dense_vector.get_norm(handle), std::sqrt(SIZE));
 }
 
-
+/* DeviceSpMatDoubleCSR */
 TEST(Memory, DeviceSpMatDoubleCSC)
 {
     DeviceSpMatDoubleCSC mat;
@@ -159,6 +165,7 @@ TEST(Memory, DeviceSpMatDoubleCSC)
     mat.~DeviceSpMatDoubleCSC();
 }
 
+/* DeviceSpMatDoubleCSR */
 TEST(Memory, DeviceSpMatDoubleCSR)
 {
     DeviceSpMatDoubleCSR mat;
