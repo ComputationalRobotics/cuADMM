@@ -1,11 +1,12 @@
 #include "cuadmm/memory.h"
 #include "cuadmm/check.h"
+#include "cuadmm/utils.h"
 
 /* DeviceStream */ 
 TEST(Memory, DeviceStream)
 {
     DeviceStream device_stream;
-    device_stream.set_gpu_id(0);
+    device_stream.set_gpu_id(GPU0);
     device_stream.activate();
     device_stream.~DeviceStream();
 }
@@ -14,7 +15,7 @@ TEST(Memory, DeviceStream)
 TEST(Memory, SimpleDeviceBlasHandle)
 {
     DeviceBlasHandle handle;
-    handle.set_gpu_id(0);
+    handle.set_gpu_id(GPU0);
     handle.activate();
     handle.~DeviceBlasHandle();
 }
@@ -22,11 +23,11 @@ TEST(Memory, SimpleDeviceBlasHandle)
 TEST(Memory, DeviceBlasHandleWithStream)
 {
     DeviceStream device_stream;
-    device_stream.set_gpu_id(0);
+    device_stream.set_gpu_id(GPU0);
     device_stream.activate();
 
     DeviceBlasHandle handle;
-    handle.set_gpu_id(0);
+    handle.set_gpu_id(GPU0);
     handle.activate(device_stream);
     handle.~DeviceBlasHandle();
     device_stream.~DeviceStream();
@@ -36,7 +37,7 @@ TEST(Memory, DeviceBlasHandleWithStream)
 TEST(Memory, DeviceSolverDnHandle)
 {
     DeviceSolverDnHandle handle;
-    handle.set_gpu_id(0);
+    handle.set_gpu_id(GPU0);
     handle.activate();
     handle.~DeviceSolverDnHandle();
 }
@@ -44,11 +45,11 @@ TEST(Memory, DeviceSolverDnHandle)
 TEST(Memory, DeviceSolverDnHandleWithStream)
 {
     DeviceStream device_stream;
-    device_stream.set_gpu_id(0);
+    device_stream.set_gpu_id(GPU0);
     device_stream.activate();
 
     DeviceSolverDnHandle handle;
-    handle.set_gpu_id(0);
+    handle.set_gpu_id(GPU0);
     handle.activate(device_stream);
     handle.~DeviceSolverDnHandle();
     device_stream.~DeviceStream();
@@ -58,7 +59,7 @@ TEST(Memory, DeviceSolverDnHandleWithStream)
 TEST(Memory, DeviceSparseHandle)
 {
     DeviceSparseHandle handle;
-    handle.set_gpu_id(0);
+    handle.set_gpu_id(GPU0);
     handle.activate();
     handle.~DeviceSparseHandle();
 }
@@ -66,11 +67,11 @@ TEST(Memory, DeviceSparseHandle)
 TEST(Memory, DeviceSparseHandleWithStream)
 {
     DeviceStream device_stream;
-    device_stream.set_gpu_id(0);
+    device_stream.set_gpu_id(GPU0);
     device_stream.activate();
 
     DeviceSparseHandle handle;
-    handle.set_gpu_id(0);
+    handle.set_gpu_id(GPU0);
     handle.activate(device_stream);
     handle.~DeviceSparseHandle();
     device_stream.~DeviceStream();
@@ -97,24 +98,24 @@ TEST(Memory, DeviceDenseVector)
 {
     // create a handle
     DeviceBlasHandle handle;
-    handle.set_gpu_id(0);
+    handle.set_gpu_id(GPU0);
     handle.activate();
 
     // test with different types
     DeviceDenseVector<double> device_dense_vector_double;
-    device_dense_vector_double.allocate(0, 10);
+    device_dense_vector_double.allocate(GPU0, 10);
     device_dense_vector_double.~DeviceDenseVector();
 
     DeviceDenseVector<float> device_dense_vector_float;
-    device_dense_vector_float.allocate(0, 10);
+    device_dense_vector_float.allocate(GPU0, 10);
     device_dense_vector_float.~DeviceDenseVector();
 
     DeviceDenseVector<int> device_dense_vector_int;
-    device_dense_vector_int.allocate(0, 10);
+    device_dense_vector_int.allocate(GPU0, 10);
     device_dense_vector_int.~DeviceDenseVector();
 
     DeviceDenseVector<size_t> device_dense_vector_size_t;
-    device_dense_vector_size_t.allocate(0, 10);
+    device_dense_vector_size_t.allocate(GPU0, 10);
     device_dense_vector_size_t.~DeviceDenseVector();
 }
 
@@ -122,7 +123,7 @@ TEST(Memory, DeviceDenseVectorNormZero)
 {
     // create a handle
     DeviceBlasHandle handle;
-    handle.set_gpu_id(0);
+    handle.set_gpu_id(GPU0);
     handle.activate();
 
     // create a vector of zeros
@@ -130,7 +131,7 @@ TEST(Memory, DeviceDenseVectorNormZero)
     std::vector<double> vector(SIZE, 0.0);
     
     // copy the vector to the device
-    DeviceDenseVector<double> dense_vector(0, SIZE);
+    DeviceDenseVector<double> dense_vector(GPU0, SIZE);
     dense_vector.allocate(0, SIZE);
     CHECK_CUDA( cudaMemcpy(&dense_vector, vector.data(), sizeof(double) * SIZE, cudaMemcpyHostToDevice) );
 
@@ -142,7 +143,7 @@ TEST(Memory, DeviceDenseVectorNormNonZero)
 {
     // create a handle
     DeviceBlasHandle handle;
-    handle.set_gpu_id(0);
+    handle.set_gpu_id(GPU0);
     handle.activate();
 
     // create a vector of ones
@@ -150,7 +151,7 @@ TEST(Memory, DeviceDenseVectorNormNonZero)
     std::vector<double> vector(SIZE, 1.0);
     
     // copy the vector to the device
-    DeviceDenseVector<double> dense_vector(0, SIZE);
+    DeviceDenseVector<double> dense_vector(GPU0, SIZE);
     CHECK_CUDA( cudaMemcpy(dense_vector.vals, vector.data(), sizeof(double) * SIZE, cudaMemcpyHostToDevice) );
 
     // check the norm
@@ -161,7 +162,7 @@ TEST(Memory, DeviceDenseVectorNormNonZero)
 TEST(Memory, DeviceSpMatDoubleCSC)
 {
     DeviceSpMatDoubleCSC mat;
-    mat.allocate(0, 10, 10, 10);
+    mat.allocate(GPU0, 10, 10, 10);
     mat.~DeviceSpMatDoubleCSC();
 }
 
@@ -169,6 +170,6 @@ TEST(Memory, DeviceSpMatDoubleCSC)
 TEST(Memory, DeviceSpMatDoubleCSR)
 {
     DeviceSpMatDoubleCSR mat;
-    mat.allocate(0, 10, 10, 10);
+    mat.allocate(GPU0, 10, 10, 10);
     mat.~DeviceSpMatDoubleCSR();
 }

@@ -4,6 +4,7 @@
 #include "memory_test.hpp"
 #include "dense_dense_test.hpp"
 #include "dense_scalar_test.hpp"
+#include "utils_test.hpp"
 
 int main(int argc, char **argv)
 {
