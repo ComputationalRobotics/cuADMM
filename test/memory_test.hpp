@@ -1,6 +1,4 @@
 #include "cuadmm/memory.h"
-#include "cuadmm/check.h"
-#include "cuadmm/utils.h"
 
 /* DeviceStream */ 
 TEST(Memory, DeviceStream)

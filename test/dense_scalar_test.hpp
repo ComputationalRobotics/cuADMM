@@ -1,7 +1,6 @@
 #include <math.h>
 
 #include "cuadmm/kernels.h"
-#include "cuadmm/utils.h"
 
 TEST(DenseScalar, Mul1Vec)
 {
