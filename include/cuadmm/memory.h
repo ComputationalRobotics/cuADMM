@@ -260,10 +260,10 @@ template <typename T>
 class DeviceSparseVector {
     public:
         int gpu_id;
-        int size; 
-        int nnz;
-        int* indices;
-        double* vals; 
+        int size;     // size of the vector
+        int nnz;      // number of non-zero entries
+        int* indices; // indices of the non-zero entries (array with `nnz` elements)
+        T* vals;      // values of the non-zero entries (array with `nnz` elements)
         cusparseSpVecDescr_t cusparse_descr;
 
         DeviceSparseVector(): gpu_id(0), size(0), nnz(0), 

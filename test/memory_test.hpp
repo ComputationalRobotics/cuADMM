@@ -157,9 +157,48 @@ TEST(Memory, DeviceDenseVectorNormNonZero)
 }
 
 /* DeviceSparseVector */
-TEST(Memory, DeviceSparseVector)
+TEST(Memory, DeviceSparseVectorDense)
 {
-    DeviceSparseVector<double> sparse_vector(GPU0, 10, 5);
+    DeviceBlasHandle handle;
+    handle.set_gpu_id(GPU0);
+    handle.activate();
+
+    // create a vector of ones
+    const int SIZE = 10;
+    std::vector<double> vals(SIZE, 1.0);
+    std::vector<int> indices;
+    for (int i = 0; i < SIZE; ++i) {
+        indices.push_back(i);
+    }
+    
+    // copy the vector to the device
+    DeviceSparseVector<double> sparse_vector(GPU0, SIZE, SIZE);
+    CHECK_CUDA( cudaMemcpy(sparse_vector.vals, vals.data(), sizeof(double) * SIZE, cudaMemcpyHostToDevice) );
+    sparse_vector.indices = indices.data();
+
+    EXPECT_DOUBLE_EQ(sparse_vector.get_norm(handle), std::sqrt(SIZE));
+}
+
+TEST(Memory, DeviceSparseVectorSparse)
+{
+    DeviceBlasHandle handle;
+    handle.set_gpu_id(GPU0);
+    handle.activate();
+
+    // create a vector of ones
+    const int SIZE = 5;
+    std::vector<double> vals(SIZE, 1.0);
+    std::vector<int> indices;
+    for (int i = 0; i < SIZE; ++i) {
+        indices.push_back(2*i);
+    }
+    
+    // copy the vector to the device
+    DeviceSparseVector<double> sparse_vector(GPU0, 2*SIZE, SIZE);
+    CHECK_CUDA( cudaMemcpy(sparse_vector.vals, vals.data(), sizeof(double) * SIZE, cudaMemcpyHostToDevice) );
+    
+    sparse_vector.indices = indices.data();
+    EXPECT_DOUBLE_EQ(sparse_vector.get_norm(handle), std::sqrt(SIZE));
 }
 
 /* DeviceSpMatDoubleCSR */
