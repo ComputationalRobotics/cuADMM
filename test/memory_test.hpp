@@ -98,7 +98,6 @@ TEST(Memory, DeviceDenseVector)
     DeviceDenseVector<double> device_dense_vector_double;
     device_dense_vector_double.allocate(0, 10);
     device_dense_vector_double.~DeviceDenseVector();
-    // EXPECT_DOUBLE_EQ(device_dense_vector_double.get_norm(handle), 0.0);
 
     DeviceDenseVector<float> device_dense_vector_float;
     device_dense_vector_float.allocate(0, 10);
@@ -146,9 +145,7 @@ TEST(Memory, DeviceDenseVectorNormNonZero)
     
     // copy the vector to the device
     DeviceDenseVector<double> dense_vector(0, SIZE);
-    CHECK_CUDA( cudaMemcpy(&dense_vector, vector.data(), sizeof(double) * SIZE, cudaMemcpyHostToDevice) );
-
-    dense_vector.print();
+    CHECK_CUDA( cudaMemcpy(dense_vector.vals, vector.data(), sizeof(double) * SIZE, cudaMemcpyHostToDevice) );
 
     // check the norm
     EXPECT_DOUBLE_EQ(dense_vector.get_norm(handle), std::sqrt(SIZE));

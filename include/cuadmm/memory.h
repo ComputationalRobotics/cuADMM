@@ -243,13 +243,13 @@ class DeviceDenseVector {
         }
 
         void print() {
-            std::vector<T> vector(this->size, 1.0);
+            T host_vec[size];
             
             // copy the vector to the device
-            CHECK_CUDA( cudaMemcpy(&vector, &this->vals, sizeof(T) * this->size, cudaMemcpyDeviceToHost) );
+            CHECK_CUDA( cudaMemcpy(host_vec, this->vals, sizeof(T) * this->size, cudaMemcpyDeviceToHost) );
             std::printf("[");
-            for (int i = 0; i < this->size; i++) {
-                std::printf("%f, ", vector[i]);
+            for (size_t i = 0; i < this->size; i++) {
+                std::printf("%f, ", host_vec[i]);
             }
             std::printf("]\n");
         }
