@@ -156,6 +156,12 @@ TEST(Memory, DeviceDenseVectorNormNonZero)
     EXPECT_DOUBLE_EQ(dense_vector.get_norm(handle), std::sqrt(SIZE));
 }
 
+/* DeviceSparseVector */
+TEST(Memory, DeviceSparseVector)
+{
+    DeviceSparseVector<double> sparse_vector(GPU0, 10, 5);
+}
+
 /* DeviceSpMatDoubleCSR */
 TEST(Memory, DeviceSpMatDoubleCSC)
 {

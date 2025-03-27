@@ -255,6 +255,69 @@ class DeviceDenseVector {
         }
 };
 
+// Sparse vector on device (GPU): wrapper around cuSPARSE sparse vector descriptor
+template <typename T>
+class DeviceSparseVector {
+    public:
+        int gpu_id;
+        int size; 
+        int nnz;
+        int* indices;
+        double* vals; 
+        cusparseSpVecDescr_t cusparse_descr;
+
+        DeviceSparseVector(): gpu_id(0), size(0), nnz(0), 
+            indices(nullptr), vals(nullptr), cusparse_descr(NULL) {}
+            DeviceSparseVector(const int gpu_id, const int size, const int nnz):
+            gpu_id(gpu_id), size(size), nnz(nnz), 
+            vals(nullptr), indices(nullptr), cusparse_descr(NULL) {
+                this->allocate(gpu_id, size, nnz);
+            }
+        
+        inline void allocate(const int gpu_id, const int size, const int nnz) {
+            if (this->vals == nullptr) {
+                this->gpu_id = gpu_id;
+                this->size = size; 
+                this->nnz = nnz;
+                CHECK_CUDA( cudaSetDevice(this->gpu_id) );
+                CHECK_CUDA( cudaMalloc((void**) &this->indices, sizeof(int) * this->nnz) );
+                CHECK_CUDA( cudaMalloc((void**) &this->vals, sizeof(T) * this->nnz) );
+                CHECK_CUSPARSE( cusparseCreateSpVec(
+                    &this->cusparse_descr, this->size, this->nnz, 
+                    this->indices, this->vals, 
+                    CUSPARSE_INDEX_32I, CUSPARSE_INDEX_BASE_ZERO, CudaTypeMapper<T>::value 
+                ) );
+            }
+            return;
+        }
+
+        inline double get_norm(const DeviceBlasHandle& cublas_H) {
+            T norm;
+            CHECK_CUDA( cudaSetDevice(this->gpu_id) );
+            CHECK_CUBLAS( cublasDnrm2_v2(
+                cublas_H.cublas_handle, this->nnz, this->vals, 1, &norm
+            ) );
+            return norm;
+        }
+
+        ~DeviceSparseVector() {
+            CHECK_CUDA( cudaSetDevice(this->gpu_id) );
+            if (this->indices != nullptr) {
+                CHECK_CUDA( cudaFree(this->indices) );
+                this->indices = nullptr;
+            }
+            if (this->vals != nullptr) {
+                CHECK_CUDA( cudaFree(this->vals) );
+                this->vals = nullptr;
+            }
+            if (this->cusparse_descr != NULL) {
+                CHECK_CUSPARSE( cusparseDestroySpVec(this->cusparse_descr) );
+                this->cusparse_descr = NULL;
+            }
+            // std::cout << "DeviceSparseVector destructor called!" << std::endl;
+        }
+};
+
 // Dense vector on device (GPU): double type and Compressed Sparse Column (CSC) format
 class DeviceSpMatDoubleCSC {
     public:
