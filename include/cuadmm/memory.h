@@ -268,7 +268,7 @@ class DeviceSparseVector {
 
         DeviceSparseVector(): gpu_id(0), size(0), nnz(0), 
             indices(nullptr), vals(nullptr), cusparse_descr(NULL) {}
-            DeviceSparseVector(const int gpu_id, const int size, const int nnz):
+        DeviceSparseVector(const int gpu_id, const int size, const int nnz):
             gpu_id(gpu_id), size(size), nnz(nnz), 
             vals(nullptr), indices(nullptr), cusparse_descr(NULL) {
                 this->allocate(gpu_id, size, nnz);
@@ -315,6 +315,36 @@ class DeviceSparseVector {
                 this->cusparse_descr = NULL;
             }
             // std::cout << "DeviceSparseVector destructor called!" << std::endl;
+        }
+
+        void print(bool show_zeros = false) {
+            T vals[nnz];
+            int indices[nnz];
+            
+            // copy the vector to the device
+            CHECK_CUDA( cudaMemcpy(vals, this->vals, sizeof(T) * this->nnz, cudaMemcpyDeviceToHost) );
+            CHECK_CUDA( cudaMemcpy(indices, this->indices, sizeof(int) * this->nnz, cudaMemcpyDeviceToHost) );
+
+            // print the vector
+            if (show_zeros) {
+                std::printf("[");
+                int current_index = 0;
+                for (size_t i = 0; i < this->size; i++) {
+                    if (current_index < this->nnz && indices[current_index] == i){
+                        std::printf("%f, ", vals[current_index]);
+                        current_index += 1;
+                    } else {
+                        std::printf("0.0, ");
+                    }
+                }
+                std::printf("]\n");
+            } else {
+                std::printf("[");
+                for (size_t i = 0; i < this->nnz; i++) {
+                    std::printf("(%d, %f), ", indices[i], vals[i]);
+                }
+                std::printf("]\n");
+            }
         }
 };
 

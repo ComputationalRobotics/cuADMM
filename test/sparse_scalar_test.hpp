@@ -20,7 +20,7 @@ TEST(SparseScalar, Mul)
     // copy the vector to the device
     DeviceSparseVector<double> sparse_vector(GPU0, 2*SIZE, SIZE);
     CHECK_CUDA( cudaMemcpy(sparse_vector.vals, vals.data(), sizeof(double) * SIZE, cudaMemcpyHostToDevice) );
-    sparse_vector.indices = indices.data();
+    CHECK_CUDA( cudaMemcpy(sparse_vector.indices, indices.data(), sizeof(int) * SIZE, cudaMemcpyHostToDevice) );
 
     // multiply the vector by 2
     sparse_vector_mul_scalar(sparse_vector, 2.0);
@@ -51,7 +51,7 @@ TEST(SparseScalar, Div)
     // copy the vector to the device
     DeviceSparseVector<double> sparse_vector(GPU0, 2*SIZE, SIZE);
     CHECK_CUDA( cudaMemcpy(sparse_vector.vals, vals.data(), sizeof(double) * SIZE, cudaMemcpyHostToDevice) );
-    sparse_vector.indices = indices.data();
+    CHECK_CUDA( cudaMemcpy(sparse_vector.indices, indices.data(), sizeof(int) * SIZE, cudaMemcpyHostToDevice) );
 
     // divide the vector by 2
     sparse_vector_div_scalar(sparse_vector, 2.0);

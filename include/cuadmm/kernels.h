@@ -102,4 +102,17 @@ void sparse_vector_div_scalar(
     const cudaStream_t& stream = (cudaStream_t) 0, int block_size = 1024
 );
 
+/*
+
+    Sparse-dense operations (kernels/sparse_dense.cu)
+
+*/
+
+// Divide a sparse vector by a dense vector, element-wise and in-place
+// sp_vec <-- sp_vec / dn_vec
+void sparse_vector_div_dense_vector(
+    DeviceSparseVector<double>& spvec, const DeviceDenseVector<double>& dnvec,
+    const cudaStream_t& stream = (cudaStream_t) 0, int block_size = 1024
+);
+
 #endif

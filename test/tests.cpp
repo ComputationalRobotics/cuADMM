@@ -9,6 +9,7 @@
 #include "dense_scalar_test.hpp"
 #include "dense_dense_test.hpp"
 #include "sparse_scalar_test.hpp"
+#include "sparse_dense_test.hpp"
 
 int main(int argc, char **argv)
 {
