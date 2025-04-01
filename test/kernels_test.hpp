@@ -31,3 +31,53 @@ TEST(Kernels, Permutation)
         EXPECT_EQ(vec1_host[perm_host[i]], vec2_host[i]);
     }
 }
+
+TEST(Kernels, SparseMatrix)
+{
+    std::string filename = "../test/data/sparse_matrix_coo.txt";
+    int col_num = 4; // Number of columns in the matrix
+    std::vector<int> rows;
+    std::vector<int> cols;
+    std::vector<double> vals;
+    read_COO_sparse_matrix_data(filename, rows, cols, vals);
+
+    // Convert COO to CSC
+    std::vector<int> col_ptrs(col_num + 1, 0);
+    COO_to_CSC(col_ptrs, cols, rows, vals, vals.size(), col_num);
+
+    // Create a sparse matrix by copying the data to the device
+    DeviceSparseMatrixDoubleCSC At(GPU0, 4, 4, vals.size());
+    CHECK_CUDA( cudaMemcpy(At.col_ptrs, col_ptrs.data(), sizeof(int) * (col_num + 1), cudaMemcpyHostToDevice) );
+    CHECK_CUDA( cudaMemcpy(At.row_ids, rows.data(), sizeof(int) * vals.size(), cudaMemcpyHostToDevice) );
+    CHECK_CUDA( cudaMemcpy(At.vals, vals.data(), sizeof(double) * vals.size(), cudaMemcpyHostToDevice) );
+
+    // Create a norm vector
+    DeviceDenseVector<double> normA(GPU0, 4);
+
+    // Compute the norm and normalize
+    get_normA(At, normA);
+    normA.print();
+
+    // Retrieve the result from the device
+    std::vector<double> normA_host(4);
+    CHECK_CUDA( cudaMemcpy(normA_host.data(), normA.vals, sizeof(double) * 4, cudaMemcpyDeviceToHost) );
+    std::vector<double> At_host(vals.size());
+    CHECK_CUDA( cudaMemcpy(At_host.data(), At.vals, sizeof(double) * vals.size(), cudaMemcpyDeviceToHost) );
+
+    // Check the results
+    EXPECT_EQ(normA_host, std::vector<double>({
+        std::sqrt(10.0*10.0 + 30.0*30.0),
+        std::sqrt(20.0*20.0 + 60.0*60.0),
+        40.0,
+        50.0
+    }));
+    EXPECT_EQ(At_host, std::vector<double>({
+        10.0/std::sqrt(10.0*10.0 + 30.0*30.0),
+        30.0/std::sqrt(10.0*10.0 + 30.0*30.0),
+        20.0/std::sqrt(20.0*20.0 + 60.0*60.0),
+        60.0/std::sqrt(20.0*20.0 + 60.0*60.0),
+        40.0/40.0,
+        50.0/50.0
+    }));
+
+}

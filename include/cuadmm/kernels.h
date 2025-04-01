@@ -124,4 +124,9 @@ void perform_permutation(
     const cudaStream_t& stream = (cudaStream_t) 0, int block_size = 1024
 );
 
+void get_normA(
+    DeviceSparseMatrixDoubleCSC& At, DeviceDenseVector<double>& normA,
+    const cudaStream_t& stream = (cudaStream_t) 0, int block_size = 1024
+);
+
 #endif
