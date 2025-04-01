@@ -14,8 +14,6 @@ __global__ void sparse_vector_div_dense_vector_kernel(
 ) {
     int idx = threadIdx.x + blockIdx.x * blockDim.x;
     if (idx < spvec_nnz) {
-        // TODO: tell Shucheng
-        // spvec_vals[spvec_indices[idx]] /= dnvec_vals[spvec_indices[idx]];
         spvec_vals[idx] /= dnvec_vals[spvec_indices[idx]];
     }
     return;

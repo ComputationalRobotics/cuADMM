@@ -52,7 +52,7 @@ file(
     # src/io/*.cu
     src/kernels/*.cu
     # src/solvers/*.cu
-    # src/utils/*.cu
+    src/utils/*.cu
 )
 
 ### Create library
