@@ -44,4 +44,34 @@ void write_sparse_matrix_data(
     const int precision = 20
 );
 
+// Triplet containing the column index, row index, and values
+// (This class helps to convert COO sparse matrix data to CSC sparse matrix data.)
+class Triplet {
+    public:
+        Triplet(int col_id, int row_id, double val): 
+            col_id(col_id), row_id(row_id), val(val) {}
+
+        int col_id;
+        int row_id;
+        double val;
+};
+
+// Convert COO sparse matrix format to CSC sparse matrix format.
+// Note: the CSC format generated will always be sorted,
+// hence this function can also help to sort the COO format data.
+void COO_to_CSC(
+    std::vector<int>& col_ptrs, // pointers of col in CSC, of size (col_num+1, 0)
+    std::vector<int>& col_ids, std::vector<int>& row_ids, std::vector<double>& vals, // triplets for the COO format
+    const int nnz, const int col_num 
+);
+
+// Convert CSC sparse matrix format to COO sparse matrix format.
+// Note: CSC data is sorted by column, while COO data is sorted by row
+// After this function, CSC data's col_ptrs will be set as empty.
+void CSC_to_COO(
+    std::vector<int>& col_ptrs, // pointers of col in CSC, of size (col_num+1, 0)
+    std::vector<int>& col_ids, std::vector<int>& row_ids, std::vector<double>& vals, // triplets for the COO format
+    const int nnz, const int col_num 
+);
+
 #endif // CUADMM_IO_H

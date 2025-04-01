@@ -201,18 +201,18 @@ TEST(Memory, DeviceSparseVectorSparse)
     EXPECT_DOUBLE_EQ(sparse_vector.get_norm(handle), std::sqrt(SIZE));
 }
 
-/* DeviceSpMatDoubleCSR */
-TEST(Memory, DeviceSpMatDoubleCSC)
+/* DeviceSparseMatrixDoubleCSC */
+TEST(Memory, DeviceSparseMatrixDoubleCSC)
 {
-    DeviceSpMatDoubleCSC mat;
+    DeviceSparseMatrixDoubleCSC mat;
     mat.allocate(GPU0, 10, 10, 10);
-    mat.~DeviceSpMatDoubleCSC();
+    mat.~DeviceSparseMatrixDoubleCSC();
 }
 
-/* DeviceSpMatDoubleCSR */
-TEST(Memory, DeviceSpMatDoubleCSR)
+/* DeviceSparseMatrixDoubleCSR */
+TEST(Memory, DeviceSparseMatrixDoubleCSR)
 {
-    DeviceSpMatDoubleCSR mat;
+    DeviceSparseMatrixDoubleCSR mat;
     mat.allocate(GPU0, 10, 10, 10);
-    mat.~DeviceSpMatDoubleCSR();
+    mat.~DeviceSparseMatrixDoubleCSR();
 }

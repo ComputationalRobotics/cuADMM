@@ -349,7 +349,7 @@ class DeviceSparseVector {
 };
 
 // Dense vector on device (GPU): double type and Compressed Sparse Column (CSC) format
-class DeviceSpMatDoubleCSC {
+class DeviceSparseMatrixDoubleCSC {
     public:
         int gpu_id;
         int row_size;  // rows of the matrix
@@ -360,9 +360,9 @@ class DeviceSpMatDoubleCSC {
         double* vals;  // values of the non-zero entries (array with `nnz` elements)
         cusparseSpMatDescr_t cusparse_descr;
 
-        DeviceSpMatDoubleCSC(): gpu_id(0), row_size(0), col_size(0), nnz(0),
+        DeviceSparseMatrixDoubleCSC(): gpu_id(0), row_size(0), col_size(0), nnz(0),
             col_ptrs(nullptr), row_ids(nullptr), vals(nullptr), cusparse_descr(NULL) {}
-        DeviceSpMatDoubleCSC(const int gpu_id, const int row_size, const int col_size, const int nnz):
+            DeviceSparseMatrixDoubleCSC(const int gpu_id, const int row_size, const int col_size, const int nnz):
             gpu_id(gpu_id), row_size(row_size), col_size(col_size), nnz(nnz),
             col_ptrs(nullptr), row_ids(nullptr), vals(nullptr), cusparse_descr(NULL) {
                 this->allocate(gpu_id, row_size, col_size, nnz);
@@ -396,7 +396,7 @@ class DeviceSpMatDoubleCSC {
             return norm;
         }
 
-        ~DeviceSpMatDoubleCSC() {
+        ~DeviceSparseMatrixDoubleCSC() {
             CHECK_CUDA( cudaSetDevice(this->gpu_id) );
             if (this->col_ptrs != nullptr) {
                 CHECK_CUDA( cudaFree(this->col_ptrs) );
@@ -414,12 +414,12 @@ class DeviceSpMatDoubleCSC {
                 CHECK_CUSPARSE( cusparseDestroySpMat(this->cusparse_descr) );
                 this->cusparse_descr = NULL;
             }
-            // std::cout << "DeviceSpMatDoubleCSC destructor called!" << std::endl;
+            // std::cout << "DeviceSparseMatrixDoubleCSC destructor called!" << std::endl;
         }
 };
 
 // Dense vector on device (GPU): double type and Compressed Sparse Row (CSR) format
-class DeviceSpMatDoubleCSR {
+class DeviceSparseMatrixDoubleCSR {
     public:
         int gpu_id;
         int64_t row_size; // rows of the matrix
@@ -430,9 +430,9 @@ class DeviceSpMatDoubleCSR {
         double* vals;     // values of the non-zero entries (array with `nnz` elements)
         cusparseSpMatDescr_t cusparse_descr;
 
-        DeviceSpMatDoubleCSR(): gpu_id(0), row_size(0), col_size(0), nnz(0),
+        DeviceSparseMatrixDoubleCSR(): gpu_id(0), row_size(0), col_size(0), nnz(0),
             row_ptrs(nullptr), col_ids(nullptr), vals(nullptr), cusparse_descr(NULL) {}
-        DeviceSpMatDoubleCSR(const int gpu_id, const int row_size, const int col_size, const int nnz):
+            DeviceSparseMatrixDoubleCSR(const int gpu_id, const int row_size, const int col_size, const int nnz):
             gpu_id(gpu_id), row_size(row_size), col_size(col_size), nnz(nnz),
             row_ptrs(nullptr), col_ids(nullptr), vals(nullptr), cusparse_descr(NULL) {
                 this->allocate(gpu_id, row_size, col_size, nnz);
@@ -472,7 +472,7 @@ class DeviceSpMatDoubleCSR {
             return norm;
         }
 
-        ~DeviceSpMatDoubleCSR() {
+        ~DeviceSparseMatrixDoubleCSR() {
             CHECK_CUDA( cudaSetDevice(this->gpu_id) );
             if (this->row_ptrs != nullptr) {
                 CHECK_CUDA( cudaFree(this->row_ptrs) );
@@ -490,7 +490,7 @@ class DeviceSpMatDoubleCSR {
                 CHECK_CUSPARSE( cusparseDestroySpMat(this->cusparse_descr) );
                 this->cusparse_descr = NULL;
             }
-            // std::cout << "DeviceSpMatDoubleCSR destructor called!" << std::endl;
+            // std::cout << "DeviceSparseMatrixDoubleCSR destructor called!" << std::endl;
         }
 };
 

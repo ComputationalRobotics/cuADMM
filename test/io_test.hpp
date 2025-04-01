@@ -88,3 +88,47 @@ TEST(IO, WriteSparseMatrixData)
     EXPECT_EQ(read_cols, cols);
     EXPECT_EQ(read_vals, vals);
 }
+
+TEST(IO, COOtoCSC)
+{
+    std::string filename = "../test/data/sparse_matrix_coo.txt";
+    int col_num = 4; // Number of columns in the matrix
+    std::vector<int> rows;
+    std::vector<int> cols;
+    std::vector<double> vals;
+    read_COO_sparse_matrix_data(filename, rows, cols, vals);
+    
+    // Convert COO to CSC
+    std::vector<int> col_ptrs(col_num + 1, 0);
+    COO_to_CSC(col_ptrs, cols, rows, vals, vals.size(), col_num);
+
+    // Check the values of the vectors
+    EXPECT_EQ(col_ptrs, std::vector<int>({0, 2, 4, 5, 6}));
+    EXPECT_EQ(rows, std::vector<int>({0, 2, 1, 3, 2, 2}));
+    EXPECT_EQ(vals, std::vector<double>({10.0, 30.0, 20.0, 60.0, 40.0, 50.0}));
+}
+
+TEST(IO, CSCtoCOO)
+{
+    std::string filename = "../test/data/sparse_matrix_coo_sorted.txt";
+    int col_num = 4; // Number of columns in the matrix
+    std::vector<int> rows;
+    std::vector<int> cols;
+    std::vector<double> vals;
+    read_COO_sparse_matrix_data(filename, rows, cols, vals);
+    std::vector<int> new_rows = rows;
+    std::vector<int> new_cols = cols;
+    std::vector<double> new_vals = vals;
+    
+    // Convert COO to CSC
+    std::vector<int> col_ptrs(col_num + 1, 0);
+    COO_to_CSC(col_ptrs, cols, rows, vals, vals.size(), col_num);
+
+    // Convert CSC back to COO
+    COO_to_CSC(col_ptrs, cols, rows, vals, vals.size(), col_num);
+
+    // Check the values of the vectors
+    EXPECT_EQ(rows, new_rows);
+    EXPECT_EQ(cols, new_cols);
+    EXPECT_EQ(vals, new_vals);
+}
