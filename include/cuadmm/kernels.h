@@ -124,8 +124,19 @@ void perform_permutation(
     const cudaStream_t& stream = (cudaStream_t) 0, int block_size = 1024
 );
 
+// Compute the norm (of size (con_num, 1)) of a CSC matrix At and normalize it.
 void get_normA(
     DeviceSparseMatrixDoubleCSC& At, DeviceDenseVector<double>& normA,
+    const cudaStream_t& stream = (cudaStream_t) 0, int block_size = 1024
+);
+
+// Computes the multiplication of a dense matrix by a batch of dense vectors as diagonal matrices:
+// mat1[i] = mat2[i] * diag(vec[i])
+void dense_matrix_mul_diag_batch(
+    DeviceDenseVector<double>& dnmat1,
+    const DeviceDenseVector<double>& dnmat2,
+    const DeviceDenseVector<double>& dnvec,
+    const int mat_size,
     const cudaStream_t& stream = (cudaStream_t) 0, int block_size = 1024
 );
 

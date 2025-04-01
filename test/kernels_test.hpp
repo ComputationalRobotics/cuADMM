@@ -32,7 +32,7 @@ TEST(Kernels, Permutation)
     }
 }
 
-TEST(Kernels, SparseMatrix)
+TEST(Kernels, SparseMatrixNorm)
 {
     std::string filename = "../test/data/sparse_matrix_coo.txt";
     int col_num = 4; // Number of columns in the matrix
@@ -80,4 +80,41 @@ TEST(Kernels, SparseMatrix)
         50.0/50.0
     }));
 
+}
+
+TEST(Kernels, DiagonalBatch)
+{
+    // Create a 5x5 dense matrix
+    const int mat_size = 5;
+    std::vector<double> mat2_host = {
+        1.0, 2.0, 3.0, 4.0, 5.0,
+        6.0, 7.0, 8.0, 9.0, 10.0,
+        11.0, 12.0, 13.0, 14.0, 15.0,
+        16.0, 17.0, 18.0, 19.0, 20.0,
+        21.0, 22.0, 23.0, 24.0, 25.0
+    };
+    DeviceDenseVector<double> mat2(GPU0, mat_size * mat_size);
+    CHECK_CUDA( cudaMemcpy(mat2.vals, mat2_host.data(), sizeof(double) * mat_size * mat_size, cudaMemcpyHostToDevice) );
+
+    // Create a dense vector
+    std::vector<double> vec_host = {1.0, 2.0, 3.0, 4.0, 5.0};
+    DeviceDenseVector<double> vec(GPU0, mat_size);
+    CHECK_CUDA( cudaMemcpy(vec.vals, vec_host.data(), sizeof(double) * mat_size, cudaMemcpyHostToDevice) );
+
+    // Create a result matrix
+    DeviceDenseVector<double> mat1(GPU0, mat_size * mat_size);
+    dense_matrix_mul_diag_batch(mat1, mat2, vec, mat_size);
+
+    // Retrieve the result from the device
+    std::vector<double> mat1_host(mat_size * mat_size);
+    CHECK_CUDA( cudaMemcpy(mat1_host.data(), mat1.vals, sizeof(double) * mat_size * mat_size, cudaMemcpyDeviceToHost) );
+
+    // Check the result
+    std::vector<double> expected_result = {
+        1.0, 2.0, 3.0, 4.0, 5.0,
+        6.0 * 2.0, 7.0 * 2.0, 8.0 * 2.0, 9.0 * 2.0, 10.0 * 2.0,
+        11.0 * 3.0, 12.0 * 3.0, 13.0 * 3.0, 14.0 * 3.0, 15.0 * 3.0,
+        16.0 * 4.0, 17.0 * 4.0, 18.0 * 4.0, 19.0 * 4.0, 20.0 * 4.0,
+        21.0 * 5.0, 22.0 * 5.0, 23.0 * 5.0, 24.0 * 5.0, 25.0 * 5.0
+    };
 }
