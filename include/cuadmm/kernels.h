@@ -10,7 +10,7 @@
 // vec1 = alpha * vec1 + beta * vec2
 void dense_vector_add_dense_vector(
     DeviceDenseVector<double>& vec1, const DeviceDenseVector<double>& vec2,
-    double alpha, double beta, 
+    double alpha, double beta,
     const cudaStream_t& stream = (cudaStream_t) 0, int block_size = 1024
 );
 
@@ -30,20 +30,20 @@ void dense_vector_plus_dense_vector_mul_scalar(
 
 // vec1 *= vec2
 void dense_vector_mul_dense_vector(
-    DeviceDenseVector<double>& vec1, const DeviceDenseVector<double>& vec2, 
+    DeviceDenseVector<double>& vec1, const DeviceDenseVector<double>& vec2,
     const cudaStream_t& stream = (cudaStream_t) 0, int block_size = 1024
 );
 
 // vec1 <-- vec2 * vec3 * scalar
 void dense_vector_mul_dense_vector_mul_scalar(
     DeviceDenseVector<double>& vec1, const DeviceDenseVector<double>& vec2, const DeviceDenseVector<double>& vec3,
-    const double scalar, 
+    const double scalar,
     const cudaStream_t& stream = (cudaStream_t) 0, int block_size = 1024
 );
 
 // vec1 <-- vec1 / vec2 * scalar
 void dense_vector_div_dense_vector_mul_scalar(
-    DeviceDenseVector<double>& vec1, const DeviceDenseVector<double>& vec2, 
+    DeviceDenseVector<double>& vec1, const DeviceDenseVector<double>& vec2,
     const double scalar,
     const cudaStream_t& stream = (cudaStream_t) 0, int block_size = 1024
 );
@@ -112,6 +112,15 @@ void sparse_vector_div_scalar(
 // sp_vec <-- sp_vec / dn_vec
 void sparse_vector_div_dense_vector(
     DeviceSparseVector<double>& spvec, const DeviceDenseVector<double>& dnvec,
+    const cudaStream_t& stream = (cudaStream_t) 0, int block_size = 1024
+);
+
+// Perform a permutation on a dense vector.
+// vec1 <-- vec2[perm]
+void perform_permutation(
+    DeviceDenseVector<double>& vec1,
+    const DeviceDenseVector<double>& vec2,
+    const DeviceDenseVector<int>& perm,
     const cudaStream_t& stream = (cudaStream_t) 0, int block_size = 1024
 );
 
