@@ -1,6 +1,6 @@
 /*
 
-    vec_mat_conversion.cu
+    kernels/vec_mat_conversion.cu
 
     Converts a dense vector to a dense matrix and vice versa. This uses the vectorized representation of symmetric matrices, where some coefficients are multiplied by the square root of 2 to preserve the scalar product.
 

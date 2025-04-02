@@ -1,6 +1,6 @@
 /*
 
-    dense_scalar.cu
+    kernels/dense_scalar.cu
 
     Defines CUDA kernel for operations between a dense vector and a scalar.
 

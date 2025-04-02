@@ -1,6 +1,6 @@
 /*
 
-    io.cu
+    utils/io.cu
 
     Defines functions for reading data from files.
     The data is read into vectors of doubles or integers, depending on the type of data.

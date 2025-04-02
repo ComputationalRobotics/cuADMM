@@ -1,6 +1,6 @@
 /*
 
-    inverse_permutation.cu
+    utils/inverse_permutation.cu
 
     Defines functions for computing the inverse of a permutation vector.
 

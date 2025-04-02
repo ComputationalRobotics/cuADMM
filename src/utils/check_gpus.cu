@@ -1,3 +1,11 @@
+/*
+
+    utils/check_gpus.cu
+
+    Checks the number of GPUs available and whether they have peer-to-peer access.
+
+*/
+
 #include <iostream>
 
 #include "cuadmm/utils.h"

@@ -1,6 +1,6 @@
 /*
 
-    sparse_dense.cu
+    kernels/sparse_dense.cu
 
     Defines CUDA kernel for operations between a sparse vector (cuSPARSE) and a dense vector.
 

@@ -1,6 +1,6 @@
 /*
 
-    sparse_scalar.cu
+    kernels/sparse_scalar.cu
 
     Defines CUDA kernel for operations between a sparse vector (cuSPARSE) and a scalar.
 

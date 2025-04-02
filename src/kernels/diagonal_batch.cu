@@ -1,6 +1,6 @@
 /*
 
-    diagonal_batch.cu
+    kernels/diagonal_batch.cu
 
     Computes the multiplication of a dense matrix by a batch of dense vectors as diagonal matrices.
 

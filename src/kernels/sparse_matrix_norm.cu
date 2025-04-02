@@ -1,6 +1,6 @@
 /*
 
-    sparse_matrix_norm.cu
+    kernels/sparse_matrix_norm.cu
 
     Computes the norm of a CSC matrix using CUDA.
 
