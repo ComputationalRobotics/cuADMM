@@ -140,4 +140,28 @@ void dense_matrix_mul_diag_batch(
     const cudaStream_t& stream = (cudaStream_t) 0, int block_size = 1024
 );
 
+// Compute the square root of 2 using the Newton-Raphson method.
+// This is a constexpr function, so it can be evaluated at compile time.
+double constexpr sqrtNewtonRaphson(double x, double curr, double prev)
+    {
+        return curr == prev
+            ? curr
+            : sqrtNewtonRaphson(x, 0.5 * (curr + x / curr), curr);
+    }
+
+constexpr double SQRT2 = sqrtNewtonRaphson(2.0, 2.0, 0.0);
+constexpr double SQRT2INV = 1.0/SQRT2;
+
+void vector_to_matrices(
+    DeviceDenseVector<double>& Xb, DeviceDenseVector<double>& mom_mat, DeviceDenseVector<double>& loc_mat,
+    DeviceDenseVector<int>& map_B, DeviceDenseVector<int>& map_M1, DeviceDenseVector<int>& map_M2,
+    const cudaStream_t& stream = (cudaStream_t) 0, int block_size = 1024
+);
+
+void matrices_to_vector(
+    DeviceDenseVector<double>& Xb, DeviceDenseVector<double>& mom_mat, DeviceDenseVector<double>& loc_mat,
+    DeviceDenseVector<int>& map_B, DeviceDenseVector<int>& map_M1, DeviceDenseVector<int>& map_M2,
+    const cudaStream_t& stream = (cudaStream_t) 0, int block_size = 1024
+);
+
 #endif
