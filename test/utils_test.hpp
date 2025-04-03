@@ -61,3 +61,22 @@ TEST(UtilsTest, GetMaps)
         3, 7, 11, 15
     }));
 }
+
+TEST(UtilsTest, AnalyzeBlk)
+{
+    int LARGE;
+    int SMALL;
+    int mom_mat_num;
+    int loc_mat_num;
+
+    HostDenseVector<int> blk(5);
+    std::vector<int> vals = {5, 4, 4, 5, 5};
+    std::copy(vals.begin(), vals.end(), blk.vals);
+
+    analyze_blk(blk, &LARGE, &SMALL, &mom_mat_num, &loc_mat_num);
+
+    EXPECT_EQ(LARGE, 5);
+    EXPECT_EQ(SMALL, 4);
+    EXPECT_EQ(mom_mat_num, 3);
+    EXPECT_EQ(loc_mat_num, 2);
+}
