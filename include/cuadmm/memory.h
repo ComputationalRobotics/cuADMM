@@ -171,9 +171,13 @@ class HostDenseVector {
             this->allocate(size, as_byte);
         }
 
-        inline void allocate(const int size) {
+        inline void allocate(const int size, bool as_byte = false) {
             if (this->vals == nullptr) {
-                this->size = size;
+                if (as_byte) {
+                    this->size = (size + sizeof(T) - 1) / sizeof(T);
+                } else {
+                    this->size = size;
+                }
                 this->vals = (T*) malloc(sizeof(T) * this->size);
             }
             return;
