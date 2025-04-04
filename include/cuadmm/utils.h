@@ -37,4 +37,13 @@ void analyze_blk(
     int* LARGE, int* SMALL, int* mom_mat_num, int* loc_mat_num
 );
 
+// Compute a mask based on the rank limit for batched
+// eigenvalue decomposition.
+// The full matrix is of size batch_size * mat_size.
+// Eigenvalues are sorted in ascending order.
+void get_eig_rank_mask(
+    std::vector<int>& eig_rank_mask,
+    int batch_size, int mat_size, int eig_rank
+);
+
 #endif // CUADMM_UTILS_H
