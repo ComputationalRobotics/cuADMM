@@ -226,7 +226,7 @@ class DeviceDenseVector {
         inline T get_norm(const DeviceBlasHandle& cublas_H) {
             T norm;
             CHECK_CUDA( cudaSetDevice(this->gpu_id) );
-            // TODO: handle floats?
+            assert (T == double); // cublasDnrm2_v2 only works with double
             CHECK_CUBLAS( cublasDnrm2_v2(
                 cublas_H.cublas_handle, this->size, this->vals, 1, &norm
             ) );

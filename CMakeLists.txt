@@ -49,6 +49,7 @@ set(
 
 file(
     GLOB_RECURSE LIB_SOURCES
+    src/*.cu
     # src/io/*.cu
     src/kernels/*.cu
     # src/solvers/*.cu
