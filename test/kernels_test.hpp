@@ -284,3 +284,87 @@ TEST(Kernels, VectorToMatrices)
         EXPECT_DOUBLE_EQ(loc_mat_out_host[i], loc_mat_host[i]);
     }
 }
+
+TEST(Kernels, TypeConversionLongIntToInt)
+{
+    // Create a long int vector
+    std::vector<size_t> vec_long_int_host = {1, 2, 3, 4, 5};
+    DeviceDenseVector<size_t> vec_long_int(GPU0, vec_long_int_host.size());
+    CHECK_CUDA( cudaMemcpy(vec_long_int.vals, vec_long_int_host.data(), sizeof(size_t) * vec_long_int_host.size(), cudaMemcpyHostToDevice) );
+
+    // Create an int vector
+    DeviceDenseVector<int> vec_int(GPU0, vec_long_int_host.size());
+
+    // Convert long int to int
+    long_int_to_int(vec_int, vec_long_int);
+
+    // Copy result back to host
+    std::vector<int> vec_int_host(vec_long_int_host.size());
+    CHECK_CUDA( cudaMemcpy(vec_int_host.data(), vec_int.vals, sizeof(int) * vec_long_int_host.size(), cudaMemcpyDeviceToHost) );
+
+    // Check the result
+    EXPECT_EQ(vec_int_host, std::vector<int>({1, 2, 3, 4, 5}));
+}
+
+TEST(Kernls, TypeConversionIntToLongInt)
+{
+    // Create an int vector
+    std::vector<int> vec_int_host = {1, 2, 3, 4, 5};
+    DeviceDenseVector<int> vec_int(GPU0, vec_int_host.size());
+    CHECK_CUDA( cudaMemcpy(vec_int.vals, vec_int_host.data(), sizeof(int) * vec_int_host.size(), cudaMemcpyHostToDevice) );
+
+    // Create a long int vector
+    DeviceDenseVector<size_t> vec_long_int(GPU0, vec_int_host.size());
+
+    // Convert int to long int
+    int_to_long_int(vec_long_int, vec_int);
+
+    // Copy result back to host
+    std::vector<size_t> vec_long_int_host(vec_int_host.size());
+    CHECK_CUDA( cudaMemcpy(vec_long_int_host.data(), vec_long_int.vals, sizeof(size_t) * vec_long_int_host.size(), cudaMemcpyDeviceToHost) );
+
+    // Check the result
+    EXPECT_EQ(vec_long_int_host, std::vector<size_t>({1, 2, 3, 4, 5}));
+}
+
+TEST(Kernels, TypeConversionDoubleToFloat)
+{
+    // Create a double vector
+    std::vector<double> vec_double_host = {1.0, 2.0, 3.0, 4.0, 5.0};
+    DeviceDenseVector<double> vec_double(GPU0, vec_double_host.size());
+    CHECK_CUDA( cudaMemcpy(vec_double.vals, vec_double_host.data(), sizeof(double) * vec_double_host.size(), cudaMemcpyHostToDevice) );
+
+    // Create a float vector
+    DeviceDenseVector<float> vec_float(GPU0, vec_double_host.size());
+
+    // Convert double to float
+    double_to_float(vec_float, vec_double);
+
+    // Copy result back to host
+    std::vector<float> vec_float_host(vec_double_host.size());
+    CHECK_CUDA( cudaMemcpy(vec_float_host.data(), vec_float.vals, sizeof(float) * vec_float_host.size(), cudaMemcpyDeviceToHost) );
+
+    // Check the result
+    EXPECT_EQ(vec_float_host, std::vector<float>({1.0f, 2.0f, 3.0f, 4.0f, 5.0f}));
+}
+
+TEST(Kernels, TypeConversionFloatToDouble)
+{
+    // Create a float vector
+    std::vector<float> vec_float_host = {1.0f, 2.0f, 3.0f, 4.0f, 5.0f};
+    DeviceDenseVector<float> vec_float(GPU0, vec_float_host.size());
+    CHECK_CUDA( cudaMemcpy(vec_float.vals, vec_float_host.data(), sizeof(float) * vec_float_host.size(), cudaMemcpyHostToDevice) );
+
+    // Create a double vector
+    DeviceDenseVector<double> vec_double(GPU0, vec_float_host.size());
+
+    // Convert float to double
+    float_to_double(vec_double, vec_float);
+
+    // Copy result back to host
+    std::vector<double> vec_double_host(vec_float_host.size());
+    CHECK_CUDA( cudaMemcpy(vec_double_host.data(), vec_double.vals, sizeof(double) * vec_double_host.size(), cudaMemcpyDeviceToHost) );
+
+    // Check the result
+    EXPECT_EQ(vec_double_host, std::vector<double>({1.0, 2.0, 3.0, 4.0, 5.0}));
+}
