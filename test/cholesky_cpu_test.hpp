@@ -77,10 +77,8 @@ TEST(CholeskyCPU, Sparse)
     // create a solver
     CholeskySolverCPU solver(
         A_col_ptrs.data(), A_row_ids.data(), A_vals.data(),
-        N, N, nnz,
-        false, 1e-5
+        N, N, nnz
     );
-    solver.factorize();
 
     // create a rhs vector
     std::vector<double> rhs = {1.0, 2.0, 3.0, 4.0};
@@ -97,5 +95,6 @@ TEST(CholeskyCPU, Sparse)
     std::copy((double*)solver.chol_dn_res->x, (double*)solver.chol_dn_res->x + N, res.data());
     for (int i = 0; i < N; ++i) {
         EXPECT_NEAR(res[i], expected_res[i], 0.2);
+        // EXPECT_DOUBLE_EQ(res[i], expected_res[i]);
     }
 }
