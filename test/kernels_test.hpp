@@ -306,7 +306,7 @@ TEST(Kernels, TypeConversionLongIntToInt)
     EXPECT_EQ(vec_int_host, std::vector<int>({1, 2, 3, 4, 5}));
 }
 
-TEST(Kernls, TypeConversionIntToLongInt)
+TEST(Kernels, TypeConversionIntToLongInt)
 {
     // Create an int vector
     std::vector<int> vec_int_host = {1, 2, 3, 4, 5};
