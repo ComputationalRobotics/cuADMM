@@ -2,6 +2,7 @@
 #define CUADMM_SOLVER_H
 
 #include "cuadmm/check.h"
+#include "cuadmm/eig_cpu.h"
 #include "cuadmm/io.h"
 #include "cuadmm/kernels.h"
 #include "cuadmm/memory.h"

@@ -25,7 +25,7 @@ FetchContent_MakeAvailable(googletest)
 ### Find LAPACK and BLAS
 find_package(LAPACK REQUIRED)
 find_package(BLAS REQUIRED)
-# find_package(Matlab REQUIRED)
+find_package(Matlab REQUIRED)
 
 set_property(TARGET ${ROUTINE} PROPERTY CUDA_ARCHITECTURES OFF)
 
@@ -41,7 +41,7 @@ set(CMAKE_INSTALL_PREFIX ../)
 
 set(
     INCLUDE_DIRS
-    # ${Matlab_INCLUDE_DIRS}
+    ${Matlab_INCLUDE_DIRS}
     ${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES}
     ${SUITESPARSE_INCLUDE_DIRECTOIRES}
     include
@@ -50,9 +50,7 @@ set(
 file(
     GLOB_RECURSE LIB_SOURCES
     src/*.cu
-    # src/io/*.cu
     src/kernels/*.cu
-    # src/solvers/*.cu
     src/utils/*.cu
 )
 
@@ -67,7 +65,7 @@ target_link_libraries(
     ${CMAD_LIB}
     ${CCOLAMD_LIB}
     ${CHOLMOD_LIB}
-    # ${Matlab_LIBRARIES}
+    ${Matlab_LIBRARIES}
     ${LAPACK_LIBRARIES} -llapacke
     ${BLAS_LIBRARIES}
 )

@@ -190,6 +190,14 @@ class HostDenseVector {
             }
             // std::cout << "HostDenseVector destructor called!" << std::endl;
         }
+
+        void print() {
+            std::printf("[");
+            for (size_t i = 0; i < this->size; i++) {
+                std::printf("%f, ", this->vals[i]);
+            }
+            std::printf("]\n");
+        }
 };
 
 // Dense vector on device (GPU)
@@ -226,7 +234,8 @@ class DeviceDenseVector {
         inline T get_norm(const DeviceBlasHandle& cublas_H) {
             T norm;
             CHECK_CUDA( cudaSetDevice(this->gpu_id) );
-            assert (T == double); // cublasDnrm2_v2 only works with double
+            // assert that T is double
+            static_assert(std::is_same<T, double>::value, "DeviceDenseVector norm only works with double type.");
             CHECK_CUBLAS( cublasDnrm2_v2(
                 cublas_H.cublas_handle, this->size, this->vals, 1, &norm
             ) );
