@@ -14,6 +14,7 @@
 #include "kernels_test.hpp"
 #include "eig_cpu_test.hpp"
 #include "cholesky_cpu_test.hpp"
+#include "cublas_test.hpp"
 
 int main(int argc, char **argv)
 {
