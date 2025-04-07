@@ -13,6 +13,7 @@
 #include "io_test.hpp"
 #include "kernels_test.hpp"
 #include "eig_cpu_test.hpp"
+#include "cholesky_cpu_test.hpp"
 
 int main(int argc, char **argv)
 {
