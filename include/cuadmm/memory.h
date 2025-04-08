@@ -207,10 +207,10 @@ class DeviceDenseVector {
         int gpu_id;
         int size;
         T* vals;
-        cusparseDnVecDescr_t descr;
+        cusparseDnVecDescr_t cusparse_descr;
 
-        DeviceDenseVector(): gpu_id(0), size(0), vals(nullptr), descr(nullptr) {}
-        DeviceDenseVector(const int gpu_id, const int size, bool as_byte = false): gpu_id(gpu_id), size(size), vals(nullptr), descr(nullptr) {
+        DeviceDenseVector(): gpu_id(0), size(0), vals(nullptr), cusparse_descr(nullptr) {}
+        DeviceDenseVector(const int gpu_id, const int size, bool as_byte = false): gpu_id(gpu_id), size(size), vals(nullptr), cusparse_descr(nullptr) {
             this->allocate(this->gpu_id, this->size, as_byte);
         }
 
@@ -226,7 +226,7 @@ class DeviceDenseVector {
                     this->size = size;
                 }
                 CHECK_CUDA( cudaMalloc((void**) &this->vals, sizeof(T) * this->size) );
-                CHECK_CUSPARSE( cusparseCreateDnVec(&this->descr, this->size, this->vals, CudaTypeMapper<T>::value) );
+                CHECK_CUSPARSE( cusparseCreateDnVec(&this->cusparse_descr, this->size, this->vals, CudaTypeMapper<T>::value) );
             }
             return;
         }
@@ -248,9 +248,9 @@ class DeviceDenseVector {
                 CHECK_CUDA( cudaFree(this->vals) );
                 this->vals = nullptr;
             }
-            if (this->descr != NULL) {
-                CHECK_CUSPARSE( cusparseDestroyDnVec(this->descr) );
-                this->descr = NULL;
+            if (this->cusparse_descr != NULL) {
+                CHECK_CUSPARSE( cusparseDestroyDnVec(this->cusparse_descr) );
+                this->cusparse_descr = NULL;
             }
             // std::cout << "DeviceDenseVector destructor called!" << std::endl;
         }
