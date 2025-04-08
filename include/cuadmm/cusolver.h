@@ -56,6 +56,19 @@ inline void single_eig_get_buffersize_cusolver(
 
 
 // Calculate the eigenvalues and eigenvectors of a single matrix
+// using cuSOLVER.
+// Parameters:
+// - mat: input matrix (symmetric)
+// - W: output eigenvalues
+// - buffer: workspace for cuSOLVER
+// - buffer_host: workspace for cuSOLVER (host)
+// - info: output info
+// - mat_size: size of the matrix
+// - buffer_size: size of the buffer
+// - buffer_size_host: size of the host buffer
+// - offsets for mat, W, buffer, and info
+// Note that buffer_size and buffer_size_host are retrieved from
+// single_eig_get_buffersize_cusolver.
 template<typename T>
 inline void single_eig_cusolver(
     DeviceSolverDnHandle& cusolver_H, SingleEigParameter& param,
