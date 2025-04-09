@@ -186,7 +186,7 @@ void COO_to_CSC(
 ) {
     // check the input
     if (col_ptrs.size() != (col_num+1)) {
-        std::cout << "WARNING: col_ptrs size is wrong and was resized to col_num+1" << std::endl;
+        std::cout << "[WARNING] in call to COO_to_CSC: col_ptrs size is wrong and was resized to col_num+1" << std::endl;
         col_ptrs.clear();
         col_ptrs.resize(col_num+1);
     }

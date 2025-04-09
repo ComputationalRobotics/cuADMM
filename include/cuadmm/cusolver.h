@@ -6,6 +6,9 @@
 
 */
 
+#ifndef CUADMM_CUSOLVER_H
+#define CUADMM_CUSOLVER_H
+
 #include "cuadmm/check.h"
 #include "cuadmm/memory.h"
 
@@ -162,3 +165,5 @@ inline void batch_eig_cusolver(
     ) );
     return;
 }
+
+#endif // CUADMM_CUSOLVER_H

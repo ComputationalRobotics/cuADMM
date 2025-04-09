@@ -47,12 +47,12 @@ void SDPSolver::init(
     this->device_num_requested = device_num_requested;
     this->if_gpu_eig_mom = if_gpu_eig_mom;
 
-    /* 
+    /*
     we create three flexible streams per GPU, corresponding to copy mom_mat, mom_W, mom_info
-    they can also be used to parallelize kernel launches and cuda toolkit calls 
+    they can also be used to parallelize kernel launches and cuda toolkit calls
     */
     this->stream_flex_arr = std::vector<std::vector<DeviceStream>>(
-        this->device_num_requested, std::vector<DeviceStream>(3)    
+        this->device_num_requested, std::vector<DeviceStream>(3)
     );
     for (int stream_id = 0; stream_id < 3; stream_id++) {
         this->stream_flex_arr[GPU0][stream_id].set_gpu_id(GPU0);
@@ -111,8 +111,8 @@ void SDPSolver::init(
 
     /* Initialize the AAt solver on CPU */
     this->cpu_AAt_solver.get_A(
-        this->At_csr.row_ptrs, this->At_csr.col_ids, this->At_csr.vals, 
-        this->At_csr.col_size, this->At_csr.row_size, this->At_csr.nnz, 
+        this->At_csr.row_ptrs, this->At_csr.col_ids, this->At_csr.vals,
+        this->At_csr.col_size, this->At_csr.row_size, this->At_csr.nnz,
         true
     );
     this->cpu_AAt_solver.factorize();
@@ -191,7 +191,7 @@ void SDPSolver::init(
     // compute the norms of b and C
     this->norm_borg = 1 + this->borg.get_norm(this->cublasH);
     this->norm_Corg = 1 + this->Corg.get_norm(this->cublasH);
-    
+
     // scale b and C by normA
     sparse_vector_div_dense_vector(this->b, this->normA);
     dense_vector_mul_dense_vector(this->y, this->normA);
@@ -222,7 +222,7 @@ void SDPSolver::init(
     this->SpMV_AX_buffer.allocate(GPU0, this->SpMV_AX_buffer_size, true);
     SpMV_cusparse(this->cusparseH, this->A_csr, this->X, this->Rp, -1.0, 0.0, this->SpMV_AX_buffer);
 
-    // 
+    //
     axpby_cusparse(this->cusparseH, this->b, this->Rp, 1.0, 1.0);
     CHECK_CUDA( cudaMemcpy(this->SmC.vals, this->S.vals, sizeof(double) * this->vec_len, D2D) );
     axpby_cusparse(this->cusparseH, this->C, this->SmC, -1.0, 1.0);
@@ -266,7 +266,7 @@ void SDPSolver::init(
         if (this->device_num_requested > 2) { // if there are 1 or 2 GPUs, the distribution alread is optimal
             int i = 0;
             while (
-                ( mom_per_gpu[this->device_num_requested - 1] - mom_per_gpu[i] >= 2 ) && 
+                ( mom_per_gpu[this->device_num_requested - 1] - mom_per_gpu[i] >= 2 ) &&
                 ( i < this->device_num_requested - 1 )
             ) {
                 // balance the number of moment matrices to have the best possible distribution
@@ -343,7 +343,7 @@ void SDPSolver::init(
         if (this->cpu_eig_thread_num > 2) {
             int i = 0;
             while (
-                ( mom_per_thread[this->cpu_eig_thread_num - 1] - mom_per_thread[i] >= 2 ) && 
+                ( mom_per_thread[this->cpu_eig_thread_num - 1] - mom_per_thread[i] >= 2 ) &&
                 ( i < this->cpu_eig_thread_num - 1 )
             ) {
                 mom_per_thread[i] += 1;
