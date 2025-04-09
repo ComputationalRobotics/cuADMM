@@ -13,7 +13,11 @@ Run the project:
 ./build/cuadmm_exe
 ```
 
-Execute the tests:
+## Testing
+After building, you can execute the unit tests:
 ```bash
 cd build && ctest
 ```
+
+> [!NOTE]
+> Some tests require the `CUADMM_SOLVER_TEST_PATH` environment variable to be set to the path of some test data. You can  export it in your terminal session using `export CUADMM_SOLVER_TEST_PATH="/path/to/test/data"`. If the environment variable is not set, the tests will be skipped.

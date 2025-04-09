@@ -10,10 +10,15 @@
 #include "cuadmm/solver.h"
 #include "cuadmm/kernels.h"
 
-void synchronize_gpu0_streams(SDPSolver &solver) {
-    CHECK_CUDA( cudaStreamSynchronize(solver.stream_flex_arr[GPU0][0].stream) );
-    CHECK_CUDA( cudaStreamSynchronize(solver.stream_flex_arr[GPU0][1].stream) );
-    CHECK_CUDA( cudaStreamSynchronize(solver.stream_flex_arr[GPU0][2].stream) );
+#include <condition_variable>
+#include <mutex>
+#include <thread>
+#include <stdio.h>
+
+void SDPSolver::synchronize_gpu0_streams() {
+    CHECK_CUDA( cudaStreamSynchronize(this->stream_flex_arr[GPU0][0].stream) );
+    CHECK_CUDA( cudaStreamSynchronize(this->stream_flex_arr[GPU0][1].stream) );
+    CHECK_CUDA( cudaStreamSynchronize(this->stream_flex_arr[GPU0][2].stream) );
 }
 
 void SDPSolver::init(
@@ -95,7 +100,7 @@ void SDPSolver::init(
     // third stream for vals
     CHECK_CUDA( cudaMemcpyAsync(this->At_csc.vals, cpu_At_csc_vals, sizeof(double) * At_nnz, H2D, this->stream_flex_arr[GPU0][2].stream) );
     // wait for the streams to finish
-    synchronize_gpu0_streams(*this);
+    this->synchronize_gpu0_streams();
 
     // compute the norm of A
     this->normA.allocate(GPU0, con_num);
@@ -187,7 +192,7 @@ void SDPSolver::init(
     CHECK_CUDA( cudaMemcpyAsync(this->borg.vals, this->b.vals, sizeof(double) * this->b.nnz, D2D, this->stream_flex_arr[GPU0][1].stream) );
     CHECK_CUDA( cudaMemcpyAsync(this->Corg.indices, this->C.indices, sizeof(int) * this->C.nnz, D2D, this->stream_flex_arr[GPU0][2].stream) );
     CHECK_CUDA( cudaMemcpyAsync(this->Corg.vals, this->C.vals, sizeof(double) * this->C.nnz, D2D, this->stream_flex_arr[GPU0][0].stream) );
-    synchronize_gpu0_streams(*this);
+    this->synchronize_gpu0_streams();
     // compute the norms of b and C
     this->norm_borg = 1 + this->borg.get_norm(this->cublasH);
     this->norm_Corg = 1 + this->Corg.get_norm(this->cublasH);
@@ -367,4 +372,189 @@ void SDPSolver::init(
         this->cpu_eig_mom_workspace.allocate(this->cpu_eig_mom_lwork * this->mom_mat_num);
         this->cpu_eig_mom_workspace_2.allocate(this->cpu_eig_mom_lwork2 * this->mom_mat_num);
     }
+}
+
+void SDPSolver::solve(
+    int max_iter, double stop_tol, 
+    int sig_update_threshold,
+    int sig_update_stage_1,
+    int sig_update_stage_2,
+    int switch_admm,
+    double sigscale,
+    bool if_first
+) {
+    // save parameters
+    this->sig_update_threshold = sig_update_threshold;
+    this->sig_update_stage_1 = sig_update_stage_1;
+    this->sig_update_stage_2 = sig_update_stage_2;
+    this->switch_admm = switch_admm;
+    this->sigscale = sigscale;
+
+    // declare variables
+    bool breakyes = false;   // for breaking out of the loop
+    std::string final_msg;   // output message
+    std::condition_variable main_cv;
+    std::mutex main_mtx;     // main thread mutex
+    std::mutex resource_mtx; // ressource mutex
+
+    this->info_iter_num = 0; // iteration number
+
+    /* Start the threads for eigen decomposition of moment matrices */
+    int eig_thread_arr_size;
+    if (this->if_gpu_eig_mom) {
+        eig_thread_arr_size = this->device_num_requested;
+    } else {
+        eig_thread_arr_size = this->cpu_eig_thread_num;
+    }
+    std::condition_variable eig_cv;
+    std::vector<std::mutex> eig_mtx_arr(eig_thread_arr_size);
+    std::vector<std::thread> eig_thread_arr;
+    int eig_count_finish = 0;
+
+    if (this->if_gpu_eig_mom) { // GPU decomposition case
+        // for each GPU, create a thread for the eig decomposition
+        for (int gpu_id = 0; gpu_id < this->device_num_requested; gpu_id++) {
+            // add a thread
+            eig_thread_arr.emplace_back(std::thread(
+                [&, gpu_id]() { // lambda function for the thread behavior
+                    int stream_id;
+                    // number of moment matrices for this GPU
+                    int mom_mat_num_this_gpu = this->mom_mat_num_col_ptrs_arr[gpu_id + 1] - this->mom_mat_num_col_ptrs_arr[gpu_id];
+                    // first moment matrix on this GPU
+                    int mom_mat_id_start_this_gpu = this->mom_mat_num_col_ptrs_arr[gpu_id];
+                    // (excluded) last moment matrix on this GPU
+                    int mom_mat_id_end_this_gpu = this->mom_mat_num_col_ptrs_arr[gpu_id + 1];
+
+                    // set the GPU device
+                    CHECK_CUDA( cudaSetDevice(gpu_id) );
+                    // create locks for the mutexes
+                    std::unique_lock<std::mutex> eig_lk(eig_mtx_arr[gpu_id], std::defer_lock);
+                    std::unique_lock<std::mutex> resource_lk(resource_mtx, std::defer_lock);
+
+                    
+                    while (true) { // while the solver is not finished
+                        // break if necessary
+                        // note: breakyes will be set to true by the main thread
+                        // when the solver is finished
+                        if (breakyes) break;
+                        eig_cv.wait(eig_lk);
+                        if (breakyes) break;
+
+                        // if we are not on GPU0, copy the moment matrices from GPU0 to this GPU
+                        if (gpu_id > 0) {
+                            CHECK_CUDA( cudaMemcpyPeerAsync(
+                                this->mom_mat_arr[gpu_id].vals, gpu_id,
+                                this->mom_mat_arr[GPU0].vals + mom_mat_id_start_this_gpu * this->LARGE * this->LARGE, GPU0,
+                                sizeof(double) * mom_mat_num_this_gpu * this->LARGE * this->LARGE, this->stream_flex_arr[gpu_id][0].stream
+                            ) );
+                            CHECK_CUDA( cudaStreamSynchronize(this->stream_flex_arr[gpu_id][0].stream) );
+                        }
+
+                        // for each moment matrix on this GPU, compute the eig decomposition
+                        for (int i = 0; i < mom_mat_num_this_gpu; i++) {
+                            stream_id = i % this->eig_stream_num_per_gpu;
+                            // simply calls the cuSOLVER wrapper
+                            single_eig_cusolver(
+                                this->cusolverH_eig_mom_arr[gpu_id][stream_id], eig_param_single, this->mom_mat_arr[gpu_id], this->mom_W_arr[gpu_id],
+                                this->eig_mom_buffer_arr[gpu_id], this->cpu_eig_mom_buffer_arr[gpu_id], this->mom_info_arr[gpu_id],
+                                this->LARGE, this->eig_mom_buffer_size, this->cpu_eig_mom_buffer_size,
+                                i * this->LARGE * this->LARGE, i * this->LARGE, 
+                                i * this->eig_mom_buffer_size, i * this->cpu_eig_mom_buffer_size, i
+                            );  
+                        }
+
+                        // for each stream, synchronize
+                        for (int stream_id = 0; stream_id < this->eig_stream_num_per_gpu; stream_id++) {
+                            CHECK_CUDA( cudaStreamSynchronize(this->eig_stream_arr[gpu_id][stream_id].stream) );
+                        }
+
+                        // if we are not on GPU0, copy data from this GPU to GPU0
+                        if (gpu_id > 0) {
+                            // copy moment matrices
+                            CHECK_CUDA( cudaMemcpyPeerAsync(
+                                this->mom_mat_arr[GPU0].vals + mom_mat_id_start_this_gpu * this->LARGE * this->LARGE, GPU0,
+                                this->mom_mat_arr[gpu_id].vals, gpu_id,
+                                sizeof(double) * mom_mat_num_this_gpu * this->LARGE * this->LARGE, this->stream_flex_arr[gpu_id][0].stream
+                            ) );
+                            // copy eigenvalues
+                            CHECK_CUDA( cudaMemcpyPeerAsync(
+                                this->mom_W_arr[GPU0].vals + mom_mat_id_start_this_gpu * this->LARGE, GPU0,
+                                this->mom_W_arr[gpu_id].vals, gpu_id,
+                                sizeof(double) * mom_mat_num_this_gpu * this->LARGE, this->stream_flex_arr[gpu_id][1].stream
+                            ) );
+                            // copy info
+                            CHECK_CUDA( cudaMemcpyPeerAsync(
+                                this->mom_info_arr[GPU0].vals + mom_mat_id_start_this_gpu, GPU0,
+                                this->mom_info_arr[gpu_id].vals, gpu_id,
+                                sizeof(int) * mom_mat_num_this_gpu, this->stream_flex_arr[gpu_id][2].stream
+                            ) );
+                            
+                        }
+
+                        // synchronize the streams
+                        resource_lk.lock();
+                        eig_count_finish++;
+                        if (eig_count_finish == this->device_num_requested) {
+                            main_cv.notify_one();
+                        }
+                        resource_lk.unlock();
+                    }
+                }
+            ));
+        }
+    } else { // CPU decomposition case
+
+        // for each possible CPU thread, create a thread for the eig decomposition
+        for (int thread_id = 0; thread_id < this->cpu_eig_thread_num; thread_id++) {
+            eig_thread_arr.emplace_back(std::thread(
+                [&, thread_id]() { // lambda function
+
+                    // create the locks
+                    std::unique_lock<std::mutex> eig_lk(eig_mtx_arr[thread_id], std::defer_lock);
+                    std::unique_lock<std::mutex> resource_lk(resource_mtx, std::defer_lock);
+
+                    // we repeat the eigen decomposition one time for each iteration
+                    // of the main solver
+                    for (int iter = 1; iter <= max_iter + 1; iter++) {
+                        // break if necessary
+                        if (breakyes) break;
+                        eig_cv.wait(eig_lk);
+                        if (breakyes) break;
+
+                        // for each moment matrix on this thread, compute the eig decomposition
+                        for (int id = this->cpu_eig_col_ptrs_arr[thread_id]; id < this->cpu_eig_col_ptrs_arr[thread_id + 1]; id++) {
+                            single_eig_lapack(
+                                this->cpu_mom_mat, this->cpu_mom_W,
+                                this->cpu_eig_mom_workspace, this->cpu_eig_mom_workspace_2, this->cpu_mom_info,
+                                this->LARGE, this->cpu_eig_mom_lwork, this->cpu_eig_mom_lwork2,
+                                id * this->LARGE * this->LARGE, id * this->LARGE,
+                                id * this->cpu_eig_mom_lwork, id * this->cpu_eig_mom_lwork2, id
+                            );
+                        }
+
+                        // locks
+                        resource_lk.lock();
+                        eig_count_finish++;
+                        if (eig_count_finish == this->cpu_eig_thread_num) {
+                            main_cv.notify_one();
+                        }
+                        resource_lk.unlock();
+                    }
+                }
+            ));
+        }
+    }
+
+
+    /* Start the solver */
+    printf("\n ---------------------------------------------------------------");
+    printf("---------------------------------------------------------------");
+    printf("\n cuADMM");
+    printf("\n normC = %2.1e, normb = %2.1e", norm_Corg, norm_borg);
+    printf("\n ---------------------------------------------------------------");
+    printf("---------------------------------------------------------------");
+    float milliseconds;
+    float seconds;
+    std::unique_lock<std::mutex> main_lk(main_mtx, std::defer_lock);
+    std::unique_lock<std::mutex> resource_lk(resource_mtx, std::defer_lock);
 }

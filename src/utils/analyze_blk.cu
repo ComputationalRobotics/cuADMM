@@ -29,8 +29,9 @@ void analyze_blk(
     int min_size = *size_set.begin();
     int max_size = *size_set.rbegin();
     int mat_type_num = (int) size_set.size();
-    std::cout << "mom mat size: " << max_size << std::endl;
-    std::cout << "loc mat size: " << min_size << std::endl;
+    std::cout << "\nAnalysis of the blk vector:" << std::endl;
+    std::cout << "moment matrix size: " << max_size << std::endl;
+    std::cout << "localizing matrix size: " << min_size << std::endl;
     if (mat_type_num != 2) {
         std::cerr << "SDP solver only supports two matrix sizes! ";
         std::cerr << "You matrix type number is: " << mat_type_num << std::endl;
@@ -49,7 +50,7 @@ void analyze_blk(
             *loc_mat_num += 1;
         }
     }
-    std::cout << "mom mat num: " << *mom_mat_num << std::endl;
-    std::cout << "loc mat num: " << *loc_mat_num << std::endl;
+    std::cout << "number of moment matrices: " << *mom_mat_num << std::endl;
+    std::cout << "number of localizing matrices: " << *loc_mat_num << std::endl << std::endl;
     return;
 }

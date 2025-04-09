@@ -229,6 +229,9 @@ class SDPSolver {
             double sigscale = 1.05,
             bool if_first = true
         );
+
+        // Synchronizes the three streams of GPU0.
+        void synchronize_gpu0_streams();
 };
 
 #endif // CUADMM_SOLVER_H
