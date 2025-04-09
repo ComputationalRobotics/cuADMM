@@ -1,6 +1,6 @@
 #include "cuadmm/cholesky_cpu.h"
 
-TEST(CholeskyCPU, Dense)
+TEST(CholeskyCPU, DenseFromHost)
 {
     // create a dense matrix
     const int N = 4;
@@ -96,5 +96,68 @@ TEST(CholeskyCPU, Sparse)
     for (int i = 0; i < N; ++i) {
         EXPECT_NEAR(res[i], expected_res[i], 0.2);
         // EXPECT_DOUBLE_EQ(res[i], expected_res[i]);
+    }
+}
+
+TEST(CholeskyCPU, DenseFromDevice)
+{
+    // create a dense matrix
+    const int N = 4;
+    const int nnz = N * N;
+    std::vector<int> A_col_ptrs = {0, N, 2*N, 3*N, 4*N};
+    std::vector<int> A_row_ids = {0, 1, 2, 3,
+                                   0, 1, 2, 3,
+                                   0, 1, 2, 3,
+                                   0, 1, 2, 3};
+    std::vector<double> A_vals = {
+        2.0, 1.0, 1.0, 1.0,
+        1.0, 2.0, 1.0, 1.0,
+        1.0, 1.0, 2.0, 1.0,
+        1.0, 1.0, 1.0, 2.0,
+    };
+
+    // hence, AA^T is:
+    // [[7, 6, 6, 6]
+    //  [6, 7, 6, 6]
+    //  [6, 6, 7, 6]
+    //  [6, 6, 6, 7]]
+
+    ASSERT_EQ(A_col_ptrs.size(), N + 1);
+    ASSERT_EQ(A_row_ids.size(), nnz);
+    ASSERT_EQ(A_vals.size(), nnz);
+
+    // send the parts of A to the device
+    DeviceDenseVector<int> A_col_ptrs_device(GPU0, N + 1);
+    DeviceDenseVector<int> A_row_ids_device(GPU0, nnz);
+    DeviceDenseVector<double> A_vals_device(GPU0, nnz);
+    CHECK_CUDA( cudaMemcpy(A_col_ptrs_device.vals, A_col_ptrs.data(), sizeof(int) * (N + 1), cudaMemcpyHostToDevice) );
+    CHECK_CUDA( cudaMemcpy(A_row_ids_device.vals, A_row_ids.data(), sizeof(int) * nnz, cudaMemcpyHostToDevice) );
+    CHECK_CUDA( cudaMemcpy(A_vals_device.vals, A_vals.data(), sizeof(double) * nnz, cudaMemcpyHostToDevice) );
+
+    // create a solver
+    CholeskySolverCPU solver(
+        A_col_ptrs_device.vals, A_row_ids_device.vals, A_vals_device.vals,
+        N, N, nnz,
+        true // true means the data is on the device
+    );
+    solver.factorize();
+
+    // create a rhs vector
+    std::vector<double> rhs = {25.0, 25.0, 25.0, 25.0};
+    std::copy(rhs.begin(), rhs.end(), (double*)solver.chol_dn_rhs->x);
+    
+    // solve the system
+    solver.solve();
+
+    // normalize the expected result
+    std::vector<double> expected_res = {
+        1.0, 1.0, 1.0, 1.0
+    };
+
+    // check the result
+    std::vector<double> res(N);
+    std::copy((double*)solver.chol_dn_res->x, (double*)solver.chol_dn_res->x + N, res.data());
+    for (int i = 0; i < N; ++i) {
+        EXPECT_NEAR(res[i], expected_res[i], 1e-5);
     }
 }
