@@ -34,7 +34,7 @@ void SDPSolver::init(
     double* cpu_X_vals, // |
     double* cpu_y_vals, // |- values for warm start
     double* cpu_S_vals, // |
-    double sig = 2e2
+    double sig
 ) {
     // start record time
     this->total_time = 0.0;
@@ -251,7 +251,7 @@ void SDPSolver::init(
     this->mom_W_arr[GPU0].allocate(GPU0, this->mom_mat_num * this->LARGE);
     this->mom_info_arr[GPU0].allocate(GPU0, this->mom_mat_num);
 
-    // if the decomposition is on GPU
+    // if the decomposition is on GPU, use cuSOLVER (cf cusolver.h)
     if (this->if_gpu_eig_mom) {
         this->eig_stream_num_per_gpu = eig_stream_num_per_gpu;
 
@@ -308,19 +308,63 @@ void SDPSolver::init(
             this->mom_W_arr[gpu_id].allocate(gpu_id, mom_mat_num_this_gpu * this->LARGE);
             this->mom_info_arr[gpu_id].allocate(gpu_id, mom_mat_num_this_gpu);
         }
-        this->eig_mom_buffer_arr = std::vector<DeviceDenseVector<double>>(this->device_num_requested);
-        this->cpu_eig_mom_buffer_arr = std::vector<HostDenseVector<double>>(this->device_num_requested);
+        // compute the buffer sizes of the moment matrices eig decomposition
+        this->eig_mom_buffer_arr = std::vector<DeviceDenseVector<double>>(this->device_num_requested); // one buffer per GPU
+        this->cpu_eig_mom_buffer_arr = std::vector<HostDenseVector<double>>(this->device_num_requested); // also one buffer per GPU (this is the host buffer)
         single_eig_get_buffersize_cusolver(
             this->cusolverH_eig_mom_arr[GPU0][0], eig_param_single, this->mom_mat_arr[0], mom_W_arr[0],
             this->LARGE, &this->eig_mom_buffer_size, &this->cpu_eig_mom_buffer_size
-        );
+        ); // buffer size per moment matrix
         for (int gpu_id = 0; gpu_id < this->device_num_requested; gpu_id++) {
             mom_mat_num_this_gpu = this->mom_mat_num_col_ptrs_arr[gpu_id + 1] - this->mom_mat_num_col_ptrs_arr[gpu_id];
+            // allocate memory for the two buffers, host and device
             this->eig_mom_buffer_arr[gpu_id].allocate(gpu_id, this->eig_mom_buffer_size * mom_mat_num_this_gpu, true);
             if (this->cpu_eig_mom_buffer_size > 0) {
                 this->cpu_eig_mom_buffer_arr[gpu_id].allocate(this->cpu_eig_mom_buffer_size * mom_mat_num_this_gpu, true);
             }
         }
-    } else { // if the decomposition is on CPU
+    } else { // if the decomposition is on CPU, use CHOLMOD (cf cholesky_cpu.h)
+        // allocate memory for the moment matrices, eigenvalues, and info
+        this->cpu_mom_mat.allocate(this->mom_mat_num * this->LARGE * this->LARGE);
+        this->cpu_mom_W.allocate(this->mom_mat_num * this->LARGE);
+        this->cpu_mom_info.allocate(this->mom_mat_num);
+        this->cpu_eig_thread_num = cpu_eig_thread_num;
+
+        // same logic as for GPU, we will distribute the moment matrices to the threads
+        // base number
+        int base_nb_per_thread = std::floor(static_cast<double>( this->mom_mat_num ) / this->cpu_eig_thread_num);
+        std::vector<int> mom_per_thread(this->cpu_eig_thread_num, 0);
+        for (int thread_id = 0; thread_id < this->cpu_eig_thread_num - 1; thread_id++) {
+            mom_per_thread[thread_id] = base_nb_per_thread;
+        }
+        // last takes the rest
+        mom_per_thread[this->cpu_eig_thread_num - 1] = this->mom_mat_num - (this->cpu_eig_thread_num - 1) * base_nb_per_thread;
+        // if there are more than 2 threads, we balance the number of moment matrices
+        if (this->cpu_eig_thread_num > 2) {
+            int i = 0;
+            while (
+                ( mom_per_thread[this->cpu_eig_thread_num - 1] - mom_per_thread[i] >= 2 ) && 
+                ( i < this->cpu_eig_thread_num - 1 )
+            ) {
+                mom_per_thread[i] += 1;
+                mom_per_thread[this->cpu_eig_thread_num - 1] -= 1;
+                i++;
+            }
+        }
+        // we compute the range of moment matrices for each thread
+        this->cpu_eig_col_ptrs_arr = std::vector<int>(this->cpu_eig_thread_num + 1);
+        int sum = 0;
+        for (int thread_id = 0; thread_id < this->cpu_eig_thread_num; thread_id++) {
+            sum += mom_per_thread[thread_id];
+            this->cpu_eig_col_ptrs_arr[thread_id + 1] = sum;
+        }
+
+        // compute the buffer size for the moment matrices eig decomposition
+        // note that in this case, CHOLMOD explicitely gives us the formula
+        // and we don't have to call an auxiliary function as in cuSOLVER
+        this->cpu_eig_mom_lwork = 1 + 6 * this->LARGE + 2 * this->LARGE * this->LARGE;
+        this->cpu_eig_mom_lwork2 = 2 * (3 + 5 * this->LARGE);
+        this->cpu_eig_mom_workspace.allocate(this->cpu_eig_mom_lwork * this->mom_mat_num);
+        this->cpu_eig_mom_workspace_2.allocate(this->cpu_eig_mom_lwork2 * this->mom_mat_num);
     }
 }
