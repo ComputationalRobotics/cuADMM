@@ -375,7 +375,7 @@ void SDPSolver::init(
 }
 
 void SDPSolver::solve(
-    int max_iter, double stop_tol, 
+    int max_iter, double stop_tol,
     int sig_update_threshold,
     int sig_update_stage_1,
     int sig_update_stage_2,
@@ -431,7 +431,7 @@ void SDPSolver::solve(
                     std::unique_lock<std::mutex> eig_lk(eig_mtx_arr[gpu_id], std::defer_lock);
                     std::unique_lock<std::mutex> resource_lk(resource_mtx, std::defer_lock);
 
-                    
+
                     while (true) { // while the solver is not finished
                         // break if necessary
                         // note: breakyes will be set to true by the main thread
@@ -458,9 +458,9 @@ void SDPSolver::solve(
                                 this->cusolverH_eig_mom_arr[gpu_id][stream_id], eig_param_single, this->mom_mat_arr[gpu_id], this->mom_W_arr[gpu_id],
                                 this->eig_mom_buffer_arr[gpu_id], this->cpu_eig_mom_buffer_arr[gpu_id], this->mom_info_arr[gpu_id],
                                 this->LARGE, this->eig_mom_buffer_size, this->cpu_eig_mom_buffer_size,
-                                i * this->LARGE * this->LARGE, i * this->LARGE, 
+                                i * this->LARGE * this->LARGE, i * this->LARGE,
                                 i * this->eig_mom_buffer_size, i * this->cpu_eig_mom_buffer_size, i
-                            );  
+                            );
                         }
 
                         // for each stream, synchronize
@@ -488,7 +488,7 @@ void SDPSolver::solve(
                                 this->mom_info_arr[gpu_id].vals, gpu_id,
                                 sizeof(int) * mom_mat_num_this_gpu, this->stream_flex_arr[gpu_id][2].stream
                             ) );
-                            
+
                         }
 
                         // synchronize the streams
@@ -557,4 +557,23 @@ void SDPSolver::solve(
     float seconds;
     std::unique_lock<std::mutex> main_lk(main_mtx, std::defer_lock);
     std::unique_lock<std::mutex> resource_lk(resource_mtx, std::defer_lock);
+
+    if (!if_first) {
+        // we suppose that for the second call, new X, y, S, sig are passed, but they are unscaled
+
+        // scale X, y, S
+        dense_vector_mul_dense_vector(this->y, this->normA);
+        dense_vector_div_scalar(this->X, this->bscale);
+        dense_vector_div_scalar(this->S, this->Cscale);
+        dense_vector_div_scalar(this->y, this->Cscale);
+        
+        // SmC <-- S
+        CHECK_CUDA( cudaMemcpy(this->SmC.vals, this->S.vals, sizeof(double) * this->vec_len, D2D) );
+        // SmC <-- -1.0 * C + 1.0 * SmC
+        axpby_cusparse(this->cusparseH, this->C, this->SmC, -1.0, 1.0);
+        // Rp <-- -1.0 * A * X + 0.0 * Rp
+        SpMV_cusparse(this->cusparseH, this->A_csr, this->X, this->Rp, -1.0, 0.0, this->SpMV_AX_buffer);
+        // Rp <-- 1.0 * b + 1.0 * Rp
+        axpby_cusparse(this->cusparseH, this->b, this->Rp, 1.0, 1.0);
+    }
 }

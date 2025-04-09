@@ -220,6 +220,16 @@ class SDPSolver {
         );
 
         // Solves the SDP problem using the sGS-ADMM algorithm.
+        //
+        // Args:
+        // - max_iter: maximum number of iterations
+        // - stop_tol: stopping tolerance for KKT residual
+        // - sig_update_threshold:
+        // - sig_update_stage_1:
+        // - sig_update_stage_2:
+        // - switch_admm:
+        // - sigscale:
+        // - if_first: if this is the first call to solve()
         void solve(
             int max_iter, double stop_tol,
             int sig_update_threshold = 500,
