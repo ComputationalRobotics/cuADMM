@@ -10,14 +10,14 @@
 // vec1 = alpha * vec1 + beta * vec2
 void dense_vector_add_dense_vector(
     DeviceDenseVector<double>& vec1, const DeviceDenseVector<double>& vec2,
-    double alpha, double beta,
+    double alpha = 1.0, double beta = 1.0,
     const cudaStream_t& stream = (cudaStream_t) 0, int block_size = 1024
 );
 
 // vec1 = alpha * vec2 + beta * vec3
 void dense_vector_add_dense_vector(
     DeviceDenseVector<double>& vec1, const DeviceDenseVector<double>& vec2, DeviceDenseVector<double>& vec3,
-    double alpha, double beta,
+    double alpha = 1.0, double beta = 1.0,
     const cudaStream_t& stream = (cudaStream_t) 0, int block_size = 1024
 );
 

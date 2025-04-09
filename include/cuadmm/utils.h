@@ -3,6 +3,10 @@
 
 #define GPU0 0
 
+#define D2D cudaMemcpyDeviceToDevice
+#define H2D cudaMemcpyHostToDevice
+#define D2D cudaMemcpyDeviceToDevice
+
 #include <vector>
 #include "cuadmm/memory.h"
 

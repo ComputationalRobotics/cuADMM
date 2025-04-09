@@ -1,3 +1,12 @@
+/*
+
+    solver.h
+
+    Main solver header.
+    Uses the sGS-ADMM algorithm to solve an SDP problem.
+
+*/
+
 #ifndef CUADMM_SOLVER_H
 #define CUADMM_SOLVER_H
 
@@ -31,14 +40,14 @@ class SDPSolver {
         DeviceDenseVector<double> y;        // dual variable 1
 
         /* Hyperparameters */
-        double sigma; // Lagrangian penalty
+        double sig;   // Lagrangian penalty sigma
         int vec_len;  // length of X in vector form
         int con_num;  // number of constraints (length of y)
 
         /* Scaling */
         DeviceDenseVector<double> normA; // norm of A
-        DeviceDenseVector<double> borg;
-        DeviceDenseVector<double> Corg;
+        DeviceSparseVector<double> borg;
+        DeviceSparseVector<double> Corg;
 
         /* KKT residuals */
         DeviceDenseVector<double> Aty;
@@ -54,18 +63,18 @@ class SDPSolver {
         double objscale;
         double errRp;
         double errRd;
-        double axfeas;
+        double maxfeas;
         double pobj;
         double dobj;
         double relgap;
-        size_t SparseMV_Aty_buffer_size;                // |
-        DeviceDenseVector<double> SparseMV_Aty_buffer;  // |
-        size_t SparseMV_AX_buffer_size;                 // |
-        DeviceDenseVector<double> SparseMV_AX_buffer;   // |- buffer sizes & buffers
-        size_t SparseVV_CtX_buffer_size;                // |  for cuSPARSE SpMV
-        DeviceDenseVector<double> SparseVV_CtX_buffer;  // |
-        size_t SparseVV_bty_buffer_size;                // |
-        DeviceDenseVector<double> SparseVV_bty_buffer;  // |
+        size_t SpMV_Aty_buffer_size;                // |
+        DeviceDenseVector<double> SpMV_Aty_buffer;  // |
+        size_t SpMV_AX_buffer_size;                 // |
+        DeviceDenseVector<double> SpMV_AX_buffer;   // |- buffer sizes & buffers
+        size_t SpVV_CtX_buffer_size;                // |  for cuSPARSE SpMV
+        DeviceDenseVector<double> SpVV_CtX_buffer;  // |
+        size_t SpVV_bty_buffer_size;                // |
+        DeviceDenseVector<double> SpVV_bty_buffer;  // |
 
         /* Cholesky decomposition on CPU */
         CholeskySolverCPU cpu_AAt_solver;    // solver for AAt * x = b
@@ -93,7 +102,7 @@ class SDPSolver {
         DeviceDenseVector<int> map_M2; // |    (cached from get_maps())
         
         /* Moment matrix decomposition on multiple GPU */
-        std::vector<DeviceDenseVector<double>> mom_mat_array;
+        std::vector<DeviceDenseVector<double>> mom_mat_arr;
         std::vector<DeviceDenseVector<double>> mom_W_arr;
         std::vector<DeviceDenseVector<int>> mom_info_arr;
         int device_num_requested;      // number of GPUs requested by the suer
@@ -204,9 +213,9 @@ class SDPSolver {
             int* cpu_b_indices, double* cpu_b_vals, int b_nnz,
             int* cpu_C_indices, double* cpu_C_vals, int C_nnz,
             int* cpu_blk_vals, int mat_num,
-            double* cpu_X_vals = nullptr,
-            double* cpu_y_vals = nullptr,
-            double* cpu_S_vals = nullptr,
+            double* cpu_X_vals = nullptr, // |
+            double* cpu_y_vals = nullptr, // |- values for warm start
+            double* cpu_S_vals = nullptr, // |
             double sig = 2e2
         );
 
