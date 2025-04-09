@@ -89,11 +89,11 @@ void SDPSolver::init(
     this->At_csr.allocate(GPU0, vec_len, con_num, At_nnz);
     this->A_csr.allocate(GPU0, con_num, vec_len, At_nnz);
     // first stream for col_ptrs
-    CHECK_CUDA( cudaMemcpyAsync(this->At_csc.col_ptrs, cpu_At_csc_col_ptrs, sizeof(int) * (con_num + 1), D2D, this->stream_flex_arr[GPU0][0].stream) );
+    CHECK_CUDA( cudaMemcpyAsync(this->At_csc.col_ptrs, cpu_At_csc_col_ptrs, sizeof(int) * (con_num + 1), H2D, this->stream_flex_arr[GPU0][0].stream) );
     // second stream for row_ids
-    CHECK_CUDA( cudaMemcpyAsync(this->At_csc.row_ids, cpu_At_csc_row_ids, sizeof(int) * At_nnz, D2D, this->stream_flex_arr[GPU0][1].stream) );
+    CHECK_CUDA( cudaMemcpyAsync(this->At_csc.row_ids, cpu_At_csc_row_ids, sizeof(int) * At_nnz, H2D, this->stream_flex_arr[GPU0][1].stream) );
     // third stream for vals
-    CHECK_CUDA( cudaMemcpyAsync(this->At_csc.vals, cpu_At_csc_vals, sizeof(double) * At_nnz, D2D, this->stream_flex_arr[GPU0][2].stream) );
+    CHECK_CUDA( cudaMemcpyAsync(this->At_csc.vals, cpu_At_csc_vals, sizeof(double) * At_nnz, H2D, this->stream_flex_arr[GPU0][2].stream) );
     // wait for the streams to finish
     synchronize_gpu0_streams(*this);
 

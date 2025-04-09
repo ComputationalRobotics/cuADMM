@@ -58,20 +58,20 @@ TEST(Solver, Init)
         1.0
     );
 
-    // SDPSolver solver2;
-    // solver2.init(
-    //     false,
-    //     2,
-    //     15,
-    //     30,
+    SDPSolver solver2;
+    solver2.init(
+        false,
+        2,
+        15,
+        30,
 
-    //     vec_len, con_num,
-    //     cpu_At_csc_col_ptrs.data(), cpu_At_csc_row_ids.data(), cpu_At_csc_vals.data(), At_nnz,
-    //     cpu_b_indices.data(), cpu_b_vals.data(), b_nnz,
-    //     cpu_C_indices.data(), cpu_C_vals.data(), C_nnz,
-    //     cpu_blk_vals.data(), mat_num,
-    //     cpu_X_vals.data(), cpu_y_vals.data(), cpu_S_vals.data(),
+        vec_len, con_num,
+        cpu_At_csc_col_ptrs.data(), cpu_At_csc_row_ids.data(), cpu_At_csc_vals.data(), At_nnz,
+        cpu_b_indices.data(), cpu_b_vals.data(), b_nnz,
+        cpu_C_indices.data(), cpu_C_vals.data(), C_nnz,
+        cpu_blk_vals.data(), mat_num,
+        cpu_X_vals.data(), cpu_y_vals.data(), cpu_S_vals.data(),
 
-    //     1.0
-    // );
+        1.0
+    );
 }

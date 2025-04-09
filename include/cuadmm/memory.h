@@ -375,7 +375,7 @@ class DeviceSparseMatrixDoubleCSC {
 
         DeviceSparseMatrixDoubleCSC(): gpu_id(0), row_size(0), col_size(0), nnz(0),
             col_ptrs(nullptr), row_ids(nullptr), vals(nullptr), cusparse_descr(NULL) {}
-            DeviceSparseMatrixDoubleCSC(const int gpu_id, const int row_size, const int col_size, const int nnz):
+        DeviceSparseMatrixDoubleCSC(const int gpu_id, const int row_size, const int col_size, const int nnz):
             gpu_id(gpu_id), row_size(row_size), col_size(col_size), nnz(nnz),
             col_ptrs(nullptr), row_ids(nullptr), vals(nullptr), cusparse_descr(NULL) {
                 this->allocate(gpu_id, row_size, col_size, nnz);
