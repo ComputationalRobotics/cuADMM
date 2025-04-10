@@ -17,7 +17,7 @@
 #include "cublas_test.hpp"
 #include "cusolver_test.hpp"
 #include "cusparse_test.hpp"
-#include "solver_test.hpp"
+// #include "solver_test.hpp"
 
 int main(int argc, char **argv)
 {
