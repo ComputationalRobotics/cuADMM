@@ -141,5 +141,5 @@ TEST(Solver, Solve)
         1.0
     );
 
-    solver.solve((int) 1, 1e-4, false);
+    solver.solve((int) 10, 1e-4, false);
 }

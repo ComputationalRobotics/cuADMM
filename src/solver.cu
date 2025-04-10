@@ -656,6 +656,10 @@ void SDPSolver::solve(
         // hence Rp = b - A X
     }
 
+    printf("\n");
+    printf("\n  it. |  err. Rp  err. Rd | primal obj.   dual obj.   relgap |  sec. |   sigma | ");
+    printf("\n -------------------------------------------------------------------------------");
+
     // for each iteration of the main solver
     for (int iter = 1; iter <= max_iter + 1; iter++) {
         /*
@@ -686,7 +690,7 @@ void SDPSolver::solve(
             cudaEventElapsedTime(&milliseconds, this->start, this->stop);
             seconds = milliseconds / 1000;
             printf(
-                "\n %4d | %3.2e %3.2e| %- 5.4e %- 5.4e %3.2e| %5.1f| %2.1e| ",
+                "\n %4d | %3.2e %3.2e | %- 5.4e %- 5.4e %3.2e | %5.1f | %2.1e | ",
                 iter-1, this->errRp, this->errRd, this->pobj, this->dobj, this->relgap, seconds, this->sig
             );
         }
