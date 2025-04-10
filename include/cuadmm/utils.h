@@ -4,6 +4,7 @@
 #define GPU0 0
 
 #define D2D cudaMemcpyDeviceToDevice
+#define D2H cudaMemcpyDeviceToHost
 #define H2D cudaMemcpyHostToDevice
 #define D2D cudaMemcpyDeviceToDevice
 

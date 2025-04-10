@@ -23,7 +23,7 @@ TEST(CuBLAS, DenseMatrixMulBatch)
     CHECK_CUDA( cudaMemcpy(mat3.vals, mat3_host.data(), sizeof(double) * mat_size * mat_size * batch_size, cudaMemcpyHostToDevice) );
 
     // batch-wise multiply
-    dense_matrix_mul_batch(handle, mat1, mat2, mat3, mat_size, batch_size);
+    dense_matrix_mul_trans_batch(handle, mat1, mat2, mat3, mat_size, batch_size);
 
     // retrieve result
     std::vector<double> mat1_host(mat_size * mat_size * batch_size);

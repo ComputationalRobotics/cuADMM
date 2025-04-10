@@ -566,14 +566,404 @@ void SDPSolver::solve(
         dense_vector_div_scalar(this->X, this->bscale);
         dense_vector_div_scalar(this->S, this->Cscale);
         dense_vector_div_scalar(this->y, this->Cscale);
-        
+
+        // SmC <-- S
+        CHECK_CUDA( cudaMemcpy(this->SmC.vals, this->S.vals, sizeof(double) * this->vec_len, D2D) );
+        // hence Smc = S
+
+        // SmC <-- -1.0 * C + 1.0 * SmC
+        axpby_cusparse(this->cusparseH, this->C, this->SmC, -1.0, 1.0);
+        // hence SmC = S - C
+
+        // Rp <-- -1.0 * A * X + 0.0 * Rp
+        SpMV_cusparse(this->cusparseH, this->A_csr, this->X, this->Rp, -1.0, 0.0, this->SpMV_AX_buffer);
+        // hence Rp = - A X
+
+        // Rp <-- 1.0 * b + 1.0 * Rp
+        axpby_cusparse(this->cusparseH, this->b, this->Rp, 1.0, 1.0);
+        // hence Rp = b - A X
+    }
+
+    // for each iteration of the main solver
+    for (int iter = 1; iter <= max_iter + 1; iter++) {
+        /*
+            Step 0: Check if terminal conditions hold and log information
+        */
+        if (
+            ( max(this->maxfeas, this->relgap) < stop_tol )
+            // ||
+            // ( this->maxfeas < stop_tol && this->relgap < (10 * stop_tol) )  // since relgap is hard to decrease
+        ) {
+            // stop if the stopping criterion is met
+            breakyes = true;
+            final_msg = "Convergent!";
+        }
+        if (iter > max_iter) {
+            // stop if the maximum number of iterations is reached
+            breakyes = true;
+            final_msg = "Maximum iteration reached!";
+        }
+        if (
+            ( breakyes == true ) ||
+            ( (iter <= 200) && ((iter % 50) == 1) ) ||
+            ( (iter > 200) && ((iter % 100) == 1) )
+        ) {
+            // print the iteration number and the residuals
+            cudaEventRecord(this->stop);
+            cudaEventSynchronize(this->stop);
+            cudaEventElapsedTime(&milliseconds, this->start, this->stop);
+            seconds = milliseconds / 1000;
+            printf(
+                "\n %4d | %3.2e %3.2e| %- 5.4e %- 5.4e %3.2e| %5.1f| %2.1e| ",
+                iter-1, this->errRp, this->errRd, this->pobj, this->dobj, this->relgap, seconds, this->sig
+            );
+        }
+        if (breakyes > 0) {
+            // print the final message
+            printf("\n ---------------------------------------------------------------");
+            printf("---------------------------------------------------------------\n");
+            std::cout << final_msg << std::endl;
+            printf(
+                "\n primal infeas = %2.1e \n dual   infeas = %2.1e \n relative gap  = %2.1e",
+                this->errRp, this->errRd, this->relgap
+            );
+            printf(
+                "\n primal objective = %- 9.8e \n dual   objective = %- 9.8e",
+                this->pobj, this->dobj
+            );
+            printf("\n ---------------------------------------------------------------");
+            printf("---------------------------------------------------------------\n");
+
+            cudaEventRecord(this->stop);
+            cudaEventSynchronize(this->stop);
+            cudaEventElapsedTime(&milliseconds, this->start, this->stop);
+            this->total_time = milliseconds / 1000;
+        }
+
+        /*
+            Step 1: Compute
+                        r_s^{k+1/2} = 1/sigma b - A(X/sigma + S^k - C)
+                                             and
+                               y^{k+1/2} = (AA^T)^{-1} r_s^{k+1/2}
+        */
+
+        /* r_s^{k+1/2} = b/sigma - A(X/sigma + S - C) */
+        // rhsy <-- -1.0 * A * SmC + 0.0 * rhsy
+        SpMV_cusparse(this->cusparseH, this->A_csr, this->SmC, this->rhsy, -1.0, 0.0, this->SpMV_AX_buffer);
+        // hence rhsy = - A S
+
+        // rhsy <-- 1/sig * Rp + rhsy
+        axpy_cublas(this->cublasH, this->Rp, this->rhsy, 1/this->sig);
+        // hence rhsy = 1/sig * Rp - A S
+
+        /* y^{k+1/2} = (AA^T)^{-1} r_s^{k+1/2} */
+        // y <-- linsys(rhsy)
+        perform_permutation(this->rhsy_perm, this->rhsy, this->perm_inv);
+        CHECK_CUDA( cudaDeviceSynchronize() );
+        CHECK_CUDA( cudaMemcpyAsync(
+            this->cpu_AAt_solver.chol_dn_rhs->x, this->rhsy_perm.vals,
+            sizeof(double) * this->con_num, D2H, this->stream_flex_arr[GPU0][0].stream
+        ) );
+        CHECK_CUDA( cudaStreamSynchronize(this->stream_flex_arr[GPU0][0].stream) );
+        this->cpu_AAt_solver.solve();
+        CHECK_CUDA( cudaMemcpyAsync(
+            this->y_perm.vals, this->cpu_AAt_solver.chol_dn_res->x,
+            sizeof(double) * this->con_num, H2D, this->stream_flex_arr[GPU0][0].stream
+        ) );
+        CHECK_CUDA( cudaStreamSynchronize(this->stream_flex_arr[GPU0][0].stream) );
+        perform_permutation(this->y, this->y_perm, this->perm);
+        // hence y = (AA^T)^{-1} r_s^{k+1/2}
+
+
+        /*
+            Step 2: Compute the optimization variables :
+
+                    X_b^{k+1} = X^k + sigma(A^T y^{k+1/2} - C)
+                                         and
+                    S^{k+1} = 1/sigma (Pi(X_b^{k+1}) - X_b^{k+1})
+        */
+
+        /* Compute X^{k+1} */
+        // Aty <-- 1.0 * At * y + 0.0 * Aty
+        SpMV_cusparse(this->cusparseH, this->At_csr, this->y, this->Aty, 1.0, 0.0, this->SpMV_Aty_buffer);
+        // hence Aty = A^T y^{k+1/2}
+
+        // Rd1 <-- Aty
+        CHECK_CUDA( cudaMemcpy(this->Rd1.vals, this->Aty.vals, sizeof(double) * this->vec_len, D2D) );
+        // Rd1 <-- (-1.0) * C + 1.0 * Rd1
+        axpby_cusparse(this->cusparseH, this->C, this->Rd1, -1.0, 1.0);
+        // hence Rd1 = A^T y^{k+1/2} - C
+
+        double norm_rhsy = this->rhsy.get_norm(this->cublasH);
+        double norm_y = this->y.get_norm(this->cublasH);
+
+        // Xb <-- X + sig * Rd1
+        dense_vector_plus_dense_vector_mul_scalar(this->Xb, this->X, this->Rd1, this->sig);
+        // hence Xb = X^k + sig * (A^T y^{k+1/2} - C) = X^{k+1}
+
+
+        /* Compute Pi(X^{k+1}) (this is long) */
+
+        // first, we convert Xb back to matrices (mom and loc)
+        vector_to_matrices(this->Xb, this->mom_mat_arr[GPU0], this->loc_mat, this->map_B, this->map_M1, this->map_M2);
+        CHECK_CUDA( cudaDeviceSynchronize() );
+
+        // if the decomposition is on GPU, we retrieve the moment matrices from GPU0
+        if (!this->if_gpu_eig_mom) {
+            CHECK_CUDA( cudaMemcpyAsync(
+                this->cpu_mom_mat.vals, this->mom_mat_arr[GPU0].vals,
+                sizeof(double) * this->mom_mat_num * this->LARGE * this->LARGE, D2H, this->stream_flex_arr[GPU0][0].stream
+            ) );
+            CHECK_CUDA( cudaStreamSynchronize(this->stream_flex_arr[GPU0][0].stream) );
+        }
+
+        // we perform the CPU decomposition of localizing matrices
+        resource_lk.lock();
+        eig_count_finish = 0;
+        resource_lk.unlock();
+        eig_cv.notify_all();
+
+        // we perform an ADMM switch
+        if (breakyes) {
+            if (iter > this->switch_admm) {
+                CHECK_CUDA( cudaMemcpyAsync(this->X.vals, this->X_best.vals, sizeof(double) * this->vec_len, D2D, this->stream_flex_arr[GPU0][0].stream) );
+                CHECK_CUDA( cudaMemcpyAsync(this->y.vals, this->y_best.vals, sizeof(double) * this->con_num, D2D, this->stream_flex_arr[GPU0][1].stream) );
+                CHECK_CUDA( cudaMemcpyAsync(this->S.vals, this->S_best.vals, sizeof(double) * this->vec_len, D2D, this->stream_flex_arr[GPU0][2].stream) );
+                this->synchronize_gpu0_streams();
+                printf("best max KKT residual after switch  = %2.1e \n", this->best_KKT);
+            }
+            break;
+        }
+
+        // wait for the main thread to finish the eig decomposition
+        main_cv.wait(main_lk);
+
+        // if the decomposition is on GPU, we copy the moment matrices to the GPU0
+        if (!this->if_gpu_eig_mom) {
+            CHECK_CUDA( cudaMemcpyAsync(
+                this->mom_mat_arr[GPU0].vals, this->cpu_mom_mat.vals,
+                sizeof(double) * this->mom_mat_num * this->LARGE * this->LARGE, H2D, this->stream_flex_arr[GPU0][1].stream
+            ) );
+            CHECK_CUDA( cudaMemcpyAsync(
+                this->mom_W_arr[GPU0].vals, this->cpu_mom_W.vals,
+                sizeof(double) * this->mom_mat_num * this->LARGE, H2D, this->stream_flex_arr[GPU0][2].stream
+            ) );
+            CHECK_CUDA( cudaStreamSynchronize(this->stream_flex_arr[GPU0][1].stream) );
+            CHECK_CUDA( cudaStreamSynchronize(this->stream_flex_arr[GPU0][2].stream) );
+        }
+        CHECK_CUDA( cudaDeviceSynchronize() );
+
+        // we call cuSOLVER for the batch eig decomposition of localizing matrices
+        batch_eig_cusolver(
+            this->cusolverH_eig_loc, this->eig_param_batch, this->loc_mat, this->loc_W, this->eig_loc_buffer, this->loc_info,
+            this->SMALL, this->loc_mat_num, this->eig_loc_buffer_size
+        );
+
+        // --- BEGIN: fixed rank projection ---
+        // if (iter >= this->begin_low_rank_proj || this->maxfeas < 1e-3) {
+        //     max_dnvec_zero_mask(this->mom_W_arr[GPU0], this->mom_W_rank_mask);
+        //     max_dnvec_zero_mask(this->loc_W, this->loc_W_rank_mask);
+        // } else {
+            max_dense_vector_zero(this->mom_W_arr[GPU0]);
+            max_dense_vector_zero(this->loc_W);
+        // }
+        // std::vector<double> cpu_mom_W(this->mom_W_arr[0].size, 0);
+        // std::vector<double> cpu_loc_W(this->loc_W.size);
+        // CHECK_CUDA( cudaMemcpy(cpu_mom_W.data(), this->mom_W_arr[0].vals, sizeof(double) * cpu_mom_W.size(), D2H) );
+        // CHECK_CUDA( cudaMemcpy(cpu_loc_W.data(), this->loc_W.vals, sizeof(double) * cpu_loc_W.size(), D2H) );
+        // --- END: fixed rank projection -----
+
+        // max_dnvec_zero(this->mom_W_arr[0]);
+        // max_dnvec_zero(this->loc_W);
+
+        dense_matrix_mul_diag_batch(mom_mat_tmp, this->mom_mat_arr[GPU0], this->mom_W_arr[GPU0], this->LARGE);
+        dense_matrix_mul_diag_batch(this->loc_mat_tmp, this->loc_mat, this->loc_W, this->SMALL);
+        dense_matrix_mul_trans_batch(this->cublasH, this->mom_mat_P, this->mom_mat_tmp, this->mom_mat_arr[GPU0], this->LARGE, this->mom_mat_num);
+        dense_matrix_mul_trans_batch(this->cublasH, this->loc_mat_P, this->loc_mat_tmp, this->loc_mat, this->SMALL, this->loc_mat_num);
+
+        // convert the matrices back to vectorized format
+        matrices_to_vector(this->Xproj, this->mom_mat_P, this->loc_mat_P, this->map_B, this->map_M1, this->map_M2);
+
+        double norm_Xproj = this->Xproj.get_norm(this->cublasH);
+        // printf("\n || rhsy ||: %f, || y ||: %f, || Xproj ||: %f", norm_rhsy, norm_y, norm_Xproj);
+
+        /* Finish the computation of S^{k+1} */
+
+        // Xdiff <-- 1.0 * Xproj + (-1.0) * X
+        dense_vector_add_dense_vector(this->Xdiff, this->Xproj, this->X, 1.0, -1.0);
+        // hence Xdiff = Pi(X^{k+1}) - X^k
+
+        // S <-- 1/sig * Xdiff + (-1.0) * Rd1
+        dense_vector_add_dense_vector(this->S, this->Xdiff, this->Rd1, 1/this->sig, -1.0);
+        // hence S = 1/sig * (Pi(X^{k+1}) - X^k) - (A^T y^{k+1/2} - C)
+        // which is S = 1/sig * (Pi(X^{k+1}) - X^{k+1})
+
+
+
+        /*
+            Step 3: Compute:
+                        r_s^{k+1} = 1/sigma b - A(X^k/sigma + S^{k+1} - C)
+                                              and
+                                y^{k+1} = (AA^T)^{-1} r_s^{k+1}
+        */
+
+        /* Compute r_s^{k+1} */
+
         // SmC <-- S
         CHECK_CUDA( cudaMemcpy(this->SmC.vals, this->S.vals, sizeof(double) * this->vec_len, D2D) );
         // SmC <-- -1.0 * C + 1.0 * SmC
         axpby_cusparse(this->cusparseH, this->C, this->SmC, -1.0, 1.0);
+        // hence SmC = S^{k+1} - C
+
+
+        /* Compute y^{k+1} */
+        // If the number of iterations goes large but sGS-ADMM still fail to converge,
+        // switch to ordinary ADMM
+        if (iter == this->switch_admm) {
+            printf("\n switching to normal ADMM!");
+            this->sig_update_stage_2 = this->sig_update_stage_2 / 2;
+            this->sigscale = this->sigscale * 1.23;
+            this->sgs_KKT = max(this->maxfeas, this->relgap);
+            this->best_KKT = this->sgs_KKT;
+            CHECK_CUDA( cudaMemcpyAsync(this->X_best.vals, this->X.vals, sizeof(double) * this->vec_len, D2D, this->stream_flex_arr[GPU0][0].stream) );
+            CHECK_CUDA( cudaMemcpyAsync(this->y_best.vals, this->y.vals, sizeof(double) * this->con_num, D2D, this->stream_flex_arr[GPU0][1].stream) );
+            CHECK_CUDA( cudaMemcpyAsync(this->S_best.vals, this->S.vals, sizeof(double) * this->vec_len, D2D, this->stream_flex_arr[GPU0][2].stream) );
+        }
+
+        // when before the switch, perform the special sGS-ADMM step
+        if (iter < this->switch_admm) {
+            // rhsy <-- -1.0 * A * SmC + 0.0 * rhsy
+            SpMV_cusparse(this->cusparseH, this->A_csr, this->SmC, this->rhsy, -1.0, 0.0, this->SpMV_AX_buffer);
+            // hence rhsy = - A(S - C)
+
+            // rhsy <-- 1/sig * Rp + rhsy
+            axpy_cublas(this->cublasH, this->Rp, this->rhsy, 1/this->sig);
+            // hence rhsy = 1/sigma Rp - A(S - C) = 1/sigma (b - A(X^k)) - A(S - C)
+            // hence rhsy = 1/sigma b - A(X^k /sigma + S^{k+1} - C)
+
+            // y <-- linsys(rhsy)
+            perform_permutation(this->rhsy_perm, this->rhsy, this->perm_inv);
+            CHECK_CUDA( cudaDeviceSynchronize() );
+            CHECK_CUDA( cudaMemcpyAsync(
+                this->cpu_AAt_solver.chol_dn_rhs->x, this->rhsy_perm.vals,
+                sizeof(double) * this->con_num, D2H, this->stream_flex_arr[GPU0][0].stream
+            ) );
+            CHECK_CUDA( cudaStreamSynchronize(this->stream_flex_arr[GPU0][0].stream) );
+            this->cpu_AAt_solver.solve();
+            CHECK_CUDA( cudaMemcpyAsync(
+                this->y_perm.vals, this->cpu_AAt_solver.chol_dn_res->x,
+                sizeof(double) * this->con_num, H2D, this->stream_flex_arr[GPU0][0].stream
+            ) );
+            CHECK_CUDA( cudaStreamSynchronize(this->stream_flex_arr[GPU0][0].stream) );
+            perform_permutation(this->y, this->y_perm, this->perm);
+            // hence y = (AA^T)^{-1} r_s^{k+1}
+
+            // Aty <-- 1.0 * At * y + 0.0 * Aty
+            SpMV_cusparse(this->cusparseH, this->At_csr, this->y, this->Aty, 1.0, 0.0, this->SpMV_Aty_buffer);
+            // hence Aty = A^T y^{k+1}
+
+            // Rd1 <-- Aty
+            CHECK_CUDA( cudaMemcpy(this->Rd1.vals, this->Aty.vals, sizeof(double) * this->vec_len, D2D) );
+            // Rd1 <-- (-1.0) * C + 1.0 * Rd1
+            axpby_cusparse(this->cusparseH, this->C, this->Rd1, -1.0, 1.0);
+            // hence Rd1 = A^T y^{k+1} - C
+        }
+
+        // when after the switch, use values computed in previous steps
+        if (iter > this->switch_admm) {
+            // if the current KKT residual is smaller than the best one so far,
+            // update the best solution so far
+            if (this->best_KKT > max(this->maxfeas, this->relgap)) {
+                CHECK_CUDA( cudaMemcpyAsync(this->X_best.vals, this->X.vals, sizeof(double) * this->vec_len, D2D, this->stream_flex_arr[GPU0][0].stream) );
+                CHECK_CUDA( cudaMemcpyAsync(this->y_best.vals, this->y.vals, sizeof(double) * this->con_num, D2D, this->stream_flex_arr[GPU0][1].stream) );
+                CHECK_CUDA( cudaMemcpyAsync(this->S_best.vals, this->S.vals, sizeof(double) * this->vec_len, D2D, this->stream_flex_arr[GPU0][2].stream) );
+                this->best_KKT = max(this->maxfeas, this->relgap);
+            }
+        }
+
+
+        /* Step 4: Compute X^{k+1} = X^k + tau * sigma (S^{k+1} + A^T y^{k+1} - C) */
+        // Rd <-- 1.0 * Rd1 + 1.0 * S
+        dense_vector_add_dense_vector(this->Rd, this->Rd1, this->S, 1.0, 1.0);
+        if (iter < this->switch_admm) {
+            this->tau = 1.95;
+        } else {
+            this->tau = 1.618;
+        }
+        if (this->errRd < stop_tol) {
+            this->tau = max(1.618, this->tau / 1.1);
+        }
+        // hence Rd = Rd1 + S = A^T y^{k+1} - C + S
+
+        // X <-- X + (tau * sig) * Rd
+        dense_vector_add_dense_vector(this->X, this->Rd, 1.0, this->tau * this->sig);
+        // hence X = X^k + (tau * sig) * (A^T y^{k+1} - C + S)
+
+        /* Step "5": Compute KKT residuals, update parameters */
+
         // Rp <-- -1.0 * A * X + 0.0 * Rp
         SpMV_cusparse(this->cusparseH, this->A_csr, this->X, this->Rp, -1.0, 0.0, this->SpMV_AX_buffer);
+        // hence Rp = - A X
+
         // Rp <-- 1.0 * b + 1.0 * Rp
         axpby_cusparse(this->cusparseH, this->b, this->Rp, 1.0, 1.0);
+        // hence Rp = b - A X
+
+        /* Update errors and compute residuals */
+        dense_vector_mul_dense_vector_mul_scalar(this->Rporg, this->normA, this->Rp, this->bscale);
+        this->errRp = this->Rporg.get_norm(this->cublasH) / this->norm_borg;
+        this->pobj = SparseVV_cusparse(this->cusparseH, this->C, this->X, this->SpVV_CtX_buffer) * this->objscale;
+        dense_vector_mul_scalar(this->Rdorg, this->Rd, this->Cscale);
+        this->errRd = this->Rdorg.get_norm(this->cublasH) / this->norm_Corg;
+        this->dobj = SparseVV_cusparse(this->cusparseH, this->b, this->y, this->SpVV_bty_buffer) * this->objscale;
+        this->maxfeas = max(this->errRp, this->errRd);
+        this->relgap = abs(this->pobj - this->dobj) / (1 + abs(this->pobj) + abs(this->dobj));
+        this->feasratio = this->ratioconst * this->errRp / this->errRd;
+        if (this->feasratio < 1) {
+            this->prim_win += 1;
+        } else {
+            this->dual_win += 1;
+        }
+
+        /* Update sigma */
+        if (
+            ( (iter <= this->sig_update_threshold) && ((iter % this->sig_update_stage_1) == 1) ) ||
+            ( (iter > this->sig_update_threshold) && ((iter % this->sig_update_stage_2) == 1) )
+        ) {
+            if (this->prim_win > 1.2 * this->dual_win) {
+                this->prim_win = 0;
+                this->sig = min(this->sigmax, this->sig * this->sigscale);
+            } else if (this->dual_win > 1.2 * this->prim_win) {
+                this->dual_win = 0;
+                this->sig = max(this->sigmin, this->sig / this->sigscale);
+            }
+        }
+
+        /* Add info */
+        this->info_pobj_arr.push_back(this->pobj);
+        this->info_dobj_arr.push_back(this->dobj);
+        this->info_errRp_arr.push_back(this->errRp);
+        this->info_errRd_arr.push_back(this->errRd);
+        this->info_relgap_arr.push_back(this->relgap);
+        this->info_sig_arr.push_back(this->sig);
+        this->info_bscale_arr.push_back(this->bscale);
+        this->info_Cscale_arr.push_back(this->Cscale);
+        this->info_iter_num++;
     }
+
+    // recover the original solution by unscaling
+    dense_vector_mul_scalar(this->X, this->bscale);
+    dense_vector_div_dense_vector_mul_scalar(this->y, this->normA, this->Cscale);
+    dense_vector_mul_scalar(this->S, this->Cscale);
+
+    // free the memory
+    cudaEventDestroy(this->start);
+    cudaEventDestroy(this->stop);
+
+    // join all threads
+    for (auto& thread: eig_thread_arr) {
+        thread.join();
+    }
+
+    return;
 }

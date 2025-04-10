@@ -126,6 +126,9 @@ class SDPSolver {
         int cpu_eig_mom_lwork2;
         HostDenseVector<double> cpu_eig_mom_workspace;
         HostDenseVector<ptrdiff_t> cpu_eig_mom_workspace_2;
+        /* Localizing matrices eigen decomposition: single CPU */
+        DeviceDenseVector<double> loc_mat;
+        DeviceDenseVector<double> loc_W;
         DeviceDenseVector<int> loc_info;
         BatchEigParameter eig_param_batch;
         DeviceSolverDnHandle cusolverH_eig_loc;

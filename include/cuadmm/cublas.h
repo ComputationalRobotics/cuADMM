@@ -15,7 +15,7 @@
 // Multiply two dense vectors reprsenting matrices in batch:
 // mat1[i] = mat2[i] * mat3[i]^T   (i = 0, .., batch_size-1)
 // where * is the matrix multiplication operator.
-inline void dense_matrix_mul_batch(
+inline void dense_matrix_mul_trans_batch(
     DeviceBlasHandle& cublas_H, 
     DeviceDenseVector<double>& mat1, const DeviceDenseVector<double>& mat2, const DeviceDenseVector<double>& mat3,
     const int mat_size, const int batch_size
