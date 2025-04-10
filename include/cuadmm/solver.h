@@ -50,23 +50,24 @@ class SDPSolver {
         DeviceSparseVector<double> Corg;
 
         /* KKT residuals */
-        DeviceDenseVector<double> Aty;
-        DeviceDenseVector<double> Rp;
-        DeviceDenseVector<double> SmC;
-        DeviceDenseVector<double> Rd;
-        DeviceDenseVector<double> Rporg;
-        DeviceDenseVector<double> Rdorg;
-        double norm_borg;
-        double norm_Corg;
-        double bscale;
-        double Cscale;
-        double objscale;
+        DeviceDenseVector<double> Aty;   // A^T * y
+        DeviceDenseVector<double> Rp;    // primal residual, b - AX
+        DeviceDenseVector<double> SmC;   // S - C
+        DeviceDenseVector<double> Rd;    // dual residual, A^T * y - C + S
+        DeviceDenseVector<double> Rporg; // original primal residual (size con_num)
+        DeviceDenseVector<double> Rdorg; // original dual residual (size vec_len)
+        double norm_borg; // original norm of b
+        double norm_Corg; // original norm of C
+        double bscale;    // scale for b
+        double Cscale;    // scale for C
+        double objscale;  // scale for objective function
         double errRp;
         double errRd;
         double maxfeas;
-        double pobj;
-        double dobj;
-        double relgap;
+        double pobj;      // primal objective (<C,X>)
+        double dobj;      // dual objective (<b, y>)
+        double relgap;    // eta_g, the normalized duality gap
+        // buffers for cuSPARSE matrix-vector and inner products
         size_t SpMV_Aty_buffer_size;                // |
         DeviceDenseVector<double> SpMV_Aty_buffer;  // |
         size_t SpMV_AX_buffer_size;                 // |
@@ -91,7 +92,7 @@ class SDPSolver {
         bool if_gpu_eig_mom; // if true, use multiple GPUs for eig decomposition
         DeviceDenseVector<double> Xold;
         DeviceDenseVector<double> Xb;
-        
+
         /* Sparse vector <-> sparse matrix mapping */
         int LARGE;        // size of moment matrices
         int SMALL;        // size of localization matrices
@@ -100,7 +101,7 @@ class SDPSolver {
         DeviceDenseVector<int> map_B;  // |
         DeviceDenseVector<int> map_M1; // |- maps for vectorization of matrices
         DeviceDenseVector<int> map_M2; // |    (cached from get_maps())
-        
+
         /* Moment matrix decomposition on multiple GPU */
         std::vector<DeviceDenseVector<double>> mom_mat_arr;
         std::vector<DeviceDenseVector<double>> mom_W_arr;
@@ -113,14 +114,14 @@ class SDPSolver {
         SingleEigParameter eig_param_single;
         size_t eig_mom_buffer_size;                                 // | GPU eig dec.
         std::vector<DeviceDenseVector<double>> eig_mom_buffer_arr;  // | (size and buffer)
-        
+
         /* Moment matrix eigen decomposition: multi-core CPU */
         size_t cpu_eig_mom_buffer_size;                              // | CPU eig dec.
         std::vector<HostDenseVector<double>> cpu_eig_mom_buffer_arr; // | (size and buffer)
-        HostDenseVector<double> cpu_mom_mat;
-        HostDenseVector<double> cpu_mom_W;
-        HostDenseVector<ptrdiff_t> cpu_mom_info;
-        int cpu_eig_thread_num;
+        HostDenseVector<double> cpu_mom_mat;     // moment matrices on CPU
+        HostDenseVector<double> cpu_mom_W;       // moment matrix eigenvectors on CPU
+        HostDenseVector<ptrdiff_t> cpu_mom_info; // resulting info of eigen dec.
+        int cpu_eig_thread_num;                  // number of threads for CPU eig dec.
         std::vector<int> cpu_eig_col_ptrs_arr;
         int cpu_eig_mom_lwork;
         int cpu_eig_mom_lwork2;
@@ -144,10 +145,10 @@ class SDPSolver {
         std::vector<std::vector<DeviceStream>> stream_flex_arr;
         std::vector<DeviceSparseHandle> cusparseH_flex_arr;
         std::vector<DeviceBlasHandle> cublasH_flex_arr;
-        DeviceSparseHandle cusparseH;
-        DeviceBlasHandle cublasH;
+        DeviceSparseHandle cusparseH; // main cuSPARSE handle
+        DeviceBlasHandle cublasH;     // main cuBLAS handle
 
-        /* Rescale and update sig */
+        /* Rescale and update sigma */
         int prim_win;
         int dual_win;
         int rescale;
@@ -165,15 +166,15 @@ class SDPSolver {
         double sigscale;
 
         /* Info */
-        int info_iter_num;
-        std::vector<double> info_pobj_arr;
-        std::vector<double> info_dobj_arr;
-        std::vector<double> info_errRp_arr;
-        std::vector<double> info_errRd_arr;
-        std::vector<double> info_relgap_arr;
-        std::vector<double> info_sig_arr;
-        std::vector<double> info_bscale_arr;
-        std::vector<double> info_Cscale_arr;
+        int info_iter_num;  // iteration number
+        std::vector<double> info_pobj_arr;   // |
+        std::vector<double> info_dobj_arr;   // |
+        std::vector<double> info_errRp_arr;  // |
+        std::vector<double> info_errRd_arr;  // |- arrays to log info
+        std::vector<double> info_relgap_arr; // |
+        std::vector<double> info_sig_arr;    // |
+        std::vector<double> info_bscale_arr; // |
+        std::vector<double> info_Cscale_arr; // |
 
         /* Time */
         cudaEvent_t start;
@@ -184,7 +185,7 @@ class SDPSolver {
         double tau;
         DeviceDenseVector<double> Xproj;
         DeviceDenseVector<double> Xdiff;
-        int switch_admm;
+        int switch_admm; // the iteration at which to switch to standard ADMM
         int eig_rank;
         int begin_low_rank_proj;
         DeviceDenseVector<int> mom_W_rank_mask;
@@ -193,14 +194,44 @@ class SDPSolver {
         int sig_update_stage_1;
         int sig_update_stage_2;
         double sgs_KKT;
-        double best_KKT;
-        DeviceDenseVector<double> X_best;
-        DeviceDenseVector<double> y_best;
-        DeviceDenseVector<double> S_best;
+        double best_KKT;                  // |
+        DeviceDenseVector<double> X_best; // |- save the best variables and KKT residual
+        DeviceDenseVector<double> y_best; // |  to use in the end
+        DeviceDenseVector<double> S_best; // |
 
         SDPSolver() {}
 
         // Initializes an SDPSolver.
+        //
+        // Args:
+        // - if_gpu_eig_mom: if true, use multiple GPUs for eig decomposition
+        // - device_num_requested: number of GPUs requested by the user
+        // - eig_stream_num_per_gpu: number of streams per GPU
+        // - cpu_eig_thread_num: number of threads for CPU eigen decomposition
+        //
+        // - vec_len: length of X in vector form
+        // - con_num: number of constraints
+        //
+        // - cpu_At_csc_col_ptrs: column pointers of the constraint matrix in CSC format
+        // - cpu_At_csc_row_ids: row indices of the constraint matrix in CSC format
+        // - cpu_At_csc_vals: values of the constraint matrix in CSC format
+        // - At_nnz: number of non-zero entries in the constraint matrix
+        //
+        // - cpu_b_indices: indices of the constraint vector
+        // - cpu_b_vals: values of the constraint vector
+        // - b_nnz: number of non-zero entries in the constraint vector
+        //
+        // - cpu_C_indices: indices of the cost matrix
+        // - cpu_C_vals: values of the cost matrix
+        // - C_nnz: number of non-zero entries in the cost matrix
+        //
+        // - cpu_blk_vals: block sizes
+        // - mat_num: number of blocks
+        //
+        // - cpu_X_vals: initial values for X (optional)
+        // - cpu_y_vals: initial values for y (optional)
+        // - cpu_S_vals: initial values for S (optional)
+        // - sig: initial value for sigma (default: 2e2)
         void init(
             // eig
             bool if_gpu_eig_mom,
@@ -232,7 +263,7 @@ class SDPSolver {
         // - sig_update_stage_2:
         // - switch_admm:
         // - sigscale:
-        // - if_first: if this is the first call to solve()
+        // - if_first: if this is the first call to solve() (optional)
         void solve(
             int max_iter, double stop_tol,
             int sig_update_threshold = 500,

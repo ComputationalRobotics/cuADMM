@@ -964,7 +964,7 @@ void SDPSolver::solve(
         if (iter < this->switch_admm) {
             this->tau = 1.95;
         } else {
-            this->tau = 1.618;
+            this->tau = 1.618; // (1 + sqrt(5)) / 2
         }
         if (this->errRd < stop_tol) {
             this->tau = max(1.618, this->tau / 1.1);
