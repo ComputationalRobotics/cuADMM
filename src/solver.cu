@@ -657,7 +657,7 @@ void SDPSolver::solve(
     }
 
     printf("\n");
-    printf("\n  it. |  err. Rp  err. Rd | primal obj.   dual obj.   relgap |  sec. |   sigma | ");
+    printf("\n  it. | p infeas d infeas | primal obj.   dual obj. rel. gap |  time |   sigma | ");
     printf("\n -------------------------------------------------------------------------------");
 
     // for each iteration of the main solver
@@ -672,12 +672,12 @@ void SDPSolver::solve(
         ) {
             // stop if the stopping criterion is met
             breakyes = true;
-            final_msg = "Convergent!";
+            final_msg = "Solver ended: converged.";
         }
         if (iter > max_iter) {
             // stop if the maximum number of iterations is reached
             breakyes = true;
-            final_msg = "Maximum iteration reached!";
+            final_msg = "Solver ended: maximum iteration reached";
         }
         if (
             ( breakyes == true ) ||
@@ -700,12 +700,16 @@ void SDPSolver::solve(
             printf("---------------------------------------------------------------\n");
             std::cout << final_msg << std::endl;
             printf(
-                "\n primal infeas = %2.1e \n dual   infeas = %2.1e \n relative gap  = %2.1e",
+                "\n primal infeasibility = %2.1e \n dual   infeasibility = %2.1e \n relative gap         = %2.1e",
                 this->errRp, this->errRd, this->relgap
             );
             printf(
                 "\n primal objective = %- 9.8e \n dual   objective = %- 9.8e",
                 this->pobj, this->dobj
+            );
+            printf(
+                "\n\n time per iteration = %2.4fs \n total time         = %2.1fs",
+                seconds/iter, seconds
             );
             printf("\n ---------------------------------------------------------------");
             printf("---------------------------------------------------------------\n");
