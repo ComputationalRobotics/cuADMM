@@ -21,9 +21,9 @@
 #define SIG_SCALE 1.05
 
 void SDPSolver::synchronize_gpu0_streams() {
-    CHECK_CUDA( cudaStreamSynchronize(this->stream_flex_arr[GPU0][0].stream) );
-    CHECK_CUDA( cudaStreamSynchronize(this->stream_flex_arr[GPU0][1].stream) );
-    CHECK_CUDA( cudaStreamSynchronize(this->stream_flex_arr[GPU0][2].stream) );
+    CHECK_CUDA( cudaStreamSynchronize(this->stream_flex[0].stream) );
+    CHECK_CUDA( cudaStreamSynchronize(this->stream_flex[1].stream) );
+    CHECK_CUDA( cudaStreamSynchronize(this->stream_flex[2].stream) );
 }
 
 void SDPSolver::init(
@@ -49,18 +49,14 @@ void SDPSolver::init(
     cudaEventRecord(this->start);
 
     // prepare streams for copy data
-   this->device_num_requested = 1; // only one GPU for now
-
     /*
     we create three flexible streams per GPU, corresponding to copy mom_mat, mom_W, mom_info
     they can also be used to parallelize kernel launches and cuda toolkit calls
     */
-    this->stream_flex_arr = std::vector<std::vector<DeviceStream>>(
-        this->device_num_requested, std::vector<DeviceStream>(3)
-    );
+    this->stream_flex = std::vector<DeviceStream>(3);
     for (int stream_id = 0; stream_id < 3; stream_id++) {
-        this->stream_flex_arr[GPU0][stream_id].set_gpu_id(GPU0);
-        this->stream_flex_arr[GPU0][stream_id].activate();
+        this->stream_flex[stream_id].set_gpu_id(GPU0);
+        this->stream_flex[stream_id].activate();
     }
 
     // create handles for cuSPARSE and cuBLAS
@@ -76,11 +72,11 @@ void SDPSolver::init(
     this->At_csr.allocate(GPU0, vec_len, con_num, At_nnz);
     this->A_csr.allocate(GPU0, con_num, vec_len, At_nnz);
     // first stream for col_ptrs
-    CHECK_CUDA( cudaMemcpyAsync(this->At_csc.col_ptrs, cpu_At_csc_col_ptrs, sizeof(int) * (con_num + 1), H2D, this->stream_flex_arr[GPU0][0].stream) );
+    CHECK_CUDA( cudaMemcpyAsync(this->At_csc.col_ptrs, cpu_At_csc_col_ptrs, sizeof(int) * (con_num + 1), H2D, this->stream_flex[0].stream) );
     // second stream for row_ids
-    CHECK_CUDA( cudaMemcpyAsync(this->At_csc.row_ids, cpu_At_csc_row_ids, sizeof(int) * At_nnz, H2D, this->stream_flex_arr[GPU0][1].stream) );
+    CHECK_CUDA( cudaMemcpyAsync(this->At_csc.row_ids, cpu_At_csc_row_ids, sizeof(int) * At_nnz, H2D, this->stream_flex[1].stream) );
     // third stream for vals
-    CHECK_CUDA( cudaMemcpyAsync(this->At_csc.vals, cpu_At_csc_vals, sizeof(double) * At_nnz, H2D, this->stream_flex_arr[GPU0][2].stream) );
+    CHECK_CUDA( cudaMemcpyAsync(this->At_csc.vals, cpu_At_csc_vals, sizeof(double) * At_nnz, H2D, this->stream_flex[2].stream) );
     // wait for the streams to finish
     this->synchronize_gpu0_streams();
 
@@ -92,9 +88,9 @@ void SDPSolver::init(
     this->CSCtoCSR_At2A_buffer_size = CSC_to_CSR_get_buffersize_cusparse(this->cusparseH, this->At_csc, this->At_csr);
     this->CSCtoCSR_At2A_buffer.allocate(GPU0, CSCtoCSR_At2A_buffer_size, true);
     CSC_to_CSR_cusparse(this->cusparseH, this->At_csc, this->At_csr, this->CSCtoCSR_At2A_buffer);
-    CHECK_CUDA( cudaMemcpyAsync(this->A_csr.row_ptrs ,this->At_csc.col_ptrs, sizeof(int) * (con_num + 1), D2D, this->stream_flex_arr[GPU0][0].stream) );
-    CHECK_CUDA( cudaMemcpyAsync(this->A_csr.col_ids ,this->At_csc.row_ids, sizeof(int) * At_nnz, D2D, this->stream_flex_arr[GPU0][1].stream) );
-    CHECK_CUDA( cudaMemcpyAsync(this->A_csr.vals ,this->At_csc.vals, sizeof(double) * At_nnz, D2D, this->stream_flex_arr[GPU0][2].stream) );
+    CHECK_CUDA( cudaMemcpyAsync(this->A_csr.row_ptrs ,this->At_csc.col_ptrs, sizeof(int) * (con_num + 1), D2D, this->stream_flex[0].stream) );
+    CHECK_CUDA( cudaMemcpyAsync(this->A_csr.col_ids ,this->At_csc.row_ids, sizeof(int) * At_nnz, D2D, this->stream_flex[1].stream) );
+    CHECK_CUDA( cudaMemcpyAsync(this->A_csr.vals ,this->At_csc.vals, sizeof(double) * At_nnz, D2D, this->stream_flex[2].stream) );
 
     /* Initialize the AAt solver on CPU */
     this->cpu_AAt_solver.get_A(
@@ -105,7 +101,7 @@ void SDPSolver::init(
     this->cpu_AAt_solver.factorize();
     // retrieve permutation of the L factor
     this->perm.allocate(GPU0, con_num);
-    CHECK_CUDA( cudaMemcpyAsync(this->perm.vals, this->cpu_AAt_solver.chol_fac_L->Perm, sizeof(int) * con_num, H2D, this->stream_flex_arr[GPU0][0].stream) );
+    CHECK_CUDA( cudaMemcpyAsync(this->perm.vals, this->cpu_AAt_solver.chol_fac_L->Perm, sizeof(int) * con_num, H2D, this->stream_flex[0].stream) );
     // allocate memory of right-hand side vector
     this->rhsy.allocate(GPU0, con_num);
     this->rhsy_perm.allocate(GPU0, con_num);
@@ -116,7 +112,7 @@ void SDPSolver::init(
     memcpy(perm_tmp.data(), this->cpu_AAt_solver.chol_fac_L->Perm, sizeof(int) * con_num);
     this->perm_inv.allocate(GPU0, con_num);
     get_inverse_permutation(perm_inv_tmp, perm_tmp);
-    CHECK_CUDA( cudaMemcpyAsync(this->perm_inv.vals, perm_inv_tmp.data(), sizeof(int) * con_num, H2D, this->stream_flex_arr[GPU0][1].stream) );
+    CHECK_CUDA( cudaMemcpyAsync(this->perm_inv.vals, perm_inv_tmp.data(), sizeof(int) * con_num, H2D, this->stream_flex[1].stream) );
 
     /* Initialize b, C, X, y, S, sig on GPU */
     this->b.allocate(GPU0, con_num, b_nnz);
@@ -124,27 +120,27 @@ void SDPSolver::init(
     this->X.allocate(GPU0, vec_len);
     this->y.allocate(GPU0, con_num);
     this->S.allocate(GPU0, vec_len);
-    CHECK_CUDA( cudaMemcpyAsync(this->b.indices, cpu_b_indices, sizeof(int) * b_nnz, H2D, this->stream_flex_arr[GPU0][0].stream) );
-    CHECK_CUDA( cudaMemcpyAsync(this->b.vals, cpu_b_vals, sizeof(double) * b_nnz, H2D, this->stream_flex_arr[GPU0][1].stream) );
-    CHECK_CUDA( cudaMemcpyAsync(this->C.indices, cpu_C_indices, sizeof(int) * C_nnz, H2D, this->stream_flex_arr[GPU0][2].stream) );
-    CHECK_CUDA( cudaMemcpyAsync(this->C.vals, cpu_C_vals, sizeof(double) * C_nnz, H2D, this->stream_flex_arr[GPU0][0].stream) );
+    CHECK_CUDA( cudaMemcpyAsync(this->b.indices, cpu_b_indices, sizeof(int) * b_nnz, H2D, this->stream_flex[0].stream) );
+    CHECK_CUDA( cudaMemcpyAsync(this->b.vals, cpu_b_vals, sizeof(double) * b_nnz, H2D, this->stream_flex[1].stream) );
+    CHECK_CUDA( cudaMemcpyAsync(this->C.indices, cpu_C_indices, sizeof(int) * C_nnz, H2D, this->stream_flex[2].stream) );
+    CHECK_CUDA( cudaMemcpyAsync(this->C.vals, cpu_C_vals, sizeof(double) * C_nnz, H2D, this->stream_flex[0].stream) );
 
     // copy X, y, and S from CPU to GPU
     // if the input is nullptr (no warm start), we will set them to 0
     if (cpu_X_vals != nullptr) {
-        CHECK_CUDA( cudaMemcpyAsync(this->X.vals, cpu_X_vals, sizeof(double) * vec_len, H2D, this->stream_flex_arr[GPU0][1].stream) );
+        CHECK_CUDA( cudaMemcpyAsync(this->X.vals, cpu_X_vals, sizeof(double) * vec_len, H2D, this->stream_flex[1].stream) );
     } else {
-        CHECK_CUDA( cudaMemsetAsync(this->X.vals, 0, sizeof(double) * vec_len, this->stream_flex_arr[GPU0][1].stream) );
+        CHECK_CUDA( cudaMemsetAsync(this->X.vals, 0, sizeof(double) * vec_len, this->stream_flex[1].stream) );
     }
     if (cpu_y_vals != nullptr) {
-        CHECK_CUDA( cudaMemcpyAsync(this->y.vals, cpu_y_vals, sizeof(double) * con_num, H2D, this->stream_flex_arr[GPU0][2].stream) );
+        CHECK_CUDA( cudaMemcpyAsync(this->y.vals, cpu_y_vals, sizeof(double) * con_num, H2D, this->stream_flex[2].stream) );
     } else {
-        CHECK_CUDA( cudaMemsetAsync(this->y.vals, 0, sizeof(double) * con_num, this->stream_flex_arr[GPU0][2].stream) );
+        CHECK_CUDA( cudaMemsetAsync(this->y.vals, 0, sizeof(double) * con_num, this->stream_flex[2].stream) );
     }
     if (cpu_S_vals != nullptr) {
-        CHECK_CUDA( cudaMemcpyAsync(this->S.vals, cpu_S_vals, sizeof(double) * vec_len, H2D, this->stream_flex_arr[GPU0][0].stream) );
+        CHECK_CUDA( cudaMemcpyAsync(this->S.vals, cpu_S_vals, sizeof(double) * vec_len, H2D, this->stream_flex[0].stream) );
     } else {
-        CHECK_CUDA( cudaMemsetAsync(this->S.vals, 0, sizeof(double) * vec_len, this->stream_flex_arr[GPU0][0].stream) );
+        CHECK_CUDA( cudaMemsetAsync(this->S.vals, 0, sizeof(double) * vec_len, this->stream_flex[0].stream) );
     }
     this->sig = sig;
 
@@ -162,18 +158,18 @@ void SDPSolver::init(
     this->map_B.allocate(GPU0, vec_len);
     this->map_M1.allocate(GPU0, vec_len);
     this->map_M2.allocate(GPU0, vec_len);
-    CHECK_CUDA( cudaMemcpyAsync(this->map_B.vals, map_B_tmp.data(), sizeof(int) * vec_len, H2D, this->stream_flex_arr[GPU0][0].stream) );
-    CHECK_CUDA( cudaMemcpyAsync(this->map_M1.vals, map_M1_tmp.data(), sizeof(int) * vec_len, H2D, this->stream_flex_arr[GPU0][1].stream) );
-    CHECK_CUDA( cudaMemcpyAsync(this->map_M2.vals, map_M2_tmp.data(), sizeof(int) * vec_len, H2D, this->stream_flex_arr[GPU0][2].stream) );
+    CHECK_CUDA( cudaMemcpyAsync(this->map_B.vals, map_B_tmp.data(), sizeof(int) * vec_len, H2D, this->stream_flex[0].stream) );
+    CHECK_CUDA( cudaMemcpyAsync(this->map_M1.vals, map_M1_tmp.data(), sizeof(int) * vec_len, H2D, this->stream_flex[1].stream) );
+    CHECK_CUDA( cudaMemcpyAsync(this->map_M2.vals, map_M2_tmp.data(), sizeof(int) * vec_len, H2D, this->stream_flex[2].stream) );
 
     /* Scale (A is already scaled) */
     // move b and C to GPU
     this->borg.allocate(GPU0, this->con_num, this->b.nnz);
     this->Corg.allocate(GPU0, this->vec_len, this->C.nnz);
-    CHECK_CUDA( cudaMemcpyAsync(this->borg.indices, this->b.indices, sizeof(int) * this->b.nnz, D2D, this->stream_flex_arr[GPU0][0].stream) );
-    CHECK_CUDA( cudaMemcpyAsync(this->borg.vals, this->b.vals, sizeof(double) * this->b.nnz, D2D, this->stream_flex_arr[GPU0][1].stream) );
-    CHECK_CUDA( cudaMemcpyAsync(this->Corg.indices, this->C.indices, sizeof(int) * this->C.nnz, D2D, this->stream_flex_arr[GPU0][2].stream) );
-    CHECK_CUDA( cudaMemcpyAsync(this->Corg.vals, this->C.vals, sizeof(double) * this->C.nnz, D2D, this->stream_flex_arr[GPU0][0].stream) );
+    CHECK_CUDA( cudaMemcpyAsync(this->borg.indices, this->b.indices, sizeof(int) * this->b.nnz, D2D, this->stream_flex[0].stream) );
+    CHECK_CUDA( cudaMemcpyAsync(this->borg.vals, this->b.vals, sizeof(double) * this->b.nnz, D2D, this->stream_flex[1].stream) );
+    CHECK_CUDA( cudaMemcpyAsync(this->Corg.indices, this->C.indices, sizeof(int) * this->C.nnz, D2D, this->stream_flex[2].stream) );
+    CHECK_CUDA( cudaMemcpyAsync(this->Corg.vals, this->C.vals, sizeof(double) * this->C.nnz, D2D, this->stream_flex[0].stream) );
     this->synchronize_gpu0_streams();
     // compute the norms of b and C
     this->norm_borg = 1 + this->borg.get_norm(this->cublasH);
@@ -231,52 +227,49 @@ void SDPSolver::init(
 
     /* Eigen decomposition for moment matrices */
     // allocate GPU0 memory for moment matrices
-    this->mom_mat_arr = std::vector<DeviceDenseVector<double>>(this->device_num_requested);
-    this->mom_W_arr = std::vector<DeviceDenseVector<double>>(this->device_num_requested);
-    this->mom_info_arr = std::vector<DeviceDenseVector<int>>(this->device_num_requested);
-    this->mom_mat_arr[GPU0].allocate(GPU0, this->mom_mat_num * this->LARGE * this->LARGE);
-    this->mom_W_arr[GPU0].allocate(GPU0, this->mom_mat_num * this->LARGE);
-    this->mom_info_arr[GPU0].allocate(GPU0, this->mom_mat_num);
+    this->mom_mat.allocate(GPU0, this->mom_mat_num * this->LARGE * this->LARGE);
+    this->mom_W.allocate(GPU0, this->mom_mat_num * this->LARGE);
+    this->mom_info.allocate(GPU0, this->mom_mat_num);
 
     // if the decomposition is on GPU, use cuSOLVER (cf cusolver.h)
     this->eig_stream_num_per_gpu = eig_stream_num_per_gpu;
 
     // compute the number of moment matrices for each GPU
-    int base_nb_per_gpu = std::floor(static_cast<double>( this->mom_mat_num ) / this->device_num_requested);
-    std::vector<int> mom_per_gpu(this->device_num_requested, 0); // given a GPU, how many moment matrices it will compute
-    for (int gpu_id = 0; gpu_id < this->device_num_requested - 1; gpu_id++) {
+    int base_nb_per_gpu = std::floor(static_cast<double>( this->mom_mat_num ) / 1);
+    std::vector<int> mom_per_gpu(1, 0); // given a GPU, how many moment matrices it will compute
+    for (int gpu_id = 0; gpu_id < 1 - 1; gpu_id++) {
         mom_per_gpu[gpu_id] = base_nb_per_gpu; // start by assigning the base number
     }
     // the last GPU takes the rest (for now)
-    mom_per_gpu[this->device_num_requested - 1] = this->mom_mat_num - (this->device_num_requested - 1) * base_nb_per_gpu;
-    if (this->device_num_requested > 2) { // if there are 1 or 2 GPUs, the distribution alread is optimal
+    mom_per_gpu[1 - 1] = this->mom_mat_num - (1 - 1) * base_nb_per_gpu;
+    if (1 > 2) { // if there are 1 or 2 GPUs, the distribution alread is optimal
         int i = 0;
         while (
-            ( mom_per_gpu[this->device_num_requested - 1] - mom_per_gpu[i] >= 2 ) &&
-            ( i < this->device_num_requested - 1 )
+            ( mom_per_gpu[1 - 1] - mom_per_gpu[i] >= 2 ) &&
+            ( i < 1 - 1 )
         ) {
             // balance the number of moment matrices to have the best possible distribution
             mom_per_gpu[i] += 1;
-            mom_per_gpu[this->device_num_requested - 1] -= 1;
+            mom_per_gpu[1 - 1] -= 1;
             i++;
         }
     }
     // for each GPU, gives the index of the first moment matrix it will compute
-    this->mom_mat_num_col_ptrs_arr = std::vector<int>(this->device_num_requested + 1, 0);
+    this->mom_mat_num_col_ptrs_arr = std::vector<int>(1 + 1, 0);
     int sum = 0;
-    for (int gpu_id = 0; gpu_id < this->device_num_requested; gpu_id++) {
+    for (int gpu_id = 0; gpu_id < 1; gpu_id++) {
         sum += mom_per_gpu[gpu_id];
         this->mom_mat_num_col_ptrs_arr[gpu_id + 1] = sum;
     }
 
     // streams and handles for eigen decomposition
     this->eig_stream_arr = std::vector<std::vector<DeviceStream>>(
-        this->device_num_requested, std::vector<DeviceStream>(this->eig_stream_num_per_gpu)
+        1, std::vector<DeviceStream>(this->eig_stream_num_per_gpu)
     );
     this->cusolverH_eig_mom_arr = std::vector<std::vector<DeviceSolverDnHandle>>(
-        this->device_num_requested, std::vector<DeviceSolverDnHandle>(this->eig_stream_num_per_gpu)
+        1, std::vector<DeviceSolverDnHandle>(this->eig_stream_num_per_gpu)
     );
-    for (int gpu_id = 0; gpu_id < this->device_num_requested; gpu_id++) {
+    for (int gpu_id = 0; gpu_id < 1; gpu_id++) {
         for (int stream_id = 0; stream_id < this->eig_stream_num_per_gpu; stream_id++) {
             // ininitialize and activate the streams and handles
             this->eig_stream_arr[gpu_id][stream_id].set_gpu_id(gpu_id);
@@ -288,20 +281,20 @@ void SDPSolver::init(
 
     // allocate memory for the moment matrices eig decomposition
     int mom_mat_num_this_gpu;
-    for (int gpu_id = 1; gpu_id < this->device_num_requested; gpu_id++) {
+    for (int gpu_id = 1; gpu_id < 1; gpu_id++) {
         mom_mat_num_this_gpu = this->mom_mat_num_col_ptrs_arr[gpu_id + 1] - this->mom_mat_num_col_ptrs_arr[gpu_id];
-        this->mom_mat_arr[gpu_id].allocate(gpu_id, mom_mat_num_this_gpu * this->LARGE * this->LARGE);
-        this->mom_W_arr[gpu_id].allocate(gpu_id, mom_mat_num_this_gpu * this->LARGE);
-        this->mom_info_arr[gpu_id].allocate(gpu_id, mom_mat_num_this_gpu);
+        this->mom_mat.allocate(gpu_id, mom_mat_num_this_gpu * this->LARGE * this->LARGE);
+        this->mom_W.allocate(gpu_id, mom_mat_num_this_gpu * this->LARGE);
+        this->mom_info.allocate(gpu_id, mom_mat_num_this_gpu);
     }
     // compute the buffer sizes of the moment matrices eig decomposition
-    this->eig_mom_buffer_arr = std::vector<DeviceDenseVector<double>>(this->device_num_requested); // one buffer per GPU
-    this->cpu_eig_mom_buffer_arr = std::vector<HostDenseVector<double>>(this->device_num_requested); // also one buffer per GPU (this is the host buffer)
+    this->eig_mom_buffer_arr = std::vector<DeviceDenseVector<double>>(1); // one buffer per GPU
+    this->cpu_eig_mom_buffer_arr = std::vector<HostDenseVector<double>>(1); // also one buffer per GPU (this is the host buffer)
     single_eig_get_buffersize_cusolver(
-        this->cusolverH_eig_mom_arr[GPU0][0], eig_param_single, this->mom_mat_arr[0], mom_W_arr[0],
+        this->cusolverH_eig_mom_arr[GPU0][0], eig_param_single, this->mom_mat, mom_W,
         this->LARGE, &this->eig_mom_buffer_size, &this->cpu_eig_mom_buffer_size
     ); // buffer size per moment matrix
-    for (int gpu_id = 0; gpu_id < this->device_num_requested; gpu_id++) {
+    for (int gpu_id = 0; gpu_id < 1; gpu_id++) {
         mom_mat_num_this_gpu = this->mom_mat_num_col_ptrs_arr[gpu_id + 1] - this->mom_mat_num_col_ptrs_arr[gpu_id];
         // allocate memory for the two buffers, host and device
         this->eig_mom_buffer_arr[gpu_id].allocate(gpu_id, this->eig_mom_buffer_size * mom_mat_num_this_gpu, true);
@@ -320,7 +313,7 @@ void SDPSolver::init(
         this->cusolverH_eig_loc, this->eig_param_batch, this->loc_mat, this->loc_W,
         this->SMALL, this->loc_mat_num
     );
-    CHECK_CUDA( cudaStreamSynchronize(this->stream_flex_arr[GPU0][0].stream) );
+    CHECK_CUDA( cudaStreamSynchronize(this->stream_flex[0].stream) );
     this->eig_loc_buffer.allocate(GPU0, this->eig_loc_buffer_size, true);
 
     /* For the computation of y, X, S */
@@ -336,9 +329,9 @@ void SDPSolver::init(
     this->cublasH_flex_arr = std::vector<DeviceBlasHandle>(2);
     for (int i = 0; i < 2; i++) {
         this->cusparseH_flex_arr[i].set_gpu_id(GPU0);
-        this->cusparseH_flex_arr[i].activate(this->stream_flex_arr[GPU0][i]);
+        this->cusparseH_flex_arr[i].activate(this->stream_flex[i]);
         this->cublasH_flex_arr[i].set_gpu_id(GPU0);
-        this->cublasH_flex_arr[i].activate(this->stream_flex_arr[GPU0][i]);
+        this->cublasH_flex_arr[i].activate(this->stream_flex[i]);
     }
     this->prim_win = 0;
     this->dual_win = 0;
@@ -359,7 +352,7 @@ void SDPSolver::init(
     this->eig_rank = 5;
     this->begin_low_rank_proj = std::numeric_limits<int>::infinity();
     this->eig_rank = min(this->eig_rank, this->SMALL);
-    this->mom_W_rank_mask.allocate(GPU0, this->mom_W_arr[0].size);
+    this->mom_W_rank_mask.allocate(GPU0, this->mom_W.size);
     this->loc_W_rank_mask.allocate(GPU0, this->loc_W.size);
     std::vector<int> cpu_mom_W_rank_mask;
     std::vector<int> cpu_loc_W_rank_mask;
@@ -405,13 +398,13 @@ void SDPSolver::solve(
 
     /* Start the threads for eigen decomposition of moment matrices */
     int eig_thread_arr_size;
-    eig_thread_arr_size = this->device_num_requested;
+    eig_thread_arr_size = 1;
     std::condition_variable eig_cv;
     std::vector<std::mutex> eig_mtx_arr(eig_thread_arr_size);
     std::vector<std::thread> eig_thread_arr;
     int eig_count_finish = 0;
 
-    for (int gpu_id = 0; gpu_id < this->device_num_requested; gpu_id++) {
+    for (int gpu_id = 0; gpu_id < 1; gpu_id++) {
         // add a thread
         eig_thread_arr.emplace_back(std::thread(
             [&, gpu_id]() { // lambda function for the thread behavior
@@ -441,11 +434,11 @@ void SDPSolver::solve(
                     // if we are not on GPU0, copy the moment matrices from GPU0 to this GPU
                     if (gpu_id > 0) {
                         CHECK_CUDA( cudaMemcpyPeerAsync(
-                            this->mom_mat_arr[gpu_id].vals, gpu_id,
-                            this->mom_mat_arr[GPU0].vals + mom_mat_id_start_this_gpu * this->LARGE * this->LARGE, GPU0,
-                            sizeof(double) * mom_mat_num_this_gpu * this->LARGE * this->LARGE, this->stream_flex_arr[gpu_id][0].stream
+                            this->mom_mat.vals, gpu_id,
+                            this->mom_mat.vals + mom_mat_id_start_this_gpu * this->LARGE * this->LARGE, GPU0,
+                            sizeof(double) * mom_mat_num_this_gpu * this->LARGE * this->LARGE, this->stream_flex[0].stream
                         ) );
-                        CHECK_CUDA( cudaStreamSynchronize(this->stream_flex_arr[gpu_id][0].stream) );
+                        CHECK_CUDA( cudaStreamSynchronize(this->stream_flex[0].stream) );
                     }
 
                     // for each moment matrix on this GPU, compute the eig decomposition
@@ -453,8 +446,8 @@ void SDPSolver::solve(
                         stream_id = i % this->eig_stream_num_per_gpu;
                         // simply calls the cuSOLVER wrapper
                         single_eig_cusolver(
-                            this->cusolverH_eig_mom_arr[gpu_id][stream_id], eig_param_single, this->mom_mat_arr[gpu_id], this->mom_W_arr[gpu_id],
-                            this->eig_mom_buffer_arr[gpu_id], this->cpu_eig_mom_buffer_arr[gpu_id], this->mom_info_arr[gpu_id],
+                            this->cusolverH_eig_mom_arr[gpu_id][stream_id], eig_param_single, this->mom_mat, this->mom_W,
+                            this->eig_mom_buffer_arr[gpu_id], this->cpu_eig_mom_buffer_arr[gpu_id], this->mom_info,
                             this->LARGE, this->eig_mom_buffer_size, this->cpu_eig_mom_buffer_size,
                             i * this->LARGE * this->LARGE, i * this->LARGE,
                             i * this->eig_mom_buffer_size, i * this->cpu_eig_mom_buffer_size, i
@@ -470,21 +463,21 @@ void SDPSolver::solve(
                     if (gpu_id > 0) {
                         // copy moment matrices
                         CHECK_CUDA( cudaMemcpyPeerAsync(
-                            this->mom_mat_arr[GPU0].vals + mom_mat_id_start_this_gpu * this->LARGE * this->LARGE, GPU0,
-                            this->mom_mat_arr[gpu_id].vals, gpu_id,
-                            sizeof(double) * mom_mat_num_this_gpu * this->LARGE * this->LARGE, this->stream_flex_arr[gpu_id][0].stream
+                            this->mom_mat.vals + mom_mat_id_start_this_gpu * this->LARGE * this->LARGE, GPU0,
+                            this->mom_mat.vals, gpu_id,
+                            sizeof(double) * mom_mat_num_this_gpu * this->LARGE * this->LARGE, this->stream_flex[0].stream
                         ) );
                         // copy eigenvalues
                         CHECK_CUDA( cudaMemcpyPeerAsync(
-                            this->mom_W_arr[GPU0].vals + mom_mat_id_start_this_gpu * this->LARGE, GPU0,
-                            this->mom_W_arr[gpu_id].vals, gpu_id,
-                            sizeof(double) * mom_mat_num_this_gpu * this->LARGE, this->stream_flex_arr[gpu_id][1].stream
+                            this->mom_W.vals + mom_mat_id_start_this_gpu * this->LARGE, GPU0,
+                            this->mom_W.vals, gpu_id,
+                            sizeof(double) * mom_mat_num_this_gpu * this->LARGE, this->stream_flex[1].stream
                         ) );
                         // copy info
                         CHECK_CUDA( cudaMemcpyPeerAsync(
-                            this->mom_info_arr[GPU0].vals + mom_mat_id_start_this_gpu, GPU0,
-                            this->mom_info_arr[gpu_id].vals, gpu_id,
-                            sizeof(int) * mom_mat_num_this_gpu, this->stream_flex_arr[gpu_id][2].stream
+                            this->mom_info.vals + mom_mat_id_start_this_gpu, GPU0,
+                            this->mom_info.vals, gpu_id,
+                            sizeof(int) * mom_mat_num_this_gpu, this->stream_flex[2].stream
                         ) );
 
                     }
@@ -492,7 +485,7 @@ void SDPSolver::solve(
                     // synchronize the streams
                     resource_lk.lock();
                     eig_count_finish++;
-                    if (eig_count_finish == this->device_num_requested) {
+                    if (eig_count_finish == 1) {
                         main_cv.notify_one();
                     }
                     resource_lk.unlock();
@@ -626,15 +619,15 @@ void SDPSolver::solve(
         CHECK_CUDA( cudaDeviceSynchronize() );
         CHECK_CUDA( cudaMemcpyAsync(
             this->cpu_AAt_solver.chol_dn_rhs->x, this->rhsy_perm.vals,
-            sizeof(double) * this->con_num, D2H, this->stream_flex_arr[GPU0][0].stream
+            sizeof(double) * this->con_num, D2H, this->stream_flex[0].stream
         ) );
-        CHECK_CUDA( cudaStreamSynchronize(this->stream_flex_arr[GPU0][0].stream) );
+        CHECK_CUDA( cudaStreamSynchronize(this->stream_flex[0].stream) );
         this->cpu_AAt_solver.solve();
         CHECK_CUDA( cudaMemcpyAsync(
             this->y_perm.vals, this->cpu_AAt_solver.chol_dn_res->x,
-            sizeof(double) * this->con_num, H2D, this->stream_flex_arr[GPU0][0].stream
+            sizeof(double) * this->con_num, H2D, this->stream_flex[0].stream
         ) );
-        CHECK_CUDA( cudaStreamSynchronize(this->stream_flex_arr[GPU0][0].stream) );
+        CHECK_CUDA( cudaStreamSynchronize(this->stream_flex[0].stream) );
         perform_permutation(this->y, this->y_perm, this->perm);
         // hence y = (AA^T)^{-1} r_s^{k+1/2}
 
@@ -669,7 +662,7 @@ void SDPSolver::solve(
         /* Compute Pi(X^{k+1}) (this is long) */
 
         // first, we convert Xb back to matrices (mom and loc)
-        vector_to_matrices(this->Xb, this->mom_mat_arr[GPU0], this->loc_mat, this->map_B, this->map_M1, this->map_M2);
+        vector_to_matrices(this->Xb, this->mom_mat, this->loc_mat, this->map_B, this->map_M1, this->map_M2);
         CHECK_CUDA( cudaDeviceSynchronize() );
 
 
@@ -682,9 +675,9 @@ void SDPSolver::solve(
         // we perform an ADMM switch
         if (breakyes) {
             if (iter > this->switch_admm) {
-                CHECK_CUDA( cudaMemcpyAsync(this->X.vals, this->X_best.vals, sizeof(double) * this->vec_len, D2D, this->stream_flex_arr[GPU0][0].stream) );
-                CHECK_CUDA( cudaMemcpyAsync(this->y.vals, this->y_best.vals, sizeof(double) * this->con_num, D2D, this->stream_flex_arr[GPU0][1].stream) );
-                CHECK_CUDA( cudaMemcpyAsync(this->S.vals, this->S_best.vals, sizeof(double) * this->vec_len, D2D, this->stream_flex_arr[GPU0][2].stream) );
+                CHECK_CUDA( cudaMemcpyAsync(this->X.vals, this->X_best.vals, sizeof(double) * this->vec_len, D2D, this->stream_flex[0].stream) );
+                CHECK_CUDA( cudaMemcpyAsync(this->y.vals, this->y_best.vals, sizeof(double) * this->con_num, D2D, this->stream_flex[1].stream) );
+                CHECK_CUDA( cudaMemcpyAsync(this->S.vals, this->S_best.vals, sizeof(double) * this->vec_len, D2D, this->stream_flex[2].stream) );
                 this->synchronize_gpu0_streams();
                 printf("best max KKT residual after switch  = %2.1e \n", this->best_KKT);
             }
@@ -702,26 +695,12 @@ void SDPSolver::solve(
             this->SMALL, this->loc_mat_num, this->eig_loc_buffer_size
         );
 
-        // --- BEGIN: fixed rank projection ---
-        // if (iter >= this->begin_low_rank_proj || this->maxfeas < 1e-3) {
-        //     max_dnvec_zero_mask(this->mom_W_arr[GPU0], this->mom_W_rank_mask);
-        //     max_dnvec_zero_mask(this->loc_W, this->loc_W_rank_mask);
-        // } else {
-            max_dense_vector_zero(this->mom_W_arr[GPU0]);
-            max_dense_vector_zero(this->loc_W);
-        // }
-        // std::vector<double> cpu_mom_W(this->mom_W_arr[0].size, 0);
-        // std::vector<double> cpu_loc_W(this->loc_W.size);
-        // CHECK_CUDA( cudaMemcpy(cpu_mom_W.data(), this->mom_W_arr[0].vals, sizeof(double) * cpu_mom_W.size(), D2H) );
-        // CHECK_CUDA( cudaMemcpy(cpu_loc_W.data(), this->loc_W.vals, sizeof(double) * cpu_loc_W.size(), D2H) );
-        // --- END: fixed rank projection -----
+        max_dense_vector_zero(this->mom_W);
+        max_dense_vector_zero(this->loc_W);
 
-        // max_dnvec_zero(this->mom_W_arr[0]);
-        // max_dnvec_zero(this->loc_W);
-
-        dense_matrix_mul_diag_batch(mom_mat_tmp, this->mom_mat_arr[GPU0], this->mom_W_arr[GPU0], this->LARGE);
+        dense_matrix_mul_diag_batch(mom_mat_tmp, this->mom_mat, this->mom_W, this->LARGE);
         dense_matrix_mul_diag_batch(this->loc_mat_tmp, this->loc_mat, this->loc_W, this->SMALL);
-        dense_matrix_mul_trans_batch(this->cublasH, this->mom_mat_P, this->mom_mat_tmp, this->mom_mat_arr[GPU0], this->LARGE, this->mom_mat_num);
+        dense_matrix_mul_trans_batch(this->cublasH, this->mom_mat_P, this->mom_mat_tmp, this->mom_mat, this->LARGE, this->mom_mat_num);
         dense_matrix_mul_trans_batch(this->cublasH, this->loc_mat_P, this->loc_mat_tmp, this->loc_mat, this->SMALL, this->loc_mat_num);
 
         // convert the matrices back to vectorized format
@@ -768,9 +747,9 @@ void SDPSolver::solve(
             this->sigscale = this->sigscale * 1.23;
             this->sgs_KKT = max(this->maxfeas, this->relgap);
             this->best_KKT = this->sgs_KKT;
-            CHECK_CUDA( cudaMemcpyAsync(this->X_best.vals, this->X.vals, sizeof(double) * this->vec_len, D2D, this->stream_flex_arr[GPU0][0].stream) );
-            CHECK_CUDA( cudaMemcpyAsync(this->y_best.vals, this->y.vals, sizeof(double) * this->con_num, D2D, this->stream_flex_arr[GPU0][1].stream) );
-            CHECK_CUDA( cudaMemcpyAsync(this->S_best.vals, this->S.vals, sizeof(double) * this->vec_len, D2D, this->stream_flex_arr[GPU0][2].stream) );
+            CHECK_CUDA( cudaMemcpyAsync(this->X_best.vals, this->X.vals, sizeof(double) * this->vec_len, D2D, this->stream_flex[0].stream) );
+            CHECK_CUDA( cudaMemcpyAsync(this->y_best.vals, this->y.vals, sizeof(double) * this->con_num, D2D, this->stream_flex[1].stream) );
+            CHECK_CUDA( cudaMemcpyAsync(this->S_best.vals, this->S.vals, sizeof(double) * this->vec_len, D2D, this->stream_flex[2].stream) );
         }
 
         // when before the switch, perform the special sGS-ADMM step
@@ -789,15 +768,15 @@ void SDPSolver::solve(
             CHECK_CUDA( cudaDeviceSynchronize() );
             CHECK_CUDA( cudaMemcpyAsync(
                 this->cpu_AAt_solver.chol_dn_rhs->x, this->rhsy_perm.vals,
-                sizeof(double) * this->con_num, D2H, this->stream_flex_arr[GPU0][0].stream
+                sizeof(double) * this->con_num, D2H, this->stream_flex[0].stream
             ) );
-            CHECK_CUDA( cudaStreamSynchronize(this->stream_flex_arr[GPU0][0].stream) );
+            CHECK_CUDA( cudaStreamSynchronize(this->stream_flex[0].stream) );
             this->cpu_AAt_solver.solve();
             CHECK_CUDA( cudaMemcpyAsync(
                 this->y_perm.vals, this->cpu_AAt_solver.chol_dn_res->x,
-                sizeof(double) * this->con_num, H2D, this->stream_flex_arr[GPU0][0].stream
+                sizeof(double) * this->con_num, H2D, this->stream_flex[0].stream
             ) );
-            CHECK_CUDA( cudaStreamSynchronize(this->stream_flex_arr[GPU0][0].stream) );
+            CHECK_CUDA( cudaStreamSynchronize(this->stream_flex[0].stream) );
             perform_permutation(this->y, this->y_perm, this->perm);
             // hence y = (AA^T)^{-1} r_s^{k+1}
 
@@ -817,9 +796,9 @@ void SDPSolver::solve(
             // if the current KKT residual is smaller than the best one so far,
             // update the best solution so far
             if (this->best_KKT > max(this->maxfeas, this->relgap)) {
-                CHECK_CUDA( cudaMemcpyAsync(this->X_best.vals, this->X.vals, sizeof(double) * this->vec_len, D2D, this->stream_flex_arr[GPU0][0].stream) );
-                CHECK_CUDA( cudaMemcpyAsync(this->y_best.vals, this->y.vals, sizeof(double) * this->con_num, D2D, this->stream_flex_arr[GPU0][1].stream) );
-                CHECK_CUDA( cudaMemcpyAsync(this->S_best.vals, this->S.vals, sizeof(double) * this->vec_len, D2D, this->stream_flex_arr[GPU0][2].stream) );
+                CHECK_CUDA( cudaMemcpyAsync(this->X_best.vals, this->X.vals, sizeof(double) * this->vec_len, D2D, this->stream_flex[0].stream) );
+                CHECK_CUDA( cudaMemcpyAsync(this->y_best.vals, this->y.vals, sizeof(double) * this->con_num, D2D, this->stream_flex[1].stream) );
+                CHECK_CUDA( cudaMemcpyAsync(this->S_best.vals, this->S.vals, sizeof(double) * this->vec_len, D2D, this->stream_flex[2].stream) );
                 this->best_KKT = max(this->maxfeas, this->relgap);
             }
         }

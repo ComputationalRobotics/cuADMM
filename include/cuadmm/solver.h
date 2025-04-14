@@ -102,10 +102,9 @@ class SDPSolver {
         DeviceDenseVector<int> map_M2; // |    (cached from get_maps())
 
         /* Moment matrix decomposition on multiple GPU */
-        std::vector<DeviceDenseVector<double>> mom_mat_arr;
-        std::vector<DeviceDenseVector<double>> mom_W_arr;
-        std::vector<DeviceDenseVector<int>> mom_info_arr;
-        int device_num_requested;      // number of GPUs requested by the suer
+        DeviceDenseVector<double> mom_mat;
+        DeviceDenseVector<double> mom_W;
+        DeviceDenseVector<int> mom_info;
         int eig_stream_num_per_gpu;    // number of streams per GPU
         std::vector<int> mom_mat_num_col_ptrs_arr;
         std::vector<std::vector<DeviceStream>> eig_stream_arr;
@@ -141,7 +140,7 @@ class SDPSolver {
         DeviceDenseVector<double> loc_mat_P;
 
         /* Other */
-        std::vector<std::vector<DeviceStream>> stream_flex_arr;
+        std::vector<DeviceStream> stream_flex;
         std::vector<DeviceSparseHandle> cusparseH_flex_arr;
         std::vector<DeviceBlasHandle> cublasH_flex_arr;
         DeviceSparseHandle cusparseH; // main cuSPARSE handle
