@@ -106,16 +106,15 @@ class SDPSolver {
         DeviceDenseVector<double> mom_W;
         DeviceDenseVector<int> mom_info;
         int eig_stream_num_per_gpu;    // number of streams per GPU
-        std::vector<int> mom_mat_num_col_ptrs_arr;
-        std::vector<std::vector<DeviceStream>> eig_stream_arr;
-        std::vector<std::vector<DeviceSolverDnHandle>> cusolverH_eig_mom_arr;
+        std::vector<DeviceStream> eig_stream_arr;
+        std::vector<DeviceSolverDnHandle> cusolverH_eig_mom_arr; // one handle per stream
         SingleEigParameter eig_param_single;
         size_t eig_mom_buffer_size;                                 // | GPU eig dec.
-        std::vector<DeviceDenseVector<double>> eig_mom_buffer_arr;  // | (size and buffer)
+        DeviceDenseVector<double> eig_mom_buffer;  // | (size and buffer)
 
         /* Moment matrix eigen decomposition: multi-core CPU */
-        size_t cpu_eig_mom_buffer_size;                              // | CPU eig dec.
-        std::vector<HostDenseVector<double>> cpu_eig_mom_buffer_arr; // | (size and buffer)
+        size_t cpu_eig_mom_buffer_size;             // | CPU eig dec.
+        HostDenseVector<double> cpu_eig_mom_buffer; // | (size and buffer)
         HostDenseVector<double> cpu_mom_mat;     // moment matrices on CPU
         HostDenseVector<double> cpu_mom_W;       // moment matrix eigenvectors on CPU
         HostDenseVector<ptrdiff_t> cpu_mom_info; // resulting info of eigen dec.
