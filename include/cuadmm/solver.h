@@ -89,7 +89,6 @@ class SDPSolver {
         DeviceDenseVector<double> CSCtoCSR_At2A_buffer; // buffer for CSC to CSR
 
         /* GPU and CPU eigen decomposition + X, S computation */
-        bool if_gpu_eig_mom; // if true, use multiple GPUs for eig decomposition
         DeviceDenseVector<double> Xold;
         DeviceDenseVector<double> Xb;
 
@@ -204,8 +203,6 @@ class SDPSolver {
         // Initializes an SDPSolver.
         //
         // Args:
-        // - if_gpu_eig_mom: if true, use multiple GPUs for eig decomposition
-        // - device_num_requested: number of GPUs requested by the user
         // - eig_stream_num_per_gpu: number of streams per GPU
         // - cpu_eig_thread_num: number of threads for CPU eigen decomposition
         //
@@ -233,10 +230,6 @@ class SDPSolver {
         // - cpu_S_vals: initial values for S (optional)
         // - sig: initial value for sigma (default: 2e2)
         void init(
-            // eig
-            bool if_gpu_eig_mom,
-            // do moment matrix eigen decomposition on GPU
-            int device_num_requested,
             int eig_stream_num_per_gpu,
             // do moment matrix eigen decomposition on CPU
             int cpu_eig_thread_num,

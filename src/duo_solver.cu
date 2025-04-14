@@ -789,7 +789,7 @@ void SDPDuoSolver::solve(
         vector_to_matrices(this->Xb, this->mom_mat_arr[GPU0], this->loc_mat, this->map_B, this->map_M1, this->map_M2);
         CHECK_CUDA( cudaDeviceSynchronize() );
 
-        // if the decomposition is on GPU, we retrieve the moment matrices from GPU0
+        // if the decomposition is not on GPU, we retrieve the moment matrices from GPU0
         if (!this->if_gpu_eig_mom) {
             CHECK_CUDA( cudaMemcpyAsync(
                 this->cpu_mom_mat.vals, this->mom_mat_arr[GPU0].vals,
@@ -819,7 +819,7 @@ void SDPDuoSolver::solve(
         // wait for the main thread to finish the eig decomposition
         main_cv.wait(main_lk);
 
-        // if the decomposition is on GPU, we copy the moment matrices to the GPU0
+        // if the decomposition is not on GPU, we copy the moment matrices to the GPU0
         if (!this->if_gpu_eig_mom) {
             CHECK_CUDA( cudaMemcpyAsync(
                 this->mom_mat_arr[GPU0].vals, this->cpu_mom_mat.vals,

@@ -7,8 +7,8 @@
 
 int main(int argc, char* argv[]) {
     std::string prefix = argv[1];
-    bool if_gpu_eig_mom = true;
-    int device_num_requested = 1;
+    // bool if_gpu_eig_mom = true;
+    // int device_num_requested = 1;
     int eig_stream_num_per_gpu = 15;
     int cpu_eig_thread_num = 30;
 
@@ -19,7 +19,8 @@ int main(int argc, char* argv[]) {
     SDPSolver solver;
     double sig = 1e0;
     solver.init(
-        if_gpu_eig_mom, device_num_requested, eig_stream_num_per_gpu, cpu_eig_thread_num,
+        // if_gpu_eig_mom, device_num_requested,
+        eig_stream_num_per_gpu, cpu_eig_thread_num,
         problem.vec_len, problem.con_num,
         problem.At_csc_col_ptrs.data(), problem.At_csc_row_ids.data(), problem.At_csc_vals.data(), problem.At_nnz,
         problem.b_indices.data(), problem.b_vals.data(), problem.b_nnz,
