@@ -14,19 +14,19 @@
 
 class Problem{
     public:
-        std::vector<double> cpu_X_vals;
-        std::vector<double> cpu_y_vals;
-        std::vector<double> cpu_S_vals;
-        std::vector<int> cpu_At_csc_col_ptrs;
-        std::vector<int> cpu_At_coo_col_ids;
-        std::vector<int> cpu_At_csc_row_ids;
-        std::vector<double> cpu_At_csc_vals;
-        std::vector<int> cpu_b_indices;
-        std::vector<double> cpu_b_vals;
-        std::vector<int> cpu_C_indices;
-        std::vector<double> cpu_C_vals;
-        std::vector<int> cpu_blk_vals;
-        std::vector<double> cpu_sig_vals;
+        std::vector<double> X_vals;
+        std::vector<double> y_vals;
+        std::vector<double> S_vals;
+        std::vector<int> At_csc_col_ptrs;
+        std::vector<int> At_coo_col_ids;
+        std::vector<int> At_csc_row_ids;
+        std::vector<double> At_csc_vals;
+        std::vector<int> b_indices;
+        std::vector<double> b_vals;
+        std::vector<int> C_indices;
+        std::vector<double> C_vals;
+        std::vector<int> blk_vals;
+        std::vector<double> sig_vals;
 
         int vec_len;
         int col_num;
