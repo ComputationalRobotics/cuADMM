@@ -1,13 +1,14 @@
 /*
 
-    solver.cu
+    duo_solver.cu
 
-    Main solver.
+    Main solver, works only for two sizes of matrices: SMALL and LARGE.
+    Suitable for SDP relaxations of SPOT problems.
     Uses the sGS-ADMM algorithm to solve an SDP problem.
 
 */
 
-#include "cuadmm/solver.h"
+#include "cuadmm/duo_solver.h"
 #include "cuadmm/kernels.h"
 
 #include <condition_variable>
@@ -20,13 +21,13 @@
 #define SIG_UPDATE_STAGE_2 100
 #define SIG_SCALE 1.05
 
-void SDPSolver::synchronize_gpu0_streams() {
+void SDPDuoSolver::synchronize_gpu0_streams() {
     CHECK_CUDA( cudaStreamSynchronize(this->stream_flex_arr[GPU0][0].stream) );
     CHECK_CUDA( cudaStreamSynchronize(this->stream_flex_arr[GPU0][1].stream) );
     CHECK_CUDA( cudaStreamSynchronize(this->stream_flex_arr[GPU0][2].stream) );
 }
 
-void SDPSolver::init(
+void SDPDuoSolver::init(
     // eig
     bool if_gpu_eig_mom,
     // do moment matrix eigen decomposition on GPU
@@ -446,7 +447,7 @@ void SDPSolver::init(
     return;
 }
 
-void SDPSolver::solve(
+void SDPDuoSolver::solve(
     int max_iter, double stop_tol,
     int sig_update_threshold,
     int sig_update_stage_1,

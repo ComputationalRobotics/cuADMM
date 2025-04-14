@@ -2,7 +2,7 @@
 #include <stdio.h>
 #include <iostream>
 
-#include "cuadmm/solver.h"
+#include "cuadmm/duo_solver.h"
 #include "cuadmm/io.h"
 
 int main() {
@@ -43,7 +43,7 @@ int main() {
     read_dense_vector_data(prefix + "sig.txt", cpu_sig_vals);
     double sig_1 = cpu_sig_vals[0];
     
-    SDPSolver solver;
+    SDPDuoSolver solver;
     double sig = 1e0;
     solver.init(
         if_gpu_eig_mom, device_num_requested, eig_stream_num_per_gpu, cpu_eig_thread_num,

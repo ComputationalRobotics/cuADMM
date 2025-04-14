@@ -1,14 +1,15 @@
 /*
 
-    solver.h
+    duo_solver.h
 
-    Main solver header.
+    Main solver header, works only for two sizes of matrices: SMALL and LARGE.
+    Suitable for SDP relaxations of SPOT problems.
     Uses the sGS-ADMM algorithm to solve an SDP problem.
 
 */
 
-#ifndef CUADMM_SOLVER_H
-#define CUADMM_SOLVER_H
+#ifndef CUADMM_DUO_SOLVER_H
+#define CUADMM_DUO_SOLVER_H
 
 #include "cuadmm/check.h"
 #include "cuadmm/eig_cpu.h"
@@ -21,12 +22,12 @@
 #include "cuadmm/cusparse.h"
 #include "cuadmm/cusolver.h"
 
-// Main solver class for the SDP problem.
+// Main solver class for the SDP problem with two sizes of matrices only.
 // Uses the sGS-ADMM algorithm to solve the problem:
 //      min(X) <C, X>  s.t. A(X) = b,       X >= 0,
 // of dual:
 //   max(y, S) <b, y>  s.t. At(y) + S = C,  S >= 0
-class SDPSolver {
+class SDPDuoSolver {
     public:
         /* Problem data */
         DeviceSparseMatrixDoubleCSC At_csc; // |
@@ -199,9 +200,9 @@ class SDPSolver {
         DeviceDenseVector<double> y_best; // |  to use in the end
         DeviceDenseVector<double> S_best; // |
 
-        SDPSolver() {}
+        SDPDuoSolver() {}
 
-        // Initializes an SDPSolver.
+        // Initializes an SDPDuoSolver.
         //
         // Args:
         // - if_gpu_eig_mom: if true, use multiple GPUs for eig decomposition
@@ -278,4 +279,4 @@ class SDPSolver {
         void synchronize_gpu0_streams();
 };
 
-#endif // CUADMM_SOLVER_H
+#endif // CUADMM_DUO_SOLVER_H

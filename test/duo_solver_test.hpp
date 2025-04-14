@@ -1,9 +1,9 @@
-#include "cuadmm/solver.h"
+#include "cuadmm/duo_solver.h"
 #include "cuadmm/io.h"
 
 #include <cstdlib>
 
-TEST(Solver, Init)
+TEST(DuoSolver, Init)
 {
     const char* env_prefix = std::getenv("CUADMM_SOLVER_TEST_PATH");
     if (!env_prefix) {
@@ -46,7 +46,7 @@ TEST(Solver, Init)
     read_dense_vector_data(prefix + "sig.txt", cpu_sig_vals);
     double sig_1 = cpu_sig_vals[0];
 
-    SDPSolver solver1;
+    SDPDuoSolver solver1;
     solver1.init(
         true,
         2,
@@ -63,7 +63,7 @@ TEST(Solver, Init)
         1.0
     );
 
-    SDPSolver solver2;
+    SDPDuoSolver solver2;
     solver2.init(
         false,
         2,
@@ -81,7 +81,7 @@ TEST(Solver, Init)
     );
 }
 
-TEST(Solver, Solve)
+TEST(DuoSolver, Solve)
 {
     const char* env_prefix = std::getenv("CUADMM_SOLVER_TEST_PATH");
     if (!env_prefix) {
@@ -124,7 +124,7 @@ TEST(Solver, Solve)
     read_dense_vector_data(prefix + "sig.txt", cpu_sig_vals);
     double sig_1 = cpu_sig_vals[0];
 
-    SDPSolver solver;
+    SDPDuoSolver solver;
     solver.init(
         true,
         2,
