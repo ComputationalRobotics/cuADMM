@@ -78,6 +78,11 @@ void get_maps_duo(
 // - map_M1_tmp: output map for M1 (horizontal count of lower triangle)
 // - map_M2_tmp: output map for M2 (vertical count of upper triangle)
 // - total_large_mat_size: total size of the large matrices
+// - total_small_mat_size: total size of the small matrices
+// - sum_large_mat_size: sum of the sizes of the large matrices
+// - sum_small_mat_size: sum of the sizes of the small matrices
+// - large_mat_num: number of large matrices
+// - small_mat_num: number of small matrices
 void get_maps(
     const HostDenseVector<int>& blk, 
     const std::vector<int>& blk_sizes, const std::unordered_map<int, int>& blk_nums,

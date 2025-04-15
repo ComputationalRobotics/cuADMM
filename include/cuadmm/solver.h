@@ -148,20 +148,12 @@ class SDPSolver {
 
         /* Other */
         std::vector<DeviceStream> stream_flex;
-        std::vector<DeviceSparseHandle> cusparseH_flex_arr;
-        std::vector<DeviceBlasHandle> cublasH_flex_arr;
         DeviceSparseHandle cusparseH; // main cuSPARSE handle
         DeviceBlasHandle cublasH;     // main cuBLAS handle
 
         /* Rescale and update sigma */
         int prim_win;
         int dual_win;
-        int rescale;
-        double normy;
-        double normAty;
-        double normX;
-        double normS;
-        double normyS;
         double bscale2;
         double Cscale2;
         double ratioconst;
@@ -191,10 +183,6 @@ class SDPSolver {
         DeviceDenseVector<double> Xproj;
         DeviceDenseVector<double> Xdiff;
         int switch_admm; // the iteration at which to switch to standard ADMM
-        int eig_rank;
-        int begin_low_rank_proj;
-        DeviceDenseVector<int> mom_W_rank_mask;
-        DeviceDenseVector<int> loc_W_rank_mask;
         int sig_update_threshold;
         int sig_update_stage_1;
         int sig_update_stage_2;

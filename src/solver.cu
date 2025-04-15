@@ -290,7 +290,6 @@ void SDPSolver::init(
     this->eig_loc_buffer.allocate(GPU0, this->eig_loc_buffer_size, true);
 
     /* For the computation of y, X, S */
-    // TODO: adapt
     this->mom_mat_tmp.allocate(GPU0, this->total_large_mat_size);
     this->loc_mat_tmp.allocate(GPU0, this->total_small_mat_size);
     this->mom_mat_P.allocate(GPU0, this->total_large_mat_size);
@@ -299,22 +298,8 @@ void SDPSolver::init(
     this->Xb.allocate(GPU0, this->vec_len);
 
     /* others */
-    this->cusparseH_flex_arr = std::vector<DeviceSparseHandle>(2);
-    this->cublasH_flex_arr = std::vector<DeviceBlasHandle>(2);
-    for (int i = 0; i < 2; i++) {
-        this->cusparseH_flex_arr[i].set_gpu_id(GPU0);
-        this->cusparseH_flex_arr[i].activate(this->stream_flex[i]);
-        this->cublasH_flex_arr[i].set_gpu_id(GPU0);
-        this->cublasH_flex_arr[i].activate(this->stream_flex[i]);
-    }
     this->prim_win = 0;
     this->dual_win = 0;
-    this->rescale = 1;
-    this->normy = 1.0;
-    this->normAty = 1.0;
-    this->normX = 1.0;
-    this->normS = 1.0;
-    this->normyS = 1.0;
     this->ratioconst = 1e0;
     this->sigmax = 1e3;
     this->sigmin = 1e-3;
@@ -323,19 +308,6 @@ void SDPSolver::init(
     this->Xproj.allocate(GPU0, this->vec_len);
     this->Xdiff.allocate(GPU0, this->vec_len);
     this->switch_admm = (int) 5e4;
-    this->eig_rank = 5;
-    this->begin_low_rank_proj = std::numeric_limits<int>::infinity();
-    // TODO: adapt
-    this->eig_rank = min(this->eig_rank, this->SMALL);
-    this->mom_W_rank_mask.allocate(GPU0, this->mom_W.size);
-    this->loc_W_rank_mask.allocate(GPU0, this->loc_W.size);
-    std::vector<int> cpu_mom_W_rank_mask;
-    std::vector<int> cpu_loc_W_rank_mask;
-    // TODO: adapt
-    get_eig_rank_mask(cpu_mom_W_rank_mask, this->mom_mat_num, this->LARGE, this->eig_rank);
-    get_eig_rank_mask(cpu_loc_W_rank_mask, this->loc_mat_num, this->SMALL, this->eig_rank);
-    CHECK_CUDA( cudaMemcpy(this->mom_W_rank_mask.vals, cpu_mom_W_rank_mask.data(), sizeof(int) * this->mom_W_rank_mask.size, H2D) );
-    CHECK_CUDA( cudaMemcpy(this->loc_W_rank_mask.vals, cpu_loc_W_rank_mask.data(), sizeof(int) * this->loc_W_rank_mask.size, H2D) );
     this->sig_update_threshold = SIG_UPDATE_THRESHOLD;
     this->sig_update_stage_1 = SIG_UPDATE_STAGE_1;
     this->sig_update_stage_2 = SIG_UPDATE_STAGE_2;
@@ -347,6 +319,17 @@ void SDPSolver::init(
     return;
 }
 
+// Solves the SDP problem using the sGS-ADMM algorithm.
+//
+// Args:
+// - max_iter: maximum number of iterations
+// - stop_tol: stopping tolerance for KKT residual
+// - sig_update_threshold:
+// - sig_update_stage_1:
+// - sig_update_stage_2:
+// - switch_admm:
+// - sigscale:
+// - if_first: if this is the first call to solve() (optional)
 void SDPSolver::solve(
     int max_iter, double stop_tol,
     int sig_update_threshold,
