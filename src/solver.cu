@@ -30,7 +30,7 @@ void SDPSolver::synchronize_gpu0_streams() {
 void SDPSolver::init(
     int eig_stream_num_per_gpu,
     int cpu_eig_thread_num,
-    int vec_len, int con_num,
+    int vec_len, int con_num, // TODO: adapt
     int* cpu_At_csc_col_ptrs, int* cpu_At_csc_row_ids, double* cpu_At_csc_vals, int At_nnz,
     int* cpu_b_indices, double* cpu_b_vals, int b_nnz,
     int* cpu_C_indices, double* cpu_C_vals, int C_nnz,
@@ -150,17 +150,20 @@ void SDPSolver::init(
     memcpy(cpu_blk.vals, cpu_blk_vals, sizeof(int) * mat_num);
 
     analyze_blk(cpu_blk, this->blk_sizes, this->blk_nums);
+    // TODO: remove
     this->LARGE = *std::max_element(this->blk_sizes.begin(), this->blk_sizes.end());
     this->SMALL = *std::min_element(this->blk_sizes.begin(), this->blk_sizes.end());
     this->mom_mat_num = this->blk_nums[this->LARGE];
     this->loc_mat_num = this->blk_nums[this->SMALL];
+    // TODO: end remove
 
     /* Compute the maps for vectorization of matrices */
     // compute on CPU
     std::vector<int> map_B_tmp;  // |
     std::vector<int> map_M1_tmp; // |- CPU version
     std::vector<int> map_M2_tmp; // |
-    get_maps(cpu_blk, this->blk_sizes, this->blk_nums, this->vec_len, map_B_tmp, map_M1_tmp, map_M2_tmp);
+    get_maps(cpu_blk, this->blk_sizes, this->blk_nums, this->vec_len, map_B_tmp, map_M1_tmp, map_M2_tmp, this->total_large_mat_size, this->total_small_mat_size, this->sum_large_mat_size, this->sum_small_mat_size, this->large_mat_num, this->small_mat_num);
+
     // copy to GPU
     this->map_B.allocate(GPU0, vec_len);  // |
     this->map_M1.allocate(GPU0, vec_len); // |- GPU version
@@ -234,9 +237,9 @@ void SDPSolver::init(
 
     /* Eigen decomposition for moment matrices */
     // allocate GPU0 memory for moment matrices
-    this->mom_mat.allocate(GPU0, this->mom_mat_num * this->LARGE * this->LARGE);
-    this->mom_W.allocate(GPU0, this->mom_mat_num * this->LARGE);
-    this->mom_info.allocate(GPU0, this->mom_mat_num);
+    this->mom_mat.allocate(GPU0, this->total_large_mat_size);
+    this->mom_W.allocate(GPU0, this->sum_large_mat_size);
+    this->mom_info.allocate(GPU0, this->large_mat_num);
 
     // if the decomposition is on GPU, use cuSOLVER (cf cusolver.h)
     this->eig_stream_num_per_gpu = eig_stream_num_per_gpu;
@@ -253,33 +256,32 @@ void SDPSolver::init(
     }
 
     // allocate memory for the moment matrices eig decomposition
-    int mom_mat_num_this_gpu;
-    for (int gpu_id = 1; gpu_id < 1; gpu_id++) {
-        mom_mat_num_this_gpu = this->mom_mat_num;
-        this->mom_mat.allocate(gpu_id, mom_mat_num_this_gpu * this->LARGE * this->LARGE);
-        this->mom_W.allocate(gpu_id, mom_mat_num_this_gpu * this->LARGE);
-        this->mom_info.allocate(gpu_id, mom_mat_num_this_gpu);
-    }
+    this->mom_mat.allocate(GPU0, this->total_large_mat_size);
+    this->mom_W.allocate(GPU0, this->sum_large_mat_size);
+    this->mom_info.allocate(GPU0, this->large_mat_num);
+
     // compute the buffer sizes of the moment matrices eig decomposition
+    // TODO: adapt
     single_eig_get_buffersize_cusolver(
         this->cusolverH_eig_mom_arr[0], eig_param_single, this->mom_mat, mom_W,
         this->LARGE, &this->eig_mom_buffer_size, &this->cpu_eig_mom_buffer_size
     ); // buffer size per moment matrix
     for (int gpu_id = 0; gpu_id < 1; gpu_id++) {
-        mom_mat_num_this_gpu = this->mom_mat_num;
+        this->mom_mat_num = this->mom_mat_num;
         // allocate memory for the two buffers, host and device
-        this->eig_mom_buffer.allocate(gpu_id, this->eig_mom_buffer_size * mom_mat_num_this_gpu, true);
+        this->eig_mom_buffer.allocate(gpu_id, this->eig_mom_buffer_size * this->mom_mat_num, true);
         if (this->cpu_eig_mom_buffer_size > 0) {
-            this->cpu_eig_mom_buffer.allocate(this->cpu_eig_mom_buffer_size * mom_mat_num_this_gpu, true);
+            this->cpu_eig_mom_buffer.allocate(this->cpu_eig_mom_buffer_size * this->mom_mat_num, true);
         }
     }
 
     /* Eigenvalue decomposition for localizing matrices */
     this->cusolverH_eig_loc.set_gpu_id(GPU0);
     this->cusolverH_eig_loc.activate();
-    this->loc_mat.allocate(GPU0, this->loc_mat_num * this->SMALL * this->SMALL);
-    this->loc_W.allocate(GPU0, this->loc_mat_num * this->SMALL);
-    this->loc_info.allocate(GPU0, this->loc_mat_num);
+    this->loc_mat.allocate(GPU0, this->total_small_mat_size);
+    this->loc_W.allocate(GPU0, this->sum_small_mat_size);
+    this->loc_info.allocate(GPU0, this->small_mat_num);
+    // TODO: adapt
     this->eig_loc_buffer_size = batch_eig_get_buffersize_cusolver(
         this->cusolverH_eig_loc, this->eig_param_batch, this->loc_mat, this->loc_W,
         this->SMALL, this->loc_mat_num
@@ -288,10 +290,11 @@ void SDPSolver::init(
     this->eig_loc_buffer.allocate(GPU0, this->eig_loc_buffer_size, true);
 
     /* For the computation of y, X, S */
-    this->mom_mat_tmp.allocate(GPU0, mom_mat_num * LARGE * LARGE);
-    this->loc_mat_tmp.allocate(GPU0, loc_mat_num * SMALL * SMALL);
-    this->mom_mat_P.allocate(GPU0, mom_mat_num * LARGE * LARGE);
-    this->loc_mat_P.allocate(GPU0, loc_mat_num * SMALL * SMALL);
+    // TODO: adapt
+    this->mom_mat_tmp.allocate(GPU0, this->total_large_mat_size);
+    this->loc_mat_tmp.allocate(GPU0, this->total_small_mat_size);
+    this->mom_mat_P.allocate(GPU0, this->total_large_mat_size);
+    this->loc_mat_P.allocate(GPU0, this->total_small_mat_size);
     this->Rd1.allocate(GPU0, this->vec_len);
     this->Xb.allocate(GPU0, this->vec_len);
 
@@ -322,11 +325,13 @@ void SDPSolver::init(
     this->switch_admm = (int) 5e4;
     this->eig_rank = 5;
     this->begin_low_rank_proj = std::numeric_limits<int>::infinity();
+    // TODO: adapt
     this->eig_rank = min(this->eig_rank, this->SMALL);
     this->mom_W_rank_mask.allocate(GPU0, this->mom_W.size);
     this->loc_W_rank_mask.allocate(GPU0, this->loc_W.size);
     std::vector<int> cpu_mom_W_rank_mask;
     std::vector<int> cpu_loc_W_rank_mask;
+    // TODO: adapt
     get_eig_rank_mask(cpu_mom_W_rank_mask, this->mom_mat_num, this->LARGE, this->eig_rank);
     get_eig_rank_mask(cpu_loc_W_rank_mask, this->loc_mat_num, this->SMALL, this->eig_rank);
     CHECK_CUDA( cudaMemcpy(this->mom_W_rank_mask.vals, cpu_mom_W_rank_mask.data(), sizeof(int) * this->mom_W_rank_mask.size, H2D) );
@@ -376,8 +381,6 @@ void SDPSolver::solve(
     eig_thread = std::thread(
         [&]() { // lambda function for the thread behavior
             int stream_id;
-            // number of moment matrices for this GPU
-            int mom_mat_num_this_gpu = this->mom_mat_num;
 
             // set the GPU device
             CHECK_CUDA( cudaSetDevice(GPU0) );
@@ -395,9 +398,10 @@ void SDPSolver::solve(
                 if (breakyes) break;
 
                 // for each moment matrix on this GPU, compute the eig decomposition
-                for (int i = 0; i < mom_mat_num_this_gpu; i++) {
+                for (int i = 0; i < mom_mat_num; i++) {
                     stream_id = i % this->eig_stream_num_per_gpu;
                     // simply calls the cuSOLVER wrapper
+                    // TODO: adapt
                     single_eig_cusolver(
                         this->cusolverH_eig_mom_arr[stream_id], eig_param_single, this->mom_mat, this->mom_W,
                         this->eig_mom_buffer, this->cpu_eig_mom_buffer, this->mom_info,
@@ -615,6 +619,7 @@ void SDPSolver::solve(
         CHECK_CUDA( cudaDeviceSynchronize() );
 
         // we call cuSOLVER for the batch eig decomposition of localizing matrices
+        // TODO: adapt
         batch_eig_cusolver(
             this->cusolverH_eig_loc, this->eig_param_batch, this->loc_mat, this->loc_W, this->eig_loc_buffer, this->loc_info,
             this->SMALL, this->loc_mat_num, this->eig_loc_buffer_size
@@ -623,6 +628,7 @@ void SDPSolver::solve(
         max_dense_vector_zero(this->mom_W);
         max_dense_vector_zero(this->loc_W);
 
+        // TODO: adapt
         dense_matrix_mul_diag_batch(mom_mat_tmp, this->mom_mat, this->mom_W, this->LARGE);
         dense_matrix_mul_diag_batch(this->loc_mat_tmp, this->loc_mat, this->loc_W, this->SMALL);
         dense_matrix_mul_trans_batch(this->cublasH, this->mom_mat_P, this->mom_mat_tmp, this->mom_mat, this->LARGE, this->mom_mat_num);

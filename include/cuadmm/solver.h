@@ -99,6 +99,12 @@ class SDPSolver {
         int SMALL;        // size of localization matrices
         int mom_mat_num;  // number of moment matrices
         int loc_mat_num;  // number of localization matrices
+        int large_mat_num; // number of large matrices (nb)
+        int small_mat_num; // number of small matrices (nb)
+        int sum_large_mat_size; // sum of sizes of large matrices (nb * side)
+        int sum_small_mat_size; // sum of sizes of small matrices (nb * side)
+        int total_large_mat_size; // total size of large matrices (nb * side * side)
+        int total_small_mat_size; // total size of large matrices (nb * side * side)
         DeviceDenseVector<int> map_B;  // |
         DeviceDenseVector<int> map_M1; // |- maps for vectorization of matrices
         DeviceDenseVector<int> map_M2; // |    (cached from get_maps())

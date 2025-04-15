@@ -40,11 +40,15 @@ void get_maps_duo(
 // - map_B_tmp: output map, where 0 is for large blocks and 1 is for small blocks
 // - map_M1_tmp: output map for M1 (horizontal count of lower triangle)
 // - map_M2_tmp: output map for M2 (vertical count of upper triangle)
+// - total_large_mat_size: total size of the large matrices
 void get_maps(
     const HostDenseVector<int>& blk, 
     const std::vector<int>& blk_sizes, const std::unordered_map<int, int>& blk_nums,
     const int vec_len,
-    std::vector<int>& map_B_tmp, std::vector<int>& map_M1_tmp, std::vector<int>& map_M2_tmp
+    std::vector<int>& map_B_tmp, std::vector<int>& map_M1_tmp, std::vector<int>& map_M2_tmp,
+    int& total_large_mat_size, int& total_small_mat_size,
+    int& sum_large_mat_size, int& sum_small_mat_size,
+    int& large_mat_num, int& small_mat_num
 );
 
 // Analyze the blk vector to determine the following hyperparameters:
