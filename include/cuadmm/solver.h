@@ -93,6 +93,8 @@ class SDPSolver {
         DeviceDenseVector<double> Xb;
 
         /* Sparse vector <-> sparse matrix mapping */
+        std::vector<int> blk_sizes;
+        std::vector<int> blk_nums;
         int LARGE;        // size of moment matrices
         int SMALL;        // size of localization matrices
         int mom_mat_num;  // number of moment matrices

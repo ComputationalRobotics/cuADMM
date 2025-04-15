@@ -10,6 +10,7 @@
 #include "cuadmm/solver.h"
 #include "cuadmm/kernels.h"
 
+#include <algorithm>
 #include <condition_variable>
 #include <mutex>
 #include <thread>
@@ -147,7 +148,19 @@ void SDPSolver::init(
     // copy blk values and analyze it to retrieve the block sizes and numbers
     HostDenseVector<int> cpu_blk(mat_num);
     memcpy(cpu_blk.vals, cpu_blk_vals, sizeof(int) * mat_num);
-    analyze_blk_duo(cpu_blk, &this->LARGE, &this->SMALL, &this->mom_mat_num, &this->loc_mat_num);
+
+    // analyze_blk_duo(cpu_blk, &this->LARGE, &this->SMALL, &this->mom_mat_num, &this->loc_mat_num);
+    analyze_blk(cpu_blk, this->blk_sizes, this->blk_nums);
+    this->LARGE = *std::max_element(this->blk_sizes.begin(), this->blk_sizes.end());
+    this->SMALL = *std::min_element(this->blk_sizes.begin(), this->blk_sizes.end());
+    if (blk_sizes[0] == this->LARGE) {
+        this->mom_mat_num = this->blk_nums[0];
+        this->loc_mat_num = this->blk_nums[1];
+    } else {
+        this->mom_mat_num = this->blk_nums[1];
+        this->loc_mat_num = this->blk_nums[0];
+    };
+
     std::vector<int> map_B_tmp;
     std::vector<int> map_M1_tmp;
     std::vector<int> map_M2_tmp;

@@ -50,4 +50,11 @@ void get_eig_rank_mask(
     int batch_size, int mat_size, int eig_rank
 );
 
+// Analyze the blk vector to determine the size and number of the matrices
+void analyze_blk(
+    HostDenseVector<int>& blk, 
+    std::vector<int>& blk_sizes,
+    std::vector<int>& blk_nums
+);
+
 #endif // CUADMM_UTILS_H

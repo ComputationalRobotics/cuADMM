@@ -7,6 +7,7 @@
 */
 
 #include <set>
+#include <iomanip>
 
 #include "cuadmm/memory.h"
 
@@ -52,5 +53,44 @@ void analyze_blk_duo(
     }
     std::cout << "number of moment matrices: " << *mom_mat_num << std::endl;
     std::cout << "number of localizing matrices: " << *loc_mat_num << std::endl << std::endl;
+    return;
+}
+
+// Analyze the blk vector to determine the size and number of the matrices
+void analyze_blk(
+    HostDenseVector<int>& blk, 
+    std::vector<int>& blk_sizes,
+    std::vector<int>& blk_nums
+) { 
+    // first pass: get matrix sizes 
+    std::set<int> size_set;
+    for (int i = 0; i < blk.size; i++) {
+        size_set.insert(blk.vals[i]);
+    }
+    blk_sizes = std::vector<int>(size_set.begin(), size_set.end());
+    blk_nums = std::vector<int>(blk_sizes.size(), 0);
+
+    // determine the size of the moment and localizing matrices
+    std::cout << "\nAnalysis of the blk vector:" << std::endl;
+    std::cout << "    matrix sizes: ";
+    for (int i = 0; i < blk_sizes.size(); i++) {
+        std::cout << std::setw(3) << blk_sizes[i] << " ";
+    }
+    std::cout << std::endl;
+    
+    // second pass: get matrix numbers
+    for (int i = 0; i < blk.size; i++) {
+        for (int j = 0; j < blk_sizes.size(); j++) {
+            if (blk.vals[i] == blk_sizes[j]) {
+                blk_nums[j] += 1;
+            }
+        }
+    }
+    std::cout << "     matrix nums: ";
+    for (int i = 0; i < blk_nums.size(); i++) {
+        std::cout << std::setw(3) << blk_nums[i] << " ";
+    }
+    std::cout << std::endl;
+
     return;
 }
