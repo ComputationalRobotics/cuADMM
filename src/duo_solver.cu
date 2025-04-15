@@ -176,7 +176,7 @@ void SDPDuoSolver::init(
     // copy blk values and analyze it to retrieve the block sizes and numbers
     HostDenseVector<int> cpu_blk(mat_num);
     memcpy(cpu_blk.vals, cpu_blk_vals, sizeof(int) * mat_num);
-    analyze_blk(cpu_blk, &this->LARGE, &this->SMALL, &this->mom_mat_num, &this->loc_mat_num);
+    analyze_blk_duo(cpu_blk, &this->LARGE, &this->SMALL, &this->mom_mat_num, &this->loc_mat_num);
     std::vector<int> map_B_tmp;
     std::vector<int> map_M1_tmp;
     std::vector<int> map_M2_tmp;

@@ -62,7 +62,7 @@ TEST(Utils, GetMaps)
     }));
 }
 
-TEST(Utils, AnalyzeBlk)
+TEST(Utils, AnalyzeBlkDuo)
 {
     int LARGE;
     int SMALL;
@@ -73,7 +73,7 @@ TEST(Utils, AnalyzeBlk)
     std::vector<int> vals = {5, 4, 4, 5, 5};
     std::copy(vals.begin(), vals.end(), blk.vals);
 
-    analyze_blk(blk, &LARGE, &SMALL, &mom_mat_num, &loc_mat_num);
+    analyze_blk_duo(blk, &LARGE, &SMALL, &mom_mat_num, &loc_mat_num);
 
     EXPECT_EQ(LARGE, 5);
     EXPECT_EQ(SMALL, 4);

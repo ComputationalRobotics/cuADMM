@@ -101,7 +101,7 @@ class SDPSolver {
         DeviceDenseVector<int> map_M1; // |- maps for vectorization of matrices
         DeviceDenseVector<int> map_M2; // |    (cached from get_maps())
 
-        /* Moment matrix decomposition on multiple GPU */
+        /* Moment matrix decomposition */
         DeviceDenseVector<double> mom_mat;
         DeviceDenseVector<double> mom_W;
         DeviceDenseVector<int> mom_info;
@@ -109,7 +109,7 @@ class SDPSolver {
         std::vector<DeviceStream> eig_stream_arr;
         std::vector<DeviceSolverDnHandle> cusolverH_eig_mom_arr; // one handle per stream
         SingleEigParameter eig_param_single;
-        size_t eig_mom_buffer_size;                                 // | GPU eig dec.
+        size_t eig_mom_buffer_size;                // | GPU eig dec.
         DeviceDenseVector<double> eig_mom_buffer;  // | (size and buffer)
 
         /* Moment matrix eigen decomposition: multi-core CPU */

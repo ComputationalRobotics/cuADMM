@@ -15,7 +15,7 @@
 // - SMALL: the size of the small blocks (localizing matrices)
 // - mom_mat_num: the number of moment matrices
 // - loc_mat_num: the number of localizing matrices
-void analyze_blk(
+void analyze_blk_duo(
     HostDenseVector<int>& blk, 
     int* LARGE, int* SMALL, int* mom_mat_num, int* loc_mat_num
 ) { 

@@ -28,18 +28,15 @@ void SDPSolver::synchronize_gpu0_streams() {
 
 void SDPSolver::init(
     int eig_stream_num_per_gpu,
-    // do moment matrix eigen decomposition on CPU
     int cpu_eig_thread_num,
-
-    // core data
     int vec_len, int con_num,
     int* cpu_At_csc_col_ptrs, int* cpu_At_csc_row_ids, double* cpu_At_csc_vals, int At_nnz,
     int* cpu_b_indices, double* cpu_b_vals, int b_nnz,
     int* cpu_C_indices, double* cpu_C_vals, int C_nnz,
     int* cpu_blk_vals, int mat_num,
-    double* cpu_X_vals, // |
-    double* cpu_y_vals, // |- values for warm start
-    double* cpu_S_vals, // |
+    double* cpu_X_vals,
+    double* cpu_y_vals,
+    double* cpu_S_vals,
     double sig
 ) {
     // start record time
@@ -128,8 +125,10 @@ void SDPSolver::init(
     // copy X, y, and S from CPU to GPU
     // if the input is nullptr (no warm start), we will set them to 0
     if (cpu_X_vals != nullptr) {
+        // copy
         CHECK_CUDA( cudaMemcpyAsync(this->X.vals, cpu_X_vals, sizeof(double) * vec_len, H2D, this->stream_flex[1].stream) );
     } else {
+        // set to 0
         CHECK_CUDA( cudaMemsetAsync(this->X.vals, 0, sizeof(double) * vec_len, this->stream_flex[1].stream) );
     }
     if (cpu_y_vals != nullptr) {
@@ -148,7 +147,7 @@ void SDPSolver::init(
     // copy blk values and analyze it to retrieve the block sizes and numbers
     HostDenseVector<int> cpu_blk(mat_num);
     memcpy(cpu_blk.vals, cpu_blk_vals, sizeof(int) * mat_num);
-    analyze_blk(cpu_blk, &this->LARGE, &this->SMALL, &this->mom_mat_num, &this->loc_mat_num);
+    analyze_blk_duo(cpu_blk, &this->LARGE, &this->SMALL, &this->mom_mat_num, &this->loc_mat_num);
     std::vector<int> map_B_tmp;
     std::vector<int> map_M1_tmp;
     std::vector<int> map_M2_tmp;
@@ -267,7 +266,7 @@ void SDPSolver::init(
         }
     }
 
-    /* Eigenvalue decomposition for localizing matrices */ 
+    /* Eigenvalue decomposition for localizing matrices */
     this->cusolverH_eig_loc.set_gpu_id(GPU0);
     this->cusolverH_eig_loc.activate();
     this->loc_mat.allocate(GPU0, this->loc_mat_num * this->SMALL * this->SMALL);
@@ -281,9 +280,9 @@ void SDPSolver::init(
     this->eig_loc_buffer.allocate(GPU0, this->eig_loc_buffer_size, true);
 
     /* For the computation of y, X, S */
-    this->mom_mat_tmp.allocate(GPU0, mom_mat_num * LARGE * LARGE);   
-    this->loc_mat_tmp.allocate(GPU0, loc_mat_num * SMALL * SMALL);   
-    this->mom_mat_P.allocate(GPU0, mom_mat_num * LARGE * LARGE);        
+    this->mom_mat_tmp.allocate(GPU0, mom_mat_num * LARGE * LARGE);
+    this->loc_mat_tmp.allocate(GPU0, loc_mat_num * SMALL * SMALL);
+    this->mom_mat_P.allocate(GPU0, mom_mat_num * LARGE * LARGE);
     this->loc_mat_P.allocate(GPU0, loc_mat_num * SMALL * SMALL);
     this->Rd1.allocate(GPU0, this->vec_len);
     this->Xb.allocate(GPU0, this->vec_len);
@@ -418,12 +417,10 @@ void SDPSolver::solve(
 
 
     /* Start the solver */
-    printf("\n ---------------------------------------------------------------");
-    printf("---------------------------------------------------------------");
-    printf("\n cuADMM");
-    printf("\n normC = %2.1e, normb = %2.1e", norm_Corg, norm_borg);
-    printf("\n ---------------------------------------------------------------");
-    printf("---------------------------------------------------------------");
+    printf("\n -------------------------------------------------------------------------------");
+    printf("\n                                    cuADMM");
+    printf("\n -------------------------------------------------------------------------------");
+    printf("\n norm of C = %2.1e, norm of b = %2.1e\n", norm_Corg, norm_borg);
     float milliseconds;
     float seconds;
     std::unique_lock<std::mutex> main_lk(main_mtx, std::defer_lock);
@@ -495,8 +492,7 @@ void SDPSolver::solve(
         }
         if (breakyes > 0) {
             // print the final message
-            printf("\n ---------------------------------------------------------------");
-            printf("---------------------------------------------------------------\n");
+            printf("\n -------------------------------------------------------------------------------\n\n");
             std::cout << final_msg << std::endl;
             printf(
                 "\n primal infeasibility = %2.1e \n dual   infeasibility = %2.1e \n relative gap         = %2.1e",
@@ -510,8 +506,7 @@ void SDPSolver::solve(
                 "\n\n time per iteration = %2.4fs \n total time         = %2.1fs",
                 seconds/iter, seconds
             );
-            printf("\n ---------------------------------------------------------------");
-            printf("---------------------------------------------------------------\n");
+            printf("\n -------------------------------------------------------------------------------\n\n");
 
             cudaEventRecord(this->stop);
             cudaEventSynchronize(this->stop);
