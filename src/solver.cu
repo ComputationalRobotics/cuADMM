@@ -149,27 +149,22 @@ void SDPSolver::init(
     HostDenseVector<int> cpu_blk(mat_num);
     memcpy(cpu_blk.vals, cpu_blk_vals, sizeof(int) * mat_num);
 
-    // analyze_blk_duo(cpu_blk, &this->LARGE, &this->SMALL, &this->mom_mat_num, &this->loc_mat_num);
     analyze_blk(cpu_blk, this->blk_sizes, this->blk_nums);
     this->LARGE = *std::max_element(this->blk_sizes.begin(), this->blk_sizes.end());
     this->SMALL = *std::min_element(this->blk_sizes.begin(), this->blk_sizes.end());
-    if (blk_sizes[0] == this->LARGE) {
-        this->mom_mat_num = this->blk_nums[0];
-        this->loc_mat_num = this->blk_nums[1];
-    } else {
-        this->mom_mat_num = this->blk_nums[1];
-        this->loc_mat_num = this->blk_nums[0];
-    };
+    this->mom_mat_num = this->blk_nums[this->LARGE];
+    this->loc_mat_num = this->blk_nums[this->SMALL];
 
-    std::vector<int> map_B_tmp;
-    std::vector<int> map_M1_tmp;
-    std::vector<int> map_M2_tmp;
-
-    // get the maps for vectorization of matrices
-    get_maps(cpu_blk, this->LARGE, this->SMALL, this->vec_len, map_B_tmp, map_M1_tmp, map_M2_tmp);
-    this->map_B.allocate(GPU0, vec_len);
-    this->map_M1.allocate(GPU0, vec_len);
-    this->map_M2.allocate(GPU0, vec_len);
+    /* Compute the maps for vectorization of matrices */
+    // compute on CPU
+    std::vector<int> map_B_tmp;  // |
+    std::vector<int> map_M1_tmp; // |- CPU version
+    std::vector<int> map_M2_tmp; // |
+    get_maps(cpu_blk, this->blk_sizes, this->blk_nums, this->vec_len, map_B_tmp, map_M1_tmp, map_M2_tmp);
+    // copy to GPU
+    this->map_B.allocate(GPU0, vec_len);  // |
+    this->map_M1.allocate(GPU0, vec_len); // |- GPU version
+    this->map_M2.allocate(GPU0, vec_len); // |
     CHECK_CUDA( cudaMemcpyAsync(this->map_B.vals, map_B_tmp.data(), sizeof(int) * vec_len, H2D, this->stream_flex[0].stream) );
     CHECK_CUDA( cudaMemcpyAsync(this->map_M1.vals, map_M1_tmp.data(), sizeof(int) * vec_len, H2D, this->stream_flex[1].stream) );
     CHECK_CUDA( cudaMemcpyAsync(this->map_M2.vals, map_M2_tmp.data(), sizeof(int) * vec_len, H2D, this->stream_flex[2].stream) );

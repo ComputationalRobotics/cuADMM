@@ -182,7 +182,7 @@ void SDPDuoSolver::init(
     std::vector<int> map_M2_tmp;
 
     // get the maps for vectorization of matrices
-    get_maps(cpu_blk, this->LARGE, this->SMALL, this->vec_len, map_B_tmp, map_M1_tmp, map_M2_tmp);
+    get_maps_duo(cpu_blk, this->LARGE, this->SMALL, this->vec_len, map_B_tmp, map_M1_tmp, map_M2_tmp);
     this->map_B.allocate(GPU0, vec_len);
     this->map_M1.allocate(GPU0, vec_len);
     this->map_M2.allocate(GPU0, vec_len);

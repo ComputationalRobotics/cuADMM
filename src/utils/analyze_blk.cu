@@ -7,6 +7,7 @@
 */
 
 #include <set>
+#include <unordered_map>
 #include <iomanip>
 
 #include "cuadmm/memory.h"
@@ -60,7 +61,7 @@ void analyze_blk_duo(
 void analyze_blk(
     HostDenseVector<int>& blk, 
     std::vector<int>& blk_sizes,
-    std::vector<int>& blk_nums
+    std::unordered_map<int, int>& blk_nums
 ) { 
     // first pass: get matrix sizes 
     std::set<int> size_set;
@@ -68,29 +69,26 @@ void analyze_blk(
         size_set.insert(blk.vals[i]);
     }
     blk_sizes = std::vector<int>(size_set.begin(), size_set.end());
-    blk_nums = std::vector<int>(blk_sizes.size(), 0);
 
     // determine the size of the moment and localizing matrices
     std::cout << "\nAnalysis of the blk vector:" << std::endl;
-    std::cout << "    matrix sizes: ";
-    for (int i = 0; i < blk_sizes.size(); i++) {
-        std::cout << std::setw(3) << blk_sizes[i] << " ";
-    }
-    std::cout << std::endl;
     
     // second pass: get matrix numbers
+    for (int i = 0; i < blk_sizes.size(); i++) {
+        blk_nums[blk_sizes[i]] = 0;
+    }
     for (int i = 0; i < blk.size; i++) {
         for (int j = 0; j < blk_sizes.size(); j++) {
             if (blk.vals[i] == blk_sizes[j]) {
-                blk_nums[j] += 1;
+                blk_nums[blk.vals[i]] = blk_nums[blk.vals[i]] + 1;
             }
         }
     }
-    std::cout << "     matrix nums: ";
-    for (int i = 0; i < blk_nums.size(); i++) {
-        std::cout << std::setw(3) << blk_nums[i] << " ";
+
+    // print the elements of the map
+    for (const auto& pair : blk_nums) {
+        std::cout << "     " << std::setw(4) << pair.second << " matrices of size " << std::setw(3) << pair.first << std::endl;
     }
-    std::cout << std::endl;
 
     return;
 }

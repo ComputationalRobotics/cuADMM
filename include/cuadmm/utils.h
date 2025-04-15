@@ -8,6 +8,7 @@
 #define D2D cudaMemcpyDeviceToDevice
 
 #include <vector>
+#include <unordered_map>
 #include "cuadmm/memory.h"
 
 // Check GPU numbers and whether they have peer-to-peer access
@@ -25,9 +26,24 @@ void get_inverse_permutation(std::vector<int>& perm_inv, const std::vector<int>&
 // - map_B_tmp: output map, where 0 is for large blocks and 1 is for small blocks
 // - map_M1_tmp: output map for M1 (horizontal count of lower triangle)
 // - map_M2_tmp: output map for M2 (vertical count of upper triangle)
-void get_maps(
+void get_maps_duo(
     const HostDenseVector<int>& blk, 
     const int LARGE, const int SMALL, const int vec_len,
+    std::vector<int>& map_B_tmp, std::vector<int>& map_M1_tmp, std::vector<int>& map_M2_tmp
+);
+
+// Computes the maps for the vectorized representation of symmetric matrices.
+// - blk: input block sizes
+// - blk_sizes: sizes of the blocks
+// - blk_nums: number of blocks of each size
+// - vec_len: length of the vectorized representation
+// - map_B_tmp: output map, where 0 is for large blocks and 1 is for small blocks
+// - map_M1_tmp: output map for M1 (horizontal count of lower triangle)
+// - map_M2_tmp: output map for M2 (vertical count of upper triangle)
+void get_maps(
+    const HostDenseVector<int>& blk, 
+    const std::vector<int>& blk_sizes, const std::unordered_map<int, int>& blk_nums,
+    const int vec_len,
     std::vector<int>& map_B_tmp, std::vector<int>& map_M1_tmp, std::vector<int>& map_M2_tmp
 );
 
@@ -54,7 +70,7 @@ void get_eig_rank_mask(
 void analyze_blk(
     HostDenseVector<int>& blk, 
     std::vector<int>& blk_sizes,
-    std::vector<int>& blk_nums
+    std::unordered_map<int, int>& blk_nums
 );
 
 #endif // CUADMM_UTILS_H

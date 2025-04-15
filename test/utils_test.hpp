@@ -31,7 +31,7 @@ TEST(Utils, GetMaps)
     std::vector<int> map_M1_tmp;
     std::vector<int> map_M2_tmp;
 
-    get_maps(blk, LARGE, SMALL, vec_len, map_B_tmp, map_M1_tmp, map_M2_tmp);
+    get_maps_duo(blk, LARGE, SMALL, vec_len, map_B_tmp, map_M1_tmp, map_M2_tmp);
 
     for (int i = 0; i < vec_len; i++) {
         EXPECT_EQ(map_B_tmp[i], i < LARGE * (LARGE + 1) / 2 ? 0 : 1);
