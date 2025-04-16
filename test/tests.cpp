@@ -19,6 +19,8 @@
 #include "cusparse_test.hpp"
 #include "duo_solver_test.hpp"
 
+#include "single_batched_comparison.hpp"
+
 int main(int argc, char **argv)
 {
     // Execute all the included tests
