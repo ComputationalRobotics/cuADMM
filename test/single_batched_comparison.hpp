@@ -14,7 +14,8 @@
 #define EIG_STREAM_NUM_PER_GPU 15
 
 float test_single_performance(
-    DeviceSolverDnHandle& handle,
+    std::vector<DeviceSolverDnHandle>& handle_arr,
+    std::vector<DeviceStream>& stream_arr,
     SingleEigParameter& param,
     const int mat_size,
     const int mat_num,
@@ -107,8 +108,22 @@ TEST(SingleBatchedComparison, Default)
     std::vector<int> mat_sizes = SINGLE_BATCHED_COMP_MAT_SIZES;
     std::vector<int> mat_nums = SINGLE_BATCHED_COMP_MAT_NUMS;
 
+    // batched handle
     DeviceSolverDnHandle handle(GPU0);
     handle.activate();
+
+    // single handles and streams
+    std::vector<DeviceStream> stream_arr = std::vector<DeviceStream>(EIG_STREAM_NUM_PER_GPU);
+    std::vector<DeviceSolverDnHandle> handle_arr = std::vector<DeviceSolverDnHandle>(EIG_STREAM_NUM_PER_GPU);
+    
+    for (int stream_id = 0; stream_id < EIG_STREAM_NUM_PER_GPU; stream_id++) {
+        // ininitialize and activate the streams and handles
+        stream_arr[stream_id].set_gpu_id(GPU0);
+        stream_arr[stream_id].activate();
+        handle_arr[stream_id].set_gpu_id(GPU0);
+        handle_arr[stream_id].activate(stream_arr[stream_id]);
+    }
+
     SingleEigParameter single_param(GPU0);
     BatchEigParameter batch_param(GPU0);
 
@@ -122,7 +137,7 @@ TEST(SingleBatchedComparison, Default)
     
                 // test the single QR performance
                 float single = test_single_performance(
-                    handle, single_param, mat_size, mat_num, mat_vals
+                    handle_arr, stream_arr, single_param, mat_size, mat_num, mat_vals
                 );
     
                 // test the batched Jacobi performance
