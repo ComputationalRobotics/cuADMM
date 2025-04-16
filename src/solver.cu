@@ -254,12 +254,7 @@ void SDPSolver::init(
         this->cusolverH_eig_mom_arr[stream_id].set_gpu_id(GPU0);
         this->cusolverH_eig_mom_arr[stream_id].activate(this->eig_stream_arr[stream_id]);
     }
-
-    // allocate memory for the moment matrices eig decomposition
-    this->mom_mat.allocate(GPU0, this->total_large_mat_size);
-    this->mom_W.allocate(GPU0, this->sum_large_mat_size);
-    this->mom_info.allocate(GPU0, this->large_mat_num);
-
+    
     // compute the buffer sizes of the moment matrices eig decomposition
     // TODO: adapt
     single_eig_get_buffersize_cusolver(
