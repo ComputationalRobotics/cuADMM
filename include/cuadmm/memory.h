@@ -256,7 +256,7 @@ class DeviceDenseVector {
         }
 
         void print() {
-            T host_vec[size];
+            T host_vec[this->size];
             
             // copy the vector to the device
             CHECK_CUDA( cudaMemcpy(host_vec, this->vals, sizeof(T) * this->size, cudaMemcpyDeviceToHost) );
@@ -264,7 +264,8 @@ class DeviceDenseVector {
             for (size_t i = 0; i < this->size; i++) {
                 std::printf("%f, ", host_vec[i]);
             }
-            std::printf("]\n");
+            std::printf("]");
+            std::cout << std::endl;
         }
 };
 
@@ -331,8 +332,8 @@ class DeviceSparseVector {
         }
 
         void print(bool show_zeros = false) {
-            T vals[nnz];
-            int indices[nnz];
+            T vals[this->nnz];
+            int indices[this->nnz];
             
             // copy the vector to the device
             CHECK_CUDA( cudaMemcpy(vals, this->vals, sizeof(T) * this->nnz, cudaMemcpyDeviceToHost) );

@@ -98,6 +98,95 @@ TEST(CuSOLVER, SingleEig)
     EXPECT_EQ(info_host, 0) << "Eigenvalue computation failed with info = " << info_host;
 }
 
+TEST(CuSOLVER, MultipleSingleEig)
+{
+    DeviceSolverDnHandle handle;
+    handle.set_gpu_id(GPU0);
+    handle.activate();
+
+    SingleEigParameter param(GPU0);
+
+    const std::vector<int> mat_sizes = {2, 3, 4};
+    std::vector<DeviceDenseVector<double>> matrices;
+    matrices.reserve(mat_sizes.size()); // important
+    for (const auto& size : mat_sizes) {
+        matrices.emplace_back(GPU0, size * size);
+    }
+
+    std::vector<std::vector<double>> matrices_vals = {
+        {2.0, 1.0,
+         1.0, 3.0},
+        {3.0, 1.0, 2.0,
+         1.0, 3.0, 1.0,
+         2.0, 1.0, 3.0},
+        {4.0, 1.0, 2.0, 2.0,
+         1.0, 4.0, 1.0, 2.0,
+         2.0, 1.0, 4.0, 1.0,
+         2.0, 2.0, 1.0, 4.0}
+    };
+
+    for (int i = 0; i < 3; i++) {
+        CHECK_CUDA ( cudaMemcpy(matrices[i].vals, matrices_vals[i].data(), mat_sizes[i] * mat_sizes[i] * sizeof(double), cudaMemcpyHostToDevice) );
+    }
+
+    std::vector<DeviceDenseVector<double>> Ws; // eigenvalues
+    std::vector<DeviceDenseVector<int>> infos;
+    Ws.reserve(mat_sizes.size());
+    infos.reserve(mat_sizes.size());
+    for (const auto& size : mat_sizes) {
+        Ws.emplace_back(GPU0, size);
+        infos.emplace_back(GPU0, 1);
+    }
+
+    // Create buffers for eigenvalues and eigenvectors
+    std::vector<size_t> buffer_sizes(3, 0);
+    std::vector<size_t> buffer_size_hosts(3, 0);
+    for (int i = 0; i < 3; i++) {
+        single_eig_get_buffersize_cusolver(handle, param, matrices[i], Ws[i], 
+            mat_sizes[i], &buffer_sizes[i], &buffer_size_hosts[i]
+        );
+    }
+    std::vector<DeviceDenseVector<double>> buffers;
+    std::vector<HostDenseVector<double>> buffer_hosts;
+    buffers.reserve(mat_sizes.size());
+    buffer_hosts.reserve(mat_sizes.size());
+    for (int i = 0; i < 3; i++) {
+        buffers.emplace_back(GPU0, buffer_sizes[i]);
+        buffer_hosts.emplace_back(buffer_size_hosts[i]);
+    }
+
+    // Compute eigenvalues and eigenvectors
+    for (int i = 0; i < 3; i++) {
+        single_eig_cusolver(
+            handle, param,
+            matrices[i], Ws[i],
+            buffers[i], buffer_hosts[i], infos[i],
+            mat_sizes[i], buffer_sizes[i], buffer_size_hosts[i]
+        );
+    }
+
+    // Copy eigenvalues and eigenvectors back to host
+    std::vector<std::vector<double>> W_hosts;
+    W_hosts.reserve(mat_sizes.size());
+    for (int i = 0; i < 3; i++) {
+        W_hosts.emplace_back(mat_sizes[i]);
+        CHECK_CUDA ( cudaMemcpy(W_hosts[i].data(), Ws[i].vals, mat_sizes[i] * sizeof(double), cudaMemcpyDeviceToHost) );
+        CHECK_CUDA ( cudaMemcpy(matrices_vals[i].data(), matrices[i].vals, mat_sizes[i] * mat_sizes[i] * sizeof(double), cudaMemcpyDeviceToHost) );
+    }
+
+    // Check the eigenvalues
+    std::vector<std::vector<double>> expected_eigenvalues = {
+        {0.5*(5-std::sqrt(5.0)), 0.5*(5+std::sqrt(5.0))},
+        {1.0, 4-std::sqrt(3.0), 4+std::sqrt(3.0)},
+        {0.5*(5-std::sqrt(5.0)), 0.5*(11-std::sqrt(37.0)), 0.5*(5+std::sqrt(5.0)), 0.5*(11+std::sqrt(37.0))}
+    };
+    for (int i = 0; i < 3; i++) {
+        for (int j = 0; j < mat_sizes[i]; ++j) {
+            EXPECT_NEAR(W_hosts[i][j], expected_eigenvalues[i][j], 1e-5);
+        }
+    }
+}
+
 TEST(CuSOLVER, BatchEig)
 {
     DeviceSolverDnHandle handle;

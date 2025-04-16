@@ -375,7 +375,6 @@ void SDPSolver::solve(
             while (true) { // while the solver is not finished
                 // break if necessary
                 // note: breakyes will be set to true by the main thread
-                // when the solver is finished
                 if (breakyes) break;
                 eig_cv.wait(eig_lk);
                 if (breakyes) break;
