@@ -1,6 +1,7 @@
 #include <iostream>
 #include <fstream>
 #include <string>
+#include <random>
 
 #include <condition_variable>
 #include <mutex>
@@ -9,8 +10,8 @@
 #include "cuadmm/cusolver.h"
 
 #define SINGLE_BATCHED_COMP_RESTARTS 1
-#define SINGLE_BATCHED_COMP_MAT_SIZES {2, 3, 4}
-#define SINGLE_BATCHED_COMP_MAT_NUMS {1, 2, 3}
+#define SINGLE_BATCHED_COMP_MAT_SIZES {2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 15, 16, 17, 18, 19, 20, 21}
+#define SINGLE_BATCHED_COMP_MAT_NUMS {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20}
 #define EIG_STREAM_NUM_PER_GPU 15
 
 float test_single_performance(
@@ -172,13 +173,32 @@ TEST(SingleBatchedComparison, Default)
     SingleEigParameter single_param(GPU0);
     BatchEigParameter batch_param(GPU0);
 
-    // TODO: warm-up the GPU
+    // warm-up the GPU
+    test_single_performance(
+        handle_arr, stream_arr, single_param, 10, 10, std::vector<double>(10 * 10 * 10, 0.0)
+    );
+    test_batched_performance(
+        handle, batch_param, 10, 10, std::vector<double>(10 * 10 * 10, 0.0)
+    );
 
     for (int r = 0; r < SINGLE_BATCHED_COMP_RESTARTS; r++) {
         for (auto mat_size : mat_sizes) {
             for (auto mat_num : mat_nums) {
-                // TODO: generate random matrices
+                // generate random matrices
                 std::vector<double> mat_vals = std::vector<double>(mat_size * mat_size * mat_num, 0.0);
+                std::random_device rd;
+                std::mt19937 gen(rd());
+                std::uniform_real_distribution<double> dis(0.0, 1.0);
+                for (int n = 0; n < mat_num; n++) {
+                    for (int i = 0; i < mat_size; i++) {
+                        for (int j = i; j < mat_size; j++) {
+                            double val = dis(gen);
+                            // matrix must be symmetric
+                            mat_vals[n * mat_size * mat_size + i * mat_size + j] = val;
+                            mat_vals[n * mat_size * mat_size + j * mat_size + i] = val;
+                        }
+                    }
+                }
     
                 // test the single QR performance
                 float single = test_single_performance(
