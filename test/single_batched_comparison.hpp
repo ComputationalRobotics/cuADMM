@@ -21,15 +21,61 @@ float test_single_performance(
     const int mat_num,
     std::vector<double> mat_vals
 ) {
-    // compute the buffer size
+    DeviceDenseVector<double> mat(GPU0, mat_size * mat_size * mat_num);
+    DeviceDenseVector<double> W(GPU0, mat_size * mat_num); // eigenvalues
+    DeviceDenseVector<int> info(GPU0, mat_num);
+
+    // copy matrices from CPU to GPU
+    CHECK_CUDA ( cudaMemcpy(mat.vals, mat_vals.data(), mat_size * mat_size * mat_num * sizeof(double), cudaMemcpyHostToDevice) );
+
+    // compute the buffer size and allocate the buffers
     // (we do not time this part since it is done only once)
+    size_t buffer_size;
+    size_t cpu_buffer_size;
+    single_eig_get_buffersize_cusolver(
+        handle_arr[0], param, mat, W,
+        mat_size, &buffer_size, &cpu_buffer_size
+    ); // buffer size per moment matrix
+    DeviceDenseVector<double> buffer = DeviceDenseVector<double>(GPU0, buffer_size * mat_num, true);
+    HostDenseVector<double> cpu_buffer = HostDenseVector<double>(cpu_buffer_size * mat_num, true);
 
-    // create the threads
-    std::condition_variable main_cv;
-    std::mutex main_mtx;     // main thread mutex
-    std::mutex resource_mtx; // ressource mutex
+    // timing
+    cudaEvent_t start, stop;
+    float milliseconds = 0;
+    cudaEventCreate(&start);
+    cudaEventCreate(&stop);
 
-    return std::sqrt(2);
+    // compute the eig decomposition
+    cudaEventRecord(start);
+
+    // for each moment matrix on this GPU, compute the eig decomposition
+    int stream_id;
+    for (int i = 0; i < mat_num; i++) {
+        stream_id = i % EIG_STREAM_NUM_PER_GPU;
+        // simply calls the cuSOLVER wrapper
+        single_eig_cusolver(
+            handle_arr[stream_id], param, mat, W,
+            buffer, cpu_buffer, info,
+            mat_size, buffer_size, cpu_buffer_size,
+            i * mat_size * mat_size, i * mat_size,
+            i * buffer_size, i * cpu_buffer_size, i
+        );
+    }
+
+    // for each stream, synchronize
+    for (int stream_id = 0; stream_id < EIG_STREAM_NUM_PER_GPU; stream_id++) {
+        CHECK_CUDA( cudaStreamSynchronize(stream_arr[stream_id].stream) );
+    }
+
+    cudaEventRecord(stop);
+    cudaEventSynchronize(stop);
+    cudaEventElapsedTime(&milliseconds, start, stop);
+
+    // end
+    cudaEventDestroy(start);
+    cudaEventDestroy(stop);
+
+    return milliseconds;
 }
 
 float test_batched_performance(
@@ -39,7 +85,7 @@ float test_batched_performance(
     const int mat_num,
     std::vector<double> mat_vals
 ) {
-    // compute the buffer size
+    // compute the buffer size and allocate the buffers
     // (we do not time this part since it is done only once)
     DeviceDenseVector<double> mat(GPU0, mat_size * mat_size * mat_num);
     DeviceDenseVector<double> W(GPU0, mat_size * mat_num); // eigenvalues
@@ -61,12 +107,14 @@ float test_batched_performance(
 
     // compute the eigenvalues and eigenvectors
     cudaEventRecord(start);
+
     batch_eig_cusolver(
         handle, param,
         mat, W,
         buffer, info,
         mat_size, mat_num, buffer_size
     );
+
     cudaEventRecord(stop);
     cudaEventSynchronize(stop);
     cudaEventElapsedTime(&milliseconds, start, stop);
@@ -80,8 +128,6 @@ float test_batched_performance(
 
 TEST(SingleBatchedComparison, Default)
 {
-    // GTEST_SKIP_("");
-
     // retrive the output path from the environment variable
     const char* output_env = std::getenv("CUADMM_SOLVER_OUTPUT_PATH");
     std::string output_path;
@@ -92,10 +138,9 @@ TEST(SingleBatchedComparison, Default)
     }
 
     // if the output file exists, fail the test
-    std::ifstream input_file(output_path + "single_batched_comparison.txt");
-    if (input_file.good()) {
-        std::cerr << "File already exists. Please remove it before running the test.\n";
-        ASSERT_TRUE(false);
+    std::ifstream check_file(output_path + "single_batched_comparison.txt");
+    if (check_file.good() && check_file.peek() != std::ifstream::traits_type::eof()) {
+        GTEST_SKIP_("SingleBatchedComparison: output file already exists. Please remove it before running the test.\n");
     }
 
     // open the output file

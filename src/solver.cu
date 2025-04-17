@@ -261,13 +261,10 @@ void SDPSolver::init(
         this->cusolverH_eig_mom_arr[0], eig_param_single, this->mom_mat, mom_W,
         this->LARGE, &this->eig_mom_buffer_size, &this->cpu_eig_mom_buffer_size
     ); // buffer size per moment matrix
-    for (int gpu_id = 0; gpu_id < 1; gpu_id++) {
-        this->mom_mat_num = this->mom_mat_num;
-        // allocate memory for the two buffers, host and device
-        this->eig_mom_buffer.allocate(gpu_id, this->eig_mom_buffer_size * this->mom_mat_num, true);
-        if (this->cpu_eig_mom_buffer_size > 0) {
-            this->cpu_eig_mom_buffer.allocate(this->cpu_eig_mom_buffer_size * this->mom_mat_num, true);
-        }
+    // allocate memory for the two buffers, host and device
+    this->eig_mom_buffer.allocate(GPU0, this->eig_mom_buffer_size * this->mom_mat_num, true);
+    if (this->cpu_eig_mom_buffer_size > 0) {
+        this->cpu_eig_mom_buffer.allocate(this->cpu_eig_mom_buffer_size * this->mom_mat_num, true);
     }
 
     /* Eigenvalue decomposition for localizing matrices */
@@ -572,7 +569,7 @@ void SDPSolver::solve(
         CHECK_CUDA( cudaDeviceSynchronize() );
 
 
-        // we perform the CPU decomposition of localizing matrices
+        // we perform the GPU decomposition of moment matrices
         resource_lk.lock();
         eig_count_finish = 0;
         resource_lk.unlock();
