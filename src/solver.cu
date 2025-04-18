@@ -248,19 +248,19 @@ void SDPSolver::init(
 
     // streams and handles for eigen decomposition
     this->eig_stream_arr = std::vector<DeviceStream>(this->eig_stream_num_per_gpu);
-    this->cusolverH_eig_mom_arr = std::vector<DeviceSolverDnHandle>(this->eig_stream_num_per_gpu);
+    this->cusolverH_eig_large_arr = std::vector<DeviceSolverDnHandle>(this->eig_stream_num_per_gpu);
     for (int stream_id = 0; stream_id < this->eig_stream_num_per_gpu; stream_id++) {
         // ininitialize and activate the streams and handles
         this->eig_stream_arr[stream_id].set_gpu_id(GPU0);
         this->eig_stream_arr[stream_id].activate();
-        this->cusolverH_eig_mom_arr[stream_id].set_gpu_id(GPU0);
-        this->cusolverH_eig_mom_arr[stream_id].activate(this->eig_stream_arr[stream_id]);
+        this->cusolverH_eig_large_arr[stream_id].set_gpu_id(GPU0);
+        this->cusolverH_eig_large_arr[stream_id].activate(this->eig_stream_arr[stream_id]);
     }
     
     // compute the buffer sizes of the moment matrices eig decomposition
     for (int i = 0; i < this->sizes.large_mat_sizes.size(); i++) {
         single_eig_get_buffersize_cusolver(
-            this->cusolverH_eig_mom_arr[i % this->eig_stream_num_per_gpu], eig_param_single, this->large_mat, this->large_W,
+            this->cusolverH_eig_large_arr[i % this->eig_stream_num_per_gpu], eig_param_single, this->large_mat, this->large_W,
             this->sizes.large_mat_sizes[i],
             &this->eig_mom_buffer_size, &this->cpu_eig_mom_buffer_size, // TODO: adapt
             this->sizes.large_mat_offset(i, 0), this->sizes.large_W_offset(i, 0)
@@ -288,9 +288,9 @@ void SDPSolver::init(
     this->eig_loc_buffer.allocate(GPU0, this->eig_loc_buffer_size, true);
 
     /* For the computation of y, X, S */
-    this->mom_mat_tmp.allocate(GPU0, this->sizes.total_large_mat_size);
+    this->large_mat_tmp.allocate(GPU0, this->sizes.total_large_mat_size);
     this->loc_mat_tmp.allocate(GPU0, this->sizes.total_small_mat_size);
-    this->mom_mat_P.allocate(GPU0, this->sizes.total_large_mat_size);
+    this->large_mat_P.allocate(GPU0, this->sizes.total_large_mat_size);
     this->loc_mat_P.allocate(GPU0, this->sizes.total_small_mat_size);
     this->Rd1.allocate(GPU0, this->vec_len);
     this->Xb.allocate(GPU0, this->vec_len);
@@ -378,13 +378,14 @@ void SDPSolver::solve(
                 if (breakyes) break;
 
                 // for each moment matrix on this GPU, compute the eig decomposition
+                int counter = 0;
                 for (int i = 0; i < this->sizes.large_mat_sizes.size(); i++) {
                     for (int j = 0; j < this->sizes.large_mat_nums[i]; j++) {
-                        stream_id = j % this->eig_stream_num_per_gpu; // TODO: smarter dispatch? non-urgent
+                        stream_id = counter % this->eig_stream_num_per_gpu;
 
                         // simply calls the cuSOLVER wrapper
                         single_eig_cusolver(
-                            this->cusolverH_eig_mom_arr[stream_id], eig_param_single, this->large_mat, this->large_W,
+                            this->cusolverH_eig_large_arr[stream_id], eig_param_single, this->large_mat, this->large_W,
                             this->eig_mom_buffer, this->cpu_eig_mom_buffer, this->large_info,
                             this->sizes.large_mat_sizes[i],
                             this->eig_mom_buffer_size, this->cpu_eig_mom_buffer_size, // TODO: adapt
@@ -392,6 +393,8 @@ void SDPSolver::solve(
                             this->sizes.large_mat_offset(i, j), this->sizes.large_W_offset(i, j),
                             j * this->eig_mom_buffer_size, j * this->cpu_eig_mom_buffer_size, j // TODO: adapt
                         );
+
+                        counter++;
                     }
                 }
 
@@ -575,7 +578,7 @@ void SDPSolver::solve(
         /* Compute Pi(X^{k+1}) (this is long) */
 
         // first, we convert Xb back to matrices (mom and loc)
-        // TODO: adapt
+        // TODO: adapt for loc -> small
         vector_to_matrices(this->Xb, this->large_mat, this->loc_mat, this->map_B, this->map_M1, this->map_M2);
         CHECK_CUDA( cudaDeviceSynchronize() );
 
@@ -604,7 +607,7 @@ void SDPSolver::solve(
         CHECK_CUDA( cudaDeviceSynchronize() );
 
         // we call cuSOLVER for the batch eig decomposition of localizing matrices
-        // TODO: adapt
+        // TODO: adapt for loc -> small
         batch_eig_cusolver(
             this->cusolverH_eig_loc, this->eig_param_batch, this->loc_mat, this->loc_W, this->eig_loc_buffer, this->loc_info,
             this->SMALL, this->loc_mat_num, this->eig_loc_buffer_size
@@ -613,14 +616,15 @@ void SDPSolver::solve(
         max_dense_vector_zero(this->large_W);
         max_dense_vector_zero(this->loc_W);
 
-        // TODO: adapt
-        dense_matrix_mul_diag_batch(mom_mat_tmp, this->large_mat, this->large_W, this->LARGE);
+        // TODO: adapt for multiple large and small sizes
+        dense_matrix_mul_diag_batch(large_mat_tmp, this->large_mat, this->large_W, this->LARGE);
         dense_matrix_mul_diag_batch(this->loc_mat_tmp, this->loc_mat, this->loc_W, this->SMALL);
-        dense_matrix_mul_trans_batch(this->cublasH, this->mom_mat_P, this->mom_mat_tmp, this->large_mat, this->LARGE, this->mom_mat_num);
+        // TODO: adapt for multiple large and small sizes
+        dense_matrix_mul_trans_batch(this->cublasH, this->large_mat_P, this->large_mat_tmp, this->large_mat, this->LARGE, this->mom_mat_num);
         dense_matrix_mul_trans_batch(this->cublasH, this->loc_mat_P, this->loc_mat_tmp, this->loc_mat, this->SMALL, this->loc_mat_num);
 
         // convert the matrices back to vectorized format
-        matrices_to_vector(this->Xproj, this->mom_mat_P, this->loc_mat_P, this->map_B, this->map_M1, this->map_M2);
+        matrices_to_vector(this->Xproj, this->large_mat_P, this->loc_mat_P, this->map_B, this->map_M1, this->map_M2);
 
         double norm_Xproj = this->Xproj.get_norm(this->cublasH);
         // printf("\n || rhsy ||: %f, || y ||: %f, || Xproj ||: %f", norm_rhsy, norm_y, norm_Xproj);

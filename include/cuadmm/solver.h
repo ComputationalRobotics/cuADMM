@@ -94,8 +94,8 @@ class SDPSolver {
         DeviceDenseVector<double> Xb;
 
         /* Sparse vector <-> sparse matrix mapping */
-        std::vector<int> blk_sizes;
-        std::vector<int> blk_nums;
+        std::vector<int> blk_sizes; // sizes of the matrices (without muliplicity)
+        std::vector<int> blk_nums;  // number of matrices of each size
         // TODO: remove
         int LARGE;        // size of moment matrices
         int SMALL;        // size of localization matrices
@@ -107,30 +107,20 @@ class SDPSolver {
         DeviceDenseVector<int> map_M1; // |- maps for vectorization of matrices
         DeviceDenseVector<int> map_M2; // |    (cached from get_maps())
 
-        /* Moment matrix decomposition */
+        /* Large matrix decomposition (single QR) */
         DeviceDenseVector<double> large_mat;
         DeviceDenseVector<double> large_W;
         DeviceDenseVector<int> large_info;
         int eig_stream_num_per_gpu;    // number of streams per GPU
         std::vector<DeviceStream> eig_stream_arr;
-        std::vector<DeviceSolverDnHandle> cusolverH_eig_mom_arr; // one handle per stream
+        std::vector<DeviceSolverDnHandle> cusolverH_eig_large_arr; // one handle per stream
         SingleEigParameter eig_param_single;
         size_t eig_mom_buffer_size;                // | GPU eig dec.
         DeviceDenseVector<double> eig_mom_buffer;  // | (size and buffer)
-
-        /* Moment matrix eigen decomposition: multi-core CPU */
         size_t cpu_eig_mom_buffer_size;             // | CPU eig dec.
         HostDenseVector<double> cpu_eig_mom_buffer; // | (size and buffer)
-        HostDenseVector<double> cpu_mom_mat;     // moment matrices on CPU
-        HostDenseVector<double> cpu_mom_W;       // moment matrix eigenvectors on CPU
-        HostDenseVector<ptrdiff_t> cpu_mom_info; // resulting info of eigen dec.
-        int cpu_eig_thread_num;                  // number of threads for CPU eig dec.
-        std::vector<int> cpu_eig_col_ptrs_arr;
-        int cpu_eig_mom_lwork;
-        int cpu_eig_mom_lwork2;
-        HostDenseVector<double> cpu_eig_mom_workspace;
-        HostDenseVector<ptrdiff_t> cpu_eig_mom_workspace_2;
-        /* Localizing matrices eigen decomposition: single CPU */
+
+        /* Small matrices eigen decomposition (batched Jacobi)  */
         DeviceDenseVector<double> loc_mat;
         DeviceDenseVector<double> loc_W;
         DeviceDenseVector<int> loc_info;
@@ -139,9 +129,9 @@ class SDPSolver {
         size_t eig_loc_buffer_size;
         DeviceDenseVector<double> eig_loc_buffer;
         /* Projection on PSD cones */
-        DeviceDenseVector<double> mom_mat_tmp;
+        DeviceDenseVector<double> large_mat_tmp;
         DeviceDenseVector<double> loc_mat_tmp;
-        DeviceDenseVector<double> mom_mat_P;
+        DeviceDenseVector<double> large_mat_P;
         DeviceDenseVector<double> loc_mat_P;
 
         /* Other */
