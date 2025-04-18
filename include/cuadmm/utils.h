@@ -46,6 +46,8 @@ void get_maps_duo(
 // - sum_small_mat_size: sum of the sizes of the small matrices
 // - large_mat_num: number of large matrices
 // - small_mat_num: number of small matrices
+// - unique_large_mat_num: number of unique large matrices
+// - unique_small_mat_num: number of unique small matrices
 void get_maps(
     const HostDenseVector<int>& blk, 
     const std::vector<int>& blk_sizes, const std::unordered_map<int, int>& blk_nums,
@@ -53,7 +55,8 @@ void get_maps(
     std::vector<int>& map_B_tmp, std::vector<int>& map_M1_tmp, std::vector<int>& map_M2_tmp,
     int& total_large_mat_size, int& total_small_mat_size,
     int& sum_large_mat_size, int& sum_small_mat_size,
-    int& large_mat_num, int& small_mat_num
+    int& large_mat_num, int& small_mat_num,
+    int& unique_large_mat_num, int& unique_small_mat_num
 );
 
 // Analyze the blk vector to determine the following hyperparameters:
@@ -81,5 +84,12 @@ void analyze_blk(
     std::vector<int>& blk_sizes,
     std::unordered_map<int, int>& blk_nums
 );
+
+// Heuristics to determine if a matrix is large or small.
+// This is used to determine if we use single QR or batched Jacobi for eig.
+// - mat_size: size of the matrix
+// - mat_num: number of matrices of this size
+// Returns true if the matrix is large, false otherwise.
+bool is_large_mat(int mat_size, int mat_num);
 
 #endif // CUADMM_UTILS_H

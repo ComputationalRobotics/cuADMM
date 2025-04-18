@@ -65,6 +65,18 @@ void get_maps_duo(
     return;
 }
 
+// Heuristics to determine if a matrix is large or small.
+// This is used to determine if we use single QR or batched Jacobi for eig.
+// - mat_size: size of the matrix
+// - mat_num: number of matrices of this size
+// Returns true if the matrix is large, false otherwise.
+bool is_large_mat(int mat_size, int mat_num) {
+    if (mat_size > 32) {
+        return true; // single is faster
+    }
+    return ((double) mat_size - 17.0 > (double) mat_num * 1.4); // approximation of the slope
+}
+
 // Computes the maps for the vectorized representation of symmetric matrices.
 // Matrices are split into to groups depending on their sizes and numbers:
 // large and small ones.
@@ -83,6 +95,8 @@ void get_maps_duo(
 // - sum_small_mat_size: sum of the sizes of the small matrices
 // - large_mat_num: number of large matrices
 // - small_mat_num: number of small matrices
+// - unique_large_mat_num: number of unique large matrices
+// - unique_small_mat_num: number of unique small matrices
 void get_maps(
     const HostDenseVector<int>& blk, 
     const std::vector<int>& blk_sizes, const std::unordered_map<int, int>& blk_nums,
@@ -90,7 +104,8 @@ void get_maps(
     std::vector<int>& map_B_tmp, std::vector<int>& map_M1_tmp, std::vector<int>& map_M2_tmp,
     int& total_large_mat_size, int& total_small_mat_size,
     int& sum_large_mat_size, int& sum_small_mat_size,
-    int& large_mat_num, int& small_mat_num
+    int& large_mat_num, int& small_mat_num,
+    int& unique_large_mat_num, int& unique_small_mat_num
 ) {
     // Reserve space for the maps
     map_B_tmp.clear();
@@ -107,6 +122,8 @@ void get_maps(
     sum_small_mat_size = 0;
     large_mat_num = 0;
     small_mat_num = 0;
+    unique_large_mat_num = 0;
+    unique_small_mat_num = 0;
 
     // for each matrix size, determine if it is large or small
     // i.e. if we put it in M1 or M2
@@ -116,15 +133,16 @@ void get_maps(
         int mat_size = pair.first; // size of the matrix
         int mat_num = pair.second; // number of matrices of this size
 
-        bool is_large_mat = (mat_size >= 20);
-        is_large[mat_size] = is_large_mat;
+        is_large[mat_size] = is_large_mat(mat_size, mat_num);
 
-        if (is_large_mat) {
+        if (is_large[mat_size]) {
             sum_large_mat_size += mat_size * mat_num;
             large_mat_num += mat_num;
+            unique_large_mat_num += 1;
         } else {
             sum_small_mat_size += mat_size * mat_num;
             small_mat_num += mat_num;
+            unique_small_mat_num += 1;
         }
     }
 

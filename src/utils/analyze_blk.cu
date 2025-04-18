@@ -11,6 +11,7 @@
 #include <iomanip>
 
 #include "cuadmm/memory.h"
+#include "cuadmm/utils.h"
 
 // Analyze the blk vector to determine the following hyperparameters:
 // - LARGE: the size of the large blocks (moment matrices)
@@ -87,7 +88,13 @@ void analyze_blk(
 
     // print the elements of the map
     for (const auto& pair : blk_nums) {
-        std::cout << "     " << std::setw(4) << pair.second << " matrices of size " << std::setw(3) << pair.first << std::endl;
+        std::cout << "     " << std::setw(4) << pair.second << " matrices of size " << std::setw(3) << pair.first;
+        if (is_large_mat(pair.first, pair.second)) {
+            std::cout << " (large)";
+        } else {
+            std::cout << " (small)";
+        }
+        std::cout << std::endl;
     }
 
     return;
