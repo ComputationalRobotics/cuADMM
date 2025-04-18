@@ -150,6 +150,7 @@ void SDPSolver::init(
     memcpy(cpu_blk.vals, cpu_blk_vals, sizeof(int) * mat_num);
 
     analyze_blk(cpu_blk, this->blk_sizes, this->blk_nums);
+    this->sizes.init(this->blk_sizes, this->blk_nums);
     // TODO: remove
     this->LARGE = *std::max_element(this->blk_sizes.begin(), this->blk_sizes.end());
     this->SMALL = *std::min_element(this->blk_sizes.begin(), this->blk_sizes.end());
@@ -162,7 +163,7 @@ void SDPSolver::init(
     std::vector<int> map_B_tmp;  // |
     std::vector<int> map_M1_tmp; // |- CPU version
     std::vector<int> map_M2_tmp; // |
-    get_maps(cpu_blk, this->blk_sizes, this->blk_nums, this->vec_len, map_B_tmp, map_M1_tmp, map_M2_tmp, this->total_large_mat_size, this->total_small_mat_size, this->sum_large_mat_size, this->sum_small_mat_size, this->large_mat_num, this->small_mat_num, this->unique_large_mat_num, this->unique_small_mat_num);
+    get_maps(cpu_blk, this->vec_len, map_B_tmp, map_M1_tmp, map_M2_tmp, this->sizes);
 
     // copy to GPU
     this->map_B.allocate(GPU0, vec_len);  // |
@@ -237,13 +238,13 @@ void SDPSolver::init(
 
     /* Eigen decomposition for moment matrices */
     // allocate GPU0 memory for moment matrices
-    this->large_mat.reserve(this->unique_large_mat_num);
-    this->large_W.reserve(this->unique_large_mat_num);
-    this->large_info.reserve(this->unique_large_mat_num);
-    for (int i = 0; i < this->unique_large_mat_num; i++) {
-        this->large_mat.emplace_back(GPU0, this->total_large_mat_size);
-        this->large_W.emplace_back(GPU0, this->sum_large_mat_size);
-        this->large_info.emplace_back(GPU0, this->large_mat_num);
+    this->large_mat.reserve(this->sizes.unique_large_mat_num);
+    this->large_W.reserve(this->sizes.unique_large_mat_num);
+    this->large_info.reserve(this->sizes.unique_large_mat_num);
+    for (int i = 0; i < this->sizes.unique_large_mat_num; i++) {
+        this->large_mat.emplace_back(GPU0, this->sizes.total_large_mat_size);
+        this->large_W.emplace_back(GPU0, this->sizes.sum_large_mat_size);
+        this->large_info.emplace_back(GPU0, this->sizes.large_mat_num);
     }
 
     // if the decomposition is on GPU, use cuSOLVER (cf cusolver.h)
@@ -261,7 +262,7 @@ void SDPSolver::init(
     }
     
     // compute the buffer sizes of the moment matrices eig decomposition
-    for (int i = 0; i < this->unique_large_mat_num; i++) {
+    for (int i = 0; i < this->sizes.unique_large_mat_num; i++) {
         single_eig_get_buffersize_cusolver(
             this->cusolverH_eig_mom_arr[i % this->eig_stream_num_per_gpu], eig_param_single, this->large_mat[i], large_W[i],
             this->LARGE, // TODO: adapt
@@ -277,9 +278,9 @@ void SDPSolver::init(
     /* Eigenvalue decomposition for localizing matrices */
     this->cusolverH_eig_loc.set_gpu_id(GPU0);
     this->cusolverH_eig_loc.activate();
-    this->loc_mat.allocate(GPU0, this->total_small_mat_size);
-    this->loc_W.allocate(GPU0, this->sum_small_mat_size);
-    this->loc_info.allocate(GPU0, this->small_mat_num);
+    this->loc_mat.allocate(GPU0, this->sizes.total_small_mat_size);
+    this->loc_W.allocate(GPU0, this->sizes.sum_small_mat_size);
+    this->loc_info.allocate(GPU0, this->sizes.small_mat_num);
     // TODO: adapt
     this->eig_loc_buffer_size = batch_eig_get_buffersize_cusolver(
         this->cusolverH_eig_loc, this->eig_param_batch, this->loc_mat, this->loc_W,
@@ -289,10 +290,10 @@ void SDPSolver::init(
     this->eig_loc_buffer.allocate(GPU0, this->eig_loc_buffer_size, true);
 
     /* For the computation of y, X, S */
-    this->mom_mat_tmp.allocate(GPU0, this->total_large_mat_size);
-    this->loc_mat_tmp.allocate(GPU0, this->total_small_mat_size);
-    this->mom_mat_P.allocate(GPU0, this->total_large_mat_size);
-    this->loc_mat_P.allocate(GPU0, this->total_small_mat_size);
+    this->mom_mat_tmp.allocate(GPU0, this->sizes.total_large_mat_size);
+    this->loc_mat_tmp.allocate(GPU0, this->sizes.total_small_mat_size);
+    this->mom_mat_P.allocate(GPU0, this->sizes.total_large_mat_size);
+    this->loc_mat_P.allocate(GPU0, this->sizes.total_small_mat_size);
     this->Rd1.allocate(GPU0, this->vec_len);
     this->Xb.allocate(GPU0, this->vec_len);
 
@@ -380,7 +381,7 @@ void SDPSolver::solve(
 
                 // for each moment matrix on this GPU, compute the eig decomposition
                 for (int i = 0; i < mom_mat_num; i++) {
-                    for (int j = 0; j < this->unique_large_mat_num; j++) {
+                    for (int j = 0; j < this->sizes.unique_large_mat_num; j++) {
                         stream_id = (i + j) % this->eig_stream_num_per_gpu;
 
                         // simply calls the cuSOLVER wrapper

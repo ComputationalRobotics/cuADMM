@@ -7,8 +7,8 @@
 
 */
 
-#ifndef CUADMM_DUO_SOLVER_H
-#define CUADMM_DUO_SOLVER_H
+#ifndef CUADMM_SOLVER_H
+#define CUADMM_SOLVER_H
 
 #include "cuadmm/check.h"
 #include "cuadmm/eig_cpu.h"
@@ -20,6 +20,7 @@
 #include "cuadmm/cublas.h"
 #include "cuadmm/cusparse.h"
 #include "cuadmm/cusolver.h"
+#include "cuadmm/matrix_sizes.h"
 
 // Main solver class for the SDP problem with two sizes of matrices only.
 // Uses the sGS-ADMM algorithm to solve the problem:
@@ -101,14 +102,7 @@ class SDPSolver {
         int mom_mat_num;  // number of moment matrices
         int loc_mat_num;  // number of localization matrices
         // TODO: end remove
-        int unique_large_mat_num; // number of sizes of large matrices (ex: for blk = [40, 50, 50], this is 2)
-        int unique_small_mat_num; // number of sizes of large matrices (ex: for blk = [3, 4, 4], this is 2)
-        int large_mat_num; // number of large matrices (nb)
-        int small_mat_num; // number of small matrices (nb)
-        int sum_large_mat_size; // sum of sizes of large matrices (nb * side)
-        int sum_small_mat_size; // sum of sizes of small matrices (nb * side)
-        int total_large_mat_size; // total size of large matrices (nb * side * side)
-        int total_small_mat_size; // total size of large matrices (nb * side * side)
+        MatrixSizes sizes;
         DeviceDenseVector<int> map_B;  // |
         DeviceDenseVector<int> map_M1; // |- maps for vectorization of matrices
         DeviceDenseVector<int> map_M2; // |    (cached from get_maps())
@@ -269,4 +263,4 @@ class SDPSolver {
         void synchronize_gpu0_streams();
 };
 
-#endif // CUADMM_DUO_SOLVER_H
+#endif // CUADMM_SOLVER_H

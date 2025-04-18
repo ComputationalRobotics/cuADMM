@@ -10,6 +10,7 @@
 #include <vector>
 #include <unordered_map>
 #include "cuadmm/memory.h"
+#include "cuadmm/matrix_sizes.h"
 
 // Check GPU numbers and whether they have peer-to-peer access
 int check_gpus();
@@ -33,30 +34,20 @@ void get_maps_duo(
 );
 
 // Computes the maps for the vectorized representation of symmetric matrices.
+// Matrices are split into to groups depending on their sizes and numbers:
+// large and small ones.
+//
 // - blk: input block sizes
-// - blk_sizes: sizes of the blocks
-// - blk_nums: number of blocks of each size
 // - vec_len: length of the vectorized representation
 // - map_B_tmp: output map, where 0 is for large blocks and 1 is for small blocks
 // - map_M1_tmp: output map for M1 (horizontal count of lower triangle)
 // - map_M2_tmp: output map for M2 (vertical count of upper triangle)
-// - total_large_mat_size: total size of the large matrices
-// - total_small_mat_size: total size of the small matrices
-// - sum_large_mat_size: sum of the sizes of the large matrices
-// - sum_small_mat_size: sum of the sizes of the small matrices
-// - large_mat_num: number of large matrices
-// - small_mat_num: number of small matrices
-// - unique_large_mat_num: number of unique large matrices
-// - unique_small_mat_num: number of unique small matrices
+// - sizes: structure containing the sizes of the matrices
 void get_maps(
-    const HostDenseVector<int>& blk, 
-    const std::vector<int>& blk_sizes, const std::unordered_map<int, int>& blk_nums,
+    const HostDenseVector<int>& blk,
     const int vec_len,
     std::vector<int>& map_B_tmp, std::vector<int>& map_M1_tmp, std::vector<int>& map_M2_tmp,
-    int& total_large_mat_size, int& total_small_mat_size,
-    int& sum_large_mat_size, int& sum_small_mat_size,
-    int& large_mat_num, int& small_mat_num,
-    int& unique_large_mat_num, int& unique_small_mat_num
+    MatrixSizes& sizes
 );
 
 // Analyze the blk vector to determine the following hyperparameters:
@@ -84,12 +75,5 @@ void analyze_blk(
     std::vector<int>& blk_sizes,
     std::unordered_map<int, int>& blk_nums
 );
-
-// Heuristics to determine if a matrix is large or small.
-// This is used to determine if we use single QR or batched Jacobi for eig.
-// - mat_size: size of the matrix
-// - mat_num: number of matrices of this size
-// Returns true if the matrix is large, false otherwise.
-bool is_large_mat(int mat_size, int mat_num);
 
 #endif // CUADMM_UTILS_H

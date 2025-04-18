@@ -12,6 +12,7 @@
 
 #include "cuadmm/memory.h"
 #include "cuadmm/utils.h"
+#include "cuadmm/matrix_sizes.h"
 
 // Analyze the blk vector to determine the following hyperparameters:
 // - LARGE: the size of the large blocks (moment matrices)
