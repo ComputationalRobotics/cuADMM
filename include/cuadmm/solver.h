@@ -95,7 +95,7 @@ class SDPSolver {
 
         /* Sparse vector <-> sparse matrix mapping */
         std::vector<int> blk_sizes;
-        std::unordered_map<int, int> blk_nums;
+        std::vector<int> blk_nums;
         // TODO: remove
         int LARGE;        // size of moment matrices
         int SMALL;        // size of localization matrices
@@ -108,9 +108,9 @@ class SDPSolver {
         DeviceDenseVector<int> map_M2; // |    (cached from get_maps())
 
         /* Moment matrix decomposition */
-        std::vector<DeviceDenseVector<double>> large_mat;
-        std::vector<DeviceDenseVector<double>> large_W;
-        std::vector<DeviceDenseVector<int>> large_info;
+        DeviceDenseVector<double> large_mat;
+        DeviceDenseVector<double> large_W;
+        DeviceDenseVector<int> large_info;
         int eig_stream_num_per_gpu;    // number of streams per GPU
         std::vector<DeviceStream> eig_stream_arr;
         std::vector<DeviceSolverDnHandle> cusolverH_eig_mom_arr; // one handle per stream

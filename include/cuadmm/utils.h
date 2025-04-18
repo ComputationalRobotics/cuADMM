@@ -73,7 +73,7 @@ void get_eig_rank_mask(
 void analyze_blk(
     HostDenseVector<int>& blk, 
     std::vector<int>& blk_sizes,
-    std::unordered_map<int, int>& blk_nums
+    std::vector<int>& blk_nums
 );
 
 #endif // CUADMM_UTILS_H

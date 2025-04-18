@@ -63,7 +63,7 @@ void analyze_blk_duo(
 void analyze_blk(
     HostDenseVector<int>& blk, 
     std::vector<int>& blk_sizes,
-    std::unordered_map<int, int>& blk_nums
+    std::vector<int>& blk_nums
 ) { 
     // first pass: get matrix sizes 
     std::set<int> size_set;
@@ -76,21 +76,19 @@ void analyze_blk(
     std::cout << "\nAnalysis of the blk vector:" << std::endl;
     
     // second pass: get matrix numbers
-    for (int i = 0; i < blk_sizes.size(); i++) {
-        blk_nums[blk_sizes[i]] = 0;
-    }
+    blk_nums = std::vector<int>(blk_sizes.size(), 0);
     for (int i = 0; i < blk.size; i++) {
         for (int j = 0; j < blk_sizes.size(); j++) {
             if (blk.vals[i] == blk_sizes[j]) {
-                blk_nums[blk.vals[i]] = blk_nums[blk.vals[i]] + 1;
+                blk_nums[j] = blk_nums[j] + 1;
             }
         }
     }
 
     // print the elements of the map
-    for (const auto& pair : blk_nums) {
-        std::cout << "     " << std::setw(4) << pair.second << " matrices of size " << std::setw(3) << pair.first;
-        if (is_large_mat(pair.first, pair.second)) {
+    for (int i = 0; i < blk_sizes.size(); i++) {
+        std::cout << "     " << std::setw(4) << blk_nums[i] << " matrices of size " << std::setw(3) << blk_sizes[i];
+        if (is_large_mat(blk_sizes[i], blk_nums[i])) {
             std::cout << " (large)";
         } else {
             std::cout << " (small)";

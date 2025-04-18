@@ -23,20 +23,32 @@ class MatrixSizes {
 private:
     std::unordered_map<int, bool> is_large_map; // map of sizes to whether they are large or small
 public:
-    int unique_large_mat_num; // number of sizes of large matrices (ex: for blk = [40, 50, 50], this is 2)
-    int unique_small_mat_num; // number of sizes of large matrices (ex: for blk = [3, 4, 4], this is 2)
-    int large_mat_num; // number of large matrices (nb)
-    int small_mat_num; // number of small matrices (nb)
-    int sum_large_mat_size; // sum of sizes of large matrices (nb * side)
-    int sum_small_mat_size; // sum of sizes of small matrices (nb * side)
+    /* large */
+    int large_mat_num;        // number of large matrices (with multiplicity)
+    int sum_large_mat_size;   // sum of sizes of large matrices (nb * side)
     int total_large_mat_size; // total size of large matrices (nb * side * side)
+    std::vector<int> large_mat_sizes;
+    std::vector<int> large_mat_nums;
+    std::vector<int> large_mat_start_indices; // start indices of large matrices in the vectorized representation
+    std::vector<int> large_W_start_indices; // start indices of large matrices in the W vector
+    
+    /* small */
+    int small_mat_num;        // number of small matrices (with multiplicity)
+    int sum_small_mat_size;   // sum of sizes of small matrices (nb * side)
     int total_small_mat_size; // total size of large matrices (nb * side * side)
 
     MatrixSizes() {}
 
-    void init(const std::vector<int>& blk_sizes, const std::unordered_map<int, int>& blk_nums);
+    void init(const std::vector<int>& blk_sizes, const std::vector<int>& blk_nums);
 
+    // Given a matrix size, returns true if it is large, false otherwise.
     bool is_large(int mat_size);
+
+    // Given a matrix size index and an index i, returns the offset of the i-th matrix of size mat_size (to which mat_size_index corresponds) in the vectorized representation.
+    int large_mat_offset(int mat_size_index, int mat_index);
+
+    // Given a matrix size and an index i, returns the offset of the i-th matrix of size mat_size in the W vector.
+    int large_W_offset(int mat_size_index, int mat_index);
 };
 
 #endif // CUADMM_MATRIX_SIZES_H

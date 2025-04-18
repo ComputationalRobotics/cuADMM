@@ -2,6 +2,9 @@
 
 #include <vector>
 #include <unordered_map>
+#include <cassert>
+#include <iostream>
+#include <iomanip>
 
 // Heuristics to determine if a matrix is large or small.
 // This is used to determine if we use single QR or batched Jacobi for eig.
@@ -16,7 +19,9 @@ bool is_large_mat(int mat_size, int mat_num) {
 }
 
 
-void MatrixSizes::init(const std::vector<int>& blk_sizes, const std::unordered_map<int, int>& blk_nums) {
+void MatrixSizes::init(const std::vector<int>& blk_sizes, const std::vector<int>& blk_nums) {
+    assert(blk_sizes.size() == blk_nums.size());
+
     // initialize the sizes and numbers
     this->total_large_mat_size = 0;
     this->total_small_mat_size = 0;
@@ -24,31 +29,69 @@ void MatrixSizes::init(const std::vector<int>& blk_sizes, const std::unordered_m
     this->sum_small_mat_size = 0;
     this->large_mat_num = 0;
     this->small_mat_num = 0;
-    this->unique_large_mat_num = 0;
-    this->unique_small_mat_num = 0;
+
+    this->large_mat_start_indices.push_back(0);
+    this->large_W_start_indices.push_back(0);
 
     // for each matrix size, determine if it is large or small
     // i.e. if we put it in M1 or M2
     // this determines if we use single QR or batched Jacobi for eig
-    ;
-    for (const auto& pair : blk_nums) {
-        int mat_size = pair.first; // size of the matrix
-        int mat_num = pair.second; // number of matrices of this size
-
+    for (int i = 0; i < blk_sizes.size(); i++) {
+        int mat_size = blk_sizes[i]; // size of the matrix
+        int mat_num = blk_nums[i]; // number of matrices of this size
+        
         this->is_large_map[mat_size] = is_large_mat(mat_size, mat_num);
-
+        
         if (this->is_large(mat_size)) {
-            this->sum_large_mat_size += mat_size * mat_num;
             this->large_mat_num += mat_num;
-            this->unique_large_mat_num += 1;
+            this->sum_large_mat_size += mat_size * mat_num;
             this->total_large_mat_size += mat_num * mat_size * mat_size;
+
+            this->large_mat_sizes.push_back(mat_size);
+            this->large_mat_nums.push_back(mat_num);
+
+            this->large_mat_start_indices.push_back(this->total_large_mat_size);
+            this->large_W_start_indices.push_back(this->sum_large_mat_size);
         } else {
             this->sum_small_mat_size += mat_size * mat_num;
             this->small_mat_num += mat_num;
-            this->unique_small_mat_num += 1;
             this->total_small_mat_size += mat_num * mat_size * mat_size;
         }
     }
+
+    std::cout << "\nAnalysis of the large matrices sizes:" << std::endl;
+    std::cout << "    size of large matrices: ";
+    for (int i = 0; i < this->large_mat_sizes.size(); i++) {
+        std::cout << std::setw(3) << this->large_mat_sizes[i] << " ";
+    }
+    std::cout << std::endl;
+    std::cout << "  number of large matrices: ";
+    for (int i = 0; i < this->large_mat_nums.size(); i++) {
+        std::cout << std::setw(3) << this->large_mat_nums[i] << " ";
+    }
+    std::cout << std::endl;
+    std::cout << "    total size of large matrices: " << this->total_large_mat_size << std::endl;
+    std::cout << "  sum of sizes of large matrices: " << this->sum_large_mat_size << std::endl;
+    std::cout << "    nb large (with multiplicity): " << this->large_mat_num << std::endl;
+    std::cout << "  large matrices start indices: ";
+    for (int i = 0; i < this->large_mat_start_indices.size(); i++) {
+        std::cout << this->large_mat_start_indices[i] << " ";
+    }
+    std::cout << std::endl;
+}
+
+int MatrixSizes::large_mat_offset(int large_idx, int same_size_idx) {
+    assert(large_idx < this->large_mat_sizes.size());
+    assert(same_size_idx < this->large_mat_nums[large_idx]);
+
+    return this->large_mat_start_indices[large_idx] + same_size_idx * this->large_mat_sizes[large_idx] * this->large_mat_sizes[large_idx];
+}
+
+int MatrixSizes::large_W_offset(int large_idx, int same_size_idx) {
+    assert(large_idx < this->large_mat_sizes.size());
+    assert(same_size_idx < this->large_mat_nums[large_idx]);
+
+    return this->large_W_start_indices[large_idx] + same_size_idx * this->large_mat_sizes[large_idx];
 }
 
 bool MatrixSizes::is_large(int mat_size) {
