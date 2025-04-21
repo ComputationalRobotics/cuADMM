@@ -139,11 +139,28 @@ void get_normA(
 
 // Computes the multiplication of a dense matrix by a batch of dense vectors as diagonal matrices:
 // mat1[i] = mat2[i] * diag(vec[i])
+// shapes:
+// - mat1: mat_size * mat_size
+// - mat2: mat_size * mat_size
+// - vec:  mat_size
+// This can also be seen as multiplying the i-th column of mat2 by the i-th element of vec.
+//
+// Arguments:
+// - dnmat1: the output dense matrix
+// - dnmat2: the input dense matrix
+// - dnvec: the input dense vector
+// - mat_size: the size of the matrices (all matrices must be of the same size)
+// - mat_nums: the number of matrices to process (default: -1, which means that the number of matrices is inferred from the size of dnmat1)
+// - mat_offset: the offset to start processing the matrices (default: 0)
+// - vec_offset: the offset to start processing the vectors (default: 0)
+// - stream: the CUDA stream to use (default: 0)
+// - block_size: the size of the CUDA blocks (default: 1024)
 void dense_matrix_mul_diag_batch(
     DeviceDenseVector<double>& dnmat1,
     const DeviceDenseVector<double>& dnmat2,
     const DeviceDenseVector<double>& dnvec,
     const int mat_size,
+    const int mat_nums = -1, const int mat_offset = 0, const int vec_offset = 0,
     const cudaStream_t& stream = (cudaStream_t) 0, int block_size = 1024
 );
 

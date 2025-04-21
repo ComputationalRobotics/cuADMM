@@ -119,6 +119,102 @@ TEST(Kernels, DiagonalBatch)
     };
 }
 
+TEST(Kernels, DiagonalBatchStreams)
+{
+    const int eig_stream_num_per_gpu = 2;
+
+    // Create 2 2x2 matrices and 3 3x3 matrices
+    std::vector<int> sizes = {2, 3};
+    std::vector<int> nums = {2, 3};
+    std::vector<double> mat_host = {
+        1.0, 2.0,
+        3.0, 4.0,
+
+        5.0, 6.0,
+        7.0, 8.0,
+
+        1.0, 2.0, 3.0,
+        4.0, 5.0, 6.0,
+        7.0, 8.0, 9.0,
+
+        9.0, 8.0, 7.0,
+        6.0, 5.0, 4.0,
+        3.0, 2.0, 1.0,
+
+        1.0, 4.0, 7.0,
+        2.0, 5.0, 8.0,
+        3.0, 6.0, 9.0,
+    };
+    ASSERT_EQ(mat_host.size(), 2*2*2 + 3*3*3);
+    DeviceDenseVector<double> mat(GPU0, 2*2*2 + 3*3*3);
+    CHECK_CUDA( cudaMemcpy(mat.vals, mat_host.data(), sizeof(double) * (2*2*2 + 3*3*3), cudaMemcpyHostToDevice) );
+
+    // Create dense vectors
+    std::vector<double> vec_host = {1.0, 2.0, 1.0, 2.0, 1.0, 2.0, 3.0, 1.0, 2.0, 3.0, 1.0, 2.0, 3.0};
+    ASSERT_EQ(vec_host.size(), (2*2 + 3*3));
+    DeviceDenseVector<double> vec(GPU0, 2*2+3*3);
+    CHECK_CUDA( cudaMemcpy(vec.vals, vec_host.data(), sizeof(double) * (2*2 + 3*3), cudaMemcpyHostToDevice) );
+
+    // Create a result matrix
+    DeviceDenseVector<double> result(GPU0, 2*2*2 + 3*3*3);
+
+    // Create streams
+    std::vector<DeviceStream> eig_stream_arr(eig_stream_num_per_gpu);
+    // std::vector<DeviceSolverDnHandle> cusolverH_eig_large_arr(eig_stream_num_per_gpu);
+    for (int stream_id = 0; stream_id < eig_stream_num_per_gpu; stream_id++) {
+        // ininitialize and activate the streams and handles
+        eig_stream_arr[stream_id].set_gpu_id(GPU0);
+        eig_stream_arr[stream_id].activate();
+        // cusolverH_eig_large_arr[stream_id].set_gpu_id(GPU0);
+        // cusolverH_eig_large_arr[stream_id].activate(eig_stream_arr[stream_id]);
+    }
+
+    // Perform the matrix multiplication
+    int mat_offset = 0;
+    int vec_offset = 0;
+    for (int i = 0; i < sizes.size(); i++) {
+        int mat_size = sizes[i];
+        int mat_nums = nums[i];
+        dense_matrix_mul_diag_batch(
+            result, mat, vec,
+            mat_size, mat_nums,
+            mat_offset, vec_offset,
+            eig_stream_arr[i % eig_stream_num_per_gpu].stream
+        );
+        mat_offset += mat_size * mat_size * mat_nums;
+        vec_offset += mat_size * mat_nums;
+    }
+
+    // Synchronize the streams
+    for (int stream_id = 0; stream_id < eig_stream_num_per_gpu; stream_id++) {
+        CHECK_CUDA( cudaStreamSynchronize(eig_stream_arr[stream_id].stream) );
+    }
+
+    // Retrieve the result from the device
+    std::vector<double> result_host(2*2*2 + 3*3*3);
+    CHECK_CUDA( cudaMemcpy(result_host.data(), result.vals, sizeof(double) * (2*2*2 + 3*3*3), cudaMemcpyDeviceToHost) );
+    std::vector<double> expected_result = {
+        1.0 * 1.0, 2.0 * 1.0,
+        3.0 * 2.0, 4.0 * 2.0,
+
+        5.0 * 1.0, 6.0 * 1.0,
+        7.0 * 2.0, 8.0 * 2.0,
+
+        1.0 * 1.0, 2.0 * 1.0, 3.0 * 1.0,
+        4.0 * 2.0, 5.0 * 2.0, 6.0 * 2.0,
+        7.0 * 3.0, 8.0 * 3.0, 9.0 * 3.0,
+
+        9.0 * 1.0, 8.0 * 1.0, 7.0 * 1.0,
+        6.0 * 2.0, 5.0 * 2.0, 4.0 * 2.0,
+        3.0 * 3.0, 2.0 * 3.0, 1.0 * 3.0,
+
+        1.0 * 1.0, 4.0 * 1.0, 7.0 * 1.0,
+        2.0 * 2.0, 5.0 * 2.0, 8.0 * 2.0,
+        3.0 * 3.0, 6.0 * 3.0, 9.0 * 3.0,
+    };
+    EXPECT_EQ(result_host, expected_result);
+}
+
 TEST(Kernels, SquareRoots)
 {
     EXPECT_DOUBLE_EQ(SQRT2, std::sqrt(2.0));
@@ -163,7 +259,7 @@ TEST(Kernels, MatricesToVector)
     std::vector<int> map_B_host;
     map_B_host.insert(map_B_host.end(), vec_len/2, 0); // first half is mom
     map_B_host.insert(map_B_host.end(), vec_len/2, 1); // second half is loc
-    
+
     // Allocate GPU memory
     DeviceDenseVector<double> mom_mat(GPU0, mat_size * mat_size);
     DeviceDenseVector<double> loc_mat(GPU0, mat_size * mat_size);
@@ -249,7 +345,7 @@ TEST(Kernels, VectorToMatrices)
     std::vector<int> map_B_host;
     map_B_host.insert(map_B_host.end(), vec_len/2, 0); // first half is mom
     map_B_host.insert(map_B_host.end(), vec_len/2, 1); // second half is loc
-    
+
     // Allocate GPU memory
     DeviceDenseVector<double> mom_mat(GPU0, mat_size * mat_size);
     DeviceDenseVector<double> loc_mat(GPU0, mat_size * mat_size);
