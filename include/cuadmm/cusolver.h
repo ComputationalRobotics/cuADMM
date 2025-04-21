@@ -136,13 +136,14 @@ template<typename T>
 inline size_t batch_eig_get_buffersize_cusolver(
     DeviceSolverDnHandle& cusolver_H, BatchEigParameter& param, 
     DeviceDenseVector<T>& mat, DeviceDenseVector<T>& W,
-    const int mat_size, const int batch_size
+    const int mat_size, const int batch_size,
+    const int mat_offset = 0, const int W_offset = 0
 ) {
     int buffer_len; // this size is len, not byte!
     CHECK_CUDA( cudaSetDevice(cusolver_H.gpu_id) );
     CHECK_CUSOLVER( cusolverDnDsyevjBatched_bufferSize(
         cusolver_H.cusolver_dn_handle, param.jobz, param.uplo,
-        mat_size, mat.vals, mat_size, W.vals,
+        mat_size, mat.vals + mat_offset, mat_size, W.vals + W_offset,
         &buffer_len, param.syevj_param, batch_size
     ) );
     return (buffer_len * sizeof(double));

@@ -280,18 +280,26 @@ void SDPSolver::init(
     }
 
     /* Eigenvalue decomposition for localizing matrices */
-    this->cusolverH_eig_loc.set_gpu_id(GPU0);
-    this->cusolverH_eig_loc.activate();
+    this->cusolverH_eig_small.set_gpu_id(GPU0);
+    this->cusolverH_eig_small.activate();
     this->small_mat.allocate(GPU0, this->sizes.total_small_mat_size);
     this->small_W.allocate(GPU0, this->sizes.sum_small_mat_size);
     this->small_info.allocate(GPU0, this->sizes.small_mat_num);
-    // TODO: adapt
-    this->eig_loc_buffer_size = batch_eig_get_buffersize_cusolver(
-        this->cusolverH_eig_loc, this->eig_param_batch, this->small_mat, this->small_W,
-        this->SMALL, this->loc_mat_num // TODO: adapt
-    );
+    this->eig_small_buffer_size.reserve(this->sizes.small_mat_sizes.size());
+    for (int i = 0; i < this->sizes.small_mat_sizes.size(); i++) {
+        this->eig_small_buffer_size[i] = batch_eig_get_buffersize_cusolver(
+            this->cusolverH_eig_small, this->eig_param_batch,
+            this->small_mat, this->small_W,
+            this->sizes.small_mat_sizes[i], this->sizes.small_mat_nums[i],
+            this->sizes.small_mat_offset(i), this->sizes.small_W_offset(i)
+        );
+    }
+    
     CHECK_CUDA( cudaStreamSynchronize(this->stream_flex[0].stream) );
-    this->eig_loc_buffer.allocate(GPU0, this->eig_loc_buffer_size, true);
+    this->eig_small_buffer.reserve(this->sizes.small_mat_sizes.size());
+    for (int i = 0; i < this->sizes.small_mat_sizes.size(); i++) {
+        this->eig_small_buffer.emplace_back(GPU0, this->eig_small_buffer_size[i], true);
+    }
 
     /* For the computation of y, X, S */
     this->large_mat_tmp.allocate(GPU0, this->sizes.total_large_mat_size);
@@ -615,11 +623,11 @@ void SDPSolver::solve(
         // we call cuSOLVER for the batch eig decomposition of localizing matrices
         for (int i = 0; i < this->sizes.small_mat_sizes.size(); i++) {
             batch_eig_cusolver(
-                this->cusolverH_eig_loc, this->eig_param_batch,
+                this->cusolverH_eig_small, this->eig_param_batch,
                 this->small_mat, this->small_W,
-                this->eig_loc_buffer, this->small_info,
+                this->eig_small_buffer[i], this->small_info,
                 this->sizes.small_mat_sizes[i], this->sizes.small_mat_nums[i],
-                this->eig_loc_buffer_size,
+                this->eig_small_buffer_size[i],
                 this->sizes.small_mat_offset(i), this->sizes.small_W_offset(i)
                 // TODO: buffer offsets, info offsets
             );

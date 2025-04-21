@@ -116,7 +116,9 @@ class SDPSolver {
         std::vector<DeviceSolverDnHandle> cusolverH_eig_large_arr; // one handle per stream
         SingleEigParameter eig_param_single;
         std::vector<size_t> eig_large_buffer_size;                // one GPU buffer size per unique large size
+        // TODO: replace with a single buffer
         std::vector<DeviceDenseVector<double>> eig_large_buffer;  // one GPU buffer per unique large size
+        // TODO: replace with a single buffer
         std::vector<size_t> cpu_eig_large_buffer_size;             // one CPU buffer size per unique large size
         std::vector<HostDenseVector<double>> cpu_eig_large_buffer; // one CPU buffer per unique large size
 
@@ -125,9 +127,10 @@ class SDPSolver {
         DeviceDenseVector<double> small_W;
         DeviceDenseVector<int> small_info;
         BatchEigParameter eig_param_batch;
-        DeviceSolverDnHandle cusolverH_eig_loc;
-        size_t eig_loc_buffer_size;
-        DeviceDenseVector<double> eig_loc_buffer;
+        DeviceSolverDnHandle cusolverH_eig_small;
+        std::vector<size_t> eig_small_buffer_size;
+        // TODO: replace with a single buffer
+        std::vector<DeviceDenseVector<double>> eig_small_buffer;
         /* Projection on PSD cones */
         DeviceDenseVector<double> large_mat_tmp;
         DeviceDenseVector<double> loc_mat_tmp;
