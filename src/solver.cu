@@ -259,12 +259,14 @@ void SDPSolver::init(
     
     // compute the buffer sizes of the moment matrices eig decomposition
     this->eig_large_buffer_size.reserve(this->sizes.large_mat_sizes.size());
-    this->eig_large_buffer.reserve(this->sizes.large_mat_sizes.size());
+    // this->eig_large_buffer.reserve(this->sizes.large_mat_sizes.size());
     this->cpu_eig_large_buffer_size.reserve(this->sizes.large_mat_sizes.size());
-    this->cpu_eig_large_buffer.reserve(this->sizes.large_mat_sizes.size());
+    // this->cpu_eig_large_buffer.reserve(this->sizes.large_mat_sizes.size());
 
     this->sizes.large_buffer_start_indices.push_back(0);
     this->sizes.large_cpu_buffer_start_indices.push_back(0);
+    int total_eig_large_buffer_size = 0;
+    int total_cpu_eig_large_buffer_size = 0;
     for (int i = 0; i < this->sizes.large_mat_sizes.size(); i++) {
         single_eig_get_buffersize_cusolver(
             this->cusolverH_eig_large_arr[i % this->eig_stream_num_per_gpu], eig_param_single, this->large_mat, this->large_W,
@@ -274,11 +276,9 @@ void SDPSolver::init(
             this->sizes.large_mat_offset(i, 0), this->sizes.large_W_offset(i, 0)
         ); // buffer size per moment matrix of a given size
 
-        // allocate memory for the two buffers, host and device
-        this->eig_large_buffer.emplace_back(GPU0, this->eig_large_buffer_size[i] * this->sizes.large_mat_nums[i], true);
-        if (this->cpu_eig_large_buffer_size[i] > 0) {
-            this->cpu_eig_large_buffer.emplace_back(this->cpu_eig_large_buffer_size[i] * this->sizes.large_mat_nums[i], true);
-        }
+        // we need to multiply the buffer size by the number of matrices of this size
+        total_eig_large_buffer_size += this->eig_large_buffer_size[i] * this->sizes.large_mat_nums[i];
+        total_cpu_eig_large_buffer_size += this->cpu_eig_large_buffer_size[i] * this->sizes.large_mat_nums[i];
 
         this->sizes.large_buffer_start_indices.push_back(
             this->sizes.large_buffer_start_indices[i] + this->eig_large_buffer_size[i]
@@ -287,6 +287,10 @@ void SDPSolver::init(
             this->sizes.large_cpu_buffer_start_indices[i] + this->cpu_eig_large_buffer_size[i]
         );
     }
+
+    // allocate memory for the two buffers, host and device
+    this->eig_large_buffer.allocate(GPU0, total_eig_large_buffer_size, true);
+    this->cpu_eig_large_buffer.allocate(total_cpu_eig_large_buffer_size, true);
 
     /* Eigenvalue decomposition for localizing matrices */
     this->cusolverH_eig_small.set_gpu_id(GPU0);
@@ -311,10 +315,9 @@ void SDPSolver::init(
     }
     
     CHECK_CUDA( cudaStreamSynchronize(this->stream_flex[0].stream) );
-    this->eig_small_buffer.reserve(this->sizes.small_mat_sizes.size());
-    for (int i = 0; i < this->sizes.small_mat_sizes.size(); i++) {
-        this->eig_small_buffer.emplace_back(GPU0, this->eig_small_buffer_size[i], true);
-    }
+    // we do not need to multiply the buffer size by the number of matrices,
+    // since it is already done in the function
+    this->eig_small_buffer.allocate(GPU0, this->sizes.small_buffer_start_indices.back(), true);
 
     /* For the computation of y, X, S */
     this->large_mat_tmp.allocate(GPU0, this->sizes.total_large_mat_size);
@@ -407,7 +410,7 @@ void SDPSolver::solve(
                 if (breakyes) break;
 
                 // for each moment matrix on this GPU, compute the eig decomposition
-                int counter = 0;
+                int counter = 0; // serves as a stream id and as an info offset
                 for (int i = 0; i < this->sizes.large_mat_sizes.size(); i++) {
                     for (int j = 0; j < this->sizes.large_mat_nums[i]; j++) {
                         stream_id = counter % this->eig_stream_num_per_gpu;
@@ -416,7 +419,7 @@ void SDPSolver::solve(
                         single_eig_cusolver(
                             this->cusolverH_eig_large_arr[stream_id], eig_param_single,
                             this->large_mat, this->large_W,
-                            this->eig_large_buffer[i], this->cpu_eig_large_buffer[i], this->large_info,
+                            this->eig_large_buffer, this->cpu_eig_large_buffer, this->large_info,
                             this->sizes.large_mat_sizes[i],
                             this->eig_large_buffer_size[i], this->cpu_eig_large_buffer_size[i],
                             // j * this->LARGE * this->LARGE, j * this->LARGE,
@@ -424,7 +427,7 @@ void SDPSolver::solve(
                             // j * this->eig_large_buffer_size[i], j * this->cpu_eig_large_buffer_size[i],
                             this->sizes.large_buffer_offset(i, j, this->eig_large_buffer_size),
                             this->sizes.large_cpu_buffer_offset(i, j, this->eig_large_buffer_size),
-                            j // TODO: adapt info offset
+                            counter
                         );
 
                         counter++;
@@ -639,17 +642,19 @@ void SDPSolver::solve(
         CHECK_CUDA( cudaDeviceSynchronize() );
 
         // we call cuSOLVER for the batch eig decomposition of localizing matrices
+        int info_offset = 0;
         for (int i = 0; i < this->sizes.small_mat_sizes.size(); i++) {
             batch_eig_cusolver(
                 this->cusolverH_eig_small, this->eig_param_batch,
                 this->small_mat, this->small_W,
-                this->eig_small_buffer[i], this->small_info,
+                this->eig_small_buffer, this->small_info,
                 this->sizes.small_mat_sizes[i], this->sizes.small_mat_nums[i],
                 this->eig_small_buffer_size[i],
                 this->sizes.small_mat_offset(i), this->sizes.small_W_offset(i),
-                this->sizes.small_buffer_offset(i, this->eig_small_buffer_size)
-                // TODO: info offset
+                this->sizes.small_buffer_offset(i, this->eig_small_buffer_size),
+                info_offset
             );
+            info_offset += this->sizes.small_mat_nums[i];
         }
 
         max_dense_vector_zero(this->large_W);
