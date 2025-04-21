@@ -263,6 +263,8 @@ void SDPSolver::init(
     this->cpu_eig_large_buffer_size.reserve(this->sizes.large_mat_sizes.size());
     this->cpu_eig_large_buffer.reserve(this->sizes.large_mat_sizes.size());
 
+    this->sizes.large_buffer_start_indices.push_back(0);
+    this->sizes.large_cpu_buffer_start_indices.push_back(0);
     for (int i = 0; i < this->sizes.large_mat_sizes.size(); i++) {
         single_eig_get_buffersize_cusolver(
             this->cusolverH_eig_large_arr[i % this->eig_stream_num_per_gpu], eig_param_single, this->large_mat, this->large_W,
@@ -277,6 +279,13 @@ void SDPSolver::init(
         if (this->cpu_eig_large_buffer_size[i] > 0) {
             this->cpu_eig_large_buffer.emplace_back(this->cpu_eig_large_buffer_size[i] * this->sizes.large_mat_nums[i], true);
         }
+
+        this->sizes.large_buffer_start_indices.push_back(
+            this->sizes.large_buffer_start_indices[i] + this->eig_large_buffer_size[i]
+        );
+        this->sizes.large_cpu_buffer_start_indices.push_back(
+            this->sizes.large_cpu_buffer_start_indices[i] + this->cpu_eig_large_buffer_size[i]
+        );
     }
 
     /* Eigenvalue decomposition for localizing matrices */
@@ -286,12 +295,18 @@ void SDPSolver::init(
     this->small_W.allocate(GPU0, this->sizes.sum_small_mat_size);
     this->small_info.allocate(GPU0, this->sizes.small_mat_num);
     this->eig_small_buffer_size.reserve(this->sizes.small_mat_sizes.size());
+
+    this->sizes.small_buffer_start_indices.push_back(0);
     for (int i = 0; i < this->sizes.small_mat_sizes.size(); i++) {
         this->eig_small_buffer_size[i] = batch_eig_get_buffersize_cusolver(
             this->cusolverH_eig_small, this->eig_param_batch,
             this->small_mat, this->small_W,
             this->sizes.small_mat_sizes[i], this->sizes.small_mat_nums[i],
             this->sizes.small_mat_offset(i), this->sizes.small_W_offset(i)
+        );
+
+        this->sizes.small_buffer_start_indices.push_back(
+            this->sizes.small_buffer_start_indices[i] + this->eig_small_buffer_size[i]
         );
     }
     
@@ -399,14 +414,17 @@ void SDPSolver::solve(
 
                         // simply calls the cuSOLVER wrapper
                         single_eig_cusolver(
-                            this->cusolverH_eig_large_arr[stream_id], eig_param_single, this->large_mat, this->large_W,
+                            this->cusolverH_eig_large_arr[stream_id], eig_param_single,
+                            this->large_mat, this->large_W,
                             this->eig_large_buffer[i], this->cpu_eig_large_buffer[i], this->large_info,
                             this->sizes.large_mat_sizes[i],
                             this->eig_large_buffer_size[i], this->cpu_eig_large_buffer_size[i],
                             // j * this->LARGE * this->LARGE, j * this->LARGE,
                             this->sizes.large_mat_offset(i, j), this->sizes.large_W_offset(i, j),
-                            j * this->eig_large_buffer_size[i], j * this->cpu_eig_large_buffer_size[i],
-                            j // TODO: adapt for buffers of multiple sizes, info offsets
+                            // j * this->eig_large_buffer_size[i], j * this->cpu_eig_large_buffer_size[i],
+                            this->sizes.large_buffer_offset(i, j, this->eig_large_buffer_size),
+                            this->sizes.large_cpu_buffer_offset(i, j, this->eig_large_buffer_size),
+                            j // TODO: adapt info offset
                         );
 
                         counter++;
@@ -628,8 +646,9 @@ void SDPSolver::solve(
                 this->eig_small_buffer[i], this->small_info,
                 this->sizes.small_mat_sizes[i], this->sizes.small_mat_nums[i],
                 this->eig_small_buffer_size[i],
-                this->sizes.small_mat_offset(i), this->sizes.small_W_offset(i)
-                // TODO: buffer offsets, info offsets
+                this->sizes.small_mat_offset(i), this->sizes.small_W_offset(i),
+                this->sizes.small_buffer_offset(i, this->eig_small_buffer_size)
+                // TODO: info offset
             );
         }
 

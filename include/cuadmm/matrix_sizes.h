@@ -31,6 +31,8 @@ public:
     std::vector<int> large_mat_nums;
     std::vector<int> large_mat_start_indices; // start indices of large matrices in the vectorized representation
     std::vector<int> large_W_start_indices; // start indices of large matrices in the W vector
+    std::vector<int> large_buffer_start_indices; // start indices of GPU buffers for large matrices
+    std::vector<int> large_cpu_buffer_start_indices; // start indices of CPU buffers for large matrices
     
     /* small */
     int small_mat_num;        // number of small matrices (with multiplicity)
@@ -40,6 +42,7 @@ public:
     std::vector<int> small_mat_nums;
     std::vector<int> small_mat_start_indices; // start indices of small matrices in the vectorized representation
     std::vector<int> small_W_start_indices; // start indices of small matrices in the W vector
+    std::vector<int> small_buffer_start_indices; // start indices of buffers for small matrices
 
     MatrixSizes() {}
 
@@ -54,11 +57,20 @@ public:
     // Given a matrix size and an index i, returns the offset of the i-th matrix of size mat_size in the W vector.
     int large_W_offset(int mat_size_index, int mat_index);
 
+    // Given a matrix size and an index i, returns the offset of the i-th GPU buffer for matrices of size mat_size.
+    int large_buffer_offset(int mat_size_index, int mat_index, std::vector<size_t>& buffer_sizes);
+
+    // Given a matrix size and an index i, returns the offset of the i-th CPU buffer for matrices of size mat_size.
+    int large_cpu_buffer_offset(int mat_size_index, int mat_index, std::vector<size_t>& eig_large_cpu_buffer_size);
+
     // Given a matrix size index, returns the offset of the matrices of size mat_size (to which mat_size_index corresponds) in the vectorized representation.
     int small_mat_offset(int mat_size_index);
 
     // Given a matrix size index, returns the offset of the matrices of size mat_size in the W vector.
     int small_W_offset(int mat_size_index);
+
+    // Given a matrix size and an index i, returns the offset of the i-th GPU buffer for matrices of size mat_size.
+    int small_buffer_offset(int mat_size_index, std::vector<size_t>& buffer_sizes);
 };
 
 #endif // CUADMM_MATRIX_SIZES_H

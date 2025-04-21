@@ -68,6 +68,10 @@ void MatrixSizes::init(const std::vector<int>& blk_sizes, const std::vector<int>
         }
     }
 
+    this->large_buffer_start_indices.reserve(this->large_mat_sizes.size() + 1);
+    this->large_cpu_buffer_start_indices.reserve(this->large_mat_sizes.size() + 1);
+    this->small_buffer_start_indices.reserve(this->small_mat_sizes.size() + 1);
+
     std::cout << "\nAnalysis of the large matrices sizes:" << std::endl;
     std::cout << "    size of large matrices: ";
     for (int i = 0; i < this->large_mat_sizes.size(); i++) {
@@ -121,6 +125,22 @@ int MatrixSizes::large_W_offset(int large_idx, int same_size_idx) {
     return this->large_W_start_indices[large_idx] + same_size_idx * this->large_mat_sizes[large_idx];
 }
 
+int MatrixSizes::large_buffer_offset(int large_idx, int same_size_idx, std::vector<size_t>& eig_large_buffer_size) {
+    assert(large_idx < this->large_mat_sizes.size());
+    assert(same_size_idx < this->large_mat_nums[large_idx]);
+
+    // note: this is for the case where we only use a single vector as buffer
+    return this->large_buffer_start_indices[large_idx] + eig_large_buffer_size[large_idx] * same_size_idx;
+}
+
+int MatrixSizes::large_cpu_buffer_offset(int large_idx, int same_size_idx, std::vector<size_t>& eig_large_cpu_buffer_size) {
+    assert(large_idx < this->large_mat_sizes.size());
+    assert(same_size_idx < this->large_mat_nums[large_idx]);
+
+    // note: this is for the case where we only use a single vector as buffer
+    return this->large_cpu_buffer_start_indices[large_idx] + eig_large_cpu_buffer_size[large_idx] * same_size_idx;
+}
+
 int MatrixSizes::small_mat_offset(int mat_size_index) {
     assert(mat_size_index < this->large_mat_sizes.size());
 
@@ -131,6 +151,13 @@ int MatrixSizes::small_W_offset(int mat_size_index) {
     assert(mat_size_index < this->large_mat_sizes.size());
 
     return this->large_W_start_indices[mat_size_index];
+}
+
+int MatrixSizes::small_buffer_offset(int small_idx, std::vector<size_t>& eig_small_buffer_size) {
+    assert(small_idx < this->small_mat_sizes.size());
+
+    // note: this is for the case where we only use a single vector as buffer
+    return this->small_buffer_start_indices[small_idx];
 }
 
 bool MatrixSizes::is_large(int mat_size) {
