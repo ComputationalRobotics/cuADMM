@@ -30,8 +30,11 @@ void MatrixSizes::init(const std::vector<int>& blk_sizes, const std::vector<int>
     this->large_mat_num = 0;
     this->small_mat_num = 0;
 
+    // first matrix starts at index 0
     this->large_mat_start_indices.push_back(0);
     this->large_W_start_indices.push_back(0);
+    this->small_mat_start_indices.push_back(0);
+    this->small_W_start_indices.push_back(0);
 
     // for each matrix size, determine if it is large or small
     // i.e. if we put it in M1 or M2
@@ -56,6 +59,12 @@ void MatrixSizes::init(const std::vector<int>& blk_sizes, const std::vector<int>
             this->sum_small_mat_size += mat_size * mat_num;
             this->small_mat_num += mat_num;
             this->total_small_mat_size += mat_num * mat_size * mat_size;
+
+            this->small_mat_sizes.push_back(mat_size);
+            this->small_mat_nums.push_back(mat_num);
+
+            this->small_mat_start_indices.push_back(this->total_small_mat_size);
+            this->small_W_start_indices.push_back(this->sum_small_mat_size);
         }
     }
 
@@ -77,6 +86,24 @@ void MatrixSizes::init(const std::vector<int>& blk_sizes, const std::vector<int>
     for (int i = 0; i < this->large_mat_start_indices.size(); i++) {
         std::cout << this->large_mat_start_indices[i] << " ";
     }
+    std::cout << std::endl << std::endl;
+    std::cout << "    size of small matrices: ";
+    for (int i = 0; i < this->small_mat_sizes.size(); i++) {
+        std::cout << std::setw(3) << this->small_mat_sizes[i] << " ";
+    }
+    std::cout << std::endl;
+    std::cout << "  number of small matrices: ";
+    for (int i = 0; i < this->small_mat_nums.size(); i++) {
+        std::cout << std::setw(3) << this->small_mat_nums[i] << " ";
+    }
+    std::cout << std::endl;
+    std::cout << "    total size of small matrices: " << this->total_small_mat_size << std::endl;
+    std::cout << "  sum of sizes of small matrices: " << this->sum_small_mat_size << std::endl;
+    std::cout << "    nb small (with multiplicity): " << this->small_mat_num << std::endl;
+    std::cout << "  small matrices start indices: ";
+    for (int i = 0; i < this->small_mat_start_indices.size(); i++) {
+        std::cout << this->small_mat_start_indices[i] << " ";
+    }
     std::cout << std::endl;
 }
 
@@ -92,6 +119,18 @@ int MatrixSizes::large_W_offset(int large_idx, int same_size_idx) {
     assert(same_size_idx < this->large_mat_nums[large_idx]);
 
     return this->large_W_start_indices[large_idx] + same_size_idx * this->large_mat_sizes[large_idx];
+}
+
+int MatrixSizes::small_mat_offset(int mat_size_index) {
+    assert(mat_size_index < this->large_mat_sizes.size());
+
+    return this->large_mat_start_indices[mat_size_index];
+}
+
+int MatrixSizes::small_W_offset(int mat_size_index) {
+    assert(mat_size_index < this->large_mat_sizes.size());
+
+    return this->large_W_start_indices[mat_size_index];
 }
 
 bool MatrixSizes::is_large(int mat_size) {

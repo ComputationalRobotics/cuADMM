@@ -153,15 +153,18 @@ template<typename T>
 inline void batch_eig_cusolver(
     DeviceSolverDnHandle& cusolver_H, BatchEigParameter& param, 
     DeviceDenseVector<T>& mat, DeviceDenseVector<T>& W, DeviceDenseVector<T>& buffer, DeviceDenseVector<int>& info, 
-    const int mat_size, const int batch_size, const size_t buffer_size    
+    const int mat_size, const int batch_size, const size_t buffer_size,
+    const int mat_offset = 0, const int W_offset = 0,
+    const size_t buffer_offset = 0, const size_t buffer_host_offset = 0,
+    const int info_offset = 0
 ) {
     int buffer_len = buffer_size / sizeof(double); // this size is len, not byte!
     CHECK_CUDA( cudaSetDevice(cusolver_H.gpu_id) );
     CHECK_CUSOLVER( cusolverDnDsyevjBatched(
         cusolver_H.cusolver_dn_handle, param.jobz, param.uplo,
-        mat_size, mat.vals, mat_size, W.vals,
-        buffer.vals, buffer_len,
-        info.vals, param.syevj_param, batch_size
+        mat_size, mat.vals + mat_offset, mat_size, W.vals + W_offset,
+        buffer.vals + buffer_offset / sizeof(double), buffer_len,
+        info.vals + info_offset, param.syevj_param, batch_size
     ) );
     return;
 }

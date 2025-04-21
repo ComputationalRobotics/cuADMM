@@ -115,15 +115,15 @@ class SDPSolver {
         std::vector<DeviceStream> eig_stream_arr;
         std::vector<DeviceSolverDnHandle> cusolverH_eig_large_arr; // one handle per stream
         SingleEigParameter eig_param_single;
-        size_t eig_mom_buffer_size;                // | GPU eig dec.
-        DeviceDenseVector<double> eig_mom_buffer;  // | (size and buffer)
-        size_t cpu_eig_mom_buffer_size;             // | CPU eig dec.
-        HostDenseVector<double> cpu_eig_mom_buffer; // | (size and buffer)
+        std::vector<size_t> eig_large_buffer_size;                // one GPU buffer size per unique large size
+        std::vector<DeviceDenseVector<double>> eig_large_buffer;  // one GPU buffer per unique large size
+        std::vector<size_t> cpu_eig_large_buffer_size;             // one CPU buffer size per unique large size
+        std::vector<HostDenseVector<double>> cpu_eig_large_buffer; // one CPU buffer per unique large size
 
         /* Small matrices eigen decomposition (batched Jacobi)  */
-        DeviceDenseVector<double> loc_mat;
-        DeviceDenseVector<double> loc_W;
-        DeviceDenseVector<int> loc_info;
+        DeviceDenseVector<double> small_mat;
+        DeviceDenseVector<double> small_W;
+        DeviceDenseVector<int> small_info;
         BatchEigParameter eig_param_batch;
         DeviceSolverDnHandle cusolverH_eig_loc;
         size_t eig_loc_buffer_size;

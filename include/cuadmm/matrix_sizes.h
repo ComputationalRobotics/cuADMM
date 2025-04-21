@@ -36,6 +36,10 @@ public:
     int small_mat_num;        // number of small matrices (with multiplicity)
     int sum_small_mat_size;   // sum of sizes of small matrices (nb * side)
     int total_small_mat_size; // total size of large matrices (nb * side * side)
+    std::vector<int> small_mat_sizes;
+    std::vector<int> small_mat_nums;
+    std::vector<int> small_mat_start_indices; // start indices of small matrices in the vectorized representation
+    std::vector<int> small_W_start_indices; // start indices of small matrices in the W vector
 
     MatrixSizes() {}
 
@@ -49,6 +53,12 @@ public:
 
     // Given a matrix size and an index i, returns the offset of the i-th matrix of size mat_size in the W vector.
     int large_W_offset(int mat_size_index, int mat_index);
+
+    // Given a matrix size index, returns the offset of the matrices of size mat_size (to which mat_size_index corresponds) in the vectorized representation.
+    int small_mat_offset(int mat_size_index);
+
+    // Given a matrix size index, returns the offset of the matrices of size mat_size in the W vector.
+    int small_W_offset(int mat_size_index);
 };
 
 #endif // CUADMM_MATRIX_SIZES_H
