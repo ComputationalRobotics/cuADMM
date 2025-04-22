@@ -144,15 +144,15 @@ int MatrixSizes::large_cpu_buffer_offset(int large_idx, int same_size_idx, std::
 }
 
 int MatrixSizes::small_mat_offset(int mat_size_index) {
-    assert(mat_size_index < this->large_mat_sizes.size());
+    assert(mat_size_index < this->small_mat_sizes.size());
 
-    return this->large_mat_start_indices[mat_size_index];
+    return this->small_mat_start_indices[mat_size_index];
 }
 
 int MatrixSizes::small_W_offset(int mat_size_index) {
-    assert(mat_size_index < this->large_mat_sizes.size());
+    assert(mat_size_index < this->small_mat_sizes.size());
 
-    return this->large_W_start_indices[mat_size_index];
+    return this->small_W_start_indices[mat_size_index];
 }
 
 int MatrixSizes::small_buffer_offset(int small_idx, std::vector<size_t>& eig_small_buffer_size) {
