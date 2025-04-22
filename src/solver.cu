@@ -321,9 +321,9 @@ void SDPSolver::init(
 
     /* For the computation of y, X, S */
     this->large_mat_tmp.allocate(GPU0, this->sizes.total_large_mat_size);
-    this->loc_mat_tmp.allocate(GPU0, this->sizes.total_small_mat_size);
+    this->small_mat_tmp.allocate(GPU0, this->sizes.total_small_mat_size);
     this->large_mat_P.allocate(GPU0, this->sizes.total_large_mat_size);
-    this->loc_mat_P.allocate(GPU0, this->sizes.total_small_mat_size);
+    this->small_mat_P.allocate(GPU0, this->sizes.total_small_mat_size);
     this->Rd1.allocate(GPU0, this->vec_len);
     this->Xb.allocate(GPU0, this->vec_len);
 
@@ -660,15 +660,40 @@ void SDPSolver::solve(
         max_dense_vector_zero(this->large_W);
         max_dense_vector_zero(this->small_W);
 
-        // TODO: adapt for multiple large and small sizes
-        dense_matrix_mul_diag_batch(large_mat_tmp, this->large_mat, this->large_W, this->LARGE);
-        dense_matrix_mul_diag_batch(this->loc_mat_tmp, this->small_mat, this->small_W, this->SMALL);
-        // TODO: adapt for multiple large and small sizes
+        // int stream_id;
+        // multiply the large matrices by their eigenvalues
+        for (int i = 0; i < this->sizes.large_mat_sizes.size(); i++) {
+            // stream_id = i % this->eig_stream_num_per_gpu;
+            dense_matrix_mul_diag_batch(
+                large_mat_tmp, this->large_mat, this->large_W,
+                this->sizes.large_mat_sizes[i], this->sizes.large_mat_nums[i],
+                this->sizes.large_mat_offset(i, 0), this->sizes.large_W_offset(i, 0)//,
+                // this->eig_stream_arr[stream_id].stream
+            );
+        }
+
+        // multiply the small matrices by their eigenvalues
+        for (int i = 0; i < this->sizes.small_mat_sizes.size(); i++) {
+            // stream_id = (this->sizes.large_mat_sizes.size() + i) % this->eig_stream_num_per_gpu;
+            dense_matrix_mul_diag_batch(
+                small_mat_tmp, this->small_mat, this->small_W,
+                this->sizes.small_mat_sizes[i], this->sizes.small_mat_nums[i],
+                this->sizes.small_mat_offset(i), this->sizes.small_W_offset(i)//,
+                // this->eig_stream_arr[stream_id].stream
+            );
+        }
+
+        // synchronize the streams
+        for (int stream_id = 0; stream_id < this->eig_stream_num_per_gpu; stream_id++) {
+            CHECK_CUDA( cudaStreamSynchronize(this->eig_stream_arr[stream_id].stream) );
+        }
+
+        // TODO: adapt
         dense_matrix_mul_trans_batch(this->cublasH, this->large_mat_P, this->large_mat_tmp, this->large_mat, this->LARGE, this->mom_mat_num);
-        dense_matrix_mul_trans_batch(this->cublasH, this->loc_mat_P, this->loc_mat_tmp, this->small_mat, this->SMALL, this->loc_mat_num);
+        dense_matrix_mul_trans_batch(this->cublasH, this->small_mat_P, this->small_mat_tmp, this->small_mat, this->SMALL, this->loc_mat_num);
 
         // convert the matrices back to vectorized format
-        matrices_to_vector(this->Xproj, this->large_mat_P, this->loc_mat_P, this->map_B, this->map_M1, this->map_M2);
+        matrices_to_vector(this->Xproj, this->large_mat_P, this->small_mat_P, this->map_B, this->map_M1, this->map_M2);
 
         double norm_Xproj = this->Xproj.get_norm(this->cublasH);
         // printf("\n || rhsy ||: %f, || y ||: %f, || Xproj ||: %f", norm_rhsy, norm_y, norm_Xproj);

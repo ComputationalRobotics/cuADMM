@@ -130,9 +130,9 @@ class SDPSolver {
         DeviceDenseVector<double> eig_small_buffer;
         /* Projection on PSD cones */
         DeviceDenseVector<double> large_mat_tmp;
-        DeviceDenseVector<double> loc_mat_tmp;
+        DeviceDenseVector<double> small_mat_tmp;
         DeviceDenseVector<double> large_mat_P;
-        DeviceDenseVector<double> loc_mat_P;
+        DeviceDenseVector<double> small_mat_P;
 
         /* Other */
         std::vector<DeviceStream> stream_flex;
