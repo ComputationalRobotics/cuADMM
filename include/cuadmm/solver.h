@@ -219,7 +219,7 @@ class SDPSolver {
             double* cpu_X_vals = nullptr, // |
             double* cpu_y_vals = nullptr, // |- values for warm start
             double* cpu_S_vals = nullptr, // |
-            double sig = 2e2
+            double sig = 1.0
         );
 
         // Solves the SDP problem using the sGS-ADMM algorithm.

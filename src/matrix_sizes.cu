@@ -90,7 +90,9 @@ void MatrixSizes::init(const std::vector<int>& blk_sizes, const std::vector<int>
     for (int i = 0; i < this->large_mat_start_indices.size(); i++) {
         std::cout << this->large_mat_start_indices[i] << " ";
     }
-    std::cout << std::endl << std::endl;
+    std::cout << std::endl;
+
+    std::cout << "\nAnalysis of the small matrices sizes:" << std::endl;
     std::cout << "    size of small matrices: ";
     for (int i = 0; i < this->small_mat_sizes.size(); i++) {
         std::cout << std::setw(3) << this->small_mat_sizes[i] << " ";

@@ -78,7 +78,7 @@ void read_sparse_vector_data(
         std::cerr << "Failed to open file: " << filename << std::endl;
         throw std::runtime_error("Failed to open file.");
     }
-    int row, col; 
+    int row, col;
     double val;
     while (file >> row >> col >> val) {
         if (col != 0) {
@@ -94,7 +94,8 @@ void read_sparse_vector_data(
 // Read sparse matrix in COOrdinate format from a .txt file.
 void read_COO_sparse_matrix_data(
     const std::string& filename,
-    std::vector<int>& rows, std::vector<int>& cols, std::vector<double>& vals
+    std::vector<int>& rows, std::vector<int>& cols, std::vector<double>& vals,
+    const bool transpose
 )
 {
     if (!rows.empty() || !cols.empty() || !vals.empty()) {
@@ -108,10 +109,13 @@ void read_COO_sparse_matrix_data(
         std::cerr << "Failed to open file: " << filename << std::endl;
         throw std::runtime_error("Failed to open file.");
     }
-    int row, col; 
+    int row, col;
     double val;
     while (file >> row >> col >> val) {
-        rows.push_back(row); 
+        if (transpose) {
+            std::swap(row, col);
+        }
+        rows.push_back(row);
         cols.push_back(col);
         vals.push_back(val);
     }
@@ -182,7 +186,7 @@ void write_sparse_matrix_data(
 void COO_to_CSC(
     std::vector<int>& col_ptrs, // pointers of col in CSC, of size (col_num+1, 0)
     std::vector<int>& col_ids, std::vector<int>& row_ids, std::vector<double>& vals, // triplets for the COO format
-    const int nnz, const int col_num 
+    const int nnz, const int col_num
 ) {
     // check the input
     if (col_ptrs.size() != (col_num+1)) {
@@ -244,7 +248,7 @@ void COO_to_CSC(
 void CSC_to_COO(
     std::vector<int>& col_ptrs, // pointers of col in CSC, of size (col_num+1, 0)
     std::vector<int>& col_ids, std::vector<int>& row_ids, std::vector<double>& vals, // triplets for the COO format
-    const int nnz, const int col_num 
+    const int nnz, const int col_num
 ) {
     // check the input
     if (col_ids.size() != nnz) {

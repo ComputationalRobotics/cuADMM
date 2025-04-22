@@ -24,7 +24,8 @@ void read_sparse_vector_data(
 // Read sparse matrix data from a .txt file.
 void read_COO_sparse_matrix_data(
     const std::string& filename,
-    std::vector<int>& rows, std::vector<int>& cols, std::vector<double>& vals
+    std::vector<int>& rows, std::vector<int>& cols, std::vector<double>& vals,
+    const bool transpose = false
 );
 
 // Write dense vector data from to a .txt file.
