@@ -18,7 +18,8 @@
 inline void dense_matrix_mul_trans_batch(
     DeviceBlasHandle& cublas_H, 
     DeviceDenseVector<double>& mat1, const DeviceDenseVector<double>& mat2, const DeviceDenseVector<double>& mat3,
-    const int mat_size, const int batch_size
+    const int mat_size, const int batch_size,
+    const int mat_offset = 0
 ) {
     const double alpha = 1.0;
     const double beta = 0.0;
@@ -26,8 +27,8 @@ inline void dense_matrix_mul_trans_batch(
     CHECK_CUBLAS( cublasDgemmStridedBatched(
         cublas_H.cublas_handle, CUBLAS_OP_N, CUBLAS_OP_T,
         mat_size, mat_size, mat_size, 
-        &alpha, mat2.vals, mat_size, stride, mat3.vals, mat_size, stride,
-        &beta, mat1.vals, mat_size, stride,
+        &alpha, mat2.vals + mat_offset, mat_size, stride, mat3.vals + mat_offset, mat_size, stride,
+        &beta, mat1.vals + mat_offset, mat_size, stride,
         batch_size
     ) );
     return;

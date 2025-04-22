@@ -151,13 +151,6 @@ void SDPSolver::init(
 
     analyze_blk(cpu_blk, this->blk_sizes, this->blk_nums);
     this->sizes.init(this->blk_sizes, this->blk_nums);
-    // TODO: remove
-    this->LARGE = *std::max_element(this->blk_sizes.begin(), this->blk_sizes.end());
-    this->SMALL = *std::min_element(this->blk_sizes.begin(), this->blk_sizes.end());
-    this->mom_mat_num = *std::min_element(this->blk_nums.begin(), this->blk_nums.end());
-    this->loc_mat_num = *std::max_element(this->blk_nums.begin(), this->blk_nums.end());
-    assert(this->sizes.total_large_mat_size == this->mom_mat_num * this->LARGE * this->LARGE);
-    // TODO: end remove
 
     /* Compute the maps for vectorization of matrices */
     // compute on CPU
@@ -660,6 +653,7 @@ void SDPSolver::solve(
         max_dense_vector_zero(this->large_W);
         max_dense_vector_zero(this->small_W);
 
+        // TODO: use multiple streams
         // int stream_id;
         // multiply the large matrices by their eigenvalues
         for (int i = 0; i < this->sizes.large_mat_sizes.size(); i++) {
@@ -684,13 +678,29 @@ void SDPSolver::solve(
         }
 
         // synchronize the streams
-        for (int stream_id = 0; stream_id < this->eig_stream_num_per_gpu; stream_id++) {
-            CHECK_CUDA( cudaStreamSynchronize(this->eig_stream_arr[stream_id].stream) );
+        // for (int stream_id = 0; stream_id < this->eig_stream_num_per_gpu; stream_id++) {
+        //     CHECK_CUDA( cudaStreamSynchronize(this->eig_stream_arr[stream_id].stream) );
+        // }
+
+
+        // TODO: use multiple cuBLAS handles
+        for (int i = 0; i < this->sizes.large_mat_sizes.size(); i++) {
+            dense_matrix_mul_trans_batch(
+                this->cublasH,
+                this->large_mat_P, this->large_mat_tmp, this->large_mat,
+                this->sizes.large_mat_sizes[i], this->sizes.large_mat_nums[i],
+                this->sizes.large_mat_offset(i, 0)
+            );
         }
 
-        // TODO: adapt
-        dense_matrix_mul_trans_batch(this->cublasH, this->large_mat_P, this->large_mat_tmp, this->large_mat, this->LARGE, this->mom_mat_num);
-        dense_matrix_mul_trans_batch(this->cublasH, this->small_mat_P, this->small_mat_tmp, this->small_mat, this->SMALL, this->loc_mat_num);
+        for (int i = 0; i < this->sizes.small_mat_sizes.size(); i++) {
+            dense_matrix_mul_trans_batch(
+                this->cublasH,
+                this->small_mat_P, this->small_mat_tmp, this->small_mat,
+                this->sizes.small_mat_sizes[i], this->sizes.small_mat_nums[i],
+                this->sizes.small_mat_offset(i)
+            );
+        }
 
         // convert the matrices back to vectorized format
         matrices_to_vector(this->Xproj, this->large_mat_P, this->small_mat_P, this->map_B, this->map_M1, this->map_M2);

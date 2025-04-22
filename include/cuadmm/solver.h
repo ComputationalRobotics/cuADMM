@@ -96,12 +96,6 @@ class SDPSolver {
         /* Sparse vector <-> sparse matrix mapping */
         std::vector<int> blk_sizes; // sizes of the matrices (without muliplicity)
         std::vector<int> blk_nums;  // number of matrices of each size
-        // TODO: remove
-        int LARGE;        // size of moment matrices
-        int SMALL;        // size of localization matrices
-        int mom_mat_num;  // number of moment matrices
-        int loc_mat_num;  // number of localization matrices
-        // TODO: end remove
         MatrixSizes sizes;
         DeviceDenseVector<int> map_B;  // |
         DeviceDenseVector<int> map_M1; // |- maps for vectorization of matrices
