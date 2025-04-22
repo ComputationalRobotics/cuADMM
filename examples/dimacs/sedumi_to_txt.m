@@ -3,7 +3,7 @@ function sedumi_to_txt(problem, output_dir)
     store_sparse_mat(problem.b, fullfile(output_dir, 'b.txt'));
     store_sparse_mat(problem.A', fullfile(output_dir, 'At.txt'));
     store_sparse_vec(problem.K.s, fullfile(output_dir, 'blk.txt'));
-    store_sparse_vec(size(problem.A, 2), fullfile(output_dir, 'con_num.txt'));
+    store_sparse_vec(size(problem.A, 1), fullfile(output_dir, 'con_num.txt'));
 end
 
 function store_sparse_vec(vec, output_name)
