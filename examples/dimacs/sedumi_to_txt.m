@@ -1,9 +1,34 @@
 function sedumi_to_txt(problem, output_dir)
-    store_sparse_mat(problem.c, fullfile(output_dir, 'C.txt'));
-    store_sparse_mat(problem.b, fullfile(output_dir, 'b.txt'));
-    store_sparse_mat(problem.A', fullfile(output_dir, 'At.txt'));
-    store_sparse_vec(problem.K.s, fullfile(output_dir, 'blk.txt'));
+    addpath("./mexfiles")
+    addpath("./utils")
+    [sdpt3_blk, sdpt3_At, sdpt3_C, sdpt3_b, ~] = read_sedumi(problem.A', problem.b, problem.c, problem.K, 0);
+    sdpt3.At = sdpt3_At;
+    sdpt3.C = sdpt3_C;
+    sdpt3.b = sdpt3_b;
+    sdpt3.blk = sdpt3_blk;
+    [cuda_At, cuda_b, cuda_C, cuda_blk] = data_sdpt3_to_admmSDPcuda(sdpt3);
+    store_sparse_mat(cuda_C, fullfile(output_dir, 'C.txt'));
+    store_sparse_mat(cuda_b, fullfile(output_dir, 'b.txt'));
+    store_sparse_mat(cuda_At, fullfile(output_dir, 'At.txt'));
+    store_sparse_vec(cuda_blk, fullfile(output_dir, 'blk.txt'));
     store_sparse_vec(size(problem.A, 1), fullfile(output_dir, 'con_num.txt'));
+end
+
+function v = from_cell_to_array(c)
+    v = [];
+    for i = 1: length(c)
+        v = [v; c{i}];
+    end
+end
+
+function [cuda_At, cuda_b, cuda_C, cuda_blk] = data_sdpt3_to_admmSDPcuda(sdpt3)
+    cuda_At = from_cell_to_array(sdpt3.At);
+    cuda_C = from_cell_to_array(svecADMM(sdpt3.blk, sdpt3.C));
+    cuda_b = sdpt3.b;
+    cuda_blk = zeros(size(sdpt3.blk, 1), 1);
+    for i = 1: size(sdpt3.blk, 1)
+        cuda_blk(i) = sdpt3.blk{i, 2};
+    end
 end
 
 function store_sparse_vec(vec, output_name)

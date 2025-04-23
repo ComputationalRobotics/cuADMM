@@ -82,7 +82,7 @@ void SDPSolver::init(
     this->normA.allocate(GPU0, con_num);
     get_normA(this->At_csc, this->normA);
 
-    /* convert the A matrix from CSC to CSR format */
+    /* convert the At matrix from CSC to CSR format */
     this->CSCtoCSR_At2A_buffer_size = CSC_to_CSR_get_buffersize_cusparse(this->cusparseH, this->At_csc, this->At_csr);
     this->CSCtoCSR_At2A_buffer.allocate(GPU0, CSCtoCSR_At2A_buffer_size, true);
     CSC_to_CSR_cusparse(this->cusparseH, this->At_csc, this->At_csr, this->CSCtoCSR_At2A_buffer);
