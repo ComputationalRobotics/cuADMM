@@ -91,35 +91,38 @@ void get_maps(
     map_M2_tmp.resize(vec_len);
 
     int idx = 0;    // current index in the maps
-    int k_Xmom = 0; // current large block index
-    int k_Xloc = 0; // current small block index
-    int s;          // block size
-    int b;         // block type (0 for large, 1 for small)
+    int large_offset = 0;
+    int small_offset = 0;
+    int s; // block size
+    int b; // block type (0 for large, 1 for small)
     for (int k = 0; k < blk.size; ++k) { // for each block
         s = blk.vals[k];
         if (sizes.is_large(s)) {
             b = 0;
-            ++k_Xmom;
         } else {
             b = 1;
-            ++k_Xloc;
         }
         for (int i = 1; i <= s; ++i) {      // for each coefficient
             for (int j = 1; j <= i; ++j) {  // in the triangle
                 map_B_tmp[idx] = b;
                 if (sizes.is_large(s)) {
                     // count horizontally
-                    map_M1_tmp[idx] = s * s * (k_Xmom - 1) + s * (i-1) + j-1;
+                    map_M1_tmp[idx] = large_offset + s * (i-1) + j-1;
                     // count vertically
-                    map_M2_tmp[idx] = s * s * (k_Xmom - 1) + s * (j-1) + i-1;
+                    map_M2_tmp[idx] = large_offset + s * (j-1) + i-1;
                 } else {
                     // count horizontally
-                    map_M1_tmp[idx] = s * s * (k_Xloc - 1) + s * (i-1) + j-1;
+                    map_M1_tmp[idx] = small_offset + s * (i-1) + j-1;
                     // count vertically
-                    map_M2_tmp[idx] = s * s * (k_Xloc - 1) + s * (j-1) + i-1;
+                    map_M2_tmp[idx] = small_offset + s * (j-1) + i-1;
                 }
                 ++idx;
             }
+        }
+        if (sizes.is_large(s)) {
+            large_offset += s * s;
+        } else {
+            small_offset += s * s;
         }
     }
     return;

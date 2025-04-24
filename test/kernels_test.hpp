@@ -408,31 +408,20 @@ TEST(Kernels, MatricesToVectorToMatricesMulti)
     };
     std::vector<double> large_matrices_host = {
         1.0, 2.0, 3.0,
-        3.0, 4.0, 5.0,
+        2.0, 4.0, 5.0,
         3.0, 5.0, 9.0,
         1.0, 2.0, 3.0, 4.0,
         2.0, 5.0, 6.0, 7.0,
         3.0, 6.0, 8.0, 9.0,
-        4.0, 8.0, 9.0, 10.0,
+        4.0, 7.0, 9.0, 10.0,
     };
-    HostDenseVector<int> blk(4);
-    std::vector<int> blk_sizes = {3, 4, 1, 2};
-    blk.vals[0] = 3;
-    blk.vals[1] = 4;
-    blk.vals[2] = 1;
-    blk.vals[3] = 2;
-    std::vector<int> blk_nums = {2, 4, 1, 2};
 
     const int vec_len = 1 + 2*3/2 + 3*4/2 + 4*5/2;
-    MatrixSizes sizes;
-    sizes.init(blk_sizes, blk_nums);
 
-    std::vector<int> map_B_host(vec_len, 0);
-    std::vector<int> map_M1_host(vec_len, 0);
-    std::vector<int> map_M2_host(vec_len, 0);
+    std::vector<int> map_B_host = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1};
+    std::vector<int> map_M1_host = {0, 3, 4, 6, 7, 8, 9, 13, 14, 17, 18, 19, 21, 22, 23, 24, 0, 1, 3, 4};
+    std::vector<int> map_M2_host = {0, 1, 4, 2, 5, 8, 9, 10, 14, 11, 15, 19, 12, 16, 20, 24, 0, 1, 2, 4};
 
-    get_maps(blk, vec_len, map_B_host, map_M1_host, map_M2_host, sizes);
-    // TODO: change map_B to avoir is_large_mat call
     // print map_B
     std::cout << "map_B: ";
     for (int i = 0; i < vec_len; i++) {
@@ -484,14 +473,12 @@ TEST(Kernels, MatricesToVectorToMatricesMulti)
     CHECK_CUDA( cudaMemcpy(large_matrices_out_host.data(), large_matrices_out.vals, sizeof(double) * (3*3+4*4), cudaMemcpyDeviceToHost) );
 
     // Check the result
-    EXPECT_EQ(small_matrices_out_host, small_matrices_host);
-    EXPECT_EQ(large_matrices_out_host, large_matrices_host);
-    // for (int i = 0; i < 1+2*2; i++) {
-    //     EXPECT_DOUBLE_EQ(small_matrices_out_host[i], small_matrices_host[i]);
-    // }
-    // for (int i = 0; i < 3*3+4*4; i++) {
-    //     EXPECT_DOUBLE_EQ(large_matrices_out_host[i], large_matrices_host[i]);
-    // }
+    for (int i = 0; i < 1+2*2; i++) {
+        EXPECT_DOUBLE_EQ(small_matrices_out_host[i], small_matrices_host[i]);
+    }
+    for (int i = 0; i < 3*3+4*4; i++) {
+        EXPECT_DOUBLE_EQ(large_matrices_out_host[i], large_matrices_host[i]);
+    }
 }
 
 TEST(Kernels, VectorToMatrices)
