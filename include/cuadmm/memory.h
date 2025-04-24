@@ -255,17 +255,20 @@ class DeviceDenseVector {
             // std::cout << "DeviceDenseVector destructor called!" << std::endl;
         }
 
-        void print() {
+        void print(int start=0, int end=-1) {
+            if (end == -1) {
+                end = this->size;
+            }
+
             T host_vec[this->size];
             
             // copy the vector to the device
             CHECK_CUDA( cudaMemcpy(host_vec, this->vals, sizeof(T) * this->size, cudaMemcpyDeviceToHost) );
-            std::printf("[");
-            for (size_t i = 0; i < this->size; i++) {
-                std::printf("%f, ", host_vec[i]);
+            std::cout << "[";
+            for (size_t i = start; i < end; i++) {
+                std::cout << host_vec[i] << ", ";
             }
-            std::printf("]");
-            std::cout << std::endl;
+            std::cout << "]" << std::endl;
         }
 };
 

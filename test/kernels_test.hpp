@@ -307,6 +307,108 @@ TEST(Kernels, MatricesToVector)
     }));
 }
 
+TEST(Kernels, MatricesToVectorToMatricesDuo)
+{
+    std::vector<double> small_matrices_host = {
+        1.0, 2.0,
+        2.0, 3.0,
+    };
+    std::vector<double> large_matrices_host = {
+        1.0, 2.0, 3.0, 4.0,
+        2.0, 5.0, 6.0, 7.0,
+        3.0, 6.0, 8.0, 9.0,
+        4.0, 7.0, 9.0, 10.0,
+    };
+    HostDenseVector<int> blk(2);
+    std::vector<int> blk_sizes = {4, 2};
+    blk.vals[0] = 4;
+    blk.vals[1] = 2;
+    std::vector<int> blk_nums = {2, 4};
+
+    const int vec_len = 2*3/2 + 4*5/2;
+    MatrixSizes sizes;
+    sizes.init(blk_sizes, blk_nums);
+
+    std::vector<int> map_B_host(vec_len, 0);
+    std::vector<int> map_M1_host(vec_len, 0);
+    std::vector<int> map_M2_host(vec_len, 0);
+
+    get_maps(blk, vec_len, map_B_host, map_M1_host, map_M2_host, sizes);
+    // TODO: change map_B to avoir is_large_mat call
+    // print map_B
+    std::cout << "map_B: ";
+    for (int i = 0; i < vec_len; i++) {
+        std::cout << map_B_host[i] << " ";
+    }
+    std::cout << std::endl;
+    // print map_M1
+    std::cout << "map_M1: ";
+    for (int i = 0; i < vec_len; i++) {
+        std::cout << map_M1_host[i] << " ";
+    }
+    std::cout << std::endl;
+    // print map_M2
+    std::cout << "map_M2: ";
+    for (int i = 0; i < vec_len; i++) {
+        std::cout << map_M2_host[i] << " ";
+    }
+    std::cout << std::endl;
+    
+    // Allocate GPU memory
+    DeviceDenseVector<double> small_matrices(GPU0, 2*2);
+    DeviceDenseVector<double> large_matrices(GPU0, 4*4);
+    DeviceDenseVector<double> Xb(GPU0, vec_len);
+    DeviceDenseVector<int> map_B(GPU0, vec_len);
+    DeviceDenseVector<int> map_M1(GPU0, vec_len);
+    DeviceDenseVector<int> map_M2(GPU0, vec_len);
+
+    // Copy small and large matrices to device
+    CHECK_CUDA( cudaMemcpy(small_matrices.vals, small_matrices_host.data(), sizeof(double) * (2*2), cudaMemcpyHostToDevice) );
+    CHECK_CUDA( cudaMemcpy(large_matrices.vals, large_matrices_host.data(), sizeof(double) * (4*4), cudaMemcpyHostToDevice) );
+    CHECK_CUDA( cudaMemcpy(map_B.vals, map_B_host.data(), sizeof(int) * vec_len, cudaMemcpyHostToDevice) );
+    CHECK_CUDA( cudaMemcpy(map_M1.vals, map_M1_host.data(), sizeof(int) * vec_len, cudaMemcpyHostToDevice) );
+    CHECK_CUDA( cudaMemcpy(map_M2.vals, map_M2_host.data(), sizeof(int) * vec_len, cudaMemcpyHostToDevice) );
+
+    // Convert matrices to vector
+    matrices_to_vector(Xb, large_matrices, small_matrices, map_B, map_M1, map_M2);
+    
+    Xb.print();
+    
+    // Convert vector back to matrices
+    DeviceDenseVector<double> small_matrices_out(GPU0, 2*2);
+    DeviceDenseVector<double> large_matrices_out(GPU0, 4*4);
+    vector_to_matrices(Xb, large_matrices_out, small_matrices_out, map_B, map_M1, map_M2);
+
+    // Copy result back to host
+    std::vector<double> small_matrices_out_host(2*2, -1.0);
+    std::vector<double> large_matrices_out_host(4*4, -1.0);
+    CHECK_CUDA( cudaMemcpy(small_matrices_out_host.data(), small_matrices_out.vals, sizeof(double) * (2*2), cudaMemcpyDeviceToHost) );
+    CHECK_CUDA( cudaMemcpy(large_matrices_out_host.data(), large_matrices_out.vals, sizeof(double) * (4*4), cudaMemcpyDeviceToHost) );
+
+    // Check the result
+    for (int i = 0; i < 2*2; i++) {
+        EXPECT_DOUBLE_EQ(small_matrices_out_host[i], small_matrices_host[i]);
+    }
+    for (int i = 0; i < 4*4; i++) {
+        EXPECT_DOUBLE_EQ(large_matrices_out_host[i], large_matrices_host[i]);
+    }
+}
+
+// std::vector<double> small_matrices_host = {
+//     1.0,
+//     1.0, 2.0,
+//     2.0, 4.0,
+// };
+// std::vector<double> large_matrices_host = {
+//     1.0, 2.0, 3.0,
+//     3.0, 4.0, 5.0,
+//     3.0, 5.0, 9.0,
+//     1.0, 2.0, 3.0, 4.0,
+//     2.0, 5.0, 6.0, 7.0,
+//     3.0, 6.0, 8.0, 9.0,
+//     4.0, 8.0, 9.0, 10.0,
+// };
+
 TEST(Kernels, VectorToMatrices)
 {
     const int mat_size = 4;
