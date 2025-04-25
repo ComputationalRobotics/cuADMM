@@ -11,7 +11,7 @@ function sedumi_to_txt(problem, output_dir)
     store_sparse_mat(cuda_b, fullfile(output_dir, 'b.txt'));
     store_sparse_mat(cuda_At, fullfile(output_dir, 'At.txt'));
     store_sparse_vec(cuda_blk, fullfile(output_dir, 'blk.txt'));
-    store_sparse_vec(size(problem.A, 1), fullfile(output_dir, 'con_num.txt'));
+    store_sparse_vec(size(cuda_At, 2), fullfile(output_dir, 'con_num.txt'));
 end
 
 function v = from_cell_to_array(c)

@@ -47,7 +47,7 @@ void get_maps(
     const HostDenseVector<int>& blk,
     const int vec_len,
     std::vector<int>& map_B_tmp, std::vector<int>& map_M1_tmp, std::vector<int>& map_M2_tmp,
-    MatrixSizes& sizes
+    const MatrixSizes& sizes
 );
 
 // Analyze the blk vector to determine the following hyperparameters:
