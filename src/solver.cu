@@ -94,7 +94,7 @@ void SDPSolver::init(
     this->cpu_AAt_solver.get_A(
         this->At_csr.row_ptrs, this->At_csr.col_ids, this->At_csr.vals,
         this->At_csr.col_size, this->At_csr.row_size, this->At_csr.nnz,
-        true
+        true, 1e-15
     );
     this->cpu_AAt_solver.factorize();
     // retrieve permutation of the L factor
@@ -274,10 +274,10 @@ void SDPSolver::init(
         total_cpu_eig_large_buffer_size += this->cpu_eig_large_buffer_size[i] * this->sizes.large_mat_nums[i];
 
         this->sizes.large_buffer_start_indices.push_back(
-            this->sizes.large_buffer_start_indices[i] + this->eig_large_buffer_size[i]
+            this->sizes.large_buffer_start_indices[i] + this->sizes.large_mat_nums[i] * this->eig_large_buffer_size[i]
         );
         this->sizes.large_cpu_buffer_start_indices.push_back(
-            this->sizes.large_cpu_buffer_start_indices[i] + this->cpu_eig_large_buffer_size[i]
+            this->sizes.large_cpu_buffer_start_indices[i] + this->sizes.large_mat_nums[i] * this->cpu_eig_large_buffer_size[i]
         );
     }
 
@@ -417,9 +417,7 @@ void SDPSolver::solve(
                             this->eig_large_buffer, this->cpu_eig_large_buffer, this->large_info,
                             this->sizes.large_mat_sizes[i],
                             this->eig_large_buffer_size[i], this->cpu_eig_large_buffer_size[i],
-                            // j * this->LARGE * this->LARGE, j * this->LARGE,
                             this->sizes.large_mat_offset(i, j), this->sizes.large_W_offset(i, j),
-                            // j * this->eig_large_buffer_size[i], j * this->cpu_eig_large_buffer_size[i],
                             this->sizes.large_buffer_offset(i, j, this->eig_large_buffer_size),
                             this->sizes.large_cpu_buffer_offset(i, j, this->eig_large_buffer_size),
                             counter
@@ -482,9 +480,8 @@ void SDPSolver::solve(
         // hence Rp = b - A X
     }
 
-    printf("\n");
-    printf("\n  it. | p infeas d infeas | primal obj.   dual obj. rel. gap |  time |   sigma | ");
-    printf("\n -------------------------------------------------------------------------------");
+    std::cout << std::endl << "  it. | p infeas d infeas | primal obj.   dual obj. rel. gap |  time |   sigma | " << std::endl;
+    std::cout << " -------------------------------------------------------------------------------" << std::endl;
 
     // for each iteration of the main solver
     for (int iter = 1; iter <= max_iter + 1; iter++) {
@@ -516,7 +513,7 @@ void SDPSolver::solve(
             cudaEventElapsedTime(&milliseconds, this->start, this->stop);
             seconds = milliseconds / 1000;
             printf(
-                "\n %4d | %3.2e %3.2e | %- 5.4e %- 5.4e %3.2e | %5.1f | %2.1e | ",
+                " %4d | %3.2e %3.2e | %- 5.4e %- 5.4e %3.2e | %5.1f | %2.1e |\n",
                 iter-1, this->errRp, this->errRd, this->pobj, this->dobj, this->relgap, seconds, this->sig
             );
         }
@@ -707,7 +704,7 @@ void SDPSolver::solve(
         // convert the matrices back to vectorized format
         matrices_to_vector(this->Xproj, this->large_mat_P, this->small_mat_P, this->map_B, this->map_M1, this->map_M2);
 
-        double norm_Xproj = this->Xproj.get_norm(this->cublasH);
+        // double norm_Xproj = this->Xproj.get_norm(this->cublasH);
         // printf("\n || rhsy ||: %f, || y ||: %f, || Xproj ||: %f", norm_rhsy, norm_y, norm_Xproj);
 
         /* Finish the computation of S^{k+1} */

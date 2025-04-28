@@ -18,8 +18,9 @@
 do {                                                                           \
     cudaError_t status = (func);                                               \
     if (status != cudaSuccess) {                                               \
-        printf("CUDA API failed at %s:%d with error: %s (%d)\n",               \
+        printf("CUDA API failed at %s:%d with error: %s (%d)",                 \
                __FILE__, __LINE__, cudaGetErrorString(status), status);        \
+        std::cout << std::endl;                                                \
     }                                                                          \
 } while (0) // wrap it in a do-while loop to be called with a semicolon
 
@@ -28,7 +29,8 @@ do {                                                                           \
 do {                                                                           \
     cublasStatus_t status = (func);                                            \
     if (status != CUBLAS_STATUS_SUCCESS) {                                     \
-        printf("cuBLAS error %d at %s:%d\n", status, __FILE__, __LINE__);      \
+        printf("cuBLAS error %d at %s:%d", status, __FILE__, __LINE__);        \
+        std::cout << std::endl;                                                \
     }                                                                          \
 } while (0)
 
@@ -37,7 +39,8 @@ do {                                                                           \
 do {                                                                           \
     cusolverStatus_t status = (func);                                          \
     if (status != CUSOLVER_STATUS_SUCCESS) {                                   \
-        printf("cuSOLVER error %d at %s:%d\n", status, __FILE__, __LINE__);    \
+        printf("cuSOLVER error %d at %s:%d", status, __FILE__, __LINE__);      \
+        std::cout << std::endl;                                                \
     }                                                                          \
 } while (0)
 
@@ -46,8 +49,9 @@ do {                                                                           \
 {                                                                              \
     cusparseStatus_t status = (func);                                          \
     if (status != CUSPARSE_STATUS_SUCCESS) {                                   \
-        printf("cuSPARSE API failed at line %d with error: %s (%d)\n",         \
+        printf("cuSPARSE API failed at line %d with error: %s (%d)",           \
                __LINE__, cusparseGetErrorString(status), status);              \
+        std::cout << std::endl;                                                \
     }                                                                          \
 }
 
