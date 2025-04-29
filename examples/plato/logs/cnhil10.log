@@ -1,0 +1,52 @@
+Loaded problem from /home/jordan/antoine/cuADMM/examples/plato/TXT/cnhil10/
+              vector length: 24310
+      number of constraints: 5005
+           number of blocks: 1
+  number of non-zeros in At: 24310
+   number of non-zeros in b: 218
+   number of non-zeros in C: 0
+
+Analysis of the blk vector:
+        1 matrices of size 220 (large)
+
+Analysis of the large matrices sizes:
+    size of large matrices: 220 
+  number of large matrices:   1 
+    total size of large matrices: 48400
+  sum of sizes of large matrices: 220
+    nb large (with multiplicity): 1
+  large matrices start indices: 0 48400 
+
+Analysis of the small matrices sizes:
+    size of small matrices: 
+  number of small matrices: 
+    total size of small matrices: 0
+  sum of sizes of small matrices: 0
+    nb small (with multiplicity): 0
+  small matrices start indices: 0 
+
+ -------------------------------------------------------------------------------
+                                    cuADMM
+ -------------------------------------------------------------------------------
+ norm of C = 1.0e+00, norm of b = 7.6e+00
+
+  it. | p infeas d infeas | primal obj.   dual obj. rel. gap |  time |   sigma | 
+ -------------------------------------------------------------------------------
+    0 | 8.68e-01 0.00e+00 |  0.0000e+00  0.0000e+00 0.00e+00 |   0.2 | 1.0e+00 |
+   50 | 5.44e-02 4.79e-02 |  0.0000e+00 -1.5224e-01 1.32e-01 |   0.7 | 1.1e+00 |
+  100 | 4.18e-03 3.70e-03 |  0.0000e+00 -1.1481e-02 1.14e-02 |   2.0 | 1.1e+00 |
+  132 | 2.88e-04 3.82e-04 |  0.0000e+00 -8.6448e-04 8.64e-04 |   3.1 | 1.0e+00 |
+
+ -------------------------------------------------------------------------------
+
+Solver ended: converged.
+
+ primal infeasibility = 2.9e-04 
+ dual   infeasibility = 3.8e-04 
+ relative gap         = 8.6e-04
+ primal objective =  0.00000000e+00 
+ dual   objective = -8.64479970e-04
+
+ time per iteration = 0.0230s 
+ total time         = 3.1s
+ -------------------------------------------------------------------------------

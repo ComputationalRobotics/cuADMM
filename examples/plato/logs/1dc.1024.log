@@ -1,0 +1,56 @@
+Loaded problem from /home/jordan/antoine/cuADMM/examples/plato/TXT/1dc.1024/
+              vector length: 524800
+      number of constraints: 24064
+           number of blocks: 1
+  number of non-zeros in At: 25087
+   number of non-zeros in b: 1
+   number of non-zeros in C: 524800
+
+Analysis of the blk vector:
+        1 matrices of size 1024 (large)
+
+Analysis of the large matrices sizes:
+    size of large matrices: 1024 
+  number of large matrices:   1 
+    total size of large matrices: 1048576
+  sum of sizes of large matrices: 1024
+    nb large (with multiplicity): 1
+  large matrices start indices: 0 1048576 
+
+Analysis of the small matrices sizes:
+    size of small matrices: 
+  number of small matrices: 
+    total size of small matrices: 0
+  sum of sizes of small matrices: 0
+    nb small (with multiplicity): 0
+  small matrices start indices: 0 
+
+ -------------------------------------------------------------------------------
+                                    cuADMM
+ -------------------------------------------------------------------------------
+ norm of C = 1.0e+03, norm of b = 2.0e+00
+
+  it. | p infeas d infeas | primal obj.   dual obj. rel. gap |  time |   sigma | 
+ -------------------------------------------------------------------------------
+    0 | 5.00e-01 9.99e-01 |  0.0000e+00  0.0000e+00 0.00e+00 |   0.2 | 1.0e+00 |
+   50 | 3.85e-02 4.79e-02 | -4.8098e+01 -1.5748e+02 5.30e-01 |   3.8 | 1.1e+00 |
+  100 | 2.96e-03 3.74e-03 | -6.7499e+00 -1.4215e+02 9.03e-01 |   6.8 | 1.1e+00 |
+  150 | 1.97e-06 3.97e-04 | -3.3731e+00 -1.2853e+02 9.42e-01 |   8.7 | 1.1e+00 |
+  200 | 4.90e-12 2.14e-04 | -3.5535e+00 -1.1518e+02 9.32e-01 |  11.0 | 1.1e+00 |
+  300 | 7.69e-14 2.75e-03 | -1.1102e+02 -9.6991e+01 6.71e-02 |  18.1 | 1.2e+00 |
+  353 | 6.98e-14 4.11e-04 | -9.7104e+01 -9.6948e+01 8.00e-04 |  22.1 | 1.2e+00 |
+
+ -------------------------------------------------------------------------------
+
+Solver ended: converged.
+
+ primal infeasibility = 7.0e-14 
+ dual   infeasibility = 4.1e-04 
+ relative gap         = 8.0e-04
+ primal objective = -9.71043558e+01 
+ dual   objective = -9.69482948e+01
+
+ time per iteration = 0.0624s 
+ total time         = 22.1s
+ -------------------------------------------------------------------------------
+

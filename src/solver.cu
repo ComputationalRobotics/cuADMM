@@ -740,7 +740,7 @@ void SDPSolver::solve(
         // If the number of iterations goes large but sGS-ADMM still fail to converge,
         // switch to ordinary ADMM
         if (iter == this->switch_admm) {
-            printf("\n switching to normal ADMM!");
+            std::cout << " switching to normal ADMM!" << std::endl;
             this->sig_update_stage_2 = this->sig_update_stage_2 / 2;
             this->sigscale = this->sigscale * 1.23;
             this->sgs_KKT = max(this->maxfeas, this->relgap);

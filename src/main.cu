@@ -27,7 +27,7 @@ int main(int argc, char* argv[]) {
         sig
     );
 
-    solver.solve((int) 1e5, 1e-8, false);
+    solver.solve((int) 1e5, 1e-3, false);
     
     return 0;
 }
