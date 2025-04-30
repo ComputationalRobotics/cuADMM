@@ -1,7 +1,8 @@
 function sedumi_to_txt(problem, output_dir)
+    % addpath("~/matlab-install/mosek/10.1/toolbox/r2017a")
     addpath("./mexfiles")
     addpath("./utils")
-    [sdpt3_blk, sdpt3_At, sdpt3_C, sdpt3_b, ~] = read_sedumi(problem.A', problem.b, problem.c, problem.K, 0);
+    [sdpt3_blk, sdpt3_At, sdpt3_C, sdpt3_b, ~] = read_sedumi(problem.A, problem.b, problem.c, problem.K, 0);
     sdpt3.At = sdpt3_At;
     sdpt3.C = sdpt3_C;
     sdpt3.b = sdpt3_b;
@@ -12,6 +13,13 @@ function sedumi_to_txt(problem, output_dir)
     store_sparse_mat(cuda_At, fullfile(output_dir, 'At.txt'));
     store_sparse_vec(cuda_blk, fullfile(output_dir, 'blk.txt'));
     store_sparse_vec(size(cuda_At, 2), fullfile(output_dir, 'con_num.txt'));
+
+    % prob = convert_sedumi2mosek(problem.A, problem.b, problem.c, problem.K);
+    % [~, ~] = mosekopt('minimize info', prob);
+    % [Xopt, ~, ~, obj] = recover_mosek_sol_blk(res, sdpt3_blk);
+    % disp("Optimal value: " + num2str(obj));
+    % disp("Optimal solution: ");
+    % disp(Xopt);
 end
 
 function v = from_cell_to_array(c)
