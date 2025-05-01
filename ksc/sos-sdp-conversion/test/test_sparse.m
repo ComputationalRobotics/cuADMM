@@ -1,0 +1,31 @@
+setenv('LD_PRELOAD', '/usr/lib/gcc/x86_64-linux-gnu/12/libasan.so');
+pathinfo = dictionary();
+pathinfo("mosek") = "~/matlab-install/mosek/10.1/toolbox/r2017a";
+pathinfo("sdpt3") = "~/matlab-install/SDPT3-4.0";
+pathinfo("sedumi") = "~/matlab-install/sedumi";
+pathinfo("utils") = "~/matlab-install/lab-code/utils";
+pathinfo("kscutils") = "../ksc-utils";
+pathinfo("lib") = "../lib";
+pathinfo("spot") = "~/matlab-install/spotless";
+pathinfo("sossdp") = "../sos-sdp-conversion";
+pathinfo("sdpnal") = "~/matlab-install/SDPNAL+v1.0";
+pathinfo("manopt") = "~/matlab-install/manopt";
+pathinfo("stride") = "~/STRIDE";
+keys = pathinfo.keys;
+for i = 1: length(keys)
+    key = keys(i);
+    addpath(genpath(pathinfo(key)));
+end
+x = msspoly('x', 6);
+problem.vars = { [ x(1); x(4) ]; [ x(1); x(2); x(3); x(5) ]; [ x(1); x(3); x(5); x(6) ] };
+problem.objective = [ -x(1) * x(4); -x(1) * x(1) + x(1) * x(2) + x(1) * x(3) - x(2) * x(3) + x(2) * x(5); -x(5) * x(6) + x(1) * x(5) + x(1) * x(6) + x(3) * x(6) ];
+problem.inequality = { [ (6.36 - x(1)) * (x(1) - 4); (6.36 - x(4)) * (x(4) - 4) ]; [ (6.36 - x(2)) * (x(2) - 4); (6.36 - x(3)) * (x(3) - 4) ]; [ (6.36 - x(5)) * (x(5) - 4); (6.36 - x(6)) * (x(6) - 4) ] };
+problem.equality = { msspoly(); msspoly(); msspoly() };
+problem.rip_predecessor = 0 : 2;
+problem.relaxation_order = 2;
+[SDP, info] = sparse_sdp_relax(problem);
+stdans = sparse_sdp_relax_backup_cpp(problem);
+[x, y, ~] = sedumi(stdans.sedumi.At.', stdans.sedumi.b, stdans.sedumi.c, stdans.sedumi.K);
+Ks = stdans.sedumi.K.s;
+x = [ x(1 : Ks(1) * Ks(1)); x(dot(Ks(1:3), Ks(1:3)) + 1 : dot(Ks(1:5), Ks(1:5))); x(dot(Ks(1), Ks(1)) + 1 : dot(Ks(1:2), Ks(1:2))); x(dot(Ks(1:5), Ks(1:5)) + 1 : dot(Ks(1:7), Ks(1:7))); x(dot(Ks(1:2), Ks(1:2)) + 1 : dot(Ks(1:3), Ks(1:3))); x(dot(Ks(1:7), Ks(1:7)) + 1 : end) ];
+disp(find(SDP.sedumi.At.' * x - SDP.sedumi.b < -1e-3 | SDP.sedumi.At.' * x - SDP.sedumi.b > 1e-3, 1));

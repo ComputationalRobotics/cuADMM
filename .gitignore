@@ -5,6 +5,10 @@
 *.cubin
 *.fatbin
 
+ksc/data
+ksc/figs
+ksc/logs
+
 build
 .vscode
 .DS_Store
