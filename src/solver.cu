@@ -513,9 +513,10 @@ void SDPSolver::solve(
             cudaEventElapsedTime(&milliseconds, this->start, this->stop);
             seconds = milliseconds / 1000;
             printf(
-                " %4d | %3.2e %3.2e | %- 5.4e %- 5.4e %3.2e | %5.1f | %2.1e |\n",
+                " %4d | %3.2e %3.2e | %- 5.4e %- 5.4e %3.2e | %5.1f | %2.1e |",
                 iter-1, this->errRp, this->errRd, this->pobj, this->dobj, this->relgap, seconds, this->sig
             );
+            std::cout << std::endl;
         }
         if (breakyes > 0) {
             // print the final message
