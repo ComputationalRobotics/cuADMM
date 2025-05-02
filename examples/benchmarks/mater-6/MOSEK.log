@@ -1,0 +1,92 @@
+MOSEK Version 10.1.16 (Build date: 2023-10-26 08:09:35)
+Copyright (c) MOSEK ApS, Denmark WWW: mosek.com
+Platform: Linux/64-X86
+
+Problem
+  Name                   :                 
+  Objective sense        : minimize        
+  Type                   : CONIC (conic optimization problem)
+  Constraints            : 20463           
+  Affine conic cons.     : 0               
+  Disjunctive cons.      : 0               
+  Cones                  : 0               
+  Scalar variables       : 2               
+  Matrix variables       : 4966 (scalarized: 327756)
+  Integer variables      : 0               
+
+Optimizer started.
+Presolve started.
+Linear dependency checker started.
+Linear dependency checker terminated.
+Eliminator started.
+Freed constraints in eliminator : 0
+Eliminator terminated.
+Eliminator - tries                  : 1                 time                   : 0.00            
+Lin. dep.  - tries                  : 1                 time                   : 0.00            
+Lin. dep.  - primal attempts        : 1                 successes              : 1               
+Lin. dep.  - dual attempts          : 0                 successes              : 0               
+Lin. dep.  - primal deps.           : 0                 dual deps.             : 0               
+Presolve terminated. Time: 0.01    
+GP based matrix reordering started.
+GP based matrix reordering terminated.
+Optimizer  - threads                : 64              
+Optimizer  - solved problem         : the primal      
+Optimizer  - Constraints            : 20463           
+Optimizer  - Cones                  : 0               
+Optimizer  - Scalar variables       : 2                 conic                  : 0               
+Optimizer  - Semi-definite variables: 4966              scalarized             : 327756          
+Factor     - setup time             : 0.09            
+Factor     - dense det. time        : 0.00              GP order time          : 0.03            
+Factor     - nonzeros before factor : 4.33e+05          after factor           : 2.64e+06        
+Factor     - dense dim.             : 0                 flops                  : 5.49e+08        
+Factor     - GP saved nzs           : -1.74e+05         GP saved flops         : 3.13e+07        
+ITE PFEAS    DFEAS    GFEAS    PRSTATUS   POBJ              DOBJ              MU       TIME  
+0   2.0e+04  1.0e+00  1.0e+00  0.00e+00   0.000000000e+00   0.000000000e+00   1.0e+00  0.20  
+1   2.8e+03  1.4e-01  3.7e-02  3.51e+00   5.736416422e-02   7.754724392e-02   1.4e-01  0.54  
+2   1.4e+03  7.1e-02  1.8e-02  -5.76e-01  7.419578493e-01   7.717697148e-01   7.1e-02  0.85  
+3   5.5e+02  2.8e-02  2.7e-03  9.47e-01   3.341930174e+00   3.338294821e+00   2.8e-02  1.18  
+4   1.0e+02  5.1e-03  1.8e-04  6.85e-01   8.884248753e+00   8.882896188e+00   5.1e-03  1.50  
+5   4.9e+01  2.5e-03  7.3e-05  7.27e-01   1.659931345e+01   1.659868067e+01   2.5e-03  1.82  
+6   3.1e+01  1.6e-03  4.4e-05  4.79e-01   2.213896566e+01   2.213858339e+01   1.6e-03  2.14  
+7   2.8e+01  1.4e-03  4.0e-05  3.60e-01   2.323365093e+01   2.323330645e+01   1.4e-03  2.46  
+8   1.3e+01  6.6e-04  1.7e-05  3.31e-01   3.244228898e+01   3.244224927e+01   6.6e-04  2.77  
+9   7.4e+00  3.7e-04  9.7e-06  1.94e-01   3.932051874e+01   3.932062389e+01   3.7e-04  3.09  
+10  2.3e+00  1.2e-04  2.9e-06  1.17e-01   5.388043717e+01   5.388076734e+01   1.2e-04  3.42  
+11  9.5e-01  4.8e-05  1.3e-06  -4.52e-03  6.821476968e+01   6.821524750e+01   4.8e-05  3.74  
+12  6.4e-01  3.2e-05  8.4e-07  2.36e-02   7.449603211e+01   7.449654065e+01   3.2e-05  4.06  
+13  1.9e-01  9.6e-06  2.5e-07  1.74e-02   9.433921482e+01   9.433979330e+01   9.6e-06  4.37  
+14  6.3e-02  3.2e-06  7.8e-08  9.75e-02   1.106116084e+02   1.106121539e+02   3.2e-06  4.69  
+15  2.3e-02  1.2e-06  2.4e-08  2.10e-01   1.220973707e+02   1.220977929e+02   1.2e-06  5.01  
+16  8.7e-03  4.4e-07  7.2e-09  4.14e-01   1.285493240e+02   1.285495855e+02   4.4e-07  5.32  
+17  2.5e-03  1.3e-07  1.3e-09  6.41e-01   1.319866648e+02   1.319867710e+02   1.3e-07  5.64  
+18  3.8e-04  1.9e-08  9.1e-11  8.44e-01   1.333330840e+02   1.333331064e+02   1.9e-08  5.96  
+19  1.3e-04  6.8e-09  2.0e-11  9.67e-01   1.334679950e+02   1.334680033e+02   6.8e-09  6.28  
+20  3.9e-05  1.9e-09  3.1e-12  9.88e-01   1.335192082e+02   1.335192106e+02   1.9e-09  6.60  
+21  1.1e-05  5.8e-10  5.0e-13  9.96e-01   1.335330886e+02   1.335330893e+02   5.8e-10  6.91  
+22  3.4e-06  1.9e-10  8.1e-14  9.99e-01   1.335370872e+02   1.335370875e+02   1.7e-10  7.24  
+23  6.3e-07  1.5e-10  6.6e-15  1.00e+00   1.335384160e+02   1.335384160e+02   3.2e-11  7.56  
+24  1.8e-07  6.7e-10  9.7e-16  1.00e+00   1.335386313e+02   1.335386313e+02   8.9e-12  7.88  
+25  4.5e-08  2.6e-09  1.3e-16  1.00e+00   1.335386935e+02   1.335386935e+02   2.3e-12  8.20  
+26  9.7e-09  1.4e-08  1.2e-17  1.00e+00   1.335387105e+02   1.335387105e+02   4.6e-13  8.51  
+27  1.8e-09  7.5e-08  8.9e-19  1.00e+00   1.335387140e+02   1.335387140e+02   8.5e-14  8.82  
+28  7.5e-10  4.3e-07  6.0e-20  1.00e+00   1.335387147e+02   1.335387147e+02   1.4e-14  9.16  
+Optimizer terminated. Time: 9.19    
+
+
+Interior-point solution summary
+  Problem status  : PRIMAL_AND_DUAL_FEASIBLE
+  Solution status : OPTIMAL
+  Primal.  obj: 1.3353871468e+02    nrm: 1e+02    Viol.  con: 3e-08    var: 4e-13    barvar: 0e+00  
+  Dual.    obj: 1.3353871468e+02    nrm: 1e+02    Viol.  con: 0e+00    var: 5e-13    barvar: 6e-13  
+Optimizer summary
+  Optimizer                 -                        time: 9.19    
+    Interior-point          - iterations : 28        time: 9.18    
+      Basis identification  -                        time: 0.00    
+        Primal              - iterations : 0         time: 0.00    
+        Dual                - iterations : 0         time: 0.00    
+        Clean primal        - iterations : 0         time: 0.00    
+        Clean dual          - iterations : 0         time: 0.00    
+    Simplex                 -                        time: 0.00    
+      Primal simplex        - iterations : 0         time: 0.00    
+      Dual simplex          - iterations : 0         time: 0.00    
+    Mixed integer           - relaxations: 0         time: 0.00
