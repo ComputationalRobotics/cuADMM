@@ -1,0 +1,70 @@
+MOSEK Version 10.1.16 (Build date: 2023-10-26 08:09:35)
+Copyright (c) MOSEK ApS, Denmark WWW: mosek.com
+Platform: Linux/64-X86
+
+Problem
+  Name                   :                 
+  Objective sense        : minimize        
+  Type                   : CONIC (conic optimization problem)
+  Constraints            : 66008           
+  Affine conic cons.     : 0               
+  Disjunctive cons.      : 0               
+  Cones                  : 0               
+  Scalar variables       : 0               
+  Matrix variables       : 122 (scalarized: 55179)
+  Integer variables      : 0               
+
+Optimizer started.
+Presolve started.
+Linear dependency checker started.
+Linear dependency checker terminated.
+Eliminator started.
+Freed constraints in eliminator : 0
+Eliminator terminated.
+Eliminator - tries                  : 1                 time                   : 0.00            
+Lin. dep.  - tries                  : 1                 time                   : 0.01            
+Lin. dep.  - primal attempts        : 1                 successes              : 1               
+Lin. dep.  - dual attempts          : 0                 successes              : 0               
+Lin. dep.  - primal deps.           : 0                 dual deps.             : 0               
+Presolve terminated. Time: 0.01    
+GP based matrix reordering started.
+GP based matrix reordering terminated.
+Optimizer  - threads                : 64              
+Optimizer  - solved problem         : the primal      
+Optimizer  - Constraints            : 66008           
+Optimizer  - Cones                  : 0               
+Optimizer  - Scalar variables       : 0                 conic                  : 0               
+Optimizer  - Semi-definite variables: 122               scalarized             : 55179           
+Factor     - setup time             : 32.79           
+Factor     - dense det. time        : 0.00              GP order time          : 0.02            
+Factor     - nonzeros before factor : 3.81e+08          after factor           : 3.96e+08        
+Factor     - dense dim.             : 0                 flops                  : 3.48e+12        
+Factor     - GP saved nzs           : 4.62e+07          GP saved flops         : 5.93e+11        
+ITE PFEAS    DFEAS    GFEAS    PRSTATUS   POBJ              DOBJ              MU       TIME  
+0   2.0e+00  1.0e+00  2.5e+00  0.00e+00   1.537174211e+00   0.000000000e+00   1.0e+00  32.86 
+1   1.4e+00  6.8e-01  1.6e+00  -5.63e-01  3.085255109e+00   1.958239755e+00   6.8e-01  99.65 
+2   2.2e-01  1.1e-01  1.4e-01  -1.46e-01  4.938933668e+00   4.715230431e+00   1.1e-01  166.08
+3   5.0e-02  2.5e-02  8.2e-03  1.45e+00   3.394507391e+00   3.339108204e+00   2.5e-02  230.92
+4   1.7e-02  8.5e-03  1.7e-03  1.15e+00   2.039822958e+00   2.023292253e+00   8.5e-03  288.73
+5   2.4e-03  1.2e-03  1.1e-04  1.07e+00   3.490092986e-01   3.473076507e-01   1.2e-03  349.11
+6   3.5e-04  1.8e-04  6.6e-06  1.01e+00   5.103054409e-02   5.077529368e-02   1.8e-04  405.53
+Optimizer terminated. Time: 456.64  
+
+
+Interior-point solution summary
+  Problem status  : UNKNOWN
+  Solution status : UNKNOWN
+  Primal.  obj: 5.1030544091e-02    nrm: 1e+00    Viol.  con: 4e-04    barvar: 0e+00  
+  Dual.    obj: 5.0775293680e-02    nrm: 6e+01    Viol.  con: 0e+00    barvar: 2e-04  
+Optimizer summary
+  Optimizer                 -                        time: 456.64  
+    Interior-point          - iterations : 7         time: 456.64  
+      Basis identification  -                        time: 0.00    
+        Primal              - iterations : 0         time: 0.00    
+        Dual                - iterations : 0         time: 0.00    
+        Clean primal        - iterations : 0         time: 0.00    
+        Clean dual          - iterations : 0         time: 0.00    
+    Simplex                 -                        time: 0.00    
+      Primal simplex        - iterations : 0         time: 0.00    
+      Dual simplex          - iterations : 0         time: 0.00    
+    Mixed integer           - relaxations: 0         time: 0.00

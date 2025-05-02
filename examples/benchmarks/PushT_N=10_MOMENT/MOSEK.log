@@ -1,0 +1,81 @@
+MOSEK Version 10.1.16 (Build date: 2023-10-26 08:09:35)
+Copyright (c) MOSEK ApS, Denmark WWW: mosek.com
+Platform: Linux/64-X86
+
+Problem
+  Name                   :                 
+  Objective sense        : minimize        
+  Type                   : CONIC (conic optimization problem)
+  Constraints            : 17150           
+  Affine conic cons.     : 0               
+  Disjunctive cons.      : 0               
+  Cones                  : 0               
+  Scalar variables       : 0               
+  Matrix variables       : 6015 (scalarized: 27975)
+  Integer variables      : 0               
+
+Optimizer started.
+Presolve started.
+Linear dependency checker started.
+Linear dependency checker terminated.
+Eliminator started.
+Freed constraints in eliminator : 0
+Eliminator terminated.
+Eliminator - tries                  : 1                 time                   : 0.00            
+Lin. dep.  - tries                  : 1                 time                   : 0.00            
+Lin. dep.  - primal attempts        : 1                 successes              : 1               
+Lin. dep.  - dual attempts          : 0                 successes              : 0               
+Lin. dep.  - primal deps.           : 0                 dual deps.             : 0               
+Presolve terminated. Time: 0.00    
+GP based matrix reordering started.
+GP based matrix reordering terminated.
+Optimizer  - threads                : 64              
+Optimizer  - solved problem         : the primal      
+Optimizer  - Constraints            : 17150           
+Optimizer  - Cones                  : 2417            
+Optimizer  - Scalar variables       : 9392              conic                  : 7251            
+Optimizer  - Semi-definite variables: 1457              scalarized             : 18583           
+Factor     - setup time             : 3.44            
+Factor     - dense det. time        : 1.77              GP order time          : 0.35            
+Factor     - nonzeros before factor : 9.66e+06          after factor           : 1.32e+07        
+Factor     - dense dim.             : 0                 flops                  : 1.81e+10        
+ITE PFEAS    DFEAS    GFEAS    PRSTATUS   POBJ              DOBJ              MU       TIME  
+0   2.0e+00  1.0e+00  1.9e+00  0.00e+00   9.500000000e-01   0.000000000e+00   1.0e+00  3.47  
+1   1.1e+00  5.4e-01  4.8e-01  1.55e+00   1.994366361e+00   1.467377578e+00   5.4e-01  4.66  
+2   2.7e-01  1.3e-01  4.5e-02  1.36e+00   1.863294840e+00   1.749417695e+00   1.3e-01  5.37  
+3   4.3e-02  2.1e-02  3.1e-03  1.29e+00   1.369697143e+00   1.355769226e+00   2.1e-02  6.14  
+4   5.9e-03  3.0e-03  1.5e-04  1.08e+00   8.005603439e-01   7.985844496e-01   3.0e-03  7.16  
+5   2.3e-03  1.2e-03  3.4e-05  1.06e+00   5.646485777e-01   5.638881822e-01   1.2e-03  7.85  
+6   1.3e-03  6.4e-04  1.3e-05  1.10e+00   3.685166082e-01   3.681139575e-01   6.4e-04  8.55  
+7   2.6e-04  1.3e-04  1.1e-06  1.08e+00   1.671759150e-01   1.670950536e-01   1.3e-04  9.56  
+8   5.3e-05  2.6e-05  1.0e-07  1.02e+00   1.100013944e-01   1.099850670e-01   2.6e-05  10.56 
+9   3.8e-05  1.9e-05  6.4e-08  9.38e-01   1.064787789e-01   1.064667887e-01   1.9e-05  11.26 
+10  1.5e-05  7.4e-06  1.6e-08  9.44e-01   1.004529849e-01   1.004481834e-01   7.4e-06  12.49 
+11  2.5e-06  1.2e-06  1.2e-09  9.25e-01   9.680473468e-02   9.680388791e-02   1.2e-06  13.50 
+12  1.9e-06  9.7e-07  8.2e-10  9.04e-01   9.661542700e-02   9.661475857e-02   9.7e-07  14.63 
+13  4.7e-07  2.4e-07  1.0e-10  9.41e-01   9.614487513e-02   9.614470515e-02   2.4e-07  15.64 
+14  2.6e-07  1.3e-07  4.1e-11  9.71e-01   9.607567614e-02   9.607558365e-02   1.3e-07  16.30 
+15  1.5e-07  7.3e-08  1.8e-11  9.72e-01   9.603850495e-02   9.603845218e-02   7.3e-08  16.95 
+16  7.1e-08  3.5e-08  6.1e-12  9.74e-01   9.601339811e-02   9.601337244e-02   3.5e-08  17.63 
+17  5.3e-08  2.6e-08  4.0e-12  9.61e-01   9.600702065e-02   9.600700126e-02   2.6e-08  18.28 
+18  2.8e-08  8.5e-09  7.4e-13  9.70e-01   9.599472620e-02   9.599471990e-02   8.5e-09  19.14 
+Optimizer terminated. Time: 19.16   
+
+
+Interior-point solution summary
+  Problem status  : PRIMAL_AND_DUAL_FEASIBLE
+  Solution status : OPTIMAL
+  Primal.  obj: 9.5994726200e-02    nrm: 8e+01    Viol.  con: 1e-08    barvar: 0e+00  
+  Dual.    obj: 9.5994719902e-02    nrm: 8e-01    Viol.  con: 0e+00    barvar: 2e-08  
+Optimizer summary
+  Optimizer                 -                        time: 19.16   
+    Interior-point          - iterations : 18        time: 19.16   
+      Basis identification  -                        time: 0.00    
+        Primal              - iterations : 0         time: 0.00    
+        Dual                - iterations : 0         time: 0.00    
+        Clean primal        - iterations : 0         time: 0.00    
+        Clean dual          - iterations : 0         time: 0.00    
+    Simplex                 -                        time: 0.00    
+      Primal simplex        - iterations : 0         time: 0.00    
+      Dual simplex          - iterations : 0         time: 0.00    
+    Mixed integer           - relaxations: 0         time: 0.00
