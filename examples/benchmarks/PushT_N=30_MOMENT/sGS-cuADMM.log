@@ -1,0 +1,78 @@
+Loaded problem from /home/jordan/antoine/cuADMM/examples/SPOT/data/TXT/PushT_N=30_MOMENT/
+              vector length: 86315
+      number of constraints: 53290
+           number of blocks: 18875
+  number of non-zeros in At: 143908
+   number of non-zeros in b: 4
+   number of non-zeros in C: 329
+
+Analysis of the blk vector:
+     6741 matrices of size   1 (small)
+     7737 matrices of size   2 (small)
+     2633 matrices of size   3 (small)
+      326 matrices of size   4 (small)
+     1200 matrices of size   6 (small)
+       36 matrices of size   7 (small)
+       57 matrices of size   8 (small)
+        1 matrices of size   9 (small)
+      114 matrices of size  10 (small)
+       30 matrices of size  13 (small)
+
+Analysis of the large matrices sizes:
+    size of large matrices: 
+  number of large matrices: 
+    total size of large matrices: 0
+  sum of sizes of large matrices: 0
+    nb large (with multiplicity): 0
+  large matrices start indices: 0 
+
+Analysis of the small matrices sizes:
+    size of small matrices:   1   2   3   4   6   7   8   9  10  13 
+  number of small matrices: 6741 7737 2633 326 1200  36  57   1 114  30 
+    total size of small matrices: 131765
+  sum of sizes of small matrices: 40865
+    nb small (with multiplicity): 18875
+  small matrices start indices: 0 6741 37689 61386 66602 109802 111566 115214 115295 126695 131765 
+
+ -------------------------------------------------------------------------------
+                                    cuADMM
+ -------------------------------------------------------------------------------
+ norm of C = 2.2e+00, norm of b = 3.0e+00
+
+  it. | p infeas d infeas | primal obj.   dual obj. rel. gap |  time |   sigma | 
+ -------------------------------------------------------------------------------
+    0 | 6.67e-01 5.37e-01 |  0.0000e+00  0.0000e+00 0.00e+00 | 368.9 | 1.0e+00 |
+   50 | 5.13e-02 2.30e+00 |  1.4435e+00 -4.4051e+02 9.98e-01 | 389.0 | 1.1e+00 |
+  100 | 3.95e-03 1.79e-01 |  1.1363e+00 -3.1865e+01 9.71e-01 | 409.1 | 1.1e+00 |
+  150 | 3.04e-04 1.78e-02 |  1.0303e+00 -1.1525e+00 6.86e-01 | 429.1 | 1.1e+00 |
+  200 | 2.34e-05 1.22e-02 |  9.2773e-01  1.1425e+00 7.00e-02 | 449.2 | 1.1e+00 |
+  300 | 1.38e-07 1.16e-02 |  7.1972e-01  1.2908e+00 1.90e-01 | 489.3 | 1.2e+00 |
+  400 | 8.19e-10 9.70e-03 |  5.2907e-01  1.0505e+00 2.02e-01 | 529.5 | 1.2e+00 |
+  500 | 1.08e-11 8.52e-03 |  4.0231e-01  9.4881e-01 2.32e-01 | 569.8 | 1.3e+00 |
+  600 | 3.40e-12 5.84e-03 |  3.0596e-01  6.2997e-01 1.67e-01 | 609.9 | 1.3e+00 |
+  700 | 1.18e-11 5.52e-03 |  2.4868e-01  5.9726e-01 1.89e-01 | 650.2 | 1.4e+00 |
+  800 | 1.57e-11 4.25e-03 |  2.0225e-01  4.5229e-01 1.51e-01 | 690.4 | 1.5e+00 |
+  900 | 1.69e-11 4.05e-03 |  1.6856e-01  4.3830e-01 1.68e-01 | 730.5 | 1.6e+00 |
+ 1000 | 4.64e-12 3.70e-03 |  1.3838e-01  4.0384e-01 1.72e-01 | 770.6 | 1.6e+00 |
+ 1100 | 5.75e-13 3.32e-03 |  1.1146e-01  3.5806e-01 1.68e-01 | 810.7 | 1.7e+00 |
+ 1200 | 1.79e-11 2.13e-03 |  1.0063e-01  1.7621e-01 5.92e-02 | 850.9 | 1.8e+00 |
+ 1300 | 6.87e-13 1.97e-03 |  9.2216e-02  1.7815e-01 6.76e-02 | 891.0 | 1.9e+00 |
+ 1400 | 2.72e-12 1.88e-03 |  8.2929e-02  1.9967e-01 9.10e-02 | 931.2 | 2.0e+00 |
+ 1500 | 1.27e-11 1.81e-03 |  7.4118e-02  1.7294e-01 7.92e-02 | 971.3 | 2.1e+00 |
+ 1600 | 2.00e-11 1.73e-03 |  6.5546e-02  1.7821e-01 9.06e-02 | 1011.3 | 2.2e+00 |
+ 1700 | 6.93e-12 1.56e-03 |  5.7513e-02  1.5163e-01 7.78e-02 | 1051.3 | 2.3e+00 |
+ 1747 | 8.19e-13 4.64e-04 |  5.5030e-02  5.4116e-02 8.24e-04 | 1070.2 | 2.4e+00 |
+
+ -------------------------------------------------------------------------------
+
+Solver ended: converged.
+
+ primal infeasibility = 8.2e-13 
+ dual   infeasibility = 4.6e-04 
+ relative gap         = 8.2e-04
+ primal objective =  5.50299406e-02 
+ dual   objective =  5.41163336e-02
+
+ time per iteration = 0.6122s 
+ total time         = 1070.2s
+ -------------------------------------------------------------------------------

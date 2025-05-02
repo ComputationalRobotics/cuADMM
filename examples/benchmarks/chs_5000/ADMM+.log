@@ -1,0 +1,54 @@
+ beta: 1.500000
+ AAt is identity 
+------------------------------------------------------------------------------------
+ ADMM+: A Convergent ADMM for SDP problems
+------------------------------------------------------------------------------------
+  max dim. of sdp  var = 10,    num. of sdp  blk = 4998 
+  num. of equality constraints = 99974
+  solve AAt by direct solver
+  scale_data =  1
+  bscale = 2.91e+01, Cscale = 7.07e+01
+------------------------------------------------------------------------------------
+  iter| pinforg  dinforg  relgaporg|    <C,X>       <b,y>   | time |  sigma  |
+     1| 4.11e-03 5.54e-03 -9.21e-02|  5.3656e-06  1.0143e-01|  29.6| 1.00e+00|
+    10| 5.07e-05 8.12e-05 -1.73e-04|  4.0986e-10  1.7331e-04|  91.5| 5.12e-01|
+  breakyes = 1.0,  maxresidual < 1.00e-04
+--------------------------------------------------------------------------------
+  maxresidual < 1.00e-04
+  SDP is solved to the required accuracy
+--------------------------------------------------------------------------------
+ max dim. of SDP variable  = 10
+ num. of equality   constraints = 99974
+ Computing time (total)         = 94.7
+ termcode                       =  0
+ number of ADMM+ iter           = 10
+-------------------------------------------------------
+ primal objval = 4.09863159e-10
+ dual   objval = 1.73311489e-04
+ relative gap  = -1.73e-04
+ primfeasorg   = 9.42e-18
+ dualfeasorg   = 8.12e-05
+ etaK1 = 8.26e-07, etaK2 = 0.00e+00
+ etaC1 = 1.48e-07, etaC2 = 0.00e+00
+ min(eigX) = -1.52e-05, max(eigX) = 5.05e-01
+ min(0,min(X-L))  = 0.00e+00, max(0,max(X-U))  = 0.00e+00
+ [norm(X),norm(y)] = 2.91e+01,6.34e-03, [norm(Z1),norm(Z2)] = 7.07e+01,0.00e+00 [norm(s)] = 0.00e+00
+--------------------------------------------------------------------------------
+        primfeas: [0.0021 0.0013 8.3596e-04 2.9055e-04 2.9055e-04 ... ] (1x10 double)
+        dualfeas: [0.0028 0.0011 2.3527e-04 1.9805e-04 1.3525e-04 ... ] (1x10 double)
+     primfeasorg: [0.0041 0.0024 0.0016 5.8301e-04 5.6178e-04 5.6178e-04 ... ] (1x10 double)
+     dualfeasorg: [0.0055 0.0022 4.6397e-04 3.9058e-04 2.6672e-04 ... ] (1x10 double)
+          rankZ1: [3 4 4 4 4 4 5 5 5 5]
+          rankZ2: [0 0 0 0 0 0 0 0 0 0]
+           sigma: [1 1 1 0.8000 0.8000 0.8000 0.6400 0.6400 0.6400 0.5120]
+       psqmriter: [0 0 0 0 0 0 0 0 0 0]
+    primspeedorg: [NaN NaN NaN NaN NaN NaN NaN NaN NaN NaN]
+    dualspeedorg: [NaN NaN NaN NaN NaN NaN NaN NaN NaN NaN]
+           speed: [NaN NaN NaN NaN NaN NaN NaN NaN NaN NaN]
+         primobj: [5.3656e-06 0 0 0 0 0 0 0 0 4.0986e-10]
+         dualobj: [0.1014 0 0 0 0 0 0 0 0 1.7331e-04]
+          relgap: [-4.9330e-05 0 0 0 0 0 0 0 0 -8.4296e-08]
+       relgaporg: [-0.0921 0 0 0 0 0 0 0 0 -1.7328e-04]
+            time: [29.6128 0 0 0 0 0 0 0 0 91.4513]
+       feasratio: [0.7517 1.1768 3.5533 1.4670 2.1483 2.9929 6.0880 3.9735 1.0287]
+    feasratioorg: [0.7417 1.1233 3.4959 1.4927 2.1062 2.9343 5.9688 6.2668 1.4644]

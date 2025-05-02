@@ -1,0 +1,52 @@
+Loaded problem from /home/jordan/antoine/cuADMM/examples/plato/TXT/chs5000/
+              vector length: 274890
+      number of constraints: 99974
+           number of blocks: 4998
+  number of non-zeros in At: 269892
+   number of non-zeros in b: 32494
+   number of non-zeros in C: 4998
+
+Analysis of the blk vector:
+     4998 matrices of size  10 (small)
+
+Analysis of the large matrices sizes:
+    size of large matrices: 
+  number of large matrices: 
+    total size of large matrices: 0
+  sum of sizes of large matrices: 0
+    nb large (with multiplicity): 0
+  large matrices start indices: 0 
+
+Analysis of the small matrices sizes:
+    size of small matrices:  10 
+  number of small matrices: 4998 
+    total size of small matrices: 499800
+  sum of sizes of small matrices: 49980
+    nb small (with multiplicity): 4998
+  small matrices start indices: 0 499800 
+
+ -------------------------------------------------------------------------------
+                                    cuADMM
+ -------------------------------------------------------------------------------
+ norm of C = 7.2e+01, norm of b = 5.1e+01
+
+  it. | p infeas d infeas | primal obj.   dual obj. rel. gap |  time |   sigma | 
+ -------------------------------------------------------------------------------
+    0 | 9.80e-01 9.86e-01 |  0.0000e+00  0.0000e+00 0.00e+00 |   0.1 | 1.0e+00 |
+   32 | 9.99e-07 8.88e-07 |  4.9533e-12 -6.2237e-04 6.22e-04 |   0.2 | 1.1e+00 |
+
+ -------------------------------------------------------------------------------
+
+Solver ended: converged.
+
+ primal infeasibility = 1.0e-06 
+ dual   infeasibility = 8.9e-07 
+ relative gap         = 6.2e-04
+ primal objective =  4.95326539e-12 
+ dual   objective = -6.22373619e-04
+
+ time per iteration = 0.0073s 
+ total time         = 0.2s
+ -------------------------------------------------------------------------------
+
+best max KKT residual after switch  = 0.0e+00

@@ -1,0 +1,53 @@
+Loaded problem from /home/jordan/antoine/cuADMM/examples/plato/TXT/chs5000/
+              vector length: 274890
+      number of constraints: 99974
+           number of blocks: 4998
+  number of non-zeros in At: 269892
+   number of non-zeros in b: 32494
+   number of non-zeros in C: 4998
+
+Analysis of the blk vector:
+     4998 matrices of size  10 (small)
+
+Analysis of the large matrices sizes:
+    size of large matrices: 
+  number of large matrices: 
+    total size of large matrices: 0
+  sum of sizes of large matrices: 0
+    nb large (with multiplicity): 0
+  large matrices start indices: 0 
+
+Analysis of the small matrices sizes:
+    size of small matrices:  10 
+  number of small matrices: 4998 
+    total size of small matrices: 499800
+  sum of sizes of small matrices: 49980
+    nb small (with multiplicity): 4998
+  small matrices start indices: 0 499800 
+
+ -------------------------------------------------------------------------------
+                                    cuADMM
+ -------------------------------------------------------------------------------
+ norm of C = 7.2e+01, norm of b = 5.1e+01
+
+  it. | p infeas d infeas | primal obj.   dual obj. rel. gap |  time |   sigma | 
+ -------------------------------------------------------------------------------
+    0 | 9.80e-01 9.86e-01 |  0.0000e+00  0.0000e+00 0.00e+00 |   0.1 | 1.0e+00 |
+   50 | 7.54e-02 7.46e-02 | -1.7968e-07 -1.5549e+02 9.94e-01 |   0.3 | 1.1e+00 |
+  100 | 5.80e-03 5.74e-03 | -1.3805e-08 -1.1964e+01 9.23e-01 |   0.5 | 1.1e+00 |
+  150 | 2.48e-05 3.16e-05 | -3.2230e-11 -6.5933e-02 6.19e-02 |   0.7 | 1.0e+00 |
+  167 | 3.10e-07 6.36e-07 |  2.7996e-11  8.3645e-04 8.36e-04 |   0.7 | 1.0e+00 |
+
+ -------------------------------------------------------------------------------
+
+Solver ended: converged.
+
+ primal infeasibility = 3.1e-07 
+ dual   infeasibility = 6.4e-07 
+ relative gap         = 8.4e-04
+ primal objective =  2.79957381e-11 
+ dual   objective =  8.36445311e-04
+
+ time per iteration = 0.0044s 
+ total time         = 0.7s
+ -------------------------------------------------------------------------------
