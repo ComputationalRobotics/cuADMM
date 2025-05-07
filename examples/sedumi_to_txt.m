@@ -1,12 +1,20 @@
 function sedumi_to_txt(problem, output_dir)
-    % addpath("~/matlab-install/mosek/10.1/toolbox/r2017a")
+    addpath("~/matlab-install/mosek/10.1/toolbox/r2017a")
     addpath("./mexfiles")
     addpath("./utils")
+
+    if isfield(problem, 'At')
+        problem.A = problem.At';
+    end
+
+    % SeDuMi -> SDPT3
     [sdpt3_blk, sdpt3_At, sdpt3_C, sdpt3_b, ~] = read_sedumi(problem.A, problem.b, problem.c, problem.K, 0);
     sdpt3.At = sdpt3_At;
     sdpt3.C = sdpt3_C;
     sdpt3.b = sdpt3_b;
     sdpt3.blk = sdpt3_blk;
+
+    % SDPT3 -> cuADMM
     [cuda_At, cuda_b, cuda_C, cuda_blk] = data_sdpt3_to_admmSDPcuda(sdpt3);
     store_sparse_mat(cuda_C, fullfile(output_dir, 'C.txt'));
     store_sparse_mat(cuda_b, fullfile(output_dir, 'b.txt'));
@@ -14,12 +22,14 @@ function sedumi_to_txt(problem, output_dir)
     store_sparse_vec(cuda_blk, fullfile(output_dir, 'blk.txt'));
     store_sparse_vec(size(cuda_At, 2), fullfile(output_dir, 'con_num.txt'));
 
-    % prob = convert_sedumi2mosek(problem.A, problem.b, problem.c, problem.K);
-    % [~, ~] = mosekopt('minimize info', prob);
-    % [Xopt, ~, ~, obj] = recover_mosek_sol_blk(res, sdpt3_blk);
-    % disp("Optimal value: " + num2str(obj));
-    % disp("Optimal solution: ");
-    % disp(Xopt);
+    % SeDuMi -> MOSEK
+    prob = convert_sedumi2mosek(problem.A, problem.b, problem.c, problem.K);
+    
+    % solve with MOSEK
+    [~, ~] = mosekopt('minimize info', prob);
+
+    % solve with ADMM+
+    run_admmplus(prob);
 end
 
 function v = from_cell_to_array(c)
