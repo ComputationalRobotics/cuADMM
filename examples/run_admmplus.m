@@ -1,5 +1,6 @@
 function run_admmplus(prob)
     addpath(genpath("~/matlab-install/SDPNAL+v1.0/"));
+    addpath("./utils");
     SDPNAL_options.tol = 1e-4;
     SDPNAL_options.maxiter = 1.2e4;
     SDPNAL_options.printlevel = 1;
