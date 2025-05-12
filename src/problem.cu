@@ -6,7 +6,9 @@
 
 #include "cuadmm/problem.h"
 #include "cuadmm/io.h"
+#include <algorithm>
 
+// TODO: throw an error if the files do not exist
 void Problem::from_txt(const std::string& prefix, bool warm_start) {
     read_dense_vector_data(prefix + "blk.txt", this->blk_vals);
     this->mat_num = this->blk_vals.size();
@@ -44,6 +46,23 @@ void Problem::from_txt(const std::string& prefix, bool warm_start) {
     read_sparse_vector_data(prefix + "C.txt", this->C_indices, C_vals);
     this->C_nnz = this->C_vals.size();
 
+    /* check if the dimensions are correct */
+    int max_col_id = *std::max_element(this->At_csc_row_ids.begin(), this->At_csc_row_ids.end());
+    if (max_col_id != this->vec_len - 1) {
+        std::cerr << "WARNING: the largest column index in At is different from the specified column number!\n" << std::endl;
+    }
+
+    int max_row_id = *std::max_element(this->At_coo_col_ids.begin(), this->At_coo_col_ids.end());
+    if (max_row_id != this->con_num - 1) {
+        std::cerr << "WARNING: the largest row index in At is different from the SDP vector length!\n" << std::endl;
+    }
+
+    if (warm_start && this->vec_len != this->X_vals.size()) {
+        std::cerr << "ERROR: the length of warmstarted X does not match the vector length." << std::endl;
+        exit(1);
+    }
+
+    /* display problem stats */
     std::cout << "Loaded problem from " << prefix << std::endl;
     std::cout << "              vector length: " << this->vec_len << std::endl;
     std::cout << "      number of constraints: " << this->con_num << std::endl;
