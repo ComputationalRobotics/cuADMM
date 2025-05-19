@@ -49,8 +49,8 @@ do {                                                                           \
 {                                                                              \
     cusparseStatus_t status = (func);                                          \
     if (status != CUSPARSE_STATUS_SUCCESS) {                                   \
-        printf("cuSPARSE API failed at line %d with error: %s (%d)",           \
-               __LINE__, cusparseGetErrorString(status), status);              \
+        printf("cuSPARSE error %s (%d) at %s:%d",                              \
+              cusparseGetErrorString(status), status, __FILE__, __LINE__);     \
         std::cout << std::endl;                                                \
     }                                                                          \
 }

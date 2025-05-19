@@ -228,7 +228,9 @@ class DeviceDenseVector {
                     this->size = size;
                 }
                 CHECK_CUDA( cudaMalloc((void**) &this->vals, sizeof(T) * this->size) );
-                CHECK_CUSPARSE( cusparseCreateDnVec(&this->cusparse_descr, this->size, this->vals, CudaTypeMapper<T>::value) );
+                if (std::is_same<T,float>::value || std::is_same<T,double>::value) {
+                    CHECK_CUSPARSE( cusparseCreateDnVec(&this->cusparse_descr, this->size, this->vals, CudaTypeMapper<T>::value) );
+                }
             }
             return;
         }
