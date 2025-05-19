@@ -16,6 +16,8 @@
 #include <cublas_v2.h>
 #include <cusolverDn.h>
 #include <vector>
+#include <fstream>
+#include <iomanip>
 
 #include "cuadmm/check.h"
 #include "cuadmm/mapper.h"
@@ -269,6 +271,23 @@ class DeviceDenseVector {
                 std::cout << host_vec[i] << ", ";
             }
             std::cout << "]" << std::endl;
+        }
+
+        void to_txt(const std::string& filename) {
+            FILE *file = fopen(filename.c_str(), "w"); 
+            if (file != NULL) {
+                // copy the vector to the device
+                T host_vec[this->size];
+                CHECK_CUDA( cudaMemcpy(host_vec, this->vals, sizeof(T) * this->size, cudaMemcpyDeviceToHost) );
+
+                // write the vector to the file
+                for (size_t i = 0; i < this->size; i++) {
+                    fprintf(file, "%.32f\n", host_vec[i]);
+                }
+                fclose(file);
+            } else {
+                std::cerr << "Unable to open file: " << filename << std::endl;
+            }
         }
 };
 

@@ -27,7 +27,13 @@ int main(int argc, char* argv[]) {
         sig
     );
 
+    // ADMM only
+    // solver.solve((int) 1e5, 1e-3, false, 50, 100, 0);
+    
+    // sGS-ADMM
     solver.solve((int) 1e5, 1e-3, false);
+
+    solver.X.to_txt(prefix + "X_opt.txt");
     
     return 0;
 }

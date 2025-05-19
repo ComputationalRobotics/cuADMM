@@ -12,3 +12,5 @@ ksc/logs
 build
 .vscode
 .DS_Store
+
+examples/SPOT
