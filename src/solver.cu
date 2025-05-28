@@ -883,6 +883,7 @@ void SDPSolver::solve(
 
     // join all threads
     eig_thread.join();
+    CHECK_CUDA( cudaDeviceSynchronize() );
 
     return;
 }

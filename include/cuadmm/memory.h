@@ -281,6 +281,7 @@ class DeviceDenseVector {
                 // copy the vector to the device
                 T host_vec[this->size];
                 CHECK_CUDA( cudaMemcpy(host_vec, this->vals, sizeof(T) * this->size, cudaMemcpyDeviceToHost) );
+                CHECK_CUDA( cudaDeviceSynchronize() );
 
                 // write the vector to the file
                 for (size_t i = 0; i < this->size; i++) {
