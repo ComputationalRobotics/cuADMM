@@ -27,7 +27,7 @@ void read_dense_vector_data(const std::string& filename, std::vector<double>& va
 
     std::ifstream file(filename);
     if (!file.is_open()) {
-        std::cerr << "ERROR: could not open file " << filename << std::endl;
+        std::cerr << "ERROR: could not open file '" << filename << "'. Please verify that the provided directory path is correct." << std::endl;
         throw std::runtime_error("Failed to open file.");
         return;
     }

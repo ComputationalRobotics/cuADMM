@@ -42,6 +42,7 @@ When using the executable, you need to provide a directory containing the input 
 - `blk.txt`: a file containing the size of the symmetric blocks
 - `C.txt`: the cost matrix in sparse `svec` COO format
 - `con_num.txt`: a file containing the number of constraints (which cannot be inferred from the other files)
+
 Additionally, the following optional files can be provided:
 - `X.txt`: an initial guess for the primal variable in sparse `svec` COO format
 - `y.txt`: an initial guess for the dual variable in sparse `svec` COO format
