@@ -223,7 +223,6 @@ void mexFunction(int nlhs, mxArray* plhs[], int nrhs, const mxArray* prhs[]) {
         vec_len, con_num, At_nnz, cpu_At_csc_col_ptrs, cpu_At_csc_row_ids, cpu_At_csc_vals
     );
     
-    
     // b
     std::vector<int> cpu_b_indices;
     std::vector<double> cpu_b_vals; 

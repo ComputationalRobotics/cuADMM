@@ -12,6 +12,7 @@ addpath("./build");
 % A = sparse(rows, cols, vals, row_size, col_size);
 % [vals_new, row_ids_new, col_ptrs_new, nnz_new] = admmsdp_cuda_MATLAB(A);
 
+% load("/home/jordan/ksc/2023-traopt/pendulum/pendulum_archive/data/cuda_test/N=80/true_data.mat")
 prefix = "/home/jordan/ksc/2023-traopt/pendulum/pendulum_archive/data/cuda_test/N=80/";
 load(prefix + "true_data.mat");
 At = true_data.At;
@@ -36,7 +37,7 @@ sig_new = 2e2;
 % device_num_requested = 2;
 eig_stream_num_per_gpu = 12;
 max_iter = 2e2;
-stop_tol = 1e-2;
+stop_tol = 1e-3;
 
 for i = 1: 1
     [X_out, y_out, S_out, sig_out] = cuadmm_MATLAB(eig_stream_num_per_gpu,...
@@ -46,28 +47,6 @@ for i = 1: 1
     fprintf("|| X_out ||: %3.2e \n", norm(X_out));
     fprintf("|| y_out ||: %3.2e \n", norm(y_out));
     fprintf("|| S_out ||: %3.2e \n", norm(S_out));
-
-    % X_in = X_out;
-    % y_in = y_out;
-    % S_in = S_out;
-    % sig_in = sig_out;
-    % [X_out, y_out, S_out, sig_out] = admmsdp_cuda_MATLAB(device_num_requested, eig_stream_num_per_gpu,...
-    %                                                     max_iter, stop_tol,...
-    %                                                     At_stack, b, C_stack, blk_vec,...
-    %                                                     X_in, y_in, S_in, sig_in);
-    % fprintf("|| X_out ||: %3.2e \n", norm(X_out));
-    % fprintf("|| y_out ||: %3.2e \n", norm(y_out));
-    % fprintf("|| S_out ||: %3.2e \n", norm(S_out));
-
-    % if i == 1
-    %     S_norm_true = norm(S_out);
-    % else
-    %     if abs(S_norm_true - norm(S_out)) > 1e-6
-    %         disp("WRONG!!!");
-    %         exit(1);
-    %     end
-    % end
-
 end
     
 
