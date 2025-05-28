@@ -34,7 +34,7 @@ Run the project:
 ```
 where `dir_name` is the directory containing the input files. See below for the expected input format.
 
-## Input Format
+## Input format
 ### From `TXT`
 When using the executable, you need to provide a directory containing the input files, in a format close to SDPT3. The expected files are:
 - `At.txt`: the transpose of the constraint matrix in sparse `svec` COO format
@@ -72,6 +72,8 @@ cuadmm_MATLAB(eig_stream_num_per_gpu,...
               X_new, y_new, S_new, sig_new);
 ```
 The file [`cuadmm_MATLAB.cu`](MATLAB/cuadmm_MATLAB.cu) defines the MEX function, and can be used as a reference for the input format when interfacing with other languages or libraries.
+
+A few examples of how to use the bindings are also provided, such as [`example_mosek.m`](MATLAB/example_mosek.m) which shows how to solve a problem in MOSEK format.
 
 ## Testing
 After building, you can execute the unit tests:
