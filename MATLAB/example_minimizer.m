@@ -1,4 +1,4 @@
-%%% This file showcases how to retrieve the primal solution from cuADMM.
+%% This file showcases how to retrieve the primal solution from cuADMM.
 
 clear; close all;
 

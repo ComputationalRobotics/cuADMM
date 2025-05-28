@@ -3,7 +3,7 @@
 clear; close all;
 
 addpath("./build");
-addpath("./examples/utils");
+addpath("../examples/utils");
 
 prefix = "/home/jordan/ksc/2023-traopt/pendulum/pendulum_archive/data/cuda_test/N=80/";
 load(prefix + "true_data.mat");
