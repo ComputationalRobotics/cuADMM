@@ -2,12 +2,12 @@
 A CUDA-based implementation of the Alternating Direction Method of Multipliers (ADMM) algorithm to solve Semi-Definite Programming (SDP) problems.
 
 cuADMM solves multi-block SDP problems of the form:
-$$
+```math
 \min_X \left\langle C,X\right\rangle \quad\text{s.t.}\quad \begin{cases}
         \left\langle A_i,X\right\rangle = b_i, \quad i\in [m]\\
         X\in\Omega_+
     \end{cases}
-$$
+```
 where $\Omega_+$ is the cartesian product of symmetric cones corresponding to the symmetric blocks.
 
 ## Dependencies
