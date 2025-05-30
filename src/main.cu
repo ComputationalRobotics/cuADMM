@@ -12,7 +12,6 @@ int main(int argc, char* argv[]) {
 
     Problem problem;
     problem.from_txt(prefix);
-    // double sig_1 = cpu_sig_vals[0];
     
     SDPSolver solver;
     double sig = 1e0;

@@ -16,6 +16,7 @@ The following dependencies are required to build and run the project:
 - [`CUDA`](https://developer.nvidia.com/cuda-downloads)
 - [`LAPACK`](https://www.netlib.org/lapack/) (for linear algebra operations)
 - [`BLAS`](https://www.netlib.org/blas/) (for basic linear algebra operations)
+- [`SuiteSparse`](https://github.com/DrTimothyAldenDavis/SuiteSparse) (for `CHOLMOD`)
 - [`MATLAB`](https://www.mathworks.com/products/matlab.html) (for the bindings)
 
 This project has been tested on Linux.

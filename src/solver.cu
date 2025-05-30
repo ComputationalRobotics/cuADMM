@@ -11,9 +11,6 @@
 #include "cuadmm/kernels.h"
 
 #include <algorithm>
-#include <condition_variable>
-#include <mutex>
-#include <thread>
 #include <stdio.h>
 
 #define SIG_UPDATE_THRESHOLD 500
@@ -374,75 +371,8 @@ void SDPSolver::solve(
     // declare variables
     bool breakyes = false;   // for breaking out of the loop
     std::string final_msg;   // output message
-    std::condition_variable main_cv;
-    std::mutex main_mtx;     // main thread mutex
-    std::mutex resource_mtx; // ressource mutex
 
     this->info_iter_num = 0; // iteration number
-
-    /* Start the thread for eigen decomposition of large matrices */
-    std::condition_variable eig_cv;
-    std::mutex eig_mtx;
-    std::thread eig_thread;
-    int eig_count_finish = 0;
-
-    eig_thread = std::thread(
-        [&]() { // lambda function for the thread behavior
-            int stream_id;
-
-            // set the GPU device
-            CHECK_CUDA( cudaSetDevice(GPU0) );
-            // create locks for the mutexes
-            std::unique_lock<std::mutex> eig_lk(eig_mtx, std::defer_lock);
-            std::unique_lock<std::mutex> resource_lk(resource_mtx, std::defer_lock);
-
-
-            while (true) { // while the solver is not finished
-                // break if necessary
-                // note: breakyes will be set to true by the main thread
-                if (breakyes) break;
-                eig_cv.wait(eig_lk);
-                if (breakyes) break;
-
-                // for each large matrix on this GPU, compute the eig decomposition
-                int counter = 0; // serves as a stream id and as an info offset
-                for (int i = 0; i < this->sizes.large_mat_sizes.size(); i++) {
-                    for (int j = 0; j < this->sizes.large_mat_nums[i]; j++) {
-                        stream_id = counter % this->eig_stream_num_per_gpu;
-
-                        // simply calls the cuSOLVER wrapper
-                        single_eig_cusolver(
-                            this->cusolverH_eig_large_arr[stream_id], eig_param_single,
-                            this->large_mat, this->large_W,
-                            this->eig_large_buffer, this->cpu_eig_large_buffer, this->large_info,
-                            this->sizes.large_mat_sizes[i],
-                            this->eig_large_buffer_size[i], this->cpu_eig_large_buffer_size[i],
-                            this->sizes.large_mat_offset(i, j), this->sizes.large_W_offset(i, j),
-                            this->sizes.large_buffer_offset(i, j, this->eig_large_buffer_size),
-                            this->sizes.large_cpu_buffer_offset(i, j, this->eig_large_buffer_size),
-                            counter
-                        );
-
-                        counter++;
-                    }
-                }
-
-                // for each stream, synchronize
-                for (int stream_id = 0; stream_id < this->eig_stream_num_per_gpu; stream_id++) {
-                    CHECK_CUDA( cudaStreamSynchronize(this->eig_stream_arr[stream_id].stream) );
-                }
-
-                // synchronize the streams
-                resource_lk.lock();
-                eig_count_finish++;
-                if (eig_count_finish == 1) {
-                    main_cv.notify_one();
-                }
-                resource_lk.unlock();
-            }
-        }
-    );
-
 
     /* Start the solver */
     printf("\n -------------------------------------------------------------------------------");
@@ -451,8 +381,6 @@ void SDPSolver::solve(
     printf("\n norm of C = %2.1e, norm of b = %2.1e\n", norm_Corg, norm_borg);
     float milliseconds;
     float seconds;
-    std::unique_lock<std::mutex> main_lk(main_mtx, std::defer_lock);
-    std::unique_lock<std::mutex> resource_lk(resource_mtx, std::defer_lock);
 
     if (!if_first) {
         // we suppose that for the second call, new X, y, S, sig are passed, but they are unscaled
@@ -488,11 +416,7 @@ void SDPSolver::solve(
         /*
             Step 0: Check if terminal conditions hold and log information
         */
-        if (
-            ( max(this->maxfeas, this->relgap) < stop_tol )
-            // ||
-            // ( this->maxfeas < stop_tol && this->relgap < (10 * stop_tol) )  // since relgap is hard to decrease
-        ) {
+        if (max(this->maxfeas, this->relgap) < stop_tol ) {
             // stop if the stopping criterion is met
             breakyes = true;
             final_msg = "Solver ended: converged.";
@@ -608,14 +532,36 @@ void SDPSolver::solve(
 
         // first, we convert Xb back to matrices (large and small)
         vector_to_matrices(this->Xb, this->large_mat, this->small_mat, this->map_B, this->map_M1, this->map_M2);
-        CHECK_CUDA( cudaDeviceSynchronize() );
-
 
         // we perform the GPU decomposition of large matrices
-        resource_lk.lock();
-        eig_count_finish = 0;
-        resource_lk.unlock();
-        eig_cv.notify_all();
+        // for each large matrix on this GPU, compute the eig decomposition
+        int stream_id;
+        int counter = 0; // serves as a stream id and as an info offset
+        for (int i = 0; i < this->sizes.large_mat_sizes.size(); i++) {
+            for (int j = 0; j < this->sizes.large_mat_nums[i]; j++) {
+                stream_id = counter % this->eig_stream_num_per_gpu;
+
+                // simply calls the cuSOLVER wrapper
+                single_eig_cusolver(
+                    this->cusolverH_eig_large_arr[stream_id], eig_param_single,
+                    this->large_mat, this->large_W,
+                    this->eig_large_buffer, this->cpu_eig_large_buffer, this->large_info,
+                    this->sizes.large_mat_sizes[i],
+                    this->eig_large_buffer_size[i], this->cpu_eig_large_buffer_size[i],
+                    this->sizes.large_mat_offset(i, j), this->sizes.large_W_offset(i, j),
+                    this->sizes.large_buffer_offset(i, j, this->eig_large_buffer_size),
+                    this->sizes.large_cpu_buffer_offset(i, j, this->eig_large_buffer_size),
+                    counter
+                );
+
+                counter++;
+            }
+        }
+
+        // for each stream, synchronize
+        for (int stream_id = 0; stream_id < this->eig_stream_num_per_gpu; stream_id++) {
+            CHECK_CUDA( cudaStreamSynchronize(this->eig_stream_arr[stream_id].stream) );
+        }
 
         // we perform an ADMM switch
         if (breakyes) {
@@ -628,11 +574,6 @@ void SDPSolver::solve(
             }
             break;
         }
-
-        // wait for the main thread to finish the eig decomposition
-        main_cv.wait(main_lk);
-
-        CHECK_CUDA( cudaDeviceSynchronize() );
 
         // we call cuSOLVER for the batch eig decomposition of small matrices
         int info_offset = 0;
@@ -704,9 +645,6 @@ void SDPSolver::solve(
 
         // convert the matrices back to vectorized format
         matrices_to_vector(this->Xproj, this->large_mat_P, this->small_mat_P, this->map_B, this->map_M1, this->map_M2);
-
-        // double norm_Xproj = this->Xproj.get_norm(this->cublasH);
-        // printf("\n || rhsy ||: %f, || y ||: %f, || Xproj ||: %f", norm_rhsy, norm_y, norm_Xproj);
 
         /* Finish the computation of S^{k+1} */
 
@@ -880,10 +818,6 @@ void SDPSolver::solve(
     // free the memory
     cudaEventDestroy(this->start);
     cudaEventDestroy(this->stop);
-
-    // join all threads
-    eig_thread.join();
-    CHECK_CUDA( cudaDeviceSynchronize() );
 
     return;
 }
