@@ -246,6 +246,7 @@ void mexFunction(int nlhs, mxArray* plhs[], int nrhs, const mxArray* prhs[]) {
     assert(C_size == vec_len);
 
     // blk
+    // TODO: adapt for new signature
     int mat_num;
     std::vector<double> cpu_blk_vals_double;
     get_dnvec_from_matlab(

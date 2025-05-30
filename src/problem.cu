@@ -30,6 +30,9 @@ void Problem::from_txt(const std::string& prefix, bool warm_start) {
                     // size of the upper triangular part of a symmetric matrix
                     this->vec_len += blk_size * (blk_size + 1) / 2;
                     break;
+                case 'u': // free variable
+                    this->vec_len += blk_size;
+                    break;
                 default:
                     std::cerr << "ERROR: unknown block type '" << blk_type << "' in blk.txt" << std::endl;
                     exit(1);

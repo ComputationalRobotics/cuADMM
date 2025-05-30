@@ -31,7 +31,8 @@ void SDPSolver::init(
     int* cpu_At_csc_col_ptrs, int* cpu_At_csc_row_ids, double* cpu_At_csc_vals, int At_nnz,
     int* cpu_b_indices, double* cpu_b_vals, int b_nnz,
     int* cpu_C_indices, double* cpu_C_vals, int C_nnz,
-    int* cpu_blk_vals, int mat_num,
+    char* cpu_blk_types, int* cpu_blk_sizes,
+    int mat_num,
     double* cpu_X_vals,
     double* cpu_y_vals,
     double* cpu_S_vals,
@@ -143,10 +144,9 @@ void SDPSolver::init(
 
     /* Initialize blk and maps */
     // copy blk values and analyze it to retrieve the block sizes and numbers
-    HostDenseVector<int> cpu_blk(mat_num);
-    memcpy(cpu_blk.vals, cpu_blk_vals, sizeof(int) * mat_num);
-
-    analyze_blk(cpu_blk, this->blk_sizes, this->blk_nums);
+    HostDenseVector<int> host_blk_sizes(mat_num);
+    memcpy(host_blk_sizes.vals, cpu_blk_sizes, sizeof(int) * mat_num);
+    analyze_blk(cpu_blk_types, host_blk_sizes, this->blk_sizes, this->blk_nums);
     this->sizes.init(this->blk_sizes, this->blk_nums);
 
     /* Compute the maps for vectorization of matrices */
@@ -154,7 +154,7 @@ void SDPSolver::init(
     std::vector<int> map_B_tmp;  // |
     std::vector<int> map_M1_tmp; // |- CPU version
     std::vector<int> map_M2_tmp; // |
-    get_maps(cpu_blk, this->vec_len, map_B_tmp, map_M1_tmp, map_M2_tmp, this->sizes);
+    get_maps(cpu_blk_types, host_blk_sizes, this->vec_len, map_B_tmp, map_M1_tmp, map_M2_tmp, this->sizes);
 
     // copy to GPU
     this->map_B.allocate(GPU0, vec_len);  // |
@@ -642,6 +642,10 @@ void SDPSolver::solve(
                 this->sizes.small_mat_offset(i)
             );
         }
+
+        // we copy Xb to Xproj since free variables are not modified
+        // TODO: only copy the free variables
+        CHECK_CUDA( cudaMemcpy(this->Xproj.vals, this->Xb.vals, sizeof(double) * this->vec_len, D2D) );
 
         // convert the matrices back to vectorized format
         matrices_to_vector(this->Xproj, this->large_mat_P, this->small_mat_P, this->map_B, this->map_M1, this->map_M2);

@@ -59,8 +59,9 @@ void analyze_blk_duo(
     return;
 }
 
-// Analyze the blk vector to determine the size and number of the matrices
+// Analyze the blk vector to determine the size and number of PSD matrices
 void analyze_blk(
+    char* cpu_blk_types,
     HostDenseVector<int>& blk, 
     std::vector<int>& blk_sizes,
     std::vector<int>& blk_nums
@@ -68,7 +69,9 @@ void analyze_blk(
     // first pass: get matrix sizes 
     std::set<int> size_set;
     for (int i = 0; i < blk.size; i++) {
-        size_set.insert(blk.vals[i]);
+        if (cpu_blk_types[i] == 's') {
+            size_set.insert(blk.vals[i]);
+        }
     }
     blk_sizes = std::vector<int>(size_set.begin(), size_set.end());
 
@@ -79,7 +82,7 @@ void analyze_blk(
     blk_nums = std::vector<int>(blk_sizes.size(), 0);
     for (int i = 0; i < blk.size; i++) {
         for (int j = 0; j < blk_sizes.size(); j++) {
-            if (blk.vals[i] == blk_sizes[j]) {
+            if (cpu_blk_types[i] == 's' && blk.vals[i] == blk_sizes[j]) {
                 blk_nums[j] = blk_nums[j] + 1;
             }
         }

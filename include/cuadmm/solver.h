@@ -198,7 +198,8 @@ class SDPSolver {
         // - cpu_C_vals: values of the cost matrix
         // - C_nnz: number of non-zero entries in the cost matrix
         //
-        // - cpu_blk_vals: block sizes
+        // - cpu_blk_types: block types (s, u, ...)
+        // - cpu_blk_sizes: block sizes
         // - mat_num: number of blocks
         //
         // - cpu_X_vals: initial values for X (optional)
@@ -215,7 +216,8 @@ class SDPSolver {
             int* cpu_At_csc_col_ptrs, int* cpu_At_csc_row_ids, double* cpu_At_csc_vals, int At_nnz,
             int* cpu_b_indices, double* cpu_b_vals, int b_nnz,
             int* cpu_C_indices, double* cpu_C_vals, int C_nnz,
-            int* cpu_blk_vals, int mat_num,
+            char* cpu_blk_types,
+            int* cpu_blk_sizes, int mat_num,
             double* cpu_X_vals = nullptr, // |
             double* cpu_y_vals = nullptr, // |- values for warm start
             double* cpu_S_vals = nullptr, // |

@@ -37,14 +37,16 @@ void get_maps_duo(
 // Matrices are split into to groups depending on their sizes and numbers:
 // large and small ones.
 //
-// - blk: input block sizes
+// - blk_types: input block types (s, u, ...)
+// - blk_sizes: input block sizes
 // - vec_len: length of the vectorized representation
 // - map_B_tmp: output map, where 0 is for large blocks and 1 is for small blocks
 // - map_M1_tmp: output map for M1 (horizontal count of lower triangle)
 // - map_M2_tmp: output map for M2 (vertical count of upper triangle)
 // - sizes: structure containing the sizes of the matrices
 void get_maps(
-    const HostDenseVector<int>& blk,
+    const char* blk_types,
+    const HostDenseVector<int>& blk_sizes,
     const int vec_len,
     std::vector<int>& map_B_tmp, std::vector<int>& map_M1_tmp, std::vector<int>& map_M2_tmp,
     const MatrixSizes& sizes
@@ -69,8 +71,9 @@ void get_eig_rank_mask(
     int batch_size, int mat_size, int eig_rank
 );
 
-// Analyze the blk vector to determine the size and number of the matrices
+// Analyze the blk vector to determine the size and number of PSD matrices
 void analyze_blk(
+    char* blk_types,
     HostDenseVector<int>& blk, 
     std::vector<int>& blk_sizes,
     std::vector<int>& blk_nums

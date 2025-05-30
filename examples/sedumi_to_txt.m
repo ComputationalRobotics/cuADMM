@@ -19,7 +19,7 @@ function sedumi_to_txt(problem, output_dir)
     store_sparse_mat(cuda_C, fullfile(output_dir, 'C.txt'));
     store_sparse_mat(cuda_b, fullfile(output_dir, 'b.txt'));
     store_sparse_mat(cuda_At, fullfile(output_dir, 'At.txt'));
-    store_sparse_vec(cuda_blk, fullfile(output_dir, 'blk.txt'));
+    store_blk(cuda_blk, fullfile(output_dir, 'blk.txt'));
     store_sparse_vec(size(cuda_At, 2), fullfile(output_dir, 'con_num.txt'));
 
     % SeDuMi -> MOSEK
@@ -29,7 +29,7 @@ function sedumi_to_txt(problem, output_dir)
     [~, ~] = mosekopt('minimize info', prob);
 
     % solve with ADMM+
-    run_admmplus(prob);
+    % run_admmplus(prob);
 end
 
 function v = from_cell_to_array(c)
@@ -43,16 +43,31 @@ function [cuda_At, cuda_b, cuda_C, cuda_blk] = data_sdpt3_to_admmSDPcuda(sdpt3)
     cuda_At = from_cell_to_array(sdpt3.At);
     cuda_C = from_cell_to_array(svecADMM(sdpt3.blk, sdpt3.C));
     cuda_b = sdpt3.b;
-    cuda_blk = zeros(size(sdpt3.blk, 1), 1);
-    for i = 1: size(sdpt3.blk, 1)
-        cuda_blk(i) = sdpt3.blk{i, 2};
-    end
+    cuda_blk = sdpt3.blk;
+    % cuda_blk = zeros(size(sdpt3.blk, 1), 1);
+    % for i = 1: size(sdpt3.blk, 1)
+    %     cuda_blk(i) = sdpt3.blk{i, 2};
+    % end
 end
 
 function store_sparse_vec(vec, output_name)
     fileID = fopen(output_name, 'w');
     for i = 1: length(vec)
         fprintf(fileID, "%d\n", fix(vec(i)));
+    end
+    fclose(fileID);
+end
+
+function store_blk(blk, output_name)
+    fileID = fopen(output_name, 'w');
+    for i = 1: length(blk)
+        if blk{i, 1} == 's' || blk{i, 1} == 'u'
+            fprintf(fileID, "%c %d\n", blk{i, 1}, fix(blk{i, 2}));
+        else
+            fprintf("ERROR: unsupported block type %s\n", blk{i, 1});
+            fclose(fileID);
+            return;
+        end
     end
     fclose(fileID);
 end
