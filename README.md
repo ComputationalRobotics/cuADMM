@@ -40,7 +40,7 @@ where `dir_name` is the directory containing the input files. See below for the 
 When using the executable, you need to provide a directory containing the input files, in a format close to SDPT3. The expected files are:
 - `At.txt`: the transpose of the constraint matrix in sparse `svec` COO format
 - `b.txt`: the right-hand side constraint vector in sparse COO format
-- `blk.txt`: a file containing the size of the symmetric blocks
+- `blk.txt`: a file containing the size of the blocks; if a line contains both a character and a number (e.g. `s 3`), the block is interpreted using the table below; if it contains only a number (e.g. `2`), it indicates a PSD block (identical to `s 2`)
 - `C.txt`: the cost matrix in sparse `svec` COO format
 - `con_num.txt`: a file containing the number of constraints (which cannot be inferred from the other files)
 
@@ -52,6 +52,13 @@ Additionally, the following optional files can be provided:
 `X`, `C` and `A` use the `svec` version of the multi-block matrices, obtained by stacking the upper triangular part of each block in a vector, where non-diagonal elements are multiplied by $\sqrt{2}$. The sparse COO format stores the non-zero elements of the `svec` vector by storing the row indices, column indices, and values on the same line, separated by spaces.
 
 Examples files are provided in the `examples` directory, in the `TXT` subfolders. See for instance [this example](examples/SPOT/data/TXT/PlanarHand_N=1_MOMENT).
+
+### Block types
+The `blk.txt` file can contain the following block types:
+| Character | Description                          |
+|-----------|--------------------------------------|
+| `s`       | PSD matrix of size `n` by `n`        |
+| `u`       | Unconstrained vector of size `n`     |
 
 ### From other formats
 We provide in `examples` a few MATLAB scripts to convert from other formats to the expected `TXT` format:
