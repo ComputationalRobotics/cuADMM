@@ -4,6 +4,9 @@
 #include <string>
 #include <vector>
 #include <iostream>
+#include <tuple>
+
+typedef std::tuple<char, int> BlkVal; // block value type for reading block sizes
 
 // Read dense vector data from a .txt file.
 void read_dense_vector_data(
@@ -73,6 +76,12 @@ void CSC_to_COO(
     std::vector<int>& col_ptrs, // pointers of col in CSC, of size (col_num+1, 0)
     std::vector<int>& col_ids, std::vector<int>& row_ids, std::vector<double>& vals, // triplets for the COO format
     const int nnz, const int col_num 
+);
+
+// Read blk data from a .txt file.
+void read_blk(
+    const std::string& filename,
+    std::vector<BlkVal>& vals
 );
 
 #endif // CUADMM_IO_H

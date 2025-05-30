@@ -132,3 +132,32 @@ TEST(IO, CSCtoCOO)
     EXPECT_EQ(cols, new_cols);
     EXPECT_EQ(vals, new_vals);
 }
+
+TEST(IO, ReadBLKNormal)
+{
+    std::string filename = "../test/data/blk_normal.txt";
+    std::vector<BlkVal> vals;
+    read_blk(filename, vals);
+    
+    // Check the size of the vector
+    std::vector<BlkVal> expected;
+    expected.push_back({'s', 10});
+    expected.push_back({'s', 20});
+    expected.push_back({'s', 30});
+    EXPECT_EQ(vals, expected);
+}
+
+
+TEST(IO, ReadBLKTypes)
+{
+    std::string filename = "../test/data/blk_types.txt";
+    std::vector<BlkVal> vals;
+    read_blk(filename, vals);
+    
+    // Check the size of the vector
+    std::vector<BlkVal> expected;
+    expected.push_back({'a', 10});
+    expected.push_back({'b', 20});
+    expected.push_back({'c', 30});
+    EXPECT_EQ(vals, expected);
+}

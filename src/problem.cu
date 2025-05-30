@@ -8,10 +8,9 @@
 #include "cuadmm/io.h"
 #include <algorithm>
 
-// TODO: throw an error if the files do not exist
 void Problem::from_txt(const std::string& prefix, bool warm_start) {
-    read_dense_vector_data(prefix + "blk.txt", this->blk_vals);
-    this->mat_num = this->blk_vals.size();
+    read_blk(prefix + "blk.txt", this->blk_vals);
+    this->mat_num = this->blk_vals.size(); // TODO
 
     if (warm_start) {
         read_dense_vector_data(prefix + "X.txt", this->X_vals);
@@ -24,8 +23,17 @@ void Problem::from_txt(const std::string& prefix, bool warm_start) {
     } else {
         this->vec_len = 0;
         for (int i = 0; i < this->blk_vals.size(); i++) {
-            // each matrix is symmetric
-            this->vec_len += this->blk_vals[i] * (this->blk_vals[i] + 1) / 2;
+            auto [blk_type, blk_size] = this->blk_vals[i];
+
+            switch (blk_type) {
+                case 's': // symmetric matrix
+                    // size of the upper triangular part of a symmetric matrix
+                    this->vec_len += blk_size * (blk_size + 1) / 2;
+                    break;
+                default:
+                    std::cerr << "ERROR: unknown block type '" << blk_type << "' in blk.txt" << std::endl;
+                    exit(1);
+            }
         }
 
         // we have to read the con_num from the file

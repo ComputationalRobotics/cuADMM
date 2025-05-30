@@ -12,6 +12,12 @@ int main(int argc, char* argv[]) {
 
     Problem problem;
     problem.from_txt(prefix);
+
+    // extract the second element of each tuple in blk_vals
+    std::vector<int> blk_vals;
+    for (const auto& blk : problem.blk_vals) {
+        blk_vals.push_back(std::get<1>(blk));
+    }
     
     SDPSolver solver;
     double sig = 1e0;
@@ -21,7 +27,7 @@ int main(int argc, char* argv[]) {
         problem.At_csc_col_ptrs.data(), problem.At_csc_row_ids.data(), problem.At_csc_vals.data(), problem.At_nnz,
         problem.b_indices.data(), problem.b_vals.data(), problem.b_nnz,
         problem.C_indices.data(), problem.C_vals.data(), problem.C_nnz,
-        problem.blk_vals.data(), problem.mat_num,
+        blk_vals.data(), problem.mat_num,
         problem.X_vals.data(), problem.y_vals.data(), problem.S_vals.data(),
         sig
     );

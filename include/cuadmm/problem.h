@@ -11,6 +11,7 @@
 
 #include <vector>
 #include <string>
+#include "io.h"
 
 class Problem{
     public:
@@ -28,7 +29,7 @@ class Problem{
         std::vector<int> C_indices; // |- C in COO format
         std::vector<double> C_vals; // |
         int C_nnz;                  // |
-        std::vector<int> blk_vals; // size of each block
+        std::vector<BlkVal> blk_vals; // size of each block
         // std::vector<double> sig_vals;
 
         int vec_len; // length of X in vector form

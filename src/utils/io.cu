@@ -13,6 +13,7 @@
 #include <fstream>
 #include <iomanip>
 #include <algorithm>
+#include <regex>
 
 #include "cuadmm/io.h"
 
@@ -28,7 +29,7 @@ void read_dense_vector_data(const std::string& filename, std::vector<double>& va
     std::ifstream file(filename);
     if (!file.is_open()) {
         std::cerr << "ERROR: could not open file '" << filename << "'. Please verify that the provided directory path is correct." << std::endl;
-        throw std::runtime_error("Failed to open file.");
+        exit(1);
         return;
     }
 
@@ -51,7 +52,7 @@ void read_dense_vector_data(const std::string& filename, std::vector<int>& vals)
     std::ifstream file(filename);
     if (!file.is_open()) {
         std::cerr << "ERROR: could not open file " << filename << std::endl;
-        throw std::runtime_error("Failed to open file.");
+        exit(1);
         return;
     }
 
@@ -76,7 +77,7 @@ void read_sparse_vector_data(
     std::ifstream file(filename);
     if (!file.is_open()) {
         std::cerr << "Failed to open file: " << filename << std::endl;
-        throw std::runtime_error("Failed to open file.");
+        exit(1);
     }
     int row, col;
     double val;
@@ -107,7 +108,7 @@ void read_COO_sparse_matrix_data(
     std::ifstream file(filename);
     if (!file.is_open()) {
         std::cerr << "Failed to open file: " << filename << std::endl;
-        throw std::runtime_error("Failed to open file.");
+        exit(1);
     }
     int row, col;
     double val;
@@ -132,7 +133,7 @@ void write_dense_vector_data(
     std::ofstream file(filename);
     if (!file.is_open()) {
         std::cerr << "Failed to open file: " << filename << std::endl;
-        throw std::runtime_error("Failed to open file.");
+        exit(1);
     }
     file << std::setprecision(precision);
     for (int i = 0; i < vals.size(); i++) {
@@ -151,7 +152,7 @@ void write_dense_vector_data(
     std::ofstream file(filename);
     if (!file.is_open()) {
         std::cerr << "Failed to open file: " << filename << std::endl;
-        throw std::runtime_error("Failed to open file.");
+        exit(1);
     }
     file << std::setprecision(precision);
     for (int i = 0; i < vals.size(); i++) {
@@ -170,7 +171,7 @@ void write_sparse_matrix_data(
     std::ofstream file(filename);
     if (!file.is_open()) {
         std::cerr << "Failed to open file: " << filename << std::endl;
-        throw std::runtime_error("Failed to open file.");
+        exit(1);
     }
     file << std::setprecision(precision);
     for (int i = 0; i < vals.size(); i++) {
@@ -288,5 +289,41 @@ void CSC_to_COO(
     }
     // set col_ptrs to empty
     col_ptrs.clear();
+    return;
+}
+
+// Read blk data from a .txt file.
+void read_blk(const std::string& filename, std::vector<std::tuple<char, int>>& vals)
+{
+    if (!vals.empty()) {
+        std::cout << "WARNING: buffer for data reading is not empty!" << std::endl;
+        vals.clear();
+    }
+
+    std::ifstream file(filename);
+    if (!file.is_open()) {
+        std::cerr << "ERROR: could not open file " << filename << std::endl;
+        exit(1);
+        return;
+    }
+
+    std::string line;
+    std::regex type_val_regex(R"(^\s*([a-zA-Z])\s+(-?\d+)\s*$)");
+    std::regex val_only_regex(R"(^\s*(-?\d+)\s*$)");
+    std::smatch match;
+    while (std::getline(file, line)) {
+        // if the line contains both a block type and a value, for instance "s 10"
+        if (std::regex_match(line, match, type_val_regex)) {
+            char type = match[1].str()[0];
+            int val = std::stoi(match[2].str());
+            vals.push_back({type, val});
+        } 
+        // if the line contains only a value, for instance "10", we assume it is "s 10"
+        else if (std::regex_match(line, match, val_only_regex)) {
+            int val = std::stoi(match[1].str());
+            vals.push_back({'s', val});
+        }
+        // else: ignore malformed lines
+    }
     return;
 }
