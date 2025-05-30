@@ -31,7 +31,14 @@ set_property(TARGET ${ROUTINE} PROPERTY CUDA_ARCHITECTURES OFF)
 set(CUADMM_LIB cuadmm_lib)
 set(CUADMM_EXE cuadmm_exe)
 
-set(SUITESPARSE_INCLUDE_DIRECTOIRES /usr/local/include/suitesparse)
+find_path(SUITESPARSE_INCLUDE_DIRECTORIES
+  NAMES SuiteSparse_config.h
+  PATHS /usr/include /usr/local/include /opt/local/include
+  PATH_SUFFIXES suitesparse SuiteSparse
+)
+if(NOT SUITESPARSE_INCLUDE_DIRECTORIES)
+  message(FATAL_ERROR "SuiteSparse include directory not found. Please set SUITESPARSE_INCLUDE_DIRECTORIES manually.")
+endif()
 set(CMAD_LIB /usr/local/lib/libcamd.so)
 set(CCOLAMD_LIB /usr/local/lib/libccolamd.so)
 set(CHOLMOD_LIB /usr/local/lib/libcholmod.so)
@@ -42,7 +49,7 @@ set(
     INCLUDE_DIRS
     ${Matlab_INCLUDE_DIRS}
     ${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES}
-    ${SUITESPARSE_INCLUDE_DIRECTOIRES}
+    ${SUITESPARSE_INCLUDE_DIRECTORIES}
     include
 )
 
