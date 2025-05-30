@@ -94,8 +94,8 @@ class SDPSolver {
         DeviceDenseVector<double> Xb;
 
         /* Sparse vector <-> sparse matrix mapping */
-        std::vector<int> blk_sizes; // sizes of the matrices (without muliplicity)
-        std::vector<int> blk_nums;  // number of matrices of each size
+        std::vector<int> psd_blk_sizes; // sizes of the matrices (without muliplicity)
+        std::vector<int> psd_blk_nums;  // number of matrices of each size
         MatrixSizes sizes;
         DeviceDenseVector<int> map_B;  // |
         DeviceDenseVector<int> map_M1; // |- maps for vectorization of matrices

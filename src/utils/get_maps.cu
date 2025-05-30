@@ -88,6 +88,8 @@ void get_maps(
     // Reserve space for the maps
     map_B_tmp.clear();
     map_B_tmp.resize(vec_len);
+    // fill map_B_tmp with -1, for non-PSD blocks
+    std::fill(map_B_tmp.begin(), map_B_tmp.end(), -1);
     map_M1_tmp.clear();
     map_M1_tmp.resize(vec_len);
     map_M2_tmp.clear();
@@ -101,8 +103,10 @@ void get_maps(
     int s; // block size
     int b; // block type (0 for large, 1 for small)
     for (int k = 0; k < blk_sizes.size; ++k) { // for each block
-        if (blk_types[k] != 's')
+        if (blk_types[k] != 's') {
+            idx += blk_sizes.vals[k];
             continue; // skip non-PSD blocks
+        }
             
         s = blk_sizes.vals[k];
         if (sizes.is_large(s)) {

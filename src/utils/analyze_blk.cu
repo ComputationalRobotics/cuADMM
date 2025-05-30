@@ -63,35 +63,43 @@ void analyze_blk_duo(
 void analyze_blk(
     char* cpu_blk_types,
     HostDenseVector<int>& blk, 
-    std::vector<int>& blk_sizes,
-    std::vector<int>& blk_nums
+    std::vector<int>& psd_blk_sizes,
+    std::vector<int>& psd_blk_nums
 ) { 
-    // first pass: get matrix sizes 
+    // first pass: get PSD matrix sizes 
     std::set<int> size_set;
     for (int i = 0; i < blk.size; i++) {
         if (cpu_blk_types[i] == 's') {
             size_set.insert(blk.vals[i]);
         }
     }
-    blk_sizes = std::vector<int>(size_set.begin(), size_set.end());
+    psd_blk_sizes = std::vector<int>(size_set.begin(), size_set.end());
 
-    // determine the size of the moment and localizing matrices
+    // determine the size of the small and large matrices
     std::cout << "\nAnalysis of the blk vector:" << std::endl;
     
-    // second pass: get matrix numbers
-    blk_nums = std::vector<int>(blk_sizes.size(), 0);
+    // second pass: get PSD matrix numbers
+    psd_blk_nums = std::vector<int>(psd_blk_sizes.size(), 0);
     for (int i = 0; i < blk.size; i++) {
-        for (int j = 0; j < blk_sizes.size(); j++) {
-            if (cpu_blk_types[i] == 's' && blk.vals[i] == blk_sizes[j]) {
-                blk_nums[j] = blk_nums[j] + 1;
+        for (int j = 0; j < psd_blk_sizes.size(); j++) {
+            if (cpu_blk_types[i] == 's' && blk.vals[i] == psd_blk_sizes[j]) {
+                psd_blk_nums[j] = psd_blk_nums[j] + 1;
             }
         }
     }
 
-    // print the elements of the map
-    for (int i = 0; i < blk_sizes.size(); i++) {
-        std::cout << "     " << std::setw(4) << blk_nums[i] << " matrices of size " << std::setw(3) << blk_sizes[i];
-        if (is_large_mat(blk_sizes[i], blk_nums[i])) {
+    // print unconstrained variables
+    for (int i = 0; i < blk.size; i++) {
+        if (cpu_blk_types[i] == 'u') {
+            std::cout << "     " << std::setw(4) << 1 << " u. block of size " << std::setw(3) << blk.vals[i];
+            std::cout << std::endl;
+        }
+    }
+
+    // print the PSD matrices of the map
+    for (int i = 0; i < psd_blk_sizes.size(); i++) {
+        std::cout << "     " << std::setw(4) << psd_blk_nums[i] << " matrices of size " << std::setw(4) << psd_blk_sizes[i];
+        if (is_large_mat(psd_blk_sizes[i], psd_blk_nums[i])) {
             std::cout << " (large)";
         } else {
             std::cout << " (small)";

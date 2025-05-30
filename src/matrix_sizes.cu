@@ -19,8 +19,8 @@ bool is_large_mat(const int mat_size, const int mat_num) {
 }
 
 
-void MatrixSizes::init(const std::vector<int>& blk_sizes, const std::vector<int>& blk_nums) {
-    assert(blk_sizes.size() == blk_nums.size());
+void MatrixSizes::init(const std::vector<int>& psd_blk_sizes, const std::vector<int>& psd_blk_nums) {
+    assert(psd_blk_sizes.size() == psd_blk_nums.size());
 
     // initialize the sizes and numbers
     this->total_large_mat_size = 0;
@@ -39,9 +39,9 @@ void MatrixSizes::init(const std::vector<int>& blk_sizes, const std::vector<int>
     // for each matrix size, determine if it is large or small
     // i.e. if we put it in M1 or M2
     // this determines if we use single QR or batched Jacobi for eig
-    for (int i = 0; i < blk_sizes.size(); i++) {
-        int mat_size = blk_sizes[i]; // size of the matrix
-        int mat_num = blk_nums[i]; // number of matrices of this size
+    for (int i = 0; i < psd_blk_sizes.size(); i++) {
+        int mat_size = psd_blk_sizes[i]; // size of the matrix
+        int mat_num = psd_blk_nums[i]; // number of matrices of this size
         
         this->is_large_map[mat_size] = is_large_mat(mat_size, mat_num);
         

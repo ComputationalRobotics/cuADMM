@@ -46,7 +46,7 @@ public:
 
     MatrixSizes() {}
 
-    void init(const std::vector<int>& blk_sizes, const std::vector<int>& blk_nums);
+    void init(const std::vector<int>& psd_blk_sizes, const std::vector<int>& psd_blk_nums);
 
     // Given a matrix size, returns true if it is large, false otherwise.
     bool is_large(const int mat_size) const;

@@ -146,8 +146,8 @@ void SDPSolver::init(
     // copy blk values and analyze it to retrieve the block sizes and numbers
     HostDenseVector<int> host_blk_sizes(mat_num);
     memcpy(host_blk_sizes.vals, cpu_blk_sizes, sizeof(int) * mat_num);
-    analyze_blk(cpu_blk_types, host_blk_sizes, this->blk_sizes, this->blk_nums);
-    this->sizes.init(this->blk_sizes, this->blk_nums);
+    analyze_blk(cpu_blk_types, host_blk_sizes, this->psd_blk_sizes, this->psd_blk_nums);
+    this->sizes.init(this->psd_blk_sizes, this->psd_blk_nums);
 
     /* Compute the maps for vectorization of matrices */
     // compute on CPU

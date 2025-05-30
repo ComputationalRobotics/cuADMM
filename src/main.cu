@@ -35,7 +35,7 @@ int main(int argc, char* argv[]) {
     );
 
     // ADMM only
-    // solver.solve((int) 1e6, 1e-4, false, 50, 100, 0);
+    // solver.solve((int) 1e6, 1e-3, false, 50, 100, 0);
     
     // sGS-ADMM
     solver.solve((int) 1e6, 1e-3, false, 50, 100, 5000);
