@@ -9,6 +9,7 @@
 
 #include "cuadmm/solver.h"
 #include "cuadmm/kernels.h"
+#include "cuadmm/projection.h"
 
 #include <algorithm>
 #include <stdio.h>
@@ -253,6 +254,7 @@ void SDPSolver::init(
     this->cpu_eig_large_buffer_size.assign(this->sizes.large_mat_sizes.size(), 0);
     // this->cpu_eig_large_buffer.reserve(this->sizes.large_mat_sizes.size());
 
+    // TODO: comment out this part
     this->sizes.large_buffer_start_indices.push_back(0);
     this->sizes.large_cpu_buffer_start_indices.push_back(0);
     int total_eig_large_buffer_size = 0;
@@ -314,7 +316,7 @@ void SDPSolver::init(
     /* For the computation of y, X, S */
     this->large_mat_tmp.allocate(GPU0, this->sizes.total_large_mat_size);
     this->small_mat_tmp.allocate(GPU0, this->sizes.total_small_mat_size);
-    this->large_mat_P.allocate(GPU0, this->sizes.total_large_mat_size);
+    this->large_mat_P.allocate(GPU0, this->sizes.total_large_mat_size); // TODO: remove this
     this->small_mat_P.allocate(GPU0, this->sizes.total_small_mat_size);
     this->Rd1.allocate(GPU0, this->vec_len);
     this->Xb.allocate(GPU0, this->vec_len);
@@ -427,6 +429,7 @@ void SDPSolver::solve(
             final_msg = "Solver ended: maximum iteration reached";
         }
         if (
+            true || // TODO: remove
             ( breakyes == true ) ||
             ( (iter <= 200) && ((iter % 50) == 1) ) ||
             ( (iter > 200) && ((iter % 100) == 1) )
@@ -535,29 +538,43 @@ void SDPSolver::solve(
 
         // we perform the GPU decomposition of large matrices
         // for each large matrix on this GPU, compute the eig decomposition
-        int stream_id;
-        int counter = 0; // serves as a stream id and as an info offset
+        // int stream_id;
+        // int counter = 0; // serves as a stream id and as an info offset
+
+        // TODO: move the cuBLAS handle creation outside the loop
+        cublasHandle_t cublasH;
+        CHECK_CUBLAS( cublasCreate(&cublasH) );
+        CHECK_CUBLAS( cublasSetMathMode(cublasH, CUBLAS_TENSOR_OP_MATH) );
+
         for (int i = 0; i < this->sizes.large_mat_sizes.size(); i++) {
             for (int j = 0; j < this->sizes.large_mat_nums[i]; j++) {
-                stream_id = counter % this->eig_stream_num_per_gpu;
+                // stream_id = counter % this->eig_stream_num_per_gpu;
 
                 // simply calls the cuSOLVER wrapper
-                single_eig_cusolver(
-                    this->cusolverH_eig_large_arr[stream_id], eig_param_single,
-                    this->large_mat, this->large_W,
-                    this->eig_large_buffer, this->cpu_eig_large_buffer, this->large_info,
+                // single_eig_cusolver(
+                //     this->cusolverH_eig_large_arr[stream_id], eig_param_single,
+                //     this->large_mat, this->large_W,
+                //     this->eig_large_buffer, this->cpu_eig_large_buffer, this->large_info,
+                //     this->sizes.large_mat_sizes[i],
+                //     this->eig_large_buffer_size[i], this->cpu_eig_large_buffer_size[i],
+                //     this->sizes.large_mat_offset(i, j), this->sizes.large_W_offset(i, j),
+                //     this->sizes.large_buffer_offset(i, j, this->eig_large_buffer_size),
+                //     this->sizes.large_cpu_buffer_offset(i, j, this->eig_large_buffer_size),
+                //     counter
+                // );
+
+                // use the custom routine
+                projection_TF16(
+                    cublasH,
+                    this->large_mat,
                     this->sizes.large_mat_sizes[i],
-                    this->eig_large_buffer_size[i], this->cpu_eig_large_buffer_size[i],
-                    this->sizes.large_mat_offset(i, j), this->sizes.large_W_offset(i, j),
-                    this->sizes.large_buffer_offset(i, j, this->eig_large_buffer_size),
-                    this->sizes.large_cpu_buffer_offset(i, j, this->eig_large_buffer_size),
-                    counter
+                    this->sizes.large_mat_offset(i, j)
                 );
 
-                counter++;
+                // counter++;
             }
         }
-
+        cublasDestroy(cublasH);
         // for each stream, synchronize
         for (int stream_id = 0; stream_id < this->eig_stream_num_per_gpu; stream_id++) {
             CHECK_CUDA( cudaStreamSynchronize(this->eig_stream_arr[stream_id].stream) );
@@ -591,22 +608,22 @@ void SDPSolver::solve(
             info_offset += this->sizes.small_mat_nums[i];
         }
 
-        max_dense_vector_zero(this->large_W);
+        // max_dense_vector_zero(this->large_W);
         max_dense_vector_zero(this->small_W);
 
-        // TODO: use multiple streams
         // int stream_id;
         // multiply the large matrices by their eigenvalues
-        for (int i = 0; i < this->sizes.large_mat_sizes.size(); i++) {
-            // stream_id = i % this->eig_stream_num_per_gpu;
-            dense_matrix_mul_diag_batch(
-                large_mat_tmp, this->large_mat, this->large_W,
-                this->sizes.large_mat_sizes[i], this->sizes.large_mat_nums[i],
-                this->sizes.large_mat_offset(i, 0), this->sizes.large_W_offset(i, 0)//,
-                // this->eig_stream_arr[stream_id].stream
-            );
-        }
+        // for (int i = 0; i < this->sizes.large_mat_sizes.size(); i++) {
+        //     // stream_id = i % this->eig_stream_num_per_gpu;
+        //     dense_matrix_mul_diag_batch(
+        //         large_mat_tmp, this->large_mat, this->large_W,
+        //         this->sizes.large_mat_sizes[i], this->sizes.large_mat_nums[i],
+        //         this->sizes.large_mat_offset(i, 0), this->sizes.large_W_offset(i, 0)//,
+        //         // this->eig_stream_arr[stream_id].stream
+        //     );
+        // }
 
+        // TODO: use multiple streams
         // multiply the small matrices by their eigenvalues
         for (int i = 0; i < this->sizes.small_mat_sizes.size(); i++) {
             // stream_id = (this->sizes.large_mat_sizes.size() + i) % this->eig_stream_num_per_gpu;
@@ -624,16 +641,16 @@ void SDPSolver::solve(
         // }
 
 
-        // TODO: use multiple cuBLAS handles
-        for (int i = 0; i < this->sizes.large_mat_sizes.size(); i++) {
-            dense_matrix_mul_trans_batch(
-                this->cublasH,
-                this->large_mat_P, this->large_mat_tmp, this->large_mat,
-                this->sizes.large_mat_sizes[i], this->sizes.large_mat_nums[i],
-                this->sizes.large_mat_offset(i, 0)
-            );
-        }
+        // for (int i = 0; i < this->sizes.large_mat_sizes.size(); i++) {
+        //     dense_matrix_mul_trans_batch(
+        //         this->cublasH,
+        //         this->large_mat_P, this->large_mat_tmp, this->large_mat,
+        //         this->sizes.large_mat_sizes[i], this->sizes.large_mat_nums[i],
+        //         this->sizes.large_mat_offset(i, 0)
+        //     );
+        // }
 
+        // TODO: use multiple cuBLAS handles
         for (int i = 0; i < this->sizes.small_mat_sizes.size(); i++) {
             dense_matrix_mul_trans_batch(
                 this->cublasH,
@@ -648,7 +665,8 @@ void SDPSolver::solve(
         CHECK_CUDA( cudaMemcpy(this->Xproj.vals, this->Xb.vals, sizeof(double) * this->vec_len, D2D) );
 
         // convert the matrices back to vectorized format
-        matrices_to_vector(this->Xproj, this->large_mat_P, this->small_mat_P, this->map_B, this->map_M1, this->map_M2);
+        // matrices_to_vector(this->Xproj, this->large_mat_P, this->small_mat_P, this->map_B, this->map_M1, this->map_M2);
+        matrices_to_vector(this->Xproj, this->large_mat, this->small_mat_P, this->map_B, this->map_M1, this->map_M2);
 
         /* Finish the computation of S^{k+1} */
 
