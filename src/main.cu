@@ -38,7 +38,7 @@ int main(int argc, char* argv[]) {
     // solver.solve((int) 1e6, 1e-3, false, 50, 100, 0);
     
     // sGS-ADMM
-    solver.solve((int) 1e6, 1e-3, false, 50, 100, 5000);
+    solver.solve((int) 1e6, 1e-4, false, 50, 100, 5000);
 
     solver.X.to_txt(prefix + "X_opt.txt");
     

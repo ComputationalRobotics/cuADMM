@@ -13,6 +13,13 @@ function sedumi_to_txt(problem, output_dir)
     sdpt3.C = sdpt3_C;
     sdpt3.b = sdpt3_b;
     sdpt3.blk = sdpt3_blk;
+    % SDP.At = sdpt3_At;
+    % SDP.C = sdpt3_C;
+    % SDP.b = sdpt3_b;
+    % SDP.blk = sdpt3_blk;
+
+    % save(fullfile("/home/jordan/antoine/admmSDP/examples", 'PushBox_N=10_SOS.mat'), 'SDP');
+    % return;
 
     % SDPT3 -> cuADMM
     [cuda_At, cuda_b, cuda_C, cuda_blk] = data_sdpt3_to_admmSDPcuda(sdpt3);
@@ -29,7 +36,7 @@ function sedumi_to_txt(problem, output_dir)
     [~, ~] = mosekopt('minimize info', prob);
 
     % solve with ADMM+
-    % run_admmplus(prob);
+    run_admmplus(sdpt3_blk, sdpt3_At, sdpt3_C, sdpt3_b);
 end
 
 function v = from_cell_to_array(c)

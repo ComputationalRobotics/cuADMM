@@ -643,9 +643,8 @@ void SDPSolver::solve(
             );
         }
 
-        // we copy Xb to Xproj since free variables are not modified
-        // TODO: only copy the free variables
-        CHECK_CUDA( cudaMemcpy(this->Xproj.vals, this->Xb.vals, sizeof(double) * this->vec_len, D2D) );
+        // we put Xproj to zero since the projection of the free variables is zero
+        CHECK_CUDA( cudaMemsetAsync(this->Xproj.vals, 0, sizeof(double) * this->vec_len, this->stream_flex[0].stream) );
 
         // convert the matrices back to vectorized format
         matrices_to_vector(this->Xproj, this->large_mat_P, this->small_mat_P, this->map_B, this->map_M1, this->map_M2);
