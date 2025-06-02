@@ -34,6 +34,7 @@ void SDPSolver::init(
     int* cpu_C_indices, double* cpu_C_vals, int C_nnz,
     char* cpu_blk_types, int* cpu_blk_sizes,
     int mat_num,
+    bool large_cusolver,
     double* cpu_X_vals,
     double* cpu_y_vals,
     double* cpu_S_vals,
@@ -61,6 +62,8 @@ void SDPSolver::init(
     this->cusparseH.activate();
     this->cublasH.set_gpu_id(GPU0);
     this->cublasH.activate();
+
+    this->large_cusolver = large_cusolver;
 
     /* Initialize the A matrix */
     this->vec_len = vec_len;
@@ -254,35 +257,36 @@ void SDPSolver::init(
     this->cpu_eig_large_buffer_size.assign(this->sizes.large_mat_sizes.size(), 0);
     // this->cpu_eig_large_buffer.reserve(this->sizes.large_mat_sizes.size());
 
-    // TODO: comment out this part
-    this->sizes.large_buffer_start_indices.push_back(0);
-    this->sizes.large_cpu_buffer_start_indices.push_back(0);
-    int total_eig_large_buffer_size = 0;
-    int total_cpu_eig_large_buffer_size = 0;
-    for (int i = 0; i < this->sizes.large_mat_sizes.size(); i++) {
-        single_eig_get_buffersize_cusolver(
-            this->cusolverH_eig_large_arr[i % this->eig_stream_num_per_gpu], eig_param_single, this->large_mat, this->large_W,
-            this->sizes.large_mat_sizes[i],
-            &this->eig_large_buffer_size[i],
-            &this->cpu_eig_large_buffer_size[i],
-            this->sizes.large_mat_offset(i, 0), this->sizes.large_W_offset(i, 0)
-        ); // buffer size per large matrix of a given size
+    if (this->large_cusolver) {
+        this->sizes.large_buffer_start_indices.push_back(0);
+        this->sizes.large_cpu_buffer_start_indices.push_back(0);
+        int total_eig_large_buffer_size = 0;
+        int total_cpu_eig_large_buffer_size = 0;
+        for (int i = 0; i < this->sizes.large_mat_sizes.size(); i++) {
+            single_eig_get_buffersize_cusolver(
+                this->cusolverH_eig_large_arr[i % this->eig_stream_num_per_gpu], eig_param_single, this->large_mat, this->large_W,
+                this->sizes.large_mat_sizes[i],
+                &this->eig_large_buffer_size[i],
+                &this->cpu_eig_large_buffer_size[i],
+                this->sizes.large_mat_offset(i, 0), this->sizes.large_W_offset(i, 0)
+            ); // buffer size per large matrix of a given size
 
-        // we need to multiply the buffer size by the number of matrices of this size
-        total_eig_large_buffer_size += this->eig_large_buffer_size[i] * this->sizes.large_mat_nums[i];
-        total_cpu_eig_large_buffer_size += this->cpu_eig_large_buffer_size[i] * this->sizes.large_mat_nums[i];
+            // we need to multiply the buffer size by the number of matrices of this size
+            total_eig_large_buffer_size += this->eig_large_buffer_size[i] * this->sizes.large_mat_nums[i];
+            total_cpu_eig_large_buffer_size += this->cpu_eig_large_buffer_size[i] * this->sizes.large_mat_nums[i];
 
-        this->sizes.large_buffer_start_indices.push_back(
-            this->sizes.large_buffer_start_indices[i] + this->sizes.large_mat_nums[i] * this->eig_large_buffer_size[i]
-        );
-        this->sizes.large_cpu_buffer_start_indices.push_back(
-            this->sizes.large_cpu_buffer_start_indices[i] + this->sizes.large_mat_nums[i] * this->cpu_eig_large_buffer_size[i]
-        );
+            this->sizes.large_buffer_start_indices.push_back(
+                this->sizes.large_buffer_start_indices[i] + this->sizes.large_mat_nums[i] * this->eig_large_buffer_size[i]
+            );
+            this->sizes.large_cpu_buffer_start_indices.push_back(
+                this->sizes.large_cpu_buffer_start_indices[i] + this->sizes.large_mat_nums[i] * this->cpu_eig_large_buffer_size[i]
+            );
+        }
+
+        // allocate memory for the two buffers, host and device
+        this->eig_large_buffer.allocate(GPU0, total_eig_large_buffer_size, true);
+        this->cpu_eig_large_buffer.allocate(total_cpu_eig_large_buffer_size, true);
     }
-
-    // allocate memory for the two buffers, host and device
-    this->eig_large_buffer.allocate(GPU0, total_eig_large_buffer_size, true);
-    this->cpu_eig_large_buffer.allocate(total_cpu_eig_large_buffer_size, true);
 
     /* Eigenvalue decomposition for small matrices */
     this->cusolverH_eig_small.set_gpu_id(GPU0);
@@ -314,9 +318,11 @@ void SDPSolver::init(
     this->eig_small_buffer.allocate(GPU0, this->sizes.small_buffer_start_indices.back(), true);
 
     /* For the computation of y, X, S */
-    this->large_mat_tmp.allocate(GPU0, this->sizes.total_large_mat_size);
+    if (this->large_cusolver) {
+        this->large_mat_tmp.allocate(GPU0, this->sizes.total_large_mat_size);
+        this->large_mat_P.allocate(GPU0, this->sizes.total_large_mat_size);
+    }
     this->small_mat_tmp.allocate(GPU0, this->sizes.total_small_mat_size);
-    this->large_mat_P.allocate(GPU0, this->sizes.total_large_mat_size); // TODO: remove this
     this->small_mat_P.allocate(GPU0, this->sizes.total_small_mat_size);
     this->Rd1.allocate(GPU0, this->vec_len);
     this->Xb.allocate(GPU0, this->vec_len);
@@ -369,6 +375,13 @@ void SDPSolver::solve(
     this->sig_update_stage_2 = sig_update_stage_2;
     this->switch_admm = switch_admm;
     this->sigscale = sigscale;
+
+    // create cuBLAS handle for projection
+    // TODO: add a wrapper for deletion and create this only once per solver instance
+    if (!this->large_cusolver) {
+        CHECK_CUBLAS( cublasCreate(&this->cublasH_proj) );
+        CHECK_CUBLAS( cublasSetMathMode(this->cublasH_proj, CUBLAS_TENSOR_OP_MATH) );
+    }
 
     // declare variables
     bool breakyes = false;   // for breaking out of the loop
@@ -429,7 +442,6 @@ void SDPSolver::solve(
             final_msg = "Solver ended: maximum iteration reached";
         }
         if (
-            true || // TODO: remove
             ( breakyes == true ) ||
             ( (iter <= 200) && ((iter % 50) == 1) ) ||
             ( (iter > 200) && ((iter % 100) == 1) )
@@ -538,49 +550,48 @@ void SDPSolver::solve(
 
         // we perform the GPU decomposition of large matrices
         // for each large matrix on this GPU, compute the eig decomposition
-        // int stream_id;
-        // int counter = 0; // serves as a stream id and as an info offset
+        if (this->large_cusolver) { // cuSOLVER version
+            int stream_id;
+            int counter = 0; // serves as a stream id and as an info offset
+            for (int i = 0; i < this->sizes.large_mat_sizes.size(); i++) {
+                for (int j = 0; j < this->sizes.large_mat_nums[i]; j++) {
+                    stream_id = counter % this->eig_stream_num_per_gpu;
 
-        // TODO: move the cuBLAS handle creation outside the loop
-        cublasHandle_t cublasH;
-        CHECK_CUBLAS( cublasCreate(&cublasH) );
-        CHECK_CUBLAS( cublasSetMathMode(cublasH, CUBLAS_TENSOR_OP_MATH) );
+                    // simply calls the cuSOLVER wrapper
+                    single_eig_cusolver(
+                        this->cusolverH_eig_large_arr[stream_id], eig_param_single,
+                        this->large_mat, this->large_W,
+                        this->eig_large_buffer, this->cpu_eig_large_buffer, this->large_info,
+                        this->sizes.large_mat_sizes[i],
+                        this->eig_large_buffer_size[i], this->cpu_eig_large_buffer_size[i],
+                        this->sizes.large_mat_offset(i, j), this->sizes.large_W_offset(i, j),
+                        this->sizes.large_buffer_offset(i, j, this->eig_large_buffer_size),
+                        this->sizes.large_cpu_buffer_offset(i, j, this->eig_large_buffer_size),
+                        counter
+                    );
 
-        for (int i = 0; i < this->sizes.large_mat_sizes.size(); i++) {
-            for (int j = 0; j < this->sizes.large_mat_nums[i]; j++) {
-                // stream_id = counter % this->eig_stream_num_per_gpu;
+                    counter++;
+                }
+            }
 
-                // simply calls the cuSOLVER wrapper
-                // single_eig_cusolver(
-                //     this->cusolverH_eig_large_arr[stream_id], eig_param_single,
-                //     this->large_mat, this->large_W,
-                //     this->eig_large_buffer, this->cpu_eig_large_buffer, this->large_info,
-                //     this->sizes.large_mat_sizes[i],
-                //     this->eig_large_buffer_size[i], this->cpu_eig_large_buffer_size[i],
-                //     this->sizes.large_mat_offset(i, j), this->sizes.large_W_offset(i, j),
-                //     this->sizes.large_buffer_offset(i, j, this->eig_large_buffer_size),
-                //     this->sizes.large_cpu_buffer_offset(i, j, this->eig_large_buffer_size),
-                //     counter
-                // );
-
-                // use the custom routine
-                projection_TF16(
-                    cublasH,
-                    this->large_mat,
-                    this->sizes.large_mat_sizes[i],
-                    this->sizes.large_mat_offset(i, j)
-                );
-
-                // counter++;
+            // for each stream, synchronize
+            for (int stream_id = 0; stream_id < this->eig_stream_num_per_gpu; stream_id++) {
+                CHECK_CUDA( cudaStreamSynchronize(this->eig_stream_arr[stream_id].stream) );
+            }
+        } else { // custom iterative version
+            for (int i = 0; i < this->sizes.large_mat_sizes.size(); i++) {
+                for (int j = 0; j < this->sizes.large_mat_nums[i]; j++) {
+                    // use the custom routine
+                    projection_TF16(
+                        this->cublasH_proj,
+                        this->large_mat,
+                        this->sizes.large_mat_sizes[i],
+                        this->sizes.large_mat_offset(i, j)
+                    );
+                }
             }
         }
-        cublasDestroy(cublasH);
-        // for each stream, synchronize
-        for (int stream_id = 0; stream_id < this->eig_stream_num_per_gpu; stream_id++) {
-            CHECK_CUDA( cudaStreamSynchronize(this->eig_stream_arr[stream_id].stream) );
-        }
 
-        // we perform an ADMM switch
         if (breakyes) {
             if (iter > this->switch_admm) {
                 CHECK_CUDA( cudaMemcpyAsync(this->X.vals, this->X_best.vals, sizeof(double) * this->vec_len, D2D, this->stream_flex[0].stream) );
@@ -608,27 +619,30 @@ void SDPSolver::solve(
             info_offset += this->sizes.small_mat_nums[i];
         }
 
-        // max_dense_vector_zero(this->large_W);
+        if (this->large_cusolver)
+            max_dense_vector_zero(this->large_W);
         max_dense_vector_zero(this->small_W);
 
         // int stream_id;
         // multiply the large matrices by their eigenvalues
-        // for (int i = 0; i < this->sizes.large_mat_sizes.size(); i++) {
-        //     // stream_id = i % this->eig_stream_num_per_gpu;
-        //     dense_matrix_mul_diag_batch(
-        //         large_mat_tmp, this->large_mat, this->large_W,
-        //         this->sizes.large_mat_sizes[i], this->sizes.large_mat_nums[i],
-        //         this->sizes.large_mat_offset(i, 0), this->sizes.large_W_offset(i, 0)//,
-        //         // this->eig_stream_arr[stream_id].stream
-        //     );
-        // }
+        if (this->large_cusolver) {
+            for (int i = 0; i < this->sizes.large_mat_sizes.size(); i++) {
+                // stream_id = i % this->eig_stream_num_per_gpu;
+                dense_matrix_mul_diag_batch(
+                    this->large_mat_tmp, this->large_mat, this->large_W,
+                    this->sizes.large_mat_sizes[i], this->sizes.large_mat_nums[i],
+                    this->sizes.large_mat_offset(i, 0), this->sizes.large_W_offset(i, 0)//,
+                    // this->eig_stream_arr[stream_id].stream
+                );
+            }
+        }
 
         // TODO: use multiple streams
         // multiply the small matrices by their eigenvalues
         for (int i = 0; i < this->sizes.small_mat_sizes.size(); i++) {
             // stream_id = (this->sizes.large_mat_sizes.size() + i) % this->eig_stream_num_per_gpu;
             dense_matrix_mul_diag_batch(
-                small_mat_tmp, this->small_mat, this->small_W,
+                this->small_mat_tmp, this->small_mat, this->small_W,
                 this->sizes.small_mat_sizes[i], this->sizes.small_mat_nums[i],
                 this->sizes.small_mat_offset(i), this->sizes.small_W_offset(i)//,
                 // this->eig_stream_arr[stream_id].stream
@@ -640,15 +654,16 @@ void SDPSolver::solve(
         //     CHECK_CUDA( cudaStreamSynchronize(this->eig_stream_arr[stream_id].stream) );
         // }
 
-
-        // for (int i = 0; i < this->sizes.large_mat_sizes.size(); i++) {
-        //     dense_matrix_mul_trans_batch(
-        //         this->cublasH,
-        //         this->large_mat_P, this->large_mat_tmp, this->large_mat,
-        //         this->sizes.large_mat_sizes[i], this->sizes.large_mat_nums[i],
-        //         this->sizes.large_mat_offset(i, 0)
-        //     );
-        // }
+        if (this->large_cusolver) {
+            for (int i = 0; i < this->sizes.large_mat_sizes.size(); i++) {
+                dense_matrix_mul_trans_batch(
+                    this->cublasH,
+                    this->large_mat_P, this->large_mat_tmp, this->large_mat,
+                    this->sizes.large_mat_sizes[i], this->sizes.large_mat_nums[i],
+                    this->sizes.large_mat_offset(i, 0)
+                );
+            }
+        }
 
         // TODO: use multiple cuBLAS handles
         for (int i = 0; i < this->sizes.small_mat_sizes.size(); i++) {
@@ -665,8 +680,10 @@ void SDPSolver::solve(
         CHECK_CUDA( cudaMemcpy(this->Xproj.vals, this->Xb.vals, sizeof(double) * this->vec_len, D2D) );
 
         // convert the matrices back to vectorized format
-        // matrices_to_vector(this->Xproj, this->large_mat_P, this->small_mat_P, this->map_B, this->map_M1, this->map_M2);
-        matrices_to_vector(this->Xproj, this->large_mat, this->small_mat_P, this->map_B, this->map_M1, this->map_M2);
+        if (this->large_cusolver)
+            matrices_to_vector(this->Xproj, this->large_mat_P, this->small_mat_P, this->map_B, this->map_M1, this->map_M2);
+        else
+            matrices_to_vector(this->Xproj, this->large_mat, this->small_mat_P, this->map_B, this->map_M1, this->map_M2);
 
         /* Finish the computation of S^{k+1} */
 
@@ -840,6 +857,9 @@ void SDPSolver::solve(
     // free the memory
     cudaEventDestroy(this->start);
     cudaEventDestroy(this->stop);
+    if (!this->large_cusolver) {
+        CHECK_CUBLAS( cublasDestroy(this->cublasH_proj) );
+    }
 
     return;
 }

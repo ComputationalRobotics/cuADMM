@@ -127,6 +127,8 @@ class SDPSolver {
         DeviceDenseVector<double> small_mat_tmp;
         DeviceDenseVector<double> large_mat_P;
         DeviceDenseVector<double> small_mat_P;
+        bool large_cusolver;
+        cublasHandle_t cublasH_proj;
 
         /* Other */
         std::vector<DeviceStream> stream_flex;
@@ -202,6 +204,7 @@ class SDPSolver {
         // - cpu_blk_sizes: block sizes
         // - mat_num: number of blocks
         //
+        // - large_cusolver: if true, use cuSOLVER for the projection of large matrices, otherwise use iterative method
         // - cpu_X_vals: initial values for X (optional)
         // - cpu_y_vals: initial values for y (optional)
         // - cpu_S_vals: initial values for S (optional)
@@ -218,6 +221,7 @@ class SDPSolver {
             int* cpu_C_indices, double* cpu_C_vals, int C_nnz,
             char* cpu_blk_types,
             int* cpu_blk_sizes, int mat_num,
+            bool large_cusolver = false,
             double* cpu_X_vals = nullptr, // |
             double* cpu_y_vals = nullptr, // |- values for warm start
             double* cpu_S_vals = nullptr, // |
