@@ -17,7 +17,6 @@
 #include "cuadmm/utils.h"
 #include "cuadmm/projection.h"
 
-// TODO: remove
 // Print an n×n matrix of doubles
 void printMatrixDouble(const double* dM, int n) {
     size_t N = size_t(n)*n;
@@ -63,7 +62,6 @@ void printMatrixHalf(const __half* dM, int n) {
     }
     std::cout << std::endl;
 }
-// END TODO:
 
 // Helper kernel: convert float array -> half array
 __global__ void float2half_kernel(const float* A, __half* B, size_t N) {
@@ -114,7 +112,7 @@ void projection_TF16(
     CHECK_CUDA( cudaMemcpy(A_h_d.data(), mat.vals + mat_offset, nn * sizeof(double), D2H) );
 
     // convert the host matrix to float
-    std::vector<double> A_h(nn);
+    std::vector<float> A_h(nn);
     for (int i = 0; i < nn; i++) {
         A_h[i] = static_cast<float>(A_h_d[i]);
     }
@@ -140,8 +138,8 @@ void projection_TF16(
     CHECK_CUDA( cudaMemcpy(dI, I_h.data(), nn * sizeof(float), H2D) );
 
     // half buffers
-    __half *dT3_half, *dT4_half; 
-    CHECK_CUDA( cudaMalloc(&dT3_half, nn*sizeof(__half)) ); 
+    __half *dT3_half, *dT4_half;
+    CHECK_CUDA( cudaMalloc(&dT3_half, nn*sizeof(__half)) );
     CHECK_CUDA( cudaMalloc(&dT4_half, nn*sizeof(__half)) );
 
     const float one = 1.0f, zero = 0.0f, neg1 = -1.0f;
@@ -192,7 +190,7 @@ void projection_TF16(
             dT1,      CUDA_R_32F, n,
             CUBLAS_COMPUTE_32F_FAST_16F, CUBLAS_GEMM_DEFAULT_TENSOR_OP) );
 
-        // CUDA_CHECK(cudaDeviceSynchronize());
+        // CHECK_CUDA(cudaDeviceSynchronize());
         // printMatrixHalf(dT3_half, n);
         // printMatrixFloat(dT1, n);
 
@@ -229,7 +227,7 @@ void projection_TF16(
         // printMatrixHalf(dT3_half, n);
         // printMatrixHalf(dT4_half, n);
         // printMatrixFloat(dTmp, n);
-        
+
         CHECK_CUDA( cudaMemcpy(dA_our, dTmp, nn*sizeof(float), cudaMemcpyDeviceToDevice) );
         // T1 = A_our^2, T2 = I - T1
         // float2half_kernel<<<blocks,threads>>>(dA_our, dT3_half, nn);
