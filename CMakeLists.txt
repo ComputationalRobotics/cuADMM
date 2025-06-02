@@ -74,7 +74,14 @@ target_link_libraries(
     ${Matlab_LIBRARIES}
     ${LAPACK_LIBRARIES} -llapacke
     ${BLAS_LIBRARIES}
+    psd_lib
 )
+
+# Disable building tests in psd_projection to avoid target name conflict
+set(PSD_PROJECTION_BUILD_TESTS OFF CACHE BOOL "Disable psd_projection tests" FORCE)
+# Add psd_projection submodule
+add_subdirectory(psd_projection)
+list(APPEND INCLUDE_DIRS psd_projection/include)
 
 ### Create executable
 add_executable(${CUADMM_EXE} src/main.cu)
@@ -84,6 +91,7 @@ target_link_libraries(
     ${CUADMM_EXE}
     PUBLIC
     ${CUADMM_LIB}
+    psd_lib
 )
 
 install(
