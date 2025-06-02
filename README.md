@@ -55,10 +55,13 @@ Examples files are provided in the `examples` directory, in the `TXT` subfolders
 
 ### Block types
 The `blk.txt` file can contain the following block types:
-| Character | Description                          |
-|-----------|--------------------------------------|
-| `s`       | PSD matrix of size `n` by `n`        |
-| `u`       | Unconstrained vector of size `n`     |
+| Character | Description                               |
+|-----------|-------------------------------------------|
+| `s`       | PSD matrix of size `n` by `n`             |
+| `u`       | WIP: Unconstrained vector of size `n`     |
+
+> [!WARNING]
+> The support of unconstrained variables (`u`) is currently a work in progress.
 
 ### From other formats
 We provide in `examples` a few MATLAB scripts to convert from other formats to the expected `TXT` format:
