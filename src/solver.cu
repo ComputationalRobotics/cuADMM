@@ -9,7 +9,8 @@
 
 #include "cuadmm/solver.h"
 #include "cuadmm/kernels.h"
-#include "cuadmm/projection.h"
+// #include "cuadmm/projection.h"
+#include "psd_projection/iterative_TF16.h"
 
 #include <algorithm>
 #include <stdio.h>
@@ -584,7 +585,7 @@ void SDPSolver::solve(
                     // use the custom routine
                     projection_TF16(
                         this->cublasH_proj,
-                        this->large_mat,
+                        this->large_mat.vals,
                         this->sizes.large_mat_sizes[i],
                         this->sizes.large_mat_offset(i, j)
                     );
