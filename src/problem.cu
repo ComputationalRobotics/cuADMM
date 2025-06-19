@@ -8,7 +8,12 @@
 #include "cuadmm/io.h"
 #include <algorithm>
 
-void Problem::from_txt(const std::string& prefix, bool warm_start) {
+void Problem::from_txt(std::string& prefix, bool warm_start) {
+    // if prefix does not end with a slash, add it
+    if (prefix.back() != '/') {
+        prefix += '/';
+    }
+
     read_blk(prefix + "blk.txt", this->blk_vals);
     this->mat_num = this->blk_vals.size(); // TODO
 
