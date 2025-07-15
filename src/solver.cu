@@ -10,7 +10,8 @@
 #include "cuadmm/solver.h"
 #include "cuadmm/kernels.h"
 // #include "cuadmm/projection.h"
-#include "psd_projection/iterative_TF16.h"
+#include "psd_projection/composite_FP32.h"
+#include "psd_projection/utils.h"
 
 #include <algorithm>
 #include <stdio.h>
@@ -382,6 +383,8 @@ void SDPSolver::solve(
     if (!this->large_cusolver) {
         CHECK_CUBLAS( cublasCreate(&this->cublasH_proj) );
         CHECK_CUBLAS( cublasSetMathMode(this->cublasH_proj, CUBLAS_TENSOR_OP_MATH) );
+        this->cusolverH_proj.set_gpu_id(GPU0);
+        this->cusolverH_proj.activate();
     }
 
     // declare variables
@@ -480,6 +483,7 @@ void SDPSolver::solve(
             cudaEventSynchronize(this->stop);
             cudaEventElapsedTime(&milliseconds, this->start, this->stop);
             this->total_time = milliseconds / 1000;
+            break;
         }
 
         /*
@@ -548,12 +552,13 @@ void SDPSolver::solve(
 
         // first, we convert Xb back to matrices (large and small)
         vector_to_matrices(this->Xb, this->large_mat, this->small_mat, this->map_B, this->map_M1, this->map_M2);
+        CHECK_CUDA( cudaDeviceSynchronize() ); 
 
         // we perform the GPU decomposition of large matrices
         // for each large matrix on this GPU, compute the eig decomposition
+        int stream_id;
+        int counter = 0; // serves as a stream id and as an info offset
         if (this->large_cusolver) { // cuSOLVER version
-            int stream_id;
-            int counter = 0; // serves as a stream id and as an info offset
             for (int i = 0; i < this->sizes.large_mat_sizes.size(); i++) {
                 for (int j = 0; j < this->sizes.large_mat_nums[i]; j++) {
                     stream_id = counter % this->eig_stream_num_per_gpu;
@@ -582,15 +587,24 @@ void SDPSolver::solve(
         } else { // custom iterative version
             for (int i = 0; i < this->sizes.large_mat_sizes.size(); i++) {
                 for (int j = 0; j < this->sizes.large_mat_nums[i]; j++) {
-                    // use the custom routine
-                    projection_TF16(
+                    stream_id = counter % this->eig_stream_num_per_gpu;
+
+                    composite_FP32_auto_scale(
                         this->cublasH_proj,
-                        this->large_mat.vals,
-                        this->sizes.large_mat_sizes[i],
-                        this->sizes.large_mat_offset(i, j)
-                    );
+                        // this->cusolverH_eig_large_arr[stream_id].cusolver_dn_handle,
+                        this->cusolverH_proj.cusolver_dn_handle,
+                        this->large_mat.vals + this->sizes.large_mat_offset(i, j),
+                        this->sizes.large_mat_sizes[i]
+                    ); // TODO: workspace
+
+                    // counter++;
                 }
             }
+
+            // for each stream, synchronize
+            // for (int stream_id = 0; stream_id < this->eig_stream_num_per_gpu; stream_id++) {
+            //     CHECK_CUDA( cudaStreamSynchronize(this->eig_stream_arr[stream_id].stream) );
+            // }
         }
 
         if (breakyes) {
@@ -620,9 +634,13 @@ void SDPSolver::solve(
             info_offset += this->sizes.small_mat_nums[i];
         }
 
-        if (this->large_cusolver)
+        if (this->large_cusolver) {
             max_dense_vector_zero(this->large_W);
-        max_dense_vector_zero(this->small_W);
+        }
+
+        if (this->sizes.small_mat_num > 0) {
+            max_dense_vector_zero(this->small_W);
+        }
 
         // int stream_id;
         // multiply the large matrices by their eigenvalues
@@ -779,7 +797,6 @@ void SDPSolver::solve(
                 this->best_KKT = max(this->maxfeas, this->relgap);
             }
         }
-
 
         /* Step 4: Compute X^{k+1} = X^k + tau * sigma (S^{k+1} + A^T y^{k+1} - C) */
         // Rd <-- 1.0 * Rd1 + 1.0 * S

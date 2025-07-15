@@ -127,8 +127,10 @@ class SDPSolver {
         DeviceDenseVector<double> small_mat_tmp;
         DeviceDenseVector<double> large_mat_P;
         DeviceDenseVector<double> small_mat_P;
+
         bool large_cusolver;
         cublasHandle_t cublasH_proj;
+        DeviceSolverDnHandle cusolverH_proj;
 
         /* Other */
         std::vector<DeviceStream> stream_flex;
