@@ -23,6 +23,7 @@
 #include "cuadmm/matrix_sizes.h"
 #include "cuda.h"
 
+/// @brief Method for the PSD projection of large matrices.
 enum ProjectionMethod {
     EIG_FP64, EIG_FP32, COMPOSITE_FP32,
     #if defined(CUDA_VERSION) && (CUDA_VERSION >= 12090)
@@ -31,11 +32,11 @@ enum ProjectionMethod {
     COMPOSITE_FP16
 };
 
-// Main solver class for the SDP problem with two sizes of matrices only.
-// Uses the sGS-ADMM algorithm to solve the problem:
-//      min(X) <C, X>  s.t. A(X) = b,       X >= 0,
-// of dual:
-//   max(y, S) <b, y>  s.t. At(y) + S = C,  S >= 0
+/// @brief Main solver class for the SDP problem.
+/// Uses the sGS-ADMM algorithm to solve the problem:
+///      min(X) <C, X>  s.t. A(X) = b,       X >= 0,
+/// of dual:
+///   max(y, S) <b, y>  s.t. At(y) + S = C,  S >= 0
 class SDPSolver {
     public:
         /* Problem data */
@@ -190,37 +191,29 @@ class SDPSolver {
 
         SDPSolver() {}
 
-        // Initializes an SDPSolver.
-        //
-        // Args:
-        // - eig_stream_num_per_gpu: number of streams per GPU
-        // - cpu_eig_thread_num: number of threads for CPU eigen decomposition
-        //
-        // - vec_len: length of X in vector form
-        // - con_num: number of constraints
-        //
-        // - cpu_At_csc_col_ptrs: column pointers of the constraint matrix in CSC format
-        // - cpu_At_csc_row_ids: row indices of the constraint matrix in CSC format
-        // - cpu_At_csc_vals: values of the constraint matrix in CSC format
-        // - At_nnz: number of non-zero entries in the constraint matrix
-        //
-        // - cpu_b_indices: indices of the constraint vector
-        // - cpu_b_vals: values of the constraint vector
-        // - b_nnz: number of non-zero entries in the constraint vector
-        //
-        // - cpu_C_indices: indices of the cost matrix
-        // - cpu_C_vals: values of the cost matrix
-        // - C_nnz: number of non-zero entries in the cost matrix
-        //
-        // - cpu_blk_types: block types (s, u, ...)
-        // - cpu_blk_sizes: block sizes
-        // - mat_num: number of blocks
-        //
-        // - projection_method: the projection method to use (for large matrices)
-        // - cpu_X_vals: initial values for X (optional)
-        // - cpu_y_vals: initial values for y (optional)
-        // - cpu_S_vals: initial values for S (optional)
-        // - sig: initial value for sigma (default: 2e2)
+        /// @brief Initializes the SDP solver.
+        /// @param eig_stream_num_per_gpu Number of eigenvalue streams per GPU.
+        /// @param cpu_eig_thread_num Number of CPU threads for eigenvalue computation.
+        /// @param vec_len Length of the vector.
+        /// @param con_num Number of constraints.
+        /// @param cpu_At_csc_col_ptrs Column pointers of the constraint matrix in CSC format.
+        /// @param cpu_At_csc_row_ids Row indices of the constraint matrix in CSC format.
+        /// @param cpu_At_csc_vals Values of the constraint matrix in CSC format.
+        /// @param At_nnz Number of non-zero entries in the constraint matrix.
+        /// @param cpu_b_indices Indices of the constraint vector.
+        /// @param cpu_b_vals Values of the constraint vector.
+        /// @param b_nnz Number of non-zero entries in the constraint vector.
+        /// @param cpu_C_indices Indices of the cost matrix.
+        /// @param cpu_C_vals Values of the cost matrix.
+        /// @param C_nnz Number of non-zero entries in the cost matrix.
+        /// @param cpu_blk_types Block types (s, u, ...).
+        /// @param cpu_blk_sizes Block sizes.
+        /// @param mat_num Number of blocks.
+        /// @param proj_method Projection method to use.
+        /// @param cpu_X_vals Initial values for X (optional, default: zero vector).
+        /// @param cpu_y_vals Initial values for y (optional, default: zero vector).
+        /// @param cpu_S_vals Initial values for S (optional, default: zero vector).
+        /// @param sig Initial value for sigma (optional, default: `2e2`).
         void init(
             int eig_stream_num_per_gpu,
             // do moment matrix eigen decomposition on CPU
@@ -240,17 +233,15 @@ class SDPSolver {
             double sig = 1.0
         );
 
-        // Solves the SDP problem using the sGS-ADMM algorithm.
-        //
-        // Args:
-        // - max_iter: maximum number of iterations
-        // - stop_tol: stopping tolerance for KKT residual
-        // - sig_update_threshold:
-        // - sig_update_stage_1:
-        // - sig_update_stage_2:
-        // - switch_admm:
-        // - sigscale:
-        // - if_first: if this is the first call to solve() (optional)
+        /// @brief Solves the SDP problem using the sGS-ADMM algorithm.
+        /// @param max_iter Maximum number of iterations.
+        /// @param stop_tol Stopping tolerance for KKT residual.
+        /// @param sig_update_threshold
+        /// @param sig_update_stage_1
+        /// @param sig_update_stage_2
+        /// @param switch_admm The iteration at which to switch from sGS-ADMM to standard ADMM.
+        /// @param sigscale 
+        /// @param if_first Boolean flag to indicate if this is the first call to solve. For the second call, we assume that new X, y, S, sig are passed, but that they are unscaled.
         void solve(
             int max_iter, double stop_tol,
             int sig_update_threshold = 500,

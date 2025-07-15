@@ -16,11 +16,6 @@
 #include <algorithm>
 #include <stdio.h>
 
-#define SIG_UPDATE_THRESHOLD 500
-#define SIG_UPDATE_STAGE_1 50
-#define SIG_UPDATE_STAGE_2 100
-#define SIG_SCALE 1.05
-
 void SDPSolver::synchronize_gpu0_streams() {
     CHECK_CUDA( cudaStreamSynchronize(this->stream_flex[0].stream) );
     CHECK_CUDA( cudaStreamSynchronize(this->stream_flex[1].stream) );
@@ -346,11 +341,6 @@ void SDPSolver::init(
     /* Main elements for the sGS-ADMM algorithm */
     this->Xproj.allocate(GPU0, this->vec_len);
     this->Xdiff.allocate(GPU0, this->vec_len);
-    this->switch_admm = (int) 5e4;
-    this->sig_update_threshold = SIG_UPDATE_THRESHOLD;
-    this->sig_update_stage_1 = SIG_UPDATE_STAGE_1;
-    this->sig_update_stage_2 = SIG_UPDATE_STAGE_2;
-    this->sigscale = SIG_SCALE;
     this->X_best.allocate(GPU0, this->vec_len);
     this->y_best.allocate(GPU0, this->con_num);
     this->S_best.allocate(GPU0, this->vec_len);
@@ -358,17 +348,6 @@ void SDPSolver::init(
     return;
 }
 
-// Solves the SDP problem using the sGS-ADMM algorithm.
-//
-// Args:
-// - max_iter: maximum number of iterations
-// - stop_tol: stopping tolerance for KKT residual
-// - sig_update_threshold:
-// - sig_update_stage_1:
-// - sig_update_stage_2:
-// - switch_admm:
-// - sigscale:
-// - if_first: if this is the first call to solve() (optional)
 void SDPSolver::solve(
     int max_iter, double stop_tol,
     int sig_update_threshold,
