@@ -36,7 +36,7 @@ void SDPSolver::init(
     int* cpu_C_indices, double* cpu_C_vals, int C_nnz,
     char* cpu_blk_types, int* cpu_blk_sizes,
     int mat_num,
-    bool large_cusolver,
+    ProjectionMethod proj_method,
     double* cpu_X_vals,
     double* cpu_y_vals,
     double* cpu_S_vals,
@@ -65,7 +65,7 @@ void SDPSolver::init(
     this->cublasH.set_gpu_id(GPU0);
     this->cublasH.activate();
 
-    this->large_cusolver = large_cusolver;
+    this->proj_method = proj_method;
 
     /* Initialize the A matrix */
     this->vec_len = vec_len;
@@ -259,7 +259,7 @@ void SDPSolver::init(
     this->cpu_eig_large_buffer_size.assign(this->sizes.large_mat_sizes.size(), 0);
     // this->cpu_eig_large_buffer.reserve(this->sizes.large_mat_sizes.size());
 
-    if (this->large_cusolver) {
+    if (this->proj_method == ProjectionMethod::EIG_FP64) {
         this->sizes.large_buffer_start_indices.push_back(0);
         this->sizes.large_cpu_buffer_start_indices.push_back(0);
         int total_eig_large_buffer_size = 0;
@@ -320,7 +320,7 @@ void SDPSolver::init(
     this->eig_small_buffer.allocate(GPU0, this->sizes.small_buffer_start_indices.back(), true);
 
     /* For the computation of y, X, S */
-    if (this->large_cusolver) {
+    if (this->proj_method == ProjectionMethod::EIG_FP64) {
         this->large_mat_tmp.allocate(GPU0, this->sizes.total_large_mat_size);
         this->large_mat_P.allocate(GPU0, this->sizes.total_large_mat_size);
     }
@@ -380,7 +380,7 @@ void SDPSolver::solve(
 
     // create cuBLAS handle for projection
     // TODO: add a wrapper for deletion and create this only once per solver instance
-    if (!this->large_cusolver) {
+    if (this->proj_method != ProjectionMethod::EIG_FP64) {
         CHECK_CUBLAS( cublasCreate(&this->cublasH_proj) );
         CHECK_CUBLAS( cublasSetMathMode(this->cublasH_proj, CUBLAS_TENSOR_OP_MATH) );
         this->cusolverH_proj.set_gpu_id(GPU0);
@@ -558,7 +558,7 @@ void SDPSolver::solve(
         // for each large matrix on this GPU, compute the eig decomposition
         int stream_id;
         int counter = 0; // serves as a stream id and as an info offset
-        if (this->large_cusolver) { // cuSOLVER version
+        if (this->proj_method == ProjectionMethod::EIG_FP64) { // cuSOLVER version
             for (int i = 0; i < this->sizes.large_mat_sizes.size(); i++) {
                 for (int j = 0; j < this->sizes.large_mat_nums[i]; j++) {
                     stream_id = counter % this->eig_stream_num_per_gpu;
@@ -634,7 +634,7 @@ void SDPSolver::solve(
             info_offset += this->sizes.small_mat_nums[i];
         }
 
-        if (this->large_cusolver) {
+        if (this->proj_method == ProjectionMethod::EIG_FP64) {
             max_dense_vector_zero(this->large_W);
         }
 
@@ -644,7 +644,7 @@ void SDPSolver::solve(
 
         // int stream_id;
         // multiply the large matrices by their eigenvalues
-        if (this->large_cusolver) {
+        if (this->proj_method == ProjectionMethod::EIG_FP64) {
             for (int i = 0; i < this->sizes.large_mat_sizes.size(); i++) {
                 // stream_id = i % this->eig_stream_num_per_gpu;
                 dense_matrix_mul_diag_batch(
@@ -673,7 +673,7 @@ void SDPSolver::solve(
         //     CHECK_CUDA( cudaStreamSynchronize(this->eig_stream_arr[stream_id].stream) );
         // }
 
-        if (this->large_cusolver) {
+        if (this->proj_method == ProjectionMethod::EIG_FP64) {
             for (int i = 0; i < this->sizes.large_mat_sizes.size(); i++) {
                 dense_matrix_mul_trans_batch(
                     this->cublasH,
@@ -699,7 +699,7 @@ void SDPSolver::solve(
         CHECK_CUDA( cudaMemcpy(this->Xproj.vals, this->Xb.vals, sizeof(double) * this->vec_len, D2D) );
 
         // convert the matrices back to vectorized format
-        if (this->large_cusolver)
+        if (this->proj_method == ProjectionMethod::EIG_FP64)
             matrices_to_vector(this->Xproj, this->large_mat_P, this->small_mat_P, this->map_B, this->map_M1, this->map_M2);
         else
             matrices_to_vector(this->Xproj, this->large_mat, this->small_mat_P, this->map_B, this->map_M1, this->map_M2);
@@ -875,7 +875,7 @@ void SDPSolver::solve(
     // free the memory
     cudaEventDestroy(this->start);
     cudaEventDestroy(this->stop);
-    if (!this->large_cusolver) {
+    if (this->proj_method != ProjectionMethod::EIG_FP64) {
         CHECK_CUBLAS( cublasDestroy(this->cublasH_proj) );
     }
 

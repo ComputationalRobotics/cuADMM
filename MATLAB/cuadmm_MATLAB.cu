@@ -338,6 +338,13 @@ void mexFunction(int nlhs, mxArray* plhs[], int nrhs, const mxArray* prhs[]) {
     // -------------------------------------------------------
     // start solver:
 
+    std::vector<char> blk_sizes;
+    std::vector<int> blk_vals;
+    for (const auto& blk : cpu_blk_vals) {
+        blk_sizes.push_back(std::get<0>(blk));
+        blk_vals.push_back(std::get<1>(blk));
+    }
+
     // bool if_gpu_eig_mom = true;
     int cpu_eig_thread_num = -1;    // inactive parameter
     SDPSolver solver;
@@ -348,8 +355,10 @@ void mexFunction(int nlhs, mxArray* plhs[], int nrhs, const mxArray* prhs[]) {
         cpu_At_csc_col_ptrs.data(), cpu_At_csc_row_ids.data(), cpu_At_csc_vals.data(), At_nnz,
         cpu_b_indices.data(), cpu_b_vals.data(), b_nnz,
         cpu_C_indices.data(), cpu_C_vals.data(), C_nnz,
-        cpu_blk_vals.data(), mat_num,
-        cpu_X_vals.data(), cpu_y_vals.data(), cpu_S_vals.data(), sig
+        cpu_blk_vals.data(), // TODO: adapt
+        mat_num,
+        ProjectionMethod::EIG_FP64, // TODO: update
+        cpu_X_vals.data(), cpu_y_vals.data(), cpu_S_vals.data(), &sig
     );
     solver.solve(
         max_iter, stop_tol,
