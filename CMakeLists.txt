@@ -1,9 +1,11 @@
-cmake_minimum_required(VERSION 3.9)
+cmake_minimum_required(VERSION 3.10)
 
 project(
     cuADMM
     LANGUAGES CXX CUDA
 )
+
+add_compile_options($<$<COMPILE_LANGUAGE:CUDA>:-Wno-deprecated-gpu-targets>)
 
 ### GoogleTest for unit testing
 # GoogleTest requires at least C++14
