@@ -288,6 +288,13 @@ void SDPSolver::init(
         // allocate memory for the two buffers, host and device
         this->eig_large_buffer.allocate(GPU0, total_eig_large_buffer_size, true);
         this->cpu_eig_large_buffer.allocate(total_cpu_eig_large_buffer_size, true);
+    } else if (this->proj_method == ProjectionMethod::COMPOSITE_FP32) {
+        int largest_size = *std::max_element(this->sizes.large_mat_sizes.begin(), this->sizes.large_mat_sizes.end());
+        this->projection_workspace.allocate(GPU0, 3 * largest_size * largest_size);
+    } else {
+        // error for now
+        fprintf(stderr, "Error: unsupported projection method for large matrices.\n");
+        exit(EXIT_FAILURE);
     }
 
     /* Eigenvalue decomposition for small matrices */
@@ -587,15 +594,17 @@ void SDPSolver::solve(
         } else { // custom iterative version
             for (int i = 0; i < this->sizes.large_mat_sizes.size(); i++) {
                 for (int j = 0; j < this->sizes.large_mat_nums[i]; j++) {
-                    stream_id = counter % this->eig_stream_num_per_gpu;
+                    // stream_id = counter % this->eig_stream_num_per_gpu;
+                    stream_id = 0;
 
                     composite_FP32_auto_scale(
                         this->cublasH_proj,
                         // this->cusolverH_eig_large_arr[stream_id].cusolver_dn_handle,
                         this->cusolverH_proj.cusolver_dn_handle,
                         this->large_mat.vals + this->sizes.large_mat_offset(i, j),
-                        this->sizes.large_mat_sizes[i]
-                    ); // TODO: workspace
+                        this->sizes.large_mat_sizes[i],
+                        this->projection_workspace.vals
+                    );
 
                     // counter++;
                 }

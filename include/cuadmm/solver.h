@@ -122,6 +122,7 @@ class SDPSolver {
         DeviceDenseVector<double> eig_large_buffer;  // one GPU buffer per unique large size
         std::vector<size_t> cpu_eig_large_buffer_size;             // one CPU buffer size per unique large size
         HostDenseVector<double> cpu_eig_large_buffer; // one CPU buffer per unique large size
+        DeviceDenseVector<float> projection_workspace; // workspace for projection of large matrices
 
         /* Small matrices eigen decomposition (batched Jacobi)  */
         DeviceDenseVector<double> small_mat;

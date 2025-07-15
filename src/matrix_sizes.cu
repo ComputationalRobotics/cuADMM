@@ -12,7 +12,6 @@
 // - mat_num: number of matrices of this size
 // Returns true if the matrix is large, false otherwise.
 bool is_large_mat(const int mat_size, const int mat_num) {
-    return true; // TODO: remove
     if (mat_size > 32) {
         return true; // single is faster
     }
