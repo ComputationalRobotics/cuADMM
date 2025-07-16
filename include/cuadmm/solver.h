@@ -111,7 +111,7 @@ class SDPSolver {
         DeviceDenseVector<int> map_M1; // |- maps for vectorization of matrices
         DeviceDenseVector<int> map_M2; // |    (cached from get_maps())
 
-        /* Large matrix decomposition (single QR) */
+        /* Large matrix decomposition */
         DeviceDenseVector<double> large_mat;
         DeviceDenseVector<double> large_W;
         DeviceDenseVector<int> large_info;
@@ -124,6 +124,10 @@ class SDPSolver {
         std::vector<size_t> cpu_eig_large_buffer_size;             // one CPU buffer size per unique large size
         HostDenseVector<double> cpu_eig_large_buffer; // one CPU buffer per unique large size
         DeviceDenseVector<float> projection_workspace; // workspace for projection of large matrices
+
+        ProjectionMethod proj_method; // projection method to use
+        DeviceBlasHandle cublasH_proj;
+        DeviceSolverDnHandle cusolverH_proj;
 
         /* Small matrices eigen decomposition (batched Jacobi)  */
         DeviceDenseVector<double> small_mat;
@@ -138,10 +142,6 @@ class SDPSolver {
         DeviceDenseVector<double> small_mat_tmp;
         DeviceDenseVector<double> large_mat_P;
         DeviceDenseVector<double> small_mat_P;
-
-        ProjectionMethod proj_method; // projection method to use
-        cublasHandle_t cublasH_proj;
-        DeviceSolverDnHandle cusolverH_proj;
 
         /* Other */
         std::vector<DeviceStream> stream_flex;

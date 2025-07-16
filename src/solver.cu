@@ -284,8 +284,18 @@ void SDPSolver::init(
         this->eig_large_buffer.allocate(GPU0, total_eig_large_buffer_size, true);
         this->cpu_eig_large_buffer.allocate(total_cpu_eig_large_buffer_size, true);
     } else if (this->proj_method == ProjectionMethod::COMPOSITE_FP32) {
+        // create a workspace for the composite projection
         int largest_size = *std::max_element(this->sizes.large_mat_sizes.begin(), this->sizes.large_mat_sizes.end());
         this->projection_workspace.allocate(GPU0, 3 * largest_size * largest_size);
+
+        // create a cuBLAS handle
+        this->cublasH_proj.set_gpu_id(GPU0);
+        this->cublasH_proj.activate();
+        CHECK_CUBLAS( cublasSetMathMode(this->cublasH_proj.cublas_handle, CUBLAS_TENSOR_OP_MATH) );
+
+        // create a cuSOLVER handle
+        this->cusolverH_proj.set_gpu_id(GPU0);
+        this->cusolverH_proj.activate();
     } else {
         // error for now
         fprintf(stderr, "Error: unsupported projection method for large matrices.\n");
@@ -363,15 +373,6 @@ void SDPSolver::solve(
     this->sig_update_stage_2 = sig_update_stage_2;
     this->switch_admm = switch_admm;
     this->sigscale = sigscale;
-
-    // create cuBLAS handle for projection
-    // TODO: add a wrapper for deletion and create this only once per solver instance
-    if (this->proj_method != ProjectionMethod::EIG_FP64) {
-        CHECK_CUBLAS( cublasCreate(&this->cublasH_proj) );
-        CHECK_CUBLAS( cublasSetMathMode(this->cublasH_proj, CUBLAS_TENSOR_OP_MATH) );
-        this->cusolverH_proj.set_gpu_id(GPU0);
-        this->cusolverH_proj.activate();
-    }
 
     // declare variables
     bool breakyes = false;   // for breaking out of the loop
@@ -577,7 +578,7 @@ void SDPSolver::solve(
                     stream_id = 0;
 
                     composite_FP32_auto_scale(
-                        this->cublasH_proj,
+                        this->cublasH_proj.cublas_handle,
                         // this->cusolverH_eig_large_arr[stream_id].cusolver_dn_handle,
                         this->cusolverH_proj.cusolver_dn_handle,
                         this->large_mat.vals + this->sizes.large_mat_offset(i, j),
@@ -863,9 +864,6 @@ void SDPSolver::solve(
     // free the memory
     cudaEventDestroy(this->start);
     cudaEventDestroy(this->stop);
-    if (this->proj_method != ProjectionMethod::EIG_FP64) {
-        CHECK_CUBLAS( cublasDestroy(this->cublasH_proj) );
-    }
 
     return;
 }

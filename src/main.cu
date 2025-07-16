@@ -8,7 +8,7 @@
 int main(int argc, char* argv[]) {
     std::string prefix = argv[1];
     int eig_stream_num_per_gpu = 15;
-    int cpu_eig_thread_num = 30;
+    int cpu_eig_thread_num = 30; // TODO: remove CPU eig
 
     Problem problem;
     problem.from_txt(prefix);
