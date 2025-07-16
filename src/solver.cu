@@ -284,6 +284,8 @@ void SDPSolver::init(
         this->eig_large_buffer.allocate(GPU0, total_eig_large_buffer_size, true);
         this->cpu_eig_large_buffer.allocate(total_cpu_eig_large_buffer_size, true);
     } else if (this->proj_method == ProjectionMethod::COMPOSITE_FP32) {
+        // TODO: create one of each per stream (require psd_projection lib to take a stream as an argument)
+
         // create a workspace for the composite projection
         int largest_size = *std::max_element(this->sizes.large_mat_sizes.begin(), this->sizes.large_mat_sizes.end());
         this->projection_workspace.allocate(GPU0, 3 * largest_size * largest_size);
@@ -579,7 +581,6 @@ void SDPSolver::solve(
 
                     composite_FP32_auto_scale(
                         this->cublasH_proj.cublas_handle,
-                        // this->cusolverH_eig_large_arr[stream_id].cusolver_dn_handle,
                         this->cusolverH_proj.cusolver_dn_handle,
                         this->large_mat.vals + this->sizes.large_mat_offset(i, j),
                         this->sizes.large_mat_sizes[i],
@@ -673,7 +674,7 @@ void SDPSolver::solve(
             }
         }
 
-        // TODO: use multiple cuBLAS handles
+        // TODO: use multiple streams (require the kernel to take a stream as an argument)
         for (int i = 0; i < this->sizes.small_mat_sizes.size(); i++) {
             dense_matrix_mul_trans_batch(
                 this->cublasH,
