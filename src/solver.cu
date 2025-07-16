@@ -11,6 +11,9 @@
 #include "cuadmm/kernels.h"
 // #include "cuadmm/projection.h"
 #include "psd_projection/composite_FP32.h"
+#if defined(CUDA_VERSION) && (CUDA_VERSION >= 12090)
+#include "psd_projection/composite_FP32_emulated.h"
+#endif
 #include "psd_projection/composite_FP16.h"
 #include "psd_projection/utils.h"
 
@@ -61,6 +64,12 @@ void SDPSolver::init(
     this->cublasH.activate();
 
     this->proj_method = proj_method;
+    #if !(defined(CUDA_VERSION) && (CUDA_VERSION >= 12090))
+    if (this->proj_method == ProjectionMethod::COMPOSITE_FP32_EMULATED) {
+        fprintf(stderr, "ERROR: the projection method 'COMPOSITE_FP32_EMULATED' was selected, but is not supported. BF16x9 emulation requires CUDA 12.9 or higher.\n");
+        exit(EXIT_FAILURE);
+    }
+    #endif
 
     /* Initialize the A matrix */
     this->vec_len = vec_len;
@@ -281,7 +290,7 @@ void SDPSolver::init(
         // allocate memory for the two buffers, host and device
         this->eig_large_buffer.allocate(GPU0, total_eig_large_buffer_size, true);
         this->cpu_eig_large_buffer.allocate(total_cpu_eig_large_buffer_size, true);
-    } else if (this->proj_method == ProjectionMethod::COMPOSITE_FP32 || this->proj_method == ProjectionMethod::COMPOSITE_FP16) {
+    } else if (this->proj_method == ProjectionMethod::COMPOSITE_FP32 || this->proj_method == ProjectionMethod::COMPOSITE_FP32_EMULATED || this->proj_method == ProjectionMethod::COMPOSITE_FP16) {
         // TODO: create one of each per stream (require psd_projection lib to take a stream as an argument)
 
         // create a workspace for the composite projection
@@ -297,6 +306,11 @@ void SDPSolver::init(
         this->cublasH_proj.set_gpu_id(GPU0);
         this->cublasH_proj.activate();
         CHECK_CUBLAS( cublasSetMathMode(this->cublasH_proj.cublas_handle, CUBLAS_TENSOR_OP_MATH) );
+        #if defined(CUDA_VERSION) && (CUDA_VERSION >= 12090)
+        if (this->proj_method == ProjectionMethod::COMPOSITE_FP32_EMULATED) {
+            CHECK_CUBLAS(cublasSetEmulationStrategy(this->cublasH_proj.cublas_handle, CUBLAS_EMULATION_STRATEGY_EAGER));
+        }
+        #endif
 
         // create a cuSOLVER handle
         this->cusolverH_proj.set_gpu_id(GPU0);
@@ -591,7 +605,6 @@ void SDPSolver::solve(
                             this->float_proj_workspace.vals
                         );
                     else if (this->proj_method == ProjectionMethod::COMPOSITE_FP16) {
-
                         composite_FP16_auto_scale(
                             this->cublasH_proj.cublas_handle,
                             this->cusolverH_proj.cusolver_dn_handle,
@@ -601,6 +614,17 @@ void SDPSolver::solve(
                             this->half_proj_workspace.vals
                         );
                     }
+                    #if defined(CUDA_VERSION) && (CUDA_VERSION >= 12090)
+                    else if (this->proj_method == ProjectionMethod::COMPOSITE_FP32_EMULATED) {
+                        composite_FP32_emulated_auto_scale(
+                            this->cublasH_proj.cublas_handle,
+                            this->cusolverH_proj.cusolver_dn_handle,
+                            this->large_mat.vals + this->sizes.large_mat_offset(i, j),
+                            this->sizes.large_mat_sizes[i],
+                            this->float_proj_workspace.vals
+                        );
+                    }
+                    #endif
 
                     // counter++;
                 }

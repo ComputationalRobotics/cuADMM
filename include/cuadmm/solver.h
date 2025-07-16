@@ -25,10 +25,8 @@
 
 /// @brief Method for the PSD projection of large matrices.
 enum ProjectionMethod {
-    EIG_FP64, EIG_FP32, COMPOSITE_FP32,
-    #if defined(CUDA_VERSION) && (CUDA_VERSION >= 12090)
-    COMPOSITE_FP32_EMULATED,
-    #endif
+    EIG_FP64,// EIG_FP32,
+    COMPOSITE_FP32, COMPOSITE_FP32_EMULATED,
     COMPOSITE_FP16
 };
 

@@ -29,7 +29,7 @@ int main(int argc, char* argv[]) {
         problem.b_indices.data(), problem.b_vals.data(), problem.b_nnz,
         problem.C_indices.data(), problem.C_vals.data(), problem.C_nnz,
         blk_sizes.data(), blk_vals.data(), problem.mat_num,
-        ProjectionMethod::COMPOSITE_FP16,
+        ProjectionMethod::COMPOSITE_FP32_EMULATED,
         problem.X_vals.data(), problem.y_vals.data(), problem.S_vals.data(),
         sig
     );
