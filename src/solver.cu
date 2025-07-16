@@ -24,7 +24,6 @@ void SDPSolver::synchronize_gpu0_streams() {
 
 void SDPSolver::init(
     int eig_stream_num_per_gpu,
-    int cpu_eig_thread_num,
     int vec_len, int con_num,
     int* cpu_At_csc_col_ptrs, int* cpu_At_csc_row_ids, double* cpu_At_csc_vals, int At_nnz,
     int* cpu_b_indices, double* cpu_b_vals, int b_nnz,
@@ -247,14 +246,12 @@ void SDPSolver::init(
         this->cusolverH_eig_large_arr[stream_id].set_gpu_id(GPU0);
         this->cusolverH_eig_large_arr[stream_id].activate(this->eig_stream_arr[stream_id]);
     }
-    
-    // compute the buffer sizes of the large matrices eig decomposition
-    this->eig_large_buffer_size.assign(this->sizes.large_mat_sizes.size(), 0);
-    // this->eig_large_buffer.reserve(this->sizes.large_mat_sizes.size());
-    this->cpu_eig_large_buffer_size.assign(this->sizes.large_mat_sizes.size(), 0);
-    // this->cpu_eig_large_buffer.reserve(this->sizes.large_mat_sizes.size());
 
     if (this->proj_method == ProjectionMethod::EIG_FP64) {
+        // compute the buffer sizes of the large matrices eig decomposition
+        this->eig_large_buffer_size.assign(this->sizes.large_mat_sizes.size(), 0);
+        this->cpu_eig_large_buffer_size.assign(this->sizes.large_mat_sizes.size(), 0);
+
         this->sizes.large_buffer_start_indices.push_back(0);
         this->sizes.large_cpu_buffer_start_indices.push_back(0);
         int total_eig_large_buffer_size = 0;

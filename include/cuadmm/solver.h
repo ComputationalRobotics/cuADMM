@@ -193,7 +193,6 @@ class SDPSolver {
 
         /// @brief Initializes the SDP solver.
         /// @param eig_stream_num_per_gpu Number of eigenvalue streams per GPU.
-        /// @param cpu_eig_thread_num Number of CPU threads for eigenvalue computation.
         /// @param vec_len Length of the vector.
         /// @param con_num Number of constraints.
         /// @param cpu_At_csc_col_ptrs Column pointers of the constraint matrix in CSC format.
@@ -216,9 +215,6 @@ class SDPSolver {
         /// @param sig Initial value for sigma (optional, default: `2e2`).
         void init(
             int eig_stream_num_per_gpu,
-            // do moment matrix eigen decomposition on CPU
-            int cpu_eig_thread_num,
-
             // core data
             int vec_len, int con_num,
             int* cpu_At_csc_col_ptrs, int* cpu_At_csc_row_ids, double* cpu_At_csc_vals, int At_nnz,

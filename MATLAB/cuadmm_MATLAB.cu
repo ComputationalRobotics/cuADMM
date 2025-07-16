@@ -345,11 +345,9 @@ void mexFunction(int nlhs, mxArray* plhs[], int nrhs, const mxArray* prhs[]) {
         blk_vals.push_back(std::get<1>(blk));
     }
 
-    // bool if_gpu_eig_mom = true;
-    int cpu_eig_thread_num = -1;    // inactive parameter
     SDPSolver solver;
     solver.init(
-        eig_stream_num_per_gpu, cpu_eig_thread_num,
+        eig_stream_num_per_gpu,
 
         vec_len, con_num,
         cpu_At_csc_col_ptrs.data(), cpu_At_csc_row_ids.data(), cpu_At_csc_vals.data(), At_nnz,
