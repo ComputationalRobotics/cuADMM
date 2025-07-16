@@ -123,7 +123,8 @@ class SDPSolver {
         DeviceDenseVector<double> eig_large_buffer;  // one GPU buffer per unique large size
         std::vector<size_t> cpu_eig_large_buffer_size;             // one CPU buffer size per unique large size
         HostDenseVector<double> cpu_eig_large_buffer; // one CPU buffer per unique large size
-        DeviceDenseVector<float> projection_workspace; // workspace for projection of large matrices
+        DeviceDenseVector<float> float_proj_workspace; // workspace for projection of large matrices
+        DeviceDenseVector<__half> half_proj_workspace; // workspace for projection of large matrices
 
         ProjectionMethod proj_method; // projection method to use
         DeviceBlasHandle cublasH_proj;

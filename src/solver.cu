@@ -11,6 +11,7 @@
 #include "cuadmm/kernels.h"
 // #include "cuadmm/projection.h"
 #include "psd_projection/composite_FP32.h"
+#include "psd_projection/composite_FP16.h"
 #include "psd_projection/utils.h"
 
 #include <algorithm>
@@ -280,12 +281,17 @@ void SDPSolver::init(
         // allocate memory for the two buffers, host and device
         this->eig_large_buffer.allocate(GPU0, total_eig_large_buffer_size, true);
         this->cpu_eig_large_buffer.allocate(total_cpu_eig_large_buffer_size, true);
-    } else if (this->proj_method == ProjectionMethod::COMPOSITE_FP32) {
+    } else if (this->proj_method == ProjectionMethod::COMPOSITE_FP32 || this->proj_method == ProjectionMethod::COMPOSITE_FP16) {
         // TODO: create one of each per stream (require psd_projection lib to take a stream as an argument)
 
         // create a workspace for the composite projection
         int largest_size = *std::max_element(this->sizes.large_mat_sizes.begin(), this->sizes.large_mat_sizes.end());
-        this->projection_workspace.allocate(GPU0, 3 * largest_size * largest_size);
+        size_t nn = largest_size * largest_size;
+        int stride = nn % 4 == 0 ? nn : nn + (4 - nn % 4); // we need to ensure proper memory alignment
+
+        this->float_proj_workspace.allocate(GPU0, 3 * stride);
+        if (this->proj_method == ProjectionMethod::COMPOSITE_FP16) // if FP16, we need a second workspace
+            this->half_proj_workspace.allocate(GPU0, 3 * stride);
 
         // create a cuBLAS handle
         this->cublasH_proj.set_gpu_id(GPU0);
@@ -576,13 +582,25 @@ void SDPSolver::solve(
                     // stream_id = counter % this->eig_stream_num_per_gpu;
                     stream_id = 0;
 
-                    composite_FP32_auto_scale(
-                        this->cublasH_proj.cublas_handle,
-                        this->cusolverH_proj.cusolver_dn_handle,
-                        this->large_mat.vals + this->sizes.large_mat_offset(i, j),
-                        this->sizes.large_mat_sizes[i],
-                        this->projection_workspace.vals
-                    );
+                    if (this->proj_method == ProjectionMethod::COMPOSITE_FP32)
+                        composite_FP32_auto_scale(
+                            this->cublasH_proj.cublas_handle,
+                            this->cusolverH_proj.cusolver_dn_handle,
+                            this->large_mat.vals + this->sizes.large_mat_offset(i, j),
+                            this->sizes.large_mat_sizes[i],
+                            this->float_proj_workspace.vals
+                        );
+                    else if (this->proj_method == ProjectionMethod::COMPOSITE_FP16) {
+
+                        composite_FP16_auto_scale(
+                            this->cublasH_proj.cublas_handle,
+                            this->cusolverH_proj.cusolver_dn_handle,
+                            this->large_mat.vals + this->sizes.large_mat_offset(i, j),
+                            this->sizes.large_mat_sizes[i],
+                            this->float_proj_workspace.vals,
+                            this->half_proj_workspace.vals
+                        );
+                    }
 
                     // counter++;
                 }

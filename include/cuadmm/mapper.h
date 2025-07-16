@@ -34,4 +34,9 @@ struct CudaTypeMapper<size_t> {
     static const cudaDataType value = CUDA_R_32U;
 };
 
+template <>
+struct CudaTypeMapper<__half> {
+    static const cudaDataType value = CUDA_R_16F;
+};
+
 #endif // CUADMM_MAPPER_H
