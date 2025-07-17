@@ -295,6 +295,7 @@ void SDPSolver::init(
         this->cpu_eig_large_buffer.allocate(total_cpu_eig_large_buffer_size, true);
     }
     if (
+        this->sizes.large_mat_sizes.size() > 0 && (
            this->initial_proj_method == ProjectionMethod::COMPOSITE_FP32 
         || this->initial_proj_method == ProjectionMethod::COMPOSITE_FP32_EMULATED 
         || this->initial_proj_method == ProjectionMethod::COMPOSITE_FP16
@@ -302,7 +303,7 @@ void SDPSolver::init(
         || this->final_proj_method == ProjectionMethod::COMPOSITE_FP32 
         || this->final_proj_method == ProjectionMethod::COMPOSITE_FP32_EMULATED 
         || this->final_proj_method == ProjectionMethod::COMPOSITE_FP16
-    ) {
+    )) {
         // TODO: create one of each per stream (require psd_projection lib to take a stream as an argument)
 
         // create a workspace for the composite projection
