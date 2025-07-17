@@ -37,7 +37,7 @@ class Problem{
         int con_num; // number of constraints
 
         // Load a problem from .txt files stored in the same directory.
-        void from_txt(const std::string& prefix, const bool warm_start = false);
+        void from_txt(std::string& prefix, const bool warm_start = false);
 };
 
 #endif // CUADMM_PROBLEM_H

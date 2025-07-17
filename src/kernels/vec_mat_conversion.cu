@@ -25,7 +25,7 @@ __global__ void vector_to_matrices_kernel(
             // if the coefficient is not on the diagonal, we need to multiply by 1/sqrt(2)
             mom_mat_vals[m1] = Xb_vals[idx] * (SQRT2INV + int(if_diag) * (1 - SQRT2INV));
             mom_mat_vals[m2] = mom_mat_vals[m1];
-        } else {
+        } else if (b == 1) {
             loc_mat_vals[m1] = Xb_vals[idx] * (SQRT2INV + int(if_diag) * (1 - SQRT2INV));
             loc_mat_vals[m2] = loc_mat_vals[m1];
         }
@@ -49,7 +49,7 @@ __global__ void matrices_to_vector_kernel(
         if (b == 0) { // from moment matrix
             // if the coefficient is not on the diagonal, we need to multiply by sqrt(2)
             Xb_vals[idx] = mom_mat_vals[m1] * (SQRT2 + int(if_diag) * (1 - SQRT2));
-        } else { // from localizing matrix
+        } else if (b == 1) { // from localizing matrix
             Xb_vals[idx] = loc_mat_vals[m1] * (SQRT2 + int(if_diag) * (1 - SQRT2));
         }
     }

@@ -8,6 +8,7 @@
 ksc/data
 ksc/figs
 ksc/logs
+logs/
 
 build
 .vscode
