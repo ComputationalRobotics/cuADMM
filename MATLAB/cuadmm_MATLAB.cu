@@ -114,6 +114,8 @@ class INPUT_ID_factory {
         int sig_update_stage_1;
         int sig_update_stage_2;
         int switch_admm;
+        int switch_proj_iter;
+        int switch_proj_tol;
         int sigscale;
 
         INPUT_ID_factory(int offset = 0) {
@@ -134,7 +136,9 @@ class INPUT_ID_factory {
             this->sig_update_stage_1 = offset + 12;
             this->sig_update_stage_2 = offset + 13;
             this->switch_admm = offset + 14;
-            this->sigscale = offset + 15;
+            this->switch_proj_iter = offset + 15;
+            this->switch_proj_tol = offset + 16;
+            this->sigscale = offset + 17;
         }
 };
 
@@ -249,6 +253,7 @@ void mexFunction(int nlhs, mxArray* plhs[], int nrhs, const mxArray* prhs[]) {
     // TODO: adapt for new signature
     int mat_num;
     std::vector<double> cpu_blk_vals_double;
+    std::vector<char> cpu_blk_types;
     get_dnvec_from_matlab(
         prhs[INPUT_ID.blk], 
         mat_num, cpu_blk_vals_double
@@ -257,6 +262,7 @@ void mexFunction(int nlhs, mxArray* plhs[], int nrhs, const mxArray* prhs[]) {
     int vec_len_from_blk = 0;
     for (int i = 0; i < mat_num; i++) {
         cpu_blk_vals[i] = static_cast<int>( cpu_blk_vals_double[i] );
+        cpu_blk_types.push_back('s');
         vec_len_from_blk = vec_len_from_blk + cpu_blk_vals[i] * (cpu_blk_vals[i] + 1) / 2;
     }
     assert(vec_len_from_blk == vec_len);
@@ -323,11 +329,27 @@ void mexFunction(int nlhs, mxArray* plhs[], int nrhs, const mxArray* prhs[]) {
         switch_admm = static_cast<int>( mxGetScalar(prhs[INPUT_ID.switch_admm]) );
     } else {
         switch_admm = (int) 1.1e4;
-    } 
+    }
+
+    // switch_proj_iter
+    int switch_proj_iter;
+    if (nlhs >= 15) {
+        switch_proj_iter = static_cast<int>( mxGetScalar(prhs[INPUT_ID.switch_proj_iter]) );
+    } else {
+        switch_proj_iter = (int) 5000;
+    }
+
+    // switch_proj_tol
+    double switch_proj_tol;
+    if (nlhs >= 15) {
+        switch_proj_tol = static_cast<int>( mxGetScalar(prhs[INPUT_ID.switch_proj_tol]) );
+    } else {
+        switch_proj_tol = (double) 1e-2;
+    }
 
     // sigscale
     double sigscale;
-    if (nlhs >= 16) {
+    if (nlhs >= 18) {
         sigscale = mxGetScalar(prhs[INPUT_ID.sigscale]);
     } else {
         sigscale = 1.0;
@@ -338,13 +360,6 @@ void mexFunction(int nlhs, mxArray* plhs[], int nrhs, const mxArray* prhs[]) {
     // -------------------------------------------------------
     // start solver:
 
-    std::vector<char> blk_sizes;
-    std::vector<int> blk_vals;
-    for (const auto& blk : cpu_blk_vals) {
-        blk_sizes.push_back(std::get<0>(blk));
-        blk_vals.push_back(std::get<1>(blk));
-    }
-
     SDPSolver solver;
     solver.init(
         eig_stream_num_per_gpu,
@@ -353,10 +368,12 @@ void mexFunction(int nlhs, mxArray* plhs[], int nrhs, const mxArray* prhs[]) {
         cpu_At_csc_col_ptrs.data(), cpu_At_csc_row_ids.data(), cpu_At_csc_vals.data(), At_nnz,
         cpu_b_indices.data(), cpu_b_vals.data(), b_nnz,
         cpu_C_indices.data(), cpu_C_vals.data(), C_nnz,
-        cpu_blk_vals.data(), // TODO: adapt
+        cpu_blk_types.data(),
+        cpu_blk_vals.data(),
         mat_num,
-        ProjectionMethod::EIG_FP64, // TODO: update
-        cpu_X_vals.data(), cpu_y_vals.data(), cpu_S_vals.data(), &sig
+        ProjectionMethod::COMPOSITE_FP16,
+        ProjectionMethod::EIG_FP64,
+        cpu_X_vals.data(), cpu_y_vals.data(), cpu_S_vals.data(), sig
     );
     solver.solve(
         max_iter, stop_tol,
@@ -364,6 +381,8 @@ void mexFunction(int nlhs, mxArray* plhs[], int nrhs, const mxArray* prhs[]) {
         sig_update_stage_1 = sig_update_stage_1,
         sig_update_stage_2 = sig_update_stage_2,
         switch_admm = switch_admm,
+        5000,
+        0.01,
         sigscale = sigscale
     );
     // -------------------------------------------------------
