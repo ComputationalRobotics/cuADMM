@@ -1,15 +1,20 @@
-cmake_minimum_required(VERSION 3.9)
+cmake_minimum_required(VERSION 3.10)
 
 project(
     cuADMM
     LANGUAGES CXX CUDA
 )
 
+add_compile_options($<$<COMPILE_LANGUAGE:CUDA>:-Wno-deprecated-gpu-targets>)
+
 ### GoogleTest for unit testing
 # GoogleTest requires at least C++14
 set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_C_COMPILER "/usr/bin/gcc")
+
+# Explicitly add CUDA library path for linker
+link_directories(/usr/local/cuda/lib64)
 
 include(FetchContent)
 FetchContent_Declare(
@@ -20,9 +25,10 @@ FetchContent_Declare(
 set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
 FetchContent_MakeAvailable(googletest)
 
+# Find CUDA Toolkit and use imported targets for linking
+find_package(CUDAToolkit REQUIRED)
+set_property(TARGET ${ROUTINE} PROPERTY CUDA_ARCHITECTURES OFF)
 
-### Find LAPACK and BLAS
-find_package(LAPACK REQUIRED)
 find_package(BLAS REQUIRED)
 find_package(Matlab REQUIRED)
 
@@ -72,9 +78,15 @@ target_link_libraries(
     ${CCOLAMD_LIB}
     ${CHOLMOD_LIB}
     ${Matlab_LIBRARIES}
-    ${LAPACK_LIBRARIES} -llapacke
     ${BLAS_LIBRARIES}
+    psd_lib
 )
+
+# Disable building tests in psd_projection to avoid target name conflict
+set(PSD_PROJECTION_BUILD_TESTS OFF CACHE BOOL "Disable psd_projection tests" FORCE)
+# Add psd_projection submodule
+add_subdirectory(psd_projection)
+list(APPEND INCLUDE_DIRS psd_projection/include)
 
 ### Create executable
 add_executable(${CUADMM_EXE} src/main.cu)
@@ -84,6 +96,7 @@ target_link_libraries(
     ${CUADMM_EXE}
     PUBLIC
     ${CUADMM_LIB}
+    psd_lib
 )
 
 install(

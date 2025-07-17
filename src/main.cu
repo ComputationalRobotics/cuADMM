@@ -8,7 +8,6 @@
 int main(int argc, char* argv[]) {
     std::string prefix = argv[1];
     int eig_stream_num_per_gpu = 15;
-    int cpu_eig_thread_num = 30;
 
     Problem problem;
     problem.from_txt(prefix);
@@ -24,21 +23,23 @@ int main(int argc, char* argv[]) {
     SDPSolver solver;
     double sig = 1e0;
     solver.init(
-        eig_stream_num_per_gpu, cpu_eig_thread_num,
+        eig_stream_num_per_gpu,
         problem.vec_len, problem.con_num,
         problem.At_csc_col_ptrs.data(), problem.At_csc_row_ids.data(), problem.At_csc_vals.data(), problem.At_nnz,
         problem.b_indices.data(), problem.b_vals.data(), problem.b_nnz,
         problem.C_indices.data(), problem.C_vals.data(), problem.C_nnz,
         blk_sizes.data(), blk_vals.data(), problem.mat_num,
+        ProjectionMethod::COMPOSITE_FP16,
+        ProjectionMethod::EIG_FP64,
         problem.X_vals.data(), problem.y_vals.data(), problem.S_vals.data(),
         sig
     );
 
     // ADMM only
-    // solver.solve((int) 1e6, 1e-3, false, 50, 100, 0);
+    // solver.solve((int) 1e6, 1e-3, false, 50, 100, 1);
     
     // sGS-ADMM
-    solver.solve((int) 1e6, 1e-4, false, 50, 100, 5000);
+    solver.solve((int) 1e3, 1e-3, 500, 50, 100, 5000);
 
     solver.X.to_txt(prefix + "X_opt.txt");
     

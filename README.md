@@ -14,7 +14,6 @@ where $\Omega_+$ is the cartesian product of symmetric cones corresponding to th
 The following dependencies are required to build and run the project:
 - [`CMake`](https://cmake.org/download/)
 - [`CUDA`](https://developer.nvidia.com/cuda-downloads)
-- [`LAPACK`](https://www.netlib.org/lapack/) (for linear algebra operations)
 - [`BLAS`](https://www.netlib.org/blas/) (for basic linear algebra operations)
 - [`SuiteSparse`](https://github.com/DrTimothyAldenDavis/SuiteSparse) (for `CHOLMOD`)
 - [`MATLAB`](https://www.mathworks.com/products/matlab.html) (for the bindings)
@@ -76,12 +75,15 @@ mkdir build
 cmake -S . -B build
 cmake --build build
 ```
-The signature of the MEX function is the same as the C++ one, that is:
+The signature of the MEX function is the following:
 ```matlab
 cuadmm_MATLAB(eig_stream_num_per_gpu,...
               max_iter, stop_tol,...
               At_stack, b, C_stack, blk_vec,...
-              X_new, y_new, S_new, sig_new);
+              X_new, y_new, S_new, sig_new,...
+              sig_update_threshold, sig_update_stage_1, sig_update_stage_2,...
+              switch_admm,switch_proj_iter,switch_proj_tol,...
+              sigscale);
 ```
 The file [`cuadmm_MATLAB.cu`](MATLAB/cuadmm_MATLAB.cu) defines the MEX function, and can be used as a reference for the input format when interfacing with other languages or libraries.
 
