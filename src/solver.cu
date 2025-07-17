@@ -34,7 +34,8 @@ void SDPSolver::init(
     int* cpu_C_indices, double* cpu_C_vals, int C_nnz,
     char* cpu_blk_types, int* cpu_blk_sizes,
     int mat_num,
-    ProjectionMethod proj_method,
+    ProjectionMethod initial_proj_method,
+    ProjectionMethod final_proj_method,
     double* cpu_X_vals,
     double* cpu_y_vals,
     double* cpu_S_vals,
@@ -63,9 +64,14 @@ void SDPSolver::init(
     this->cublasH.set_gpu_id(GPU0);
     this->cublasH.activate();
 
-    this->proj_method = proj_method;
+    this->eig_stream_num_per_gpu = eig_stream_num_per_gpu;
+
+    this->initial_proj_method = initial_proj_method;
+    this->final_proj_method = final_proj_method;
+    this->current_proj_method = initial_proj_method;
+    this->switched_proj_method = false;
     #if !(defined(CUDA_VERSION) && (CUDA_VERSION >= 12090))
-    if (this->proj_method == ProjectionMethod::COMPOSITE_FP32_EMULATED) {
+    if (initial_proj_method == ProjectionMethod::COMPOSITE_FP32_EMULATED || final_proj_method == ProjectionMethod::COMPOSITE_FP32_EMULATED) {
         fprintf(stderr, "ERROR: the projection method 'COMPOSITE_FP32_EMULATED' was selected, but is not supported. BF16x9 emulation requires CUDA 12.9 or higher.\n");
         exit(EXIT_FAILURE);
     }
@@ -243,9 +249,6 @@ void SDPSolver::init(
     this->large_W.allocate(GPU0, this->sizes.sum_large_mat_size);
     this->large_info.allocate(GPU0, this->sizes.large_mat_num);
 
-    // if the decomposition is on GPU, use cuSOLVER (cf cusolver.h)
-    this->eig_stream_num_per_gpu = eig_stream_num_per_gpu;
-
     // streams and handles for eigen decomposition
     this->eig_stream_arr = std::vector<DeviceStream>(this->eig_stream_num_per_gpu);
     this->cusolverH_eig_large_arr = std::vector<DeviceSolverDnHandle>(this->eig_stream_num_per_gpu);
@@ -257,7 +260,7 @@ void SDPSolver::init(
         this->cusolverH_eig_large_arr[stream_id].activate(this->eig_stream_arr[stream_id]);
     }
 
-    if (this->proj_method == ProjectionMethod::EIG_FP64) {
+    if (this->initial_proj_method == ProjectionMethod::EIG_FP64 || this->final_proj_method == ProjectionMethod::EIG_FP64) {
         // compute the buffer sizes of the large matrices eig decomposition
         this->eig_large_buffer_size.assign(this->sizes.large_mat_sizes.size(), 0);
         this->cpu_eig_large_buffer_size.assign(this->sizes.large_mat_sizes.size(), 0);
@@ -290,7 +293,16 @@ void SDPSolver::init(
         // allocate memory for the two buffers, host and device
         this->eig_large_buffer.allocate(GPU0, total_eig_large_buffer_size, true);
         this->cpu_eig_large_buffer.allocate(total_cpu_eig_large_buffer_size, true);
-    } else if (this->proj_method == ProjectionMethod::COMPOSITE_FP32 || this->proj_method == ProjectionMethod::COMPOSITE_FP32_EMULATED || this->proj_method == ProjectionMethod::COMPOSITE_FP16) {
+    }
+    if (
+           this->initial_proj_method == ProjectionMethod::COMPOSITE_FP32 
+        || this->initial_proj_method == ProjectionMethod::COMPOSITE_FP32_EMULATED 
+        || this->initial_proj_method == ProjectionMethod::COMPOSITE_FP16
+
+        || this->final_proj_method == ProjectionMethod::COMPOSITE_FP32 
+        || this->final_proj_method == ProjectionMethod::COMPOSITE_FP32_EMULATED 
+        || this->final_proj_method == ProjectionMethod::COMPOSITE_FP16
+    ) {
         // TODO: create one of each per stream (require psd_projection lib to take a stream as an argument)
 
         // create a workspace for the composite projection
@@ -299,7 +311,7 @@ void SDPSolver::init(
         int stride = nn % 4 == 0 ? nn : nn + (4 - nn % 4); // we need to ensure proper memory alignment
 
         this->float_proj_workspace.allocate(GPU0, 3 * stride);
-        if (this->proj_method == ProjectionMethod::COMPOSITE_FP16) // if FP16, we need a second workspace
+        if (this->initial_proj_method == ProjectionMethod::COMPOSITE_FP16 || this->final_proj_method == ProjectionMethod::COMPOSITE_FP16) // if FP16, we need a second workspace
             this->half_proj_workspace.allocate(GPU0, 3 * stride);
 
         // create a cuBLAS handle
@@ -307,7 +319,7 @@ void SDPSolver::init(
         this->cublasH_proj.activate();
         CHECK_CUBLAS( cublasSetMathMode(this->cublasH_proj.cublas_handle, CUBLAS_TENSOR_OP_MATH) );
         #if defined(CUDA_VERSION) && (CUDA_VERSION >= 12090)
-        if (this->proj_method == ProjectionMethod::COMPOSITE_FP32_EMULATED) {
+        if (this->initial_proj_method == ProjectionMethod::COMPOSITE_FP32_EMULATED || this->final_proj_method == ProjectionMethod::COMPOSITE_FP32_EMULATED) {
             CHECK_CUBLAS(cublasSetEmulationStrategy(this->cublasH_proj.cublas_handle, CUBLAS_EMULATION_STRATEGY_EAGER));
         }
         #endif
@@ -315,10 +327,6 @@ void SDPSolver::init(
         // create a cuSOLVER handle
         this->cusolverH_proj.set_gpu_id(GPU0);
         this->cusolverH_proj.activate();
-    } else {
-        // error for now
-        fprintf(stderr, "Error: unsupported projection method for large matrices.\n");
-        exit(EXIT_FAILURE);
     }
 
     /* Eigenvalue decomposition for small matrices */
@@ -351,7 +359,7 @@ void SDPSolver::init(
     this->eig_small_buffer.allocate(GPU0, this->sizes.small_buffer_start_indices.back(), true);
 
     /* For the computation of y, X, S */
-    if (this->proj_method == ProjectionMethod::EIG_FP64) {
+    if (this->initial_proj_method== ProjectionMethod::EIG_FP64 || this->final_proj_method == ProjectionMethod::EIG_FP64) {
         this->large_mat_tmp.allocate(GPU0, this->sizes.total_large_mat_size);
         this->large_mat_P.allocate(GPU0, this->sizes.total_large_mat_size);
     }
@@ -383,6 +391,8 @@ void SDPSolver::solve(
     int sig_update_stage_1,
     int sig_update_stage_2,
     int switch_admm,
+    int switch_proj_iter,
+    double switch_proj_tol,
     double sigscale,
     bool if_first
 ) {
@@ -390,6 +400,7 @@ void SDPSolver::solve(
     this->sig_update_threshold = sig_update_threshold;
     this->sig_update_stage_1 = sig_update_stage_1;
     this->sig_update_stage_2 = sig_update_stage_2;
+    assert(switch_admm > 0);
     this->switch_admm = switch_admm;
     this->sigscale = sigscale;
 
@@ -492,6 +503,17 @@ void SDPSolver::solve(
             break;
         }
 
+        // check if the conditions to switch the projection method are met
+        if (
+            !switched_proj_method
+            && (iter > switch_proj_iter || max(this->maxfeas, this->relgap) < switch_proj_tol)
+            && iter > 1) {
+            // switch the projection method
+            this->current_proj_method = this->final_proj_method;
+            this->switched_proj_method = true;
+            std::cout << " ---------------- Switching projection method to " << get_projection_method_name(this->current_proj_method) << "-------" << std::endl;
+        }
+
         /*
             Step 1: Compute
                         r_s^{k+1/2} = 1/sigma b - A(X/sigma + S^k - C)
@@ -564,7 +586,7 @@ void SDPSolver::solve(
         // for each large matrix on this GPU, compute the eig decomposition
         int stream_id;
         int counter = 0; // serves as a stream id and as an info offset
-        if (this->proj_method == ProjectionMethod::EIG_FP64) { // cuSOLVER version
+        if (this->current_proj_method == ProjectionMethod::EIG_FP64) { // cuSOLVER version
             for (int i = 0; i < this->sizes.large_mat_sizes.size(); i++) {
                 for (int j = 0; j < this->sizes.large_mat_nums[i]; j++) {
                     stream_id = counter % this->eig_stream_num_per_gpu;
@@ -596,7 +618,7 @@ void SDPSolver::solve(
                     // stream_id = counter % this->eig_stream_num_per_gpu;
                     stream_id = 0;
 
-                    if (this->proj_method == ProjectionMethod::COMPOSITE_FP32)
+                    if (this->current_proj_method == ProjectionMethod::COMPOSITE_FP32)
                         composite_FP32_auto_scale(
                             this->cublasH_proj.cublas_handle,
                             this->cusolverH_proj.cusolver_dn_handle,
@@ -604,7 +626,7 @@ void SDPSolver::solve(
                             this->sizes.large_mat_sizes[i],
                             this->float_proj_workspace.vals
                         );
-                    else if (this->proj_method == ProjectionMethod::COMPOSITE_FP16) {
+                    else if (this->current_proj_method == ProjectionMethod::COMPOSITE_FP16) {
                         composite_FP16_auto_scale(
                             this->cublasH_proj.cublas_handle,
                             this->cusolverH_proj.cusolver_dn_handle,
@@ -615,7 +637,7 @@ void SDPSolver::solve(
                         );
                     }
                     #if defined(CUDA_VERSION) && (CUDA_VERSION >= 12090)
-                    else if (this->proj_method == ProjectionMethod::COMPOSITE_FP32_EMULATED) {
+                    else if (this->current_proj_method == ProjectionMethod::COMPOSITE_FP32_EMULATED) {
                         composite_FP32_emulated_auto_scale(
                             this->cublasH_proj.cublas_handle,
                             this->cusolverH_proj.cusolver_dn_handle,
@@ -663,7 +685,7 @@ void SDPSolver::solve(
             info_offset += this->sizes.small_mat_nums[i];
         }
 
-        if (this->proj_method == ProjectionMethod::EIG_FP64) {
+        if (this->current_proj_method == ProjectionMethod::EIG_FP64) {
             max_dense_vector_zero(this->large_W);
         }
 
@@ -673,7 +695,7 @@ void SDPSolver::solve(
 
         // int stream_id;
         // multiply the large matrices by their eigenvalues
-        if (this->proj_method == ProjectionMethod::EIG_FP64) {
+        if (this->current_proj_method == ProjectionMethod::EIG_FP64) {
             for (int i = 0; i < this->sizes.large_mat_sizes.size(); i++) {
                 // stream_id = i % this->eig_stream_num_per_gpu;
                 dense_matrix_mul_diag_batch(
@@ -702,7 +724,7 @@ void SDPSolver::solve(
         //     CHECK_CUDA( cudaStreamSynchronize(this->eig_stream_arr[stream_id].stream) );
         // }
 
-        if (this->proj_method == ProjectionMethod::EIG_FP64) {
+        if (this->current_proj_method == ProjectionMethod::EIG_FP64) {
             for (int i = 0; i < this->sizes.large_mat_sizes.size(); i++) {
                 dense_matrix_mul_trans_batch(
                     this->cublasH,
@@ -728,7 +750,7 @@ void SDPSolver::solve(
         CHECK_CUDA( cudaMemcpy(this->Xproj.vals, this->Xb.vals, sizeof(double) * this->vec_len, D2D) );
 
         // convert the matrices back to vectorized format
-        if (this->proj_method == ProjectionMethod::EIG_FP64)
+        if (this->current_proj_method == ProjectionMethod::EIG_FP64)
             matrices_to_vector(this->Xproj, this->large_mat_P, this->small_mat_P, this->map_B, this->map_M1, this->map_M2);
         else
             matrices_to_vector(this->Xproj, this->large_mat, this->small_mat_P, this->map_B, this->map_M1, this->map_M2);
@@ -766,7 +788,7 @@ void SDPSolver::solve(
         // If the number of iterations goes large but sGS-ADMM still fail to converge,
         // switch to ordinary ADMM
         if (iter == this->switch_admm) {
-            std::cout << " switching to normal ADMM!" << std::endl;
+            std::cout << " -------------------------- Switching to normal ADMM ---------------------------" << std::endl;
             this->sig_update_stage_2 = this->sig_update_stage_2 / 2;
             this->sigscale = this->sigscale * 1.23;
             this->sgs_KKT = max(this->maxfeas, this->relgap);

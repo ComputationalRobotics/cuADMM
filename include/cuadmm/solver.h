@@ -30,6 +30,16 @@ enum ProjectionMethod {
     COMPOSITE_FP16
 };
 
+inline const char* get_projection_method_name(ProjectionMethod method) {
+    switch (method) {
+        case ProjectionMethod::EIG_FP64:                return "EIG_FP64 ---------------";
+        case ProjectionMethod::COMPOSITE_FP32:          return "COMPOSITE_FP32 ---------";
+        case ProjectionMethod::COMPOSITE_FP32_EMULATED: return "COMPOSITE_FP32_EMULATED ";
+        case ProjectionMethod::COMPOSITE_FP16:          return "COMPOSITE_FP16 ---------";
+        default:                                        return "UNKNOWN ----------------";
+    }
+}
+
 /// @brief Main solver class for the SDP problem.
 /// Uses the sGS-ADMM algorithm to solve the problem:
 ///      min(X) <C, X>  s.t. A(X) = b,       X >= 0,
@@ -124,7 +134,10 @@ class SDPSolver {
         DeviceDenseVector<float> float_proj_workspace; // workspace for projection of large matrices
         DeviceDenseVector<__half> half_proj_workspace; // workspace for projection of large matrices
 
-        ProjectionMethod proj_method; // projection method to use
+        ProjectionMethod current_proj_method; // projection currently used
+        ProjectionMethod initial_proj_method; // projection initially used (low precision)
+        ProjectionMethod final_proj_method; // projection used in the end (high precision)
+        bool switched_proj_method; // whether the projection method has been switched
         DeviceBlasHandle cublasH_proj;
         DeviceSolverDnHandle cusolverH_proj;
 
@@ -207,7 +220,8 @@ class SDPSolver {
         /// @param cpu_blk_types Block types (s, u, ...).
         /// @param cpu_blk_sizes Block sizes.
         /// @param mat_num Number of blocks.
-        /// @param proj_method Projection method to use.
+        /// @param initial_proj_method Projection method to use initially (default: COMPOSITE_FP16).
+        /// @param final_proj_method Projection method to use in the end (default: EIG_FP64).
         /// @param cpu_X_vals Initial values for X (optional, default: zero vector).
         /// @param cpu_y_vals Initial values for y (optional, default: zero vector).
         /// @param cpu_S_vals Initial values for S (optional, default: zero vector).
@@ -221,7 +235,8 @@ class SDPSolver {
             int* cpu_C_indices, double* cpu_C_vals, int C_nnz,
             char* cpu_blk_types,
             int* cpu_blk_sizes, int mat_num,
-            ProjectionMethod proj_method = ProjectionMethod::EIG_FP64,
+            ProjectionMethod initial_proj_method = ProjectionMethod::COMPOSITE_FP16,
+            ProjectionMethod final_proj_method = ProjectionMethod::EIG_FP64,
             double* cpu_X_vals = nullptr, // |
             double* cpu_y_vals = nullptr, // |- values for warm start
             double* cpu_S_vals = nullptr, // |
@@ -243,6 +258,8 @@ class SDPSolver {
             int sig_update_stage_1 = 50,
             int sig_update_stage_2 = 100,
             int switch_admm = (int) 1.1e4,
+            int switch_proj_iter = 5000,
+            double switch_proj_tol = 1e-2,
             double sigscale = 1.05,
             bool if_first = true
         );
