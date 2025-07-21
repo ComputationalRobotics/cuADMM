@@ -193,6 +193,8 @@ void SDPSolver::init(
     this->norm_borg = 1 + this->borg.get_norm(this->cublasH);
     this->norm_Corg = 1 + this->Corg.get_norm(this->cublasH);
 
+    std::cout << std::endl << " ||C|| = " << norm_Corg << ", ||b|| = " << norm_borg << std::endl;
+
     // scale b and C by normA
     sparse_vector_div_dense_vector(this->b, this->normA);
     dense_vector_mul_dense_vector(this->y, this->normA);
@@ -418,10 +420,10 @@ void SDPSolver::solve(
     this->info_iter_num = 0; // iteration number
 
     /* Start the solver */
-    printf("\n -------------------------------------------------------------------------------");
-    printf("\n                                    cuADMM");
-    printf("\n -------------------------------------------------------------------------------");
-    printf("\n norm of C = %2.1e, norm of b = %2.1e\n", norm_Corg, norm_borg);
+    std::cout << std::endl;
+    std::cout << " ------------------------------------------------------------------------------" << std::endl;
+    std::cout << "                                   cuADMM" << std::endl;
+    std::cout << " ------------------------------------------------------------------------------" << std::endl;
     float milliseconds;
     float seconds;
 
@@ -451,8 +453,8 @@ void SDPSolver::solve(
         // hence Rp = b - A X
     }
 
-    std::cout << std::endl << "  it. | p infeas d infeas | primal obj.   dual obj. rel. gap |  time |   sigma | " << std::endl;
-    std::cout << " -------------------------------------------------------------------------------" << std::endl;
+    std::cout << "  it. | p infeas d infeas | primal obj.   dual obj. rel. gap |  time |   sigma " << std::endl;
+    std::cout << " ------------------------------------------------------------------------------" << std::endl;
 
     // for each iteration of the main solver
     for (int iter = 1; iter <= max_iter + 1; iter++) {
@@ -480,14 +482,14 @@ void SDPSolver::solve(
             cudaEventElapsedTime(&milliseconds, this->start, this->stop);
             seconds = milliseconds / 1000;
             printf(
-                " %4d | %3.2e %3.2e | %- 5.4e %- 5.4e %3.2e | %5.1f | %2.1e |",
+                " %4d | %3.2e %3.2e | %- 5.4e %- 5.4e %3.2e | %5.1f | %2.1e ",
                 iter-1, this->errRp, this->errRd, this->pobj, this->dobj, this->relgap, seconds, this->sig
             );
             std::cout << std::endl;
         }
         if (breakyes > 0) {
             // print the final message
-            printf(" -------------------------------------------------------------------------------\n\n");
+            printf(" ------------------------------------------------------------------------------\n\n");
             std::cout << final_msg << std::endl;
             printf(
                 "\n primal infeasibility = %2.1e \n dual   infeasibility = %2.1e \n relative gap         = %2.1e",
@@ -518,7 +520,7 @@ void SDPSolver::solve(
             // switch the projection method
             this->current_proj_method = this->final_proj_method;
             this->switched_proj_method = true;
-            std::cout << " ---------------- Switching projection method to " << get_projection_method_name(this->current_proj_method) << "-------" << std::endl;
+            std::cout << " ---------------- Switching projection method to " << get_projection_method_name(this->current_proj_method) << "------" << std::endl;
         }
 
         /*
@@ -690,7 +692,7 @@ void SDPSolver::solve(
                 CHECK_CUDA( cudaMemcpyAsync(this->y.vals, this->y_best.vals, sizeof(double) * this->con_num, D2D, this->stream_flex[1].stream) );
                 CHECK_CUDA( cudaMemcpyAsync(this->S.vals, this->S_best.vals, sizeof(double) * this->vec_len, D2D, this->stream_flex[2].stream) );
                 this->synchronize_gpu0_streams();
-                printf("best max KKT residual after switch  = %2.1e \n", this->best_KKT);
+                printf("Best max KKT residual after switch  = %2.1e \n", this->best_KKT);
             }
             break;
         }
@@ -820,7 +822,7 @@ void SDPSolver::solve(
         // If the number of iterations goes large but sGS-ADMM still fail to converge,
         // switch to ordinary ADMM
         if (iter == this->switch_admm) {
-            std::cout << " -------------------------- Switching to normal ADMM ---------------------------" << std::endl;
+            std::cout << " -------------------------- Switching to normal ADMM --------------------------" << std::endl;
             this->sig_update_stage_2 = this->sig_update_stage_2 / 2;
             this->sigscale = this->sigscale * 1.23;
             this->sgs_KKT = max(this->maxfeas, this->relgap);
