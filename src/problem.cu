@@ -84,8 +84,8 @@ void Problem::from_txt(std::string& prefix, bool warm_start) {
     std::cout << "      number of constraints: " << this->con_num << std::endl;
     std::cout << "           number of blocks: " << this->mat_num << std::endl;
     std::cout << "  number of non-zeros in At: " << this->At_nnz << std::endl;
-    std::cout << "   number of non-zeros in b: " << this->b_nnz << std::endl;
-    std::cout << "   number of non-zeros in C: " << this->C_nnz << std::endl;
+    std::cout << "  number of non-zeros in  b: " << this->b_nnz << std::endl;
+    std::cout << "  number of non-zeros in  C: " << this->C_nnz << std::endl;
 
     // read_dense_vector_data(prefix + "sig.txt",this-> sig_vals);
 }

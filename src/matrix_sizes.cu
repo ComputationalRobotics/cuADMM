@@ -55,6 +55,10 @@ void MatrixSizes::init(const std::vector<int>& psd_blk_sizes, const std::vector<
 
             this->large_mat_start_indices.push_back(this->total_large_mat_size);
             this->large_W_start_indices.push_back(this->sum_large_mat_size);
+
+            if (this->use_cusolver(mat_size)) {
+                this->requires_cusolver = true; // at least one large matrix requires cuSOLVER
+            }
         } else {
             this->sum_small_mat_size += mat_size * mat_num;
             this->small_mat_num += mat_num;
@@ -72,45 +76,45 @@ void MatrixSizes::init(const std::vector<int>& psd_blk_sizes, const std::vector<
     this->large_cpu_buffer_start_indices.reserve(this->large_mat_sizes.size() + 1);
     this->small_buffer_start_indices.reserve(this->small_mat_sizes.size() + 1);
 
-    std::cout << "\nAnalysis of the large matrices sizes:" << std::endl;
-    std::cout << "    size of large matrices: ";
-    for (int i = 0; i < this->large_mat_sizes.size(); i++) {
-        std::cout << std::setw(3) << this->large_mat_sizes[i] << " ";
-    }
-    std::cout << std::endl;
-    std::cout << "  number of large matrices: ";
-    for (int i = 0; i < this->large_mat_nums.size(); i++) {
-        std::cout << std::setw(3) << this->large_mat_nums[i] << " ";
-    }
-    std::cout << std::endl;
-    std::cout << "    total size of large matrices: " << this->total_large_mat_size << std::endl;
-    std::cout << "  sum of sizes of large matrices: " << this->sum_large_mat_size << std::endl;
-    std::cout << "    nb large (with multiplicity): " << this->large_mat_num << std::endl;
-    std::cout << "  large matrices start indices: ";
-    for (int i = 0; i < this->large_mat_start_indices.size(); i++) {
-        std::cout << this->large_mat_start_indices[i] << " ";
-    }
-    std::cout << std::endl;
+    // std::cout << "\nAnalysis of the large matrices sizes:" << std::endl;
+    // std::cout << "    size of large matrices: ";
+    // for (int i = 0; i < this->large_mat_sizes.size(); i++) {
+    //     std::cout << std::setw(3) << this->large_mat_sizes[i] << " ";
+    // }
+    // std::cout << std::endl;
+    // std::cout << "  number of large matrices: ";
+    // for (int i = 0; i < this->large_mat_nums.size(); i++) {
+    //     std::cout << std::setw(3) << this->large_mat_nums[i] << " ";
+    // }
+    // std::cout << std::endl;
+    // std::cout << "    total size of large matrices: " << this->total_large_mat_size << std::endl;
+    // std::cout << "  sum of sizes of large matrices: " << this->sum_large_mat_size << std::endl;
+    // std::cout << "    nb large (with multiplicity): " << this->large_mat_num << std::endl;
+    // std::cout << "  large matrices start indices: ";
+    // for (int i = 0; i < this->large_mat_start_indices.size(); i++) {
+    //     std::cout << this->large_mat_start_indices[i] << " ";
+    // }
+    // std::cout << std::endl;
 
-    std::cout << "\nAnalysis of the small matrices sizes:" << std::endl;
-    std::cout << "    size of small matrices: ";
-    for (int i = 0; i < this->small_mat_sizes.size(); i++) {
-        std::cout << std::setw(3) << this->small_mat_sizes[i] << " ";
-    }
-    std::cout << std::endl;
-    std::cout << "  number of small matrices: ";
-    for (int i = 0; i < this->small_mat_nums.size(); i++) {
-        std::cout << std::setw(3) << this->small_mat_nums[i] << " ";
-    }
-    std::cout << std::endl;
-    std::cout << "    total size of small matrices: " << this->total_small_mat_size << std::endl;
-    std::cout << "  sum of sizes of small matrices: " << this->sum_small_mat_size << std::endl;
-    std::cout << "    nb small (with multiplicity): " << this->small_mat_num << std::endl;
-    std::cout << "  small matrices start indices: ";
-    for (int i = 0; i < this->small_mat_start_indices.size(); i++) {
-        std::cout << this->small_mat_start_indices[i] << " ";
-    }
-    std::cout << std::endl;
+    // std::cout << "\nAnalysis of the small matrices sizes:" << std::endl;
+    // std::cout << "    size of small matrices: ";
+    // for (int i = 0; i < this->small_mat_sizes.size(); i++) {
+    //     std::cout << std::setw(3) << this->small_mat_sizes[i] << " ";
+    // }
+    // std::cout << std::endl;
+    // std::cout << "  number of small matrices: ";
+    // for (int i = 0; i < this->small_mat_nums.size(); i++) {
+    //     std::cout << std::setw(3) << this->small_mat_nums[i] << " ";
+    // }
+    // std::cout << std::endl;
+    // std::cout << "    total size of small matrices: " << this->total_small_mat_size << std::endl;
+    // std::cout << "  sum of sizes of small matrices: " << this->sum_small_mat_size << std::endl;
+    // std::cout << "    nb small (with multiplicity): " << this->small_mat_num << std::endl;
+    // std::cout << "  small matrices start indices: ";
+    // for (int i = 0; i < this->small_mat_start_indices.size(); i++) {
+    //     std::cout << this->small_mat_start_indices[i] << " ";
+    // }
+    // std::cout << std::endl;
 }
 
 int MatrixSizes::large_mat_offset(int large_idx, int same_size_idx) const {
@@ -165,4 +169,8 @@ int MatrixSizes::small_buffer_offset(int small_idx, std::vector<size_t>& eig_sma
 
 bool MatrixSizes::is_large(const int mat_size) const {
     return this->is_large_map.at(mat_size);
+}
+
+bool MatrixSizes::use_cusolver(const int mat_size) const {
+    return mat_size < 500;
 }
