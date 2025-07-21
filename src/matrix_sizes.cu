@@ -55,6 +55,10 @@ void MatrixSizes::init(const std::vector<int>& psd_blk_sizes, const std::vector<
 
             this->large_mat_start_indices.push_back(this->total_large_mat_size);
             this->large_W_start_indices.push_back(this->sum_large_mat_size);
+
+            if (this->use_cusolver(mat_size)) {
+                this->requires_cusolver = true; // at least one large matrix requires cuSOLVER
+            }
         } else {
             this->sum_small_mat_size += mat_size * mat_num;
             this->small_mat_num += mat_num;
@@ -165,4 +169,8 @@ int MatrixSizes::small_buffer_offset(int small_idx, std::vector<size_t>& eig_sma
 
 bool MatrixSizes::is_large(const int mat_size) const {
     return this->is_large_map.at(mat_size);
+}
+
+bool MatrixSizes::use_cusolver(const int mat_size) const {
+    return mat_size < 500;
 }

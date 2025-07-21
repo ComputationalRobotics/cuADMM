@@ -33,7 +33,8 @@ public:
     std::vector<int> large_W_start_indices; // start indices of large matrices in the W vector
     std::vector<int> large_buffer_start_indices; // start indices of GPU buffers for large matrices
     std::vector<int> large_cpu_buffer_start_indices; // start indices of CPU buffers for large matrices
-    
+    bool requires_cusolver; // whether cuSOLVER is required for at least one large matrix
+
     /* small */
     int small_mat_num;        // number of small matrices (with multiplicity)
     int sum_small_mat_size;   // sum of sizes of small matrices (nb * side)
@@ -71,6 +72,11 @@ public:
 
     // Given a matrix size and an index i, returns the offset of the i-th GPU buffer for matrices of size mat_size.
     int small_buffer_offset(int mat_size_index, std::vector<size_t>& buffer_sizes) const;
+
+    /// @brief Determines whether to use cuSOLVER to project a large matrix of given size.
+    /// @param mat_size The size of the matrix.
+    /// @return `true` if cuSOLVER should be used, `false` otherwise.
+    bool use_cusolver(const int mat_size) const;
 };
 
 #endif // CUADMM_MATRIX_SIZES_H
