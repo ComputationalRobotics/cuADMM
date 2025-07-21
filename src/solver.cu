@@ -481,7 +481,7 @@ void SDPSolver::solve(
         }
         if (breakyes > 0) {
             // print the final message
-            printf("\n -------------------------------------------------------------------------------\n\n");
+            printf(" -------------------------------------------------------------------------------\n\n");
             std::cout << final_msg << std::endl;
             printf(
                 "\n primal infeasibility = %2.1e \n dual   infeasibility = %2.1e \n relative gap         = %2.1e",
@@ -746,8 +746,9 @@ void SDPSolver::solve(
             );
         }
 
-        // we put Xproj to zero since the projection of the free variables is zero
-        CHECK_CUDA( cudaMemsetAsync(this->Xproj.vals, 0, sizeof(double) * this->vec_len, this->stream_flex[0].stream) );
+        // we put Xproj such that S = 0 in the end
+        // TODO: optimize this
+        dense_vector_add_dense_vector(this->Xproj, this->X, this->Rd1, 1.0, this->sig);
 
         // convert the matrices back to vectorized format
         if (this->current_proj_method == ProjectionMethod::EIG_FP64)
@@ -765,6 +766,7 @@ void SDPSolver::solve(
         dense_vector_add_dense_vector(this->S, this->Xdiff, this->Rd1, 1/this->sig, -1.0);
         // hence S = 1/sig * (Pi(X^{k+1}) - X^k) - (A^T y^{k+1/2} - C)
         // which is S = 1/sig * (Pi(X^{k+1}) - X^{k+1})
+        // TODO: here, put the free variables parts to zero
 
 
 
