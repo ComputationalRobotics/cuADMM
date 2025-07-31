@@ -557,7 +557,6 @@ void SDPSolver::solve(
         perform_permutation(this->y, this->y_perm, this->perm);
         // hence y = (AA^T)^{-1} r_s^{k+1/2}
 
-
         /*
             Step 2: Compute the optimization variables :
 
@@ -783,9 +782,15 @@ void SDPSolver::solve(
             );
         }
 
-        // we put Xproj such that S = 0 in the end
         // TODO: optimize this
-        dense_vector_add_dense_vector(this->Xproj, this->X, this->Rd1, 1.0, this->sig);
+        // dense_vector_add_dense_vector(this->Xproj, this->X, this->Rd1, 1.0, this->sig);
+        // copy Xb to Xproj for the free variables
+        CHECK_CUDA( cudaMemcpyAsync(
+            this->Xproj.vals, this->Xb.vals, sizeof(double) * this->vec_len, D2D, this->stream_flex[0].stream
+        ) );
+
+        // put Xproj to zero
+        // CHECK_CUDA( cudaMemsetAsync(this->Xproj.vals, 0, sizeof(double) * this->vec_len) );
 
         // convert the matrices back to vectorized format
         matrices_to_vector(this->Xproj, this->large_mat_P, this->small_mat_P, this->map_B, this->map_M1, this->map_M2);
@@ -886,6 +891,9 @@ void SDPSolver::solve(
         /* Step 4: Compute X^{k+1} = X^k + tau * sigma (S^{k+1} + A^T y^{k+1} - C) */
         // Rd <-- 1.0 * Rd1 + 1.0 * S
         dense_vector_add_dense_vector(this->Rd, this->Rd1, this->S, 1.0, 1.0);
+        // hence Rd = Rd1 + S = A^T y^{k+1} - C + S
+
+        // update tau
         if (iter < this->switch_admm) {
             this->tau = 1.95;
         } else {
@@ -894,7 +902,6 @@ void SDPSolver::solve(
         if (this->errRd < stop_tol) {
             this->tau = max(1.618, this->tau / 1.1);
         }
-        // hence Rd = Rd1 + S = A^T y^{k+1} - C + S
 
         // X <-- X + (tau * sig) * Rd
         dense_vector_add_dense_vector(this->X, this->Rd, 1.0, this->tau * this->sig);

@@ -29,7 +29,7 @@ int main(int argc, char* argv[]) {
         problem.b_indices.data(), problem.b_vals.data(), problem.b_nnz,
         problem.C_indices.data(), problem.C_vals.data(), problem.C_nnz,
         blk_sizes.data(), blk_vals.data(), problem.mat_num,
-        ProjectionMethod::COMPOSITE_FP16,
+        ProjectionMethod::EIG_FP64,
         ProjectionMethod::EIG_FP64,
         problem.X_vals.data(), problem.y_vals.data(), problem.S_vals.data(),
         sig
@@ -37,11 +37,15 @@ int main(int argc, char* argv[]) {
 
     // ADMM only
     // solver.solve((int) 1e6, 1e-3, false, 50, 100, 1);
-    
-    // sGS-ADMM
-    solver.solve((int) 1e4, 1e-3, 500, 50, 100, 5000);
 
-    solver.X.to_txt(prefix + "X_opt.txt");
+    // std::vector<double> SmC_vals;
+    // read_dense_vector_data("./SmC.txt", SmC_vals);
+    // CHECK_CUDA( cudaMemcpy(solver.SmC.vals, SmC_vals.data(), sizeof(double) * solver.con_num, cudaMemcpyHostToDevice) );
+
+    // sGS-ADMM
+    solver.solve((int) 1e6, 1e-3, 500, 50, 100, 5000);
+
+    // solver.X.to_txt(prefix + "X_opt.txt");
     
     return 0;
 }
