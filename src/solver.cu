@@ -375,7 +375,7 @@ void SDPSolver::init(
     this->small_mat_tmp.allocate(GPU0, this->sizes.total_small_mat_size);
     this->small_mat_P.allocate(GPU0, this->sizes.total_small_mat_size);
     this->Rd1.allocate(GPU0, this->vec_len);
-    this->Xb.allocate(GPU0, this->vec_len);
+    this->Xinput.allocate(GPU0, this->vec_len);
 
     /* others */
     this->prim_win = 0;
@@ -386,7 +386,6 @@ void SDPSolver::init(
 
     /* Main elements for the sGS-ADMM algorithm */
     this->Xproj.allocate(GPU0, this->vec_len);
-    this->Xdiff.allocate(GPU0, this->vec_len);
     this->X_best.allocate(GPU0, this->vec_len);
     this->y_best.allocate(GPU0, this->con_num);
     this->S_best.allocate(GPU0, this->vec_len);
@@ -576,18 +575,14 @@ void SDPSolver::solve(
         axpby_cusparse(this->cusparseH, this->C, this->Rd1, -1.0, 1.0);
         // hence Rd1 = A^T y^{k+1/2} - C
 
-        double norm_rhsy = this->rhsy.get_norm(this->cublasH);
-        double norm_y = this->y.get_norm(this->cublasH);
-
-        // Xb <-- X + sig * Rd1
-        dense_vector_plus_dense_vector_mul_scalar(this->Xb, this->X, this->Rd1, this->sig);
-        // hence Xb = X^k + sig * (A^T y^{k+1/2} - C) = X^{k+1}
-
+        // Xinput <-- -(Rd1 + 1/sig * X)
+        dense_vector_plus_dense_vector_mul_scalar(this->Xinput, this->Rd1, this->X, 1.0/this->sig);
+        dense_vector_negate(this->Xinput);
 
         /* Compute Pi(X^{k+1}) (this is long) */
 
-        // first, we convert Xb back to matrices (large and small)
-        vector_to_matrices(this->Xb, this->large_mat, this->small_mat, this->map_B, this->map_M1, this->map_M2);
+        // first, we convert Xinput back to matrices (large and small)
+        vector_to_matrices(this->Xinput, this->large_mat, this->small_mat, this->map_B, this->map_M1, this->map_M2);
         CHECK_CUDA( cudaDeviceSynchronize() ); 
 
         // we perform the GPU decomposition of large matrices
@@ -782,29 +777,14 @@ void SDPSolver::solve(
             );
         }
 
-        // TODO: optimize this
-        // dense_vector_add_dense_vector(this->Xproj, this->X, this->Rd1, 1.0, this->sig);
-        // copy Xb to Xproj for the free variables
-        CHECK_CUDA( cudaMemcpyAsync(
-            this->Xproj.vals, this->Xb.vals, sizeof(double) * this->vec_len, D2D, this->stream_flex[0].stream
-        ) );
-
-        // put Xproj to zero
-        // CHECK_CUDA( cudaMemsetAsync(this->Xproj.vals, 0, sizeof(double) * this->vec_len) );
+        // put Xproj to zero (the projection of free variables)
+        CHECK_CUDA( cudaMemsetAsync(this->Xproj.vals, 0, sizeof(double) * this->vec_len) );
 
         // convert the matrices back to vectorized format
         matrices_to_vector(this->Xproj, this->large_mat_P, this->small_mat_P, this->map_B, this->map_M1, this->map_M2);
 
-        /* Finish the computation of S^{k+1} */
-
-        // Xdiff <-- 1.0 * Xproj + (-1.0) * X
-        dense_vector_add_dense_vector(this->Xdiff, this->Xproj, this->X, 1.0, -1.0);
-        // hence Xdiff = Pi(X^{k+1}) - X^k
-
-        // S <-- 1/sig * Xdiff + (-1.0) * Rd1
-        dense_vector_add_dense_vector(this->S, this->Xdiff, this->Rd1, 1/this->sig, -1.0);
-        // hence S = 1/sig * (Pi(X^{k+1}) - X^k) - (A^T y^{k+1/2} - C)
-        // which is S = 1/sig * (Pi(X^{k+1}) - X^{k+1})
+        // S <-- Xproj
+        CHECK_CUDA( cudaMemcpy(this->S.vals, this->Xproj.vals, sizeof(double) * this->vec_len, D2D) );
 
 
         /*

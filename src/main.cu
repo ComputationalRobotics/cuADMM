@@ -38,10 +38,6 @@ int main(int argc, char* argv[]) {
     // ADMM only
     // solver.solve((int) 1e6, 1e-3, false, 50, 100, 1);
 
-    // std::vector<double> SmC_vals;
-    // read_dense_vector_data("./SmC.txt", SmC_vals);
-    // CHECK_CUDA( cudaMemcpy(solver.SmC.vals, SmC_vals.data(), sizeof(double) * solver.con_num, cudaMemcpyHostToDevice) );
-
     // sGS-ADMM
     solver.solve((int) 1e6, 1e-3, 500, 50, 100, 5000);
 

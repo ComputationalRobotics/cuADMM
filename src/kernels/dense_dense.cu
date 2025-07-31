@@ -86,6 +86,16 @@ __global__ void dense_vector_plus_dense_vector_mul_scalar_kernel(
     return;
 }
 
+__global__ void dense_vector_negate_kernel(
+    double* vec_vals, int size
+) {
+    int idx = threadIdx.x + blockIdx.x * blockDim.x;
+    if (idx < size) {
+        vec_vals[idx] = -vec_vals[idx];
+    }
+    return;
+}
+
 /* Kernels for vector-wise operations */
 
 // vec1 = alpha * vec1 + beta * vec2
@@ -158,5 +168,14 @@ void dense_vector_plus_dense_vector_mul_scalar(
     dense_vector_plus_dense_vector_mul_scalar_kernel<<<num_block, block_size, 0, stream>>>(
         vec1.vals, vec2.vals, vec3.vals, scalar, size
     );
+    return;
+}
+
+void dense_vector_negate(
+    DeviceDenseVector<double>& vec, const cudaStream_t& stream, int block_size
+) {
+    const int size = vec.size;
+    const int num_block = (size + block_size - 1) / block_size;
+    dense_vector_negate_kernel<<<num_block, block_size, 0, stream>>>(vec.vals, size);
     return;
 }

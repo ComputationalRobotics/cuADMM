@@ -107,10 +107,6 @@ class SDPSolver {
         size_t CSCtoCSR_At2A_buffer_size;    // cached call to buffersize_cusparse
         DeviceDenseVector<double> CSCtoCSR_At2A_buffer; // buffer for CSC to CSR
 
-        /* GPU and CPU eigen decomposition + X, S computation */
-        DeviceDenseVector<double> Xold;
-        DeviceDenseVector<double> Xb;
-
         /* Sparse vector <-> sparse matrix mapping */
         std::vector<int> psd_blk_sizes; // sizes of the matrices (without muliplicity)
         std::vector<int> psd_blk_nums;  // number of matrices of each size
@@ -120,6 +116,7 @@ class SDPSolver {
         DeviceDenseVector<int> map_M2; // |    (cached from get_maps())
 
         /* Large matrix decomposition */
+        DeviceDenseVector<double> Xinput;
         DeviceDenseVector<double> large_mat;
         DeviceDenseVector<double> large_W;
         DeviceDenseVector<int> large_info;
@@ -190,7 +187,6 @@ class SDPSolver {
         /* sGS-ADMM */
         double tau;
         DeviceDenseVector<double> Xproj;
-        DeviceDenseVector<double> Xdiff;
         int switch_admm; // the iteration at which to switch to standard ADMM
         int sig_update_threshold;
         int sig_update_stage_1;

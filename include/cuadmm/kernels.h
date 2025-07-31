@@ -48,6 +48,12 @@ void dense_vector_div_dense_vector_mul_scalar(
     const cudaStream_t& stream = (cudaStream_t) 0, int block_size = 1024
 );
 
+// vec1 <-- -vec1
+void dense_vector_negate(
+    DeviceDenseVector<double>& vec,
+    const cudaStream_t& stream = (cudaStream_t) 0, int block_size = 1024
+);
+
 
 /*
     Dense-scalar operations (kernels/dense_scalar.cu)
