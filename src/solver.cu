@@ -385,7 +385,6 @@ void SDPSolver::init(
     this->sigmin = 1e-3;
 
     /* Main elements for the sGS-ADMM algorithm */
-    this->Xproj.allocate(GPU0, this->vec_len);
     this->X_best.allocate(GPU0, this->vec_len);
     this->y_best.allocate(GPU0, this->con_num);
     this->S_best.allocate(GPU0, this->vec_len);
@@ -777,15 +776,11 @@ void SDPSolver::solve(
             );
         }
 
-        // put Xproj to zero (the projection of free variables)
-        // TODO: remove Xproj and use S directly
-        CHECK_CUDA( cudaMemsetAsync(this->Xproj.vals, 0, sizeof(double) * this->vec_len) );
+        // put S to zero (the projection of free variables)
+        CHECK_CUDA( cudaMemsetAsync(this->S.vals, 0, sizeof(double) * this->vec_len) );
 
         // convert the matrices back to vectorized format
-        matrices_to_vector(this->Xproj, this->large_mat_P, this->small_mat_P, this->map_B, this->map_M1, this->map_M2);
-
-        // S <-- Xproj
-        CHECK_CUDA( cudaMemcpy(this->S.vals, this->Xproj.vals, sizeof(double) * this->vec_len, D2D) );
+        matrices_to_vector(this->S, this->large_mat_P, this->small_mat_P, this->map_B, this->map_M1, this->map_M2);
 
 
         /*

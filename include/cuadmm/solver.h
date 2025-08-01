@@ -186,7 +186,6 @@ class SDPSolver {
 
         /* sGS-ADMM */
         double tau;
-        DeviceDenseVector<double> Xproj;
         int switch_admm; // the iteration at which to switch to standard ADMM
         int sig_update_threshold;
         int sig_update_stage_1;
