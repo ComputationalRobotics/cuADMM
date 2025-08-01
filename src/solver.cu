@@ -778,6 +778,7 @@ void SDPSolver::solve(
         }
 
         // put Xproj to zero (the projection of free variables)
+        // TODO: remove Xproj and use S directly
         CHECK_CUDA( cudaMemsetAsync(this->Xproj.vals, 0, sizeof(double) * this->vec_len) );
 
         // convert the matrices back to vectorized format

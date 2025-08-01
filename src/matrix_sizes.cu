@@ -12,10 +12,11 @@
 // - mat_num: number of matrices of this size
 // Returns true if the matrix is large, false otherwise.
 bool is_large_mat(const int mat_size, const int mat_num) {
-    if (mat_size > 32) {
-        return true; // single is faster
-    }
-    return ((double) mat_size - 17.0 > (double) mat_num * 1.4); // approximation of the slope
+    return true;
+    // if (mat_size > 32) {
+    //     return true; // single is faster
+    // }
+    // return ((double) mat_size - 17.0 > (double) mat_num * 1.4); // approximation of the slope
 }
 
 
