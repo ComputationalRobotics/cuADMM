@@ -35,11 +35,11 @@ int main(int argc, char* argv[]) {
         sig
     );
 
-    // ADMM only
-    // solver.solve((int) 1e6, 1e-3, false, 50, 100, 1);
-
     // sGS-ADMM
-    solver.solve((int) 1e6, 1e-3, 500, 50, 100, 5000);
+    // solver.solve((int) 1e6, 1e-3, 500, 50, 100, 5000);
+
+    // standard ADMM
+    solver.solve((int) 1e6, 1e-3, 500, 50, 100, 0);
 
     // solver.X.to_txt(prefix + "X_opt.txt");
     

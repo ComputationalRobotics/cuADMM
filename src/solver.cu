@@ -407,7 +407,6 @@ void SDPSolver::solve(
     this->sig_update_threshold = sig_update_threshold;
     this->sig_update_stage_1 = sig_update_stage_1;
     this->sig_update_stage_2 = sig_update_stage_2;
-    assert(switch_admm > 0);
     this->switch_admm = switch_admm;
     this->sigscale = sigscale;
 
@@ -714,21 +713,19 @@ void SDPSolver::solve(
             max_dense_vector_zero(this->small_W);
         }
 
-        // int stream_id;
         // multiply the large matrices by their eigenvalues
         for (int i = 0; i < this->sizes.large_mat_sizes.size(); i++) {
             if (this->sizes.use_cusolver(this->sizes.large_mat_sizes[i]) || this->current_proj_method == ProjectionMethod::EIG_FP64) {
-                // stream_id = i % this->eig_stream_num_per_gpu;
+                stream_id = i % this->eig_stream_num_per_gpu;
                 dense_matrix_mul_diag_batch(
                     this->large_mat_tmp, this->large_mat, this->large_W,
                     this->sizes.large_mat_sizes[i], this->sizes.large_mat_nums[i],
-                    this->sizes.large_mat_offset(i, 0), this->sizes.large_W_offset(i, 0)//,
-                    // this->eig_stream_arr[stream_id].stream
+                    this->sizes.large_mat_offset(i, 0), this->sizes.large_W_offset(i, 0),
+                    this->eig_stream_arr[stream_id].stream
                 );
             }
         }
 
-        // TODO: use multiple streams
         // multiply the small matrices by their eigenvalues
         for (int i = 0; i < this->sizes.small_mat_sizes.size(); i++) {
             // stream_id = (this->sizes.large_mat_sizes.size() + i) % this->eig_stream_num_per_gpu;
@@ -741,9 +738,9 @@ void SDPSolver::solve(
         }
 
         // synchronize the streams
-        // for (int stream_id = 0; stream_id < this->eig_stream_num_per_gpu; stream_id++) {
-        //     CHECK_CUDA( cudaStreamSynchronize(this->eig_stream_arr[stream_id].stream) );
-        // }
+        for (int stream_id = 0; stream_id < this->eig_stream_num_per_gpu; stream_id++) {
+            CHECK_CUDA( cudaStreamSynchronize(this->eig_stream_arr[stream_id].stream) );
+        }
 
         // multiply the large matrices by their eigenvectors
         for (int i = 0; i < this->sizes.large_mat_sizes.size(); i++) {
@@ -766,7 +763,6 @@ void SDPSolver::solve(
         }
 
         // multiply the small matrices by their eigenvectors
-        // TODO: use multiple streams (require the kernel to take a stream as an argument)
         for (int i = 0; i < this->sizes.small_mat_sizes.size(); i++) {
             dense_matrix_mul_trans_batch(
                 this->cublasH,

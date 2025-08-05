@@ -110,7 +110,7 @@ class BatchEigParameter {
         syevjInfo_t syevj_param;
 
         BatchEigParameter(
-            int gpu_id = 0, double eig_tol = 1e-6, int eig_max_sweeps = 15, int eig_sort = 1
+            int gpu_id = 0, double eig_tol = 1e-16, int eig_max_sweeps = 15, int eig_sort = 1
         ): gpu_id(gpu_id), eig_tol(eig_tol), eig_max_sweeps(eig_max_sweeps), eig_sort(eig_sort) {
             CHECK_CUDA( cudaSetDevice(this->gpu_id) );
             this->jobz = CUSOLVER_EIG_MODE_VECTOR;

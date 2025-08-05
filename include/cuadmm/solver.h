@@ -252,7 +252,7 @@ class SDPSolver {
             int sig_update_threshold = 500,
             int sig_update_stage_1 = 50,
             int sig_update_stage_2 = 100,
-            int switch_admm = (int) 1.1e4,
+            int switch_admm = 0,
             int switch_proj_iter = 5000,
             double switch_proj_tol = 1e-2,
             double sigscale = 1.05,
