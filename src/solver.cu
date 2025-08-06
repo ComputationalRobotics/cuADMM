@@ -381,8 +381,8 @@ void SDPSolver::init(
     this->prim_win = 0;
     this->dual_win = 0;
     this->ratioconst = 1e0;
-    this->sigmax = 1e3;
-    this->sigmin = 1e-3;
+    this->sigmax = 1e6;
+    this->sigmin = 1e-6;
 
     /* Main elements for the sGS-ADMM algorithm */
     this->X_best.allocate(GPU0, this->vec_len);
@@ -906,16 +906,35 @@ void SDPSolver::solve(
         }
 
         /* Update sigma */
-        if (
-            ( (iter <= this->sig_update_threshold) && ((iter % this->sig_update_stage_1) == 1) ) ||
-            ( (iter > this->sig_update_threshold) && ((iter % this->sig_update_stage_2) == 1) )
-        ) {
-            if (this->prim_win > 1.2 * this->dual_win) {
-                this->prim_win = 0;
-                this->sig = min(this->sigmax, this->sig * this->sigscale);
-            } else if (this->dual_win > 1.2 * this->prim_win) {
-                this->dual_win = 0;
-                this->sig = max(this->sigmin, this->sig / this->sigscale);
+        if (iter < this->switch_admm) {
+            // sGS-ADMM update rule
+            if (
+                ( (iter <= this->sig_update_threshold) && ((iter % this->sig_update_stage_1) == 1) ) ||
+                ( (iter > this->sig_update_threshold) && ((iter % this->sig_update_stage_2) == 1) )
+            ) {
+                if (this->prim_win > 1.2 * this->dual_win) {
+                    this->prim_win = 0;
+                    this->sig = min(this->sigmax, this->sig * this->sigscale);
+                } else if (this->dual_win > 1.2 * this->prim_win) {
+                    this->dual_win = 0;
+                    this->sig = max(this->sigmin, this->sig / this->sigscale);
+                }
+            }
+        } else {
+            // standard ADMM update rule
+            if (
+                (               iter <=  200 && (iter %   10) == 1) ||
+                (iter >  200 && iter <= 1000 && (iter %   25) == 1) ||
+                (iter > 1000 && iter <= 5000 && (iter %   50) == 1) ||
+                (iter > 5000                 && (iter % 1000) == 1)
+            ) {
+                if (this->prim_win > 1.35 * this->dual_win) {
+                    this->prim_win = 0;
+                    this->sig = min(this->sigmax, this->sig * this->sigscale);
+                } else if (this->dual_win > 1.35 * this->prim_win) {
+                    this->dual_win = 0;
+                    this->sig = max(this->sigmin, this->sig / this->sigscale);
+                }
             }
         }
 
