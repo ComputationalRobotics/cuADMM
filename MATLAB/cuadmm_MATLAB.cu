@@ -265,7 +265,13 @@ void mexFunction(int nlhs, mxArray* plhs[], int nrhs, const mxArray* prhs[]) {
         cpu_blk_types.push_back('s');
         vec_len_from_blk = vec_len_from_blk + cpu_blk_vals[i] * (cpu_blk_vals[i] + 1) / 2;
     }
-    assert(vec_len_from_blk == vec_len);
+    if (vec_len_from_blk != vec_len) {
+        char err_msg[256];
+        sprintf(err_msg, "The length of blk does not match the length of At. (blk length: %d, At length: %d)", vec_len_from_blk, vec_len);
+        mxArray *arg = mxCreateString(err_msg);
+        mexCallMATLAB(0,0,1,&arg,"error");
+        return;
+    }
 
     // X
     int X_size;
@@ -328,7 +334,7 @@ void mexFunction(int nlhs, mxArray* plhs[], int nrhs, const mxArray* prhs[]) {
     if (nlhs >= 15) {
         switch_admm = static_cast<int>( mxGetScalar(prhs[INPUT_ID.switch_admm]) );
     } else {
-        switch_admm = (int) 1.1e4;
+        switch_admm = 0;
     }
 
     // switch_proj_iter
@@ -352,7 +358,7 @@ void mexFunction(int nlhs, mxArray* plhs[], int nrhs, const mxArray* prhs[]) {
     if (nlhs >= 18) {
         sigscale = mxGetScalar(prhs[INPUT_ID.sigscale]);
     } else {
-        sigscale = 1.0;
+        sigscale = 2.0;
     }
 
     // -------------------------------------------------------
@@ -363,7 +369,6 @@ void mexFunction(int nlhs, mxArray* plhs[], int nrhs, const mxArray* prhs[]) {
     SDPSolver solver;
     solver.init(
         eig_stream_num_per_gpu,
-
         vec_len, con_num,
         cpu_At_csc_col_ptrs.data(), cpu_At_csc_row_ids.data(), cpu_At_csc_vals.data(), At_nnz,
         cpu_b_indices.data(), cpu_b_vals.data(), b_nnz,
@@ -371,7 +376,7 @@ void mexFunction(int nlhs, mxArray* plhs[], int nrhs, const mxArray* prhs[]) {
         cpu_blk_types.data(),
         cpu_blk_vals.data(),
         mat_num,
-        ProjectionMethod::COMPOSITE_FP16,
+        ProjectionMethod::EIG_FP64,
         ProjectionMethod::EIG_FP64,
         cpu_X_vals.data(), cpu_y_vals.data(), cpu_S_vals.data(), sig
     );

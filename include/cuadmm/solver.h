@@ -255,7 +255,7 @@ class SDPSolver {
             int switch_admm = 0,
             int switch_proj_iter = 5000,
             double switch_proj_tol = 1e-2,
-            double sigscale = 1.05,
+            double sigscale = 2,
             bool if_first = true
         );
 
