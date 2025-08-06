@@ -32,6 +32,23 @@ void get_dnvec_from_matlab(
     return;
 }
 
+void get_char_vec_from_matlab(
+    const mxArray* mx_charvec,
+    int& cpu_charvec_size, 
+    std::vector<char>& cpu_charvec_vals
+) {
+    // matlab should pass a column vector, so col_size should always be 1
+    int col_size = static_cast<int>( mxGetN(mx_charvec) );
+    assert(col_size == 1);
+    cpu_charvec_size = static_cast<int>( mxGetM(mx_charvec) );
+    char* cpu_charvec_vals_pointer = mxArrayToString(mx_charvec);
+    cpu_charvec_vals.clear();
+    cpu_charvec_vals.resize(cpu_charvec_size, 0);
+    memcpy(cpu_charvec_vals.data(), cpu_charvec_vals_pointer, sizeof(char) * cpu_charvec_size);
+    mxFree(cpu_charvec_vals_pointer);
+    return;
+}
+
 void get_spvec_from_matlab(
     const mxArray* mx_spvec,
     int& cpu_spvec_size, int& cpu_spvec_nnz,
@@ -104,7 +121,8 @@ class INPUT_ID_factory {
         int At;
         int b;
         int C;
-        int blk;
+        int blk_sizes;
+        int blk_vals;
         int X;
         int y;
         int S;
@@ -126,19 +144,19 @@ class INPUT_ID_factory {
             this->At = offset + 3;
             this->b = offset + 4;
             this->C = offset + 5;
-            this->blk = offset + 6;
-            this->X = offset + 7;
-            this->y = offset + 8;
-            this->S = offset + 9;
-            this->sig = offset + 10;
-            // this->lam = offset + 12;
-            this->sig_update_threshold = offset + 11;
-            this->sig_update_stage_1 = offset + 12;
-            this->sig_update_stage_2 = offset + 13;
-            this->switch_admm = offset + 14;
-            this->switch_proj_iter = offset + 15;
-            this->switch_proj_tol = offset + 16;
-            this->sigscale = offset + 17;
+            this->blk_sizes = offset + 6;
+            this->blk_vals = offset + 7;
+            this->X = offset + 8;
+            this->y = offset + 9;
+            this->S = offset + 10;
+            this->sig = offset + 11;
+            this->sig_update_threshold = offset + 12;
+            this->sig_update_stage_1 = offset + 13;
+            this->sig_update_stage_2 = offset + 14;
+            this->switch_admm = offset + 15;
+            this->switch_proj_iter = offset + 16;
+            this->switch_proj_tol = offset + 17;
+            this->sigscale = offset + 18;
         }
 };
 
@@ -252,18 +270,32 @@ void mexFunction(int nlhs, mxArray* plhs[], int nrhs, const mxArray* prhs[]) {
     // blk
     // TODO: adapt for new signature
     int mat_num;
-    std::vector<double> cpu_blk_vals_double;
     std::vector<char> cpu_blk_types;
+    get_char_vec_from_matlab(
+        prhs[INPUT_ID.blk_vals], 
+        mat_num, cpu_blk_types
+    );
+    std::vector<double> cpu_blk_vals_double;
     get_dnvec_from_matlab(
-        prhs[INPUT_ID.blk], 
+        prhs[INPUT_ID.blk_sizes], 
         mat_num, cpu_blk_vals_double
     );
     std::vector<int> cpu_blk_vals(mat_num, 0);
     int vec_len_from_blk = 0;
     for (int i = 0; i < mat_num; i++) {
         cpu_blk_vals[i] = static_cast<int>( cpu_blk_vals_double[i] );
-        cpu_blk_types.push_back('s');
-        vec_len_from_blk = vec_len_from_blk + cpu_blk_vals[i] * (cpu_blk_vals[i] + 1) / 2;
+        if (cpu_blk_types[i] == 's')
+            vec_len_from_blk = vec_len_from_blk + cpu_blk_vals[i] * (cpu_blk_vals[i] + 1) / 2;
+        else if (cpu_blk_types[i] == 'u')
+            vec_len_from_blk = vec_len_from_blk + cpu_blk_vals[i];
+        else {
+            char err_msg[256];
+            sprintf(err_msg, "The type of blk should be 's' or 'u', but got '%c'.", cpu_blk_types[i]);
+            mxArray *arg = mxCreateString(err_msg);
+            mexCallMATLAB(0,0,1,&arg,"error");
+            return;
+        }
+
     }
     if (vec_len_from_blk != vec_len) {
         char err_msg[256];

@@ -452,6 +452,7 @@ void SDPSolver::solve(
 
     std::cout << "  it. | p infeas d infeas | primal obj.   dual obj. rel. gap |  time |   sigma " << std::endl;
     std::cout << " ------------------------------------------------------------------------------" << std::endl;
+    std::cout << " --------------- Starting with projection method " << get_projection_method_name(this->current_proj_method) << "------" << std::endl;
 
     // for each iteration of the main solver
     for (int iter = 1; iter <= max_iter + 1; iter++) {
@@ -513,11 +514,13 @@ void SDPSolver::solve(
         if (
             !switched_proj_method
             && (iter > switch_proj_iter || max(this->maxfeas, this->relgap) < switch_proj_tol)
-            && iter > 1) {
+            && iter > 1
+        ) {
             // switch the projection method
+            if (this->final_proj_method != this->current_proj_method)
+                std::cout << " ---------------- Switching projection method to " << get_projection_method_name(this->current_proj_method) << "------" << std::endl;
             this->current_proj_method = this->final_proj_method;
             this->switched_proj_method = true;
-            std::cout << " ---------------- Switching projection method to " << get_projection_method_name(this->current_proj_method) << "------" << std::endl;
         }
 
         /*
