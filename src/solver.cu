@@ -719,12 +719,12 @@ void SDPSolver::solve(
         // multiply the large matrices by their eigenvalues
         for (int i = 0; i < this->sizes.large_mat_sizes.size(); i++) {
             if (this->sizes.use_cusolver(this->sizes.large_mat_sizes[i]) || this->current_proj_method == ProjectionMethod::EIG_FP64) {
-                stream_id = i % this->eig_stream_num_per_gpu;
+                // stream_id = i % this->eig_stream_num_per_gpu;
                 dense_matrix_mul_diag_batch(
                     this->large_mat_tmp, this->large_mat, this->large_W,
                     this->sizes.large_mat_sizes[i], this->sizes.large_mat_nums[i],
-                    this->sizes.large_mat_offset(i, 0), this->sizes.large_W_offset(i, 0),
-                    this->eig_stream_arr[stream_id].stream
+                    this->sizes.large_mat_offset(i, 0), this->sizes.large_W_offset(i, 0)//,
+                    // this->eig_stream_arr[stream_id].stream
                 );
             }
         }
@@ -741,9 +741,9 @@ void SDPSolver::solve(
         }
 
         // synchronize the streams
-        for (int stream_id = 0; stream_id < this->eig_stream_num_per_gpu; stream_id++) {
-            CHECK_CUDA( cudaStreamSynchronize(this->eig_stream_arr[stream_id].stream) );
-        }
+        // for (int stream_id = 0; stream_id < this->eig_stream_num_per_gpu; stream_id++) {
+        //     CHECK_CUDA( cudaStreamSynchronize(this->eig_stream_arr[stream_id].stream) );
+        // }
 
         // multiply the large matrices by their eigenvectors
         for (int i = 0; i < this->sizes.large_mat_sizes.size(); i++) {
