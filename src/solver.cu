@@ -16,6 +16,7 @@
 #include "psd_projection/composite_FP32_emulated.h"
 #endif
 #include "psd_projection/composite_FP16.h"
+#include "psd_projection/lobpcg.h"
 #include "psd_projection/utils.h"
 
 #include <algorithm>
@@ -432,6 +433,8 @@ void SDPSolver::solve(
 
     this->info_iter_num = 0; // iteration number
 
+    double minus_one = -1.0;
+
     /* Start the solver */
     std::cout << std::endl;
     std::cout << " ------------------------------------------------------------------------------" << std::endl;
@@ -486,6 +489,7 @@ void SDPSolver::solve(
             final_msg = "Solver ended: maximum iteration reached";
         }
         if (
+            true ||
             ( breakyes == true ) ||
             ( (iter <= 200) && ((iter % 50) == 1) ) ||
             ( (iter > 200) && ((iter % 100) == 1) )
@@ -705,8 +709,37 @@ void SDPSolver::solve(
                         // otherwise, we compute the EVD of the deflated matrix
                         else {
                             // if the matrix is positive low rank
-                            if (cpu_positive_ranks.vals[all_counter] < 0.05 * this->sizes.large_mat_sizes[i]) {
-                                // TODO: deflate
+                            if (cpu_positive_ranks.vals[all_counter] < 0.05 * this->sizes.large_mat_sizes[i] && cpu_positive_ranks.vals[all_counter] > 0) {
+                                int k = 1.5 * cpu_positive_ranks.vals[all_counter];
+                                int n = this->sizes.large_mat_sizes[i];
+
+                                // TODO: preallocate
+                                double *eigenvalues, *eigenvectors;
+                                CHECK_CUDA( cudaMalloc(&eigenvalues,      k * sizeof(double)) );
+                                CHECK_CUDA( cudaMalloc(&eigenvectors, n * k * sizeof(double)) );
+
+                                // compute the largest eigenpairs
+                                lobpcg(
+                                    cublasH_proj.cublas_handle, this->cusolverH_eig_large_arr[stream_id].cusolver_dn_handle,
+                                    this->large_mat.vals + this->sizes.large_mat_offset(i, j),
+                                    eigenvectors, eigenvalues,
+                                    n, k, false, 100, 1e-8, false
+                                );
+
+                                // negate eigenvalues
+                                CHECK_CUBLAS(cublasDscal(cublasH_proj.cublas_handle, k, &minus_one, eigenvalues, 1));
+
+                                // remove the largest eigenvalues from the matrix
+                                cublasSetPointerMode(cublasH_proj.cublas_handle, CUBLAS_POINTER_MODE_DEVICE);
+                                for (int l = 0; l < k; l++) {
+                                    // X <- X - \lambda_i * v_i v_i^T
+                                    double *v_i = eigenvectors + l * n;
+                                    double *m_lambda_i = eigenvalues + l;
+                                    CHECK_CUBLAS( cublasDger(cublasH_proj.cublas_handle, n, n, m_lambda_i, v_i, 1, v_i, 1, this->large_mat.vals + this->sizes.large_mat_offset(i, j), n) );
+                                }
+                                cublasSetPointerMode(cublasH_proj.cublas_handle, CUBLAS_POINTER_MODE_HOST);
+
+                                // compute the EVD
                                 single_eig_cusolver(
                                     this->cusolverH_eig_large_arr[stream_id], eig_param_single,
                                     this->large_mat, this->large_W,
@@ -718,9 +751,26 @@ void SDPSolver::solve(
                                     this->sizes.large_cpu_buffer_offset(icounter, j, this->eig_large_buffer_size),
                                     all_counter
                                 );
+
+                                // add eigenvalues back
+                                CHECK_CUBLAS( cublasDscal(cublasH_proj.cublas_handle, k, &minus_one, eigenvalues, 1) );
+                                cublasSetPointerMode(cublasH_proj.cublas_handle, CUBLAS_POINTER_MODE_DEVICE);
+                                for (int l = 0; l < k; l++) {
+                                    // X <- X + \lambda_i * v_i v_i^T
+                                    double *m_lambda_i = eigenvalues + l;
+                                    double *v_i = eigenvectors + l * n;
+                                    CHECK_CUBLAS( cublasDger(cublasH_proj.cublas_handle, n, n, m_lambda_i, v_i, 1, v_i, 1, this->large_mat.vals + this->sizes.large_mat_offset(i, j), n) );
+                                }
+                                cublasSetPointerMode(cublasH_proj.cublas_handle, CUBLAS_POINTER_MODE_HOST);
+
+                                // TODO: remove free code
+                                CHECK_CUDA(cudaFree(eigenvalues));
+                                CHECK_CUDA(cudaFree(eigenvectors));
                             }
                             // if the matrix is negative low rank
-                            else if (cpu_negative_ranks.vals[all_counter] < 0.05 * this->sizes.large_mat_sizes[i]) {
+                            else if (cpu_negative_ranks.vals[all_counter] < 0.05 * this->sizes.large_mat_sizes[i] && cpu_negative_ranks.vals[all_counter] > 0) {
+                                int k = 1.5 * cpu_negative_ranks.vals[all_counter];
+
                                 // TODO: deflate
                                 single_eig_cusolver(
                                     this->cusolverH_eig_large_arr[stream_id], eig_param_single,
