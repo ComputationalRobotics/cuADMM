@@ -135,14 +135,15 @@ class SDPSolver {
         ProjectionMethod initial_proj_method; // projection initially used (low precision)
         ProjectionMethod final_proj_method; // projection used in the end (high precision)
         bool switched_proj_method; // whether the projection method has been switched
+        int switched_proj_method_iter; // iteration at which the projection method was switched
         DeviceBlasHandle cublasH_proj;
         DeviceSolverDnHandle cusolverH_proj;
 
         bool deflation; // whether to use deflation
-        bool switched_deflation; // whether deflation has been switched on
-        int switch_deflation_iter; // iteration at which deflation is switched on
         DeviceDenseVector<int> positive_ranks; // positive ranks of large matrices
         DeviceDenseVector<int> negative_ranks; // negative ranks of large matrices
+        HostDenseVector<int> cpu_positive_ranks; // positive ranks of large matrices (CPU copy)
+        HostDenseVector<int> cpu_negative_ranks; // negative ranks of large matrices (CPU copy)
 
         /* Small matrices eigen decomposition (batched Jacobi)  */
         DeviceDenseVector<double> small_mat;
@@ -260,7 +261,7 @@ class SDPSolver {
             int sig_update_stage_1 = 50,
             int sig_update_stage_2 = 100,
             int switch_admm = 0,
-            int switch_proj_iter = 5000,
+            int switch_proj_max_iter = 5000,
             double switch_proj_tol = 1e-2,
             double sigscale = 2,
             bool if_first = true

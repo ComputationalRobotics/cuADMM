@@ -380,7 +380,6 @@ void SDPSolver::init(
     this->Xinput.allocate(GPU0, this->vec_len);
 
     /* Deflation of large eigenvalues */
-    this->switched_deflation = false;
     this->deflation = deflation;
     if (deflation) {
         if (final_proj_method != ProjectionMethod::EIG_FP64) {
@@ -390,6 +389,8 @@ void SDPSolver::init(
 
         this->positive_ranks.allocate(GPU0, this->sizes.large_mat_num);
         this->negative_ranks.allocate(GPU0, this->sizes.large_mat_num);
+        this->cpu_positive_ranks.allocate(this->sizes.large_mat_num);
+        this->cpu_negative_ranks.allocate(this->sizes.large_mat_num);
     }
 
     /* others */
@@ -413,7 +414,7 @@ void SDPSolver::solve(
     int sig_update_stage_1,
     int sig_update_stage_2,
     int switch_admm,
-    int switch_proj_iter,
+    int switch_proj_max_iter,
     double switch_proj_tol,
     double sigscale,
     bool if_first
@@ -527,15 +528,16 @@ void SDPSolver::solve(
 
         // check if the conditions to switch the projection method are met
         if (
-            !switched_proj_method
-            && (iter > switch_proj_iter || max(this->maxfeas, this->relgap) < switch_proj_tol)
+            !this->switched_proj_method
+            && (iter > switch_proj_max_iter || max(this->maxfeas, this->relgap) < switch_proj_tol)
             && iter > 1
         ) {
             // switch the projection method
             if (this->final_proj_method != this->current_proj_method)
-                std::cout << " ---------------- Switching projection method to " << get_projection_method_name(this->current_proj_method) << "------" << std::endl;
+                std::cout << " ---------------- Switching projection method to " << get_projection_method_name(this->final_proj_method) << "------" << std::endl;
             this->current_proj_method = this->final_proj_method;
             this->switched_proj_method = true;
+            this->switched_proj_method_iter = iter;
         }
 
         /*
@@ -671,31 +673,95 @@ void SDPSolver::solve(
                 for (int j = 0; j < this->sizes.large_mat_nums[i]; j++) {
                     stream_id = all_counter % this->eig_stream_num_per_gpu;
 
-                    // simply calls the cuSOLVER wrapper
-                    single_eig_cusolver(
-                        this->cusolverH_eig_large_arr[stream_id], eig_param_single,
-                        this->large_mat, this->large_W,
-                        this->eig_large_buffer, this->cpu_eig_large_buffer, this->large_info,
-                        this->sizes.large_mat_sizes[i],
-                        this->eig_large_buffer_size[icounter], this->cpu_eig_large_buffer_size[icounter],
-                        this->sizes.large_mat_offset(i, j), this->sizes.large_W_offset(i, j),
-                        this->sizes.large_buffer_offset(icounter, j, this->eig_large_buffer_size),
-                        this->sizes.large_cpu_buffer_offset(icounter, j, this->eig_large_buffer_size),
-                        all_counter
-                    );
+                    // if we don't do deflation at this step,
+                    // or if we are every 100 iterations
+                    if (!(this->deflation && this->switched_proj_method) || iter - this->switched_proj_method_iter % 100 == 0) {
+                        // compute the EVD using cuSOLVER
+                        single_eig_cusolver(
+                            this->cusolverH_eig_large_arr[stream_id], eig_param_single,
+                            this->large_mat, this->large_W,
+                            this->eig_large_buffer, this->cpu_eig_large_buffer, this->large_info,
+                            this->sizes.large_mat_sizes[i],
+                            this->eig_large_buffer_size[icounter], this->cpu_eig_large_buffer_size[icounter],
+                            this->sizes.large_mat_offset(i, j), this->sizes.large_W_offset(i, j),
+                            this->sizes.large_buffer_offset(icounter, j, this->eig_large_buffer_size),
+                            this->sizes.large_cpu_buffer_offset(icounter, j, this->eig_large_buffer_size),
+                            all_counter
+                        );
+                    }
 
-                    // compute the ranks
-                    compute_ranks(
-                        this->large_W.vals + this->sizes.large_W_offset(i, j),
-                        this->sizes.large_mat_sizes[i],
-                        this->positive_ranks.vals + all_counter,
-                        this->negative_ranks.vals + all_counter
-                    );
+                    // if we are in the deflation phase
+                    if (this->deflation && this->switched_proj_method) {
+                        // every 100 iterations, we computed the EVD with the full matrix to compute the ranks
+                        if (iter - this->switched_proj_method_iter % 100 == 0) {
+                            // compute the ranks
+                            compute_ranks(
+                                this->large_W.vals + this->sizes.large_W_offset(i, j),
+                                this->sizes.large_mat_sizes[i],
+                                this->positive_ranks.vals + all_counter,
+                                this->negative_ranks.vals + all_counter
+                            );
+                        }
+                        // otherwise, we compute the EVD of the deflated matrix
+                        else {
+                            // if the matrix is positive low rank
+                            if (cpu_positive_ranks.vals[all_counter] < 0.05 * this->sizes.large_mat_sizes[i]) {
+                                // TODO: deflate
+                                single_eig_cusolver(
+                                    this->cusolverH_eig_large_arr[stream_id], eig_param_single,
+                                    this->large_mat, this->large_W,
+                                    this->eig_large_buffer, this->cpu_eig_large_buffer, this->large_info,
+                                    this->sizes.large_mat_sizes[i],
+                                    this->eig_large_buffer_size[icounter], this->cpu_eig_large_buffer_size[icounter],
+                                    this->sizes.large_mat_offset(i, j), this->sizes.large_W_offset(i, j),
+                                    this->sizes.large_buffer_offset(icounter, j, this->eig_large_buffer_size),
+                                    this->sizes.large_cpu_buffer_offset(icounter, j, this->eig_large_buffer_size),
+                                    all_counter
+                                );
+                            }
+                            // if the matrix is negative low rank
+                            else if (cpu_negative_ranks.vals[all_counter] < 0.05 * this->sizes.large_mat_sizes[i]) {
+                                // TODO: deflate
+                                single_eig_cusolver(
+                                    this->cusolverH_eig_large_arr[stream_id], eig_param_single,
+                                    this->large_mat, this->large_W,
+                                    this->eig_large_buffer, this->cpu_eig_large_buffer, this->large_info,
+                                    this->sizes.large_mat_sizes[i],
+                                    this->eig_large_buffer_size[icounter], this->cpu_eig_large_buffer_size[icounter],
+                                    this->sizes.large_mat_offset(i, j), this->sizes.large_W_offset(i, j),
+                                    this->sizes.large_buffer_offset(icounter, j, this->eig_large_buffer_size),
+                                    this->sizes.large_cpu_buffer_offset(icounter, j, this->eig_large_buffer_size),
+                                    all_counter
+                                );
+                            }
+                            // otherwise, we don't deflate
+                            else {
+                                single_eig_cusolver(
+                                    this->cusolverH_eig_large_arr[stream_id], eig_param_single,
+                                    this->large_mat, this->large_W,
+                                    this->eig_large_buffer, this->cpu_eig_large_buffer, this->large_info,
+                                    this->sizes.large_mat_sizes[i],
+                                    this->eig_large_buffer_size[icounter], this->cpu_eig_large_buffer_size[icounter],
+                                    this->sizes.large_mat_offset(i, j), this->sizes.large_W_offset(i, j),
+                                    this->sizes.large_buffer_offset(icounter, j, this->eig_large_buffer_size),
+                                    this->sizes.large_cpu_buffer_offset(icounter, j, this->eig_large_buffer_size),
+                                    all_counter
+                                );
+                            }
+                        }
+                    }
 
                     all_counter++;
                 }
 
                 icounter++;
+            }
+
+            // if we are in the deflation phase
+            if (this->deflation && this->switched_proj_method && iter - this->switched_proj_method_iter % 100 == 0) {
+                // copy the ranks to CPU
+                CHECK_CUDA(cudaMemcpy(this->cpu_positive_ranks.vals + all_counter, this->positive_ranks.vals, sizeof(int), D2H));
+                CHECK_CUDA(cudaMemcpy(this->cpu_negative_ranks.vals + all_counter, this->negative_ranks.vals, sizeof(int), D2H));
             }
 
             // for each stream, synchronize
