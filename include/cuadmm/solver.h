@@ -138,6 +138,12 @@ class SDPSolver {
         DeviceBlasHandle cublasH_proj;
         DeviceSolverDnHandle cusolverH_proj;
 
+        bool deflation; // whether to use deflation
+        bool switched_deflation; // whether deflation has been switched on
+        int switch_deflation_iter; // iteration at which deflation is switched on
+        DeviceDenseVector<int> positive_ranks; // positive ranks of large matrices
+        DeviceDenseVector<int> negative_ranks; // negative ranks of large matrices
+
         /* Small matrices eigen decomposition (batched Jacobi)  */
         DeviceDenseVector<double> small_mat;
         DeviceDenseVector<double> small_W;
@@ -235,7 +241,8 @@ class SDPSolver {
             double* cpu_X_vals = nullptr, // |
             double* cpu_y_vals = nullptr, // |- values for warm start
             double* cpu_S_vals = nullptr, // |
-            double sig = 1.0
+            double sig = 1.0,
+            bool deflation = true
         );
 
         /// @brief Solves the SDP problem using the sGS-ADMM algorithm.

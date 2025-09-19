@@ -9,7 +9,8 @@
 
 #include "cuadmm/solver.h"
 #include "cuadmm/kernels.h"
-// #include "cuadmm/projection.h"
+#include "cuadmm/rank.h"
+
 #include "psd_projection/composite_FP32.h"
 #if defined(CUDA_VERSION) && (CUDA_VERSION >= 12090)
 #include "psd_projection/composite_FP32_emulated.h"
@@ -39,7 +40,8 @@ void SDPSolver::init(
     double* cpu_X_vals,
     double* cpu_y_vals,
     double* cpu_S_vals,
-    double sig
+    double sig,
+    bool deflation
 ) {
     // start record time
     this->total_time = 0.0;
@@ -377,6 +379,19 @@ void SDPSolver::init(
     this->Rd1.allocate(GPU0, this->vec_len);
     this->Xinput.allocate(GPU0, this->vec_len);
 
+    /* Deflation of large eigenvalues */
+    this->switched_deflation = false;
+    this->deflation = deflation;
+    if (deflation) {
+        if (final_proj_method != ProjectionMethod::EIG_FP64) {
+            std::cout << " ERROR: when 'deflation' is enabled, the final projection method must be 'EIG_FP64'." << std::endl;
+            exit(EXIT_FAILURE);
+        }
+
+        this->positive_ranks.allocate(GPU0, this->sizes.large_mat_num);
+        this->negative_ranks.allocate(GPU0, this->sizes.large_mat_num);
+    }
+
     /* others */
     this->prim_win = 0;
     this->dual_win = 0;
@@ -667,6 +682,14 @@ void SDPSolver::solve(
                         this->sizes.large_buffer_offset(icounter, j, this->eig_large_buffer_size),
                         this->sizes.large_cpu_buffer_offset(icounter, j, this->eig_large_buffer_size),
                         all_counter
+                    );
+
+                    // compute the ranks
+                    compute_ranks(
+                        this->large_W.vals + this->sizes.large_W_offset(i, j),
+                        this->sizes.large_mat_sizes[i],
+                        this->positive_ranks.vals + all_counter,
+                        this->negative_ranks.vals + all_counter
                     );
 
                     all_counter++;
