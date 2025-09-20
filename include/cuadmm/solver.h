@@ -145,6 +145,8 @@ class SDPSolver {
         DeviceDenseVector<int> negative_ranks; // negative ranks of large matrices
         HostDenseVector<int> cpu_positive_ranks; // positive ranks of large matrices (CPU copy)
         HostDenseVector<int> cpu_negative_ranks; // negative ranks of large matrices (CPU copy)
+        DeviceDenseVector<double> deflated_W; // deflated eigenvalues of large matrices, each block being of size 0.05*n
+        DeviceDenseVector<double> deflated_P; // deflated eigenvectors of large matrices, each block being of size (0.05*n)*n
 
         /* Small matrices eigen decomposition (batched Jacobi)  */
         DeviceDenseVector<double> small_mat;
