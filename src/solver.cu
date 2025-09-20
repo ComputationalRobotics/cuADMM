@@ -257,12 +257,15 @@ void SDPSolver::init(
     // streams and handles for eigen decomposition
     this->eig_stream_arr = std::vector<DeviceStream>(this->eig_stream_num_per_gpu);
     this->cusolverH_eig_large_arr = std::vector<DeviceSolverDnHandle>(this->eig_stream_num_per_gpu);
+    this->cublasH_eig_large_arr = std::vector<DeviceBlasHandle>(this->eig_stream_num_per_gpu);
     for (int stream_id = 0; stream_id < this->eig_stream_num_per_gpu; stream_id++) {
         // ininitialize and activate the streams and handles
         this->eig_stream_arr[stream_id].set_gpu_id(GPU0);
         this->eig_stream_arr[stream_id].activate();
         this->cusolverH_eig_large_arr[stream_id].set_gpu_id(GPU0);
         this->cusolverH_eig_large_arr[stream_id].activate(this->eig_stream_arr[stream_id]);
+        this->cublasH_eig_large_arr[stream_id].set_gpu_id(GPU0);
+        this->cublasH_eig_large_arr[stream_id].activate(this->eig_stream_arr[stream_id]);
     }
 
     // compute the buffer sizes of the large matrices eig decomposition
@@ -720,24 +723,24 @@ void SDPSolver::solve(
 
                                 // compute the largest eigenpairs
                                 lobpcg(
-                                    cublasH_proj.cublas_handle, this->cusolverH_eig_large_arr[stream_id].cusolver_dn_handle,
+                                    this->cublasH_eig_large_arr[stream_id].cublas_handle, this->cusolverH_eig_large_arr[stream_id].cusolver_dn_handle,
                                     this->large_mat.vals + this->sizes.large_mat_offset(i, j),
                                     eigenvectors, eigenvalues,
                                     n, k, false, 100, 1e-8, false
                                 );
 
                                 // negate eigenvalues
-                                CHECK_CUBLAS(cublasDscal(cublasH_proj.cublas_handle, k, &minus_one, eigenvalues, 1));
+                                CHECK_CUBLAS(cublasDscal(this->cublasH_eig_large_arr[stream_id].cublas_handle, k, &minus_one, eigenvalues, 1));
 
                                 // remove the largest eigenvalues from the matrix
-                                cublasSetPointerMode(cublasH_proj.cublas_handle, CUBLAS_POINTER_MODE_DEVICE);
+                                cublasSetPointerMode(this->cublasH_eig_large_arr[stream_id].cublas_handle, CUBLAS_POINTER_MODE_DEVICE);
                                 for (int l = 0; l < k; l++) {
                                     // X <- X - \lambda_i * v_i v_i^T
                                     double *v_i = eigenvectors + l * n;
                                     double *m_lambda_i = eigenvalues + l;
-                                    CHECK_CUBLAS( cublasDger(cublasH_proj.cublas_handle, n, n, m_lambda_i, v_i, 1, v_i, 1, this->large_mat.vals + this->sizes.large_mat_offset(i, j), n) );
+                                    CHECK_CUBLAS( cublasDger(this->cublasH_eig_large_arr[stream_id].cublas_handle, n, n, m_lambda_i, v_i, 1, v_i, 1, this->large_mat.vals + this->sizes.large_mat_offset(i, j), n) );
                                 }
-                                cublasSetPointerMode(cublasH_proj.cublas_handle, CUBLAS_POINTER_MODE_HOST);
+                                cublasSetPointerMode(this->cublasH_eig_large_arr[stream_id].cublas_handle, CUBLAS_POINTER_MODE_HOST);
 
                                 // compute the EVD
                                 single_eig_cusolver(
@@ -753,15 +756,15 @@ void SDPSolver::solve(
                                 );
 
                                 // add eigenvalues back
-                                CHECK_CUBLAS( cublasDscal(cublasH_proj.cublas_handle, k, &minus_one, eigenvalues, 1) );
-                                cublasSetPointerMode(cublasH_proj.cublas_handle, CUBLAS_POINTER_MODE_DEVICE);
+                                CHECK_CUBLAS( cublasDscal(this->cublasH_eig_large_arr[stream_id].cublas_handle, k, &minus_one, eigenvalues, 1) );
+                                cublasSetPointerMode(this->cublasH_eig_large_arr[stream_id].cublas_handle, CUBLAS_POINTER_MODE_DEVICE);
                                 for (int l = 0; l < k; l++) {
                                     // X <- X + \lambda_i * v_i v_i^T
                                     double *m_lambda_i = eigenvalues + l;
                                     double *v_i = eigenvectors + l * n;
-                                    CHECK_CUBLAS( cublasDger(cublasH_proj.cublas_handle, n, n, m_lambda_i, v_i, 1, v_i, 1, this->large_mat.vals + this->sizes.large_mat_offset(i, j), n) );
+                                    CHECK_CUBLAS( cublasDger(this->cublasH_eig_large_arr[stream_id].cublas_handle, n, n, m_lambda_i, v_i, 1, v_i, 1, this->large_mat.vals + this->sizes.large_mat_offset(i, j), n) );
                                 }
-                                cublasSetPointerMode(cublasH_proj.cublas_handle, CUBLAS_POINTER_MODE_HOST);
+                                cublasSetPointerMode(this->cublasH_eig_large_arr[stream_id].cublas_handle, CUBLAS_POINTER_MODE_HOST);
 
                                 // TODO: remove free code
                                 CHECK_CUDA(cudaFree(eigenvalues));

@@ -123,6 +123,7 @@ class SDPSolver {
         int eig_stream_num_per_gpu;    // number of streams per GPU
         std::vector<DeviceStream> eig_stream_arr;
         std::vector<DeviceSolverDnHandle> cusolverH_eig_large_arr; // one handle per stream
+        std::vector<DeviceBlasHandle> cublasH_eig_large_arr;     // one handle per stream
         SingleEigParameter eig_param_single;
         std::vector<size_t> eig_large_buffer_size;                // one GPU buffer size per unique large size
         DeviceDenseVector<double> eig_large_buffer;  // one GPU buffer per unique large size
