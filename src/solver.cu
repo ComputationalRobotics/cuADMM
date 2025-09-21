@@ -901,6 +901,8 @@ void SDPSolver::solve(
         if (this->deflation && this->switched_proj_method && iter - this->switched_proj_method_iter % 100 != 0) {
             for (int i = 0; i < this->sizes.large_mat_sizes.size(); i++) {
                 for (int j = 0; j < this->sizes.large_mat_nums[i]; j++) {
+                    stream_id = all_counter % this->eig_stream_num_per_gpu;
+                    
                     // if the matrix is positive low rank
                     if (cpu_positive_ranks.vals[all_counter] < 0.05 * this->sizes.large_mat_sizes[i] && cpu_positive_ranks.vals[all_counter] > 0) {
                         int k = 1.5 * cpu_positive_ranks.vals[all_counter];
