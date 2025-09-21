@@ -917,7 +917,7 @@ void SDPSolver::solve(
                             // X <- X + \lambda_i * v_i v_i^T
                             double *v_i = eigenvectors + l * n;
                             double *m_lambda_i = eigenvalues + l;
-                            CHECK_CUBLAS( cublasDger(this->cublasH_eig_large_arr[stream_id].cublas_handle, n, n, m_lambda_i, v_i, 1, v_i, 1, this->large_mat.vals + this->sizes.large_mat_offset(i, j), n) );
+                            CHECK_CUBLAS( cublasDger(this->cublasH_eig_large_arr[stream_id].cublas_handle, n, n, m_lambda_i, v_i, 1, v_i, 1, this->large_mat_P.vals + this->sizes.large_mat_offset(i, j), n) );
                         }
                         cublasSetPointerMode(this->cublasH_eig_large_arr[stream_id].cublas_handle, CUBLAS_POINTER_MODE_HOST);
                     }
