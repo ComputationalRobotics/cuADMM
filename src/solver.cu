@@ -682,11 +682,12 @@ void SDPSolver::solve(
 
                 for (int j = 0; j < this->sizes.large_mat_nums[i]; j++) {
                     stream_id = all_counter % this->eig_stream_num_per_gpu;
+                    int n = this->sizes.large_mat_sizes[i];
 
                     // if we don't do deflation at this step,
                     // or if we are every 100 iterations
                     if (
-                        !(this->deflation && this->switched_proj_method && !this->sizes.use_cusolver(this->sizes.large_mat_sizes[i]))
+                        !(this->deflation && this->switched_proj_method && !this->sizes.use_cusolver(n))
                         || iter - this->switched_proj_method_iter % 100 == 0
                     ) {
                         // compute the EVD using cuSOLVER
@@ -704,16 +705,31 @@ void SDPSolver::solve(
                     }
 
                     // if we are in the deflation phase
-                    if (this->deflation && this->switched_proj_method && !this->sizes.use_cusolver(this->sizes.large_mat_sizes[i])) {
+                    if (this->deflation && this->switched_proj_method && !this->sizes.use_cusolver(n)) {
+                        double *eigenvalues = this->deflated_W.vals + (int)(this->sizes.large_W_offset(i, j) * 0.05);
+                        double *eigenvectors = this->deflated_P.vals + (int)(this->sizes.large_mat_offset(i, j) * 0.05);
+
                         // every 100 iterations, we computed the EVD with the full matrix to compute the ranks
                         if (iter - this->switched_proj_method_iter % 100 == 0) {
                             // compute the ranks
                             compute_ranks(
                                 this->large_W.vals + this->sizes.large_W_offset(i, j),
-                                this->sizes.large_mat_sizes[i],
+                                n,
                                 this->positive_ranks.vals + all_counter,
                                 this->negative_ranks.vals + all_counter
                             );
+
+                            // copy largest eigenpairs to use as a warmstart for LOBPCG
+                            if (cpu_positive_ranks.vals[all_counter] < 0.05 * n && cpu_positive_ranks.vals[all_counter] > 0) {
+                                int k = 1.5 * cpu_positive_ranks.vals[all_counter];
+
+                                // copy to eigenvalues and reverse them
+                                reverse_vector(this->large_W.vals + this->sizes.large_W_offset(i, j) + n - k, eigenvalues, k);
+
+                                // copy to eigenvectors and reverse the columns (vectors)
+                                reverse_columns(this->large_mat.vals + this->sizes.large_mat_offset(i, j) + (n - k) * n, eigenvectors, n, k);
+                            }
+                            
                         }
                         // otherwise, we compute the EVD of the deflated matrix
                         else {
@@ -722,15 +738,12 @@ void SDPSolver::solve(
                                 int k = 1.5 * cpu_positive_ranks.vals[all_counter];
                                 int n = this->sizes.large_mat_sizes[i];
 
-                                double *eigenvalues = this->deflated_W.vals + (int)(this->sizes.large_W_offset(i, j) * 0.05);
-                                double *eigenvectors = this->deflated_P.vals + (int)(this->sizes.large_mat_offset(i, j) * 0.05);
-
                                 // compute the largest eigenpairs
                                 lobpcg(
                                     this->cublasH_eig_large_arr[stream_id].cublas_handle, this->cusolverH_eig_large_arr[stream_id].cusolver_dn_handle,
                                     this->large_mat.vals + this->sizes.large_mat_offset(i, j),
                                     eigenvectors, eigenvalues,
-                                    n, k, false, 50, 1e-4, false
+                                    n, k, true, 100, 1e-4, false
                                 );
 
                                 // negate eigenvalues
