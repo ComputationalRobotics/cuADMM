@@ -950,6 +950,7 @@ void SDPSolver::solve(
         all_counter = 0;
         if (this->deflation && this->switched_proj_method && iter - this->switched_proj_method_iter % 100 != 0) {
             for (int i = 0; i < this->sizes.large_mat_sizes.size(); i++) {
+                int n = this->sizes.large_mat_sizes[i];
                 for (int j = 0; j < this->sizes.large_mat_nums[i]; j++) {
                     stream_id = all_counter % this->eig_stream_num_per_gpu;
 
