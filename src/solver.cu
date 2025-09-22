@@ -685,7 +685,10 @@ void SDPSolver::solve(
 
                     // if we don't do deflation at this step,
                     // or if we are every 100 iterations
-                    if (!(this->deflation && this->switched_proj_method) || iter - this->switched_proj_method_iter % 100 == 0) {
+                    if (
+                        !(this->deflation && this->switched_proj_method && !this->sizes.use_cusolver(this->sizes.large_mat_sizes[i]))
+                        || iter - this->switched_proj_method_iter % 100 == 0
+                    ) {
                         // compute the EVD using cuSOLVER
                         single_eig_cusolver(
                             this->cusolverH_eig_large_arr[stream_id], eig_param_single,
@@ -701,7 +704,7 @@ void SDPSolver::solve(
                     }
 
                     // if we are in the deflation phase
-                    if (this->deflation && this->switched_proj_method) {
+                    if (this->deflation && this->switched_proj_method && !this->sizes.use_cusolver(this->sizes.large_mat_sizes[i])) {
                         // every 100 iterations, we computed the EVD with the full matrix to compute the ranks
                         if (iter - this->switched_proj_method_iter % 100 == 0) {
                             // compute the ranks
@@ -727,7 +730,7 @@ void SDPSolver::solve(
                                     this->cublasH_eig_large_arr[stream_id].cublas_handle, this->cusolverH_eig_large_arr[stream_id].cusolver_dn_handle,
                                     this->large_mat.vals + this->sizes.large_mat_offset(i, j),
                                     eigenvectors, eigenvalues,
-                                    n, k, false, 100, 1e-8, false
+                                    n, k, false, 50, 1e-4, false
                                 );
 
                                 // negate eigenvalues
@@ -902,6 +905,11 @@ void SDPSolver::solve(
             for (int i = 0; i < this->sizes.large_mat_sizes.size(); i++) {
                 for (int j = 0; j < this->sizes.large_mat_nums[i]; j++) {
                     stream_id = all_counter % this->eig_stream_num_per_gpu;
+
+                    if (this->sizes.use_cusolver(this->sizes.large_mat_sizes[i])) {
+                        all_counter++;
+                        continue;
+                    }
                     
                     // if the matrix is positive low rank
                     if (cpu_positive_ranks.vals[all_counter] < 0.05 * this->sizes.large_mat_sizes[i] && cpu_positive_ranks.vals[all_counter] > 0) {
@@ -926,6 +934,7 @@ void SDPSolver::solve(
                     else {
                         // TODO: negative low rank case
                     }
+
                     all_counter++;
                 }
             }
