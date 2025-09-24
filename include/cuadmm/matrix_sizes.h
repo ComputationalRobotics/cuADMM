@@ -19,6 +19,12 @@
 // Returns true if the matrix is large, false otherwise.
 bool is_large_mat(int mat_size, int mat_num);
 
+/// @brief Heuristics to determine whether to always use cuSOLVER for a matrix.
+/// If true, the matrix is medium, if false, the matrix is large and we use composite filtering.
+/// @param mat_size the size of the matrix.
+/// @return true if the matrix is medium, false if it is large.
+bool is_medium_mat(const int mat_size);
+
 class MatrixSizes {
 private:
     std::unordered_map<int, bool> is_large_map; // map of sizes to whether they are large or small

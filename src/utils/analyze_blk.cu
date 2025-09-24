@@ -99,8 +99,10 @@ void analyze_blk(
     // print the PSD matrices of the map
     for (int i = 0; i < psd_blk_sizes.size(); i++) {
         std::cout << "     " << std::setw(4) << psd_blk_nums[i] << " matrices of size " << std::setw(4) << psd_blk_sizes[i];
-        if (is_large_mat(psd_blk_sizes[i], psd_blk_nums[i])) {
+        if (is_large_mat(psd_blk_sizes[i], psd_blk_nums[i]) && !is_medium_mat(psd_blk_sizes[i])) {
             std::cout << " (large)";
+        } else if (is_large_mat(psd_blk_sizes[i], psd_blk_nums[i])) {
+            std::cout << " (medium)";
         } else {
             std::cout << " (small)";
         }

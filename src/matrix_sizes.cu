@@ -19,6 +19,10 @@ bool is_large_mat(const int mat_size, const int mat_num) {
     return ((double) mat_size - 17.0 > (double) mat_num * 1.4); // approximation of the slope
 }
 
+bool is_medium_mat(const int mat_size) {
+    return mat_size < 1000;
+}
+
 
 void MatrixSizes::init(const std::vector<int>& psd_blk_sizes, const std::vector<int>& psd_blk_nums) {
     assert(psd_blk_sizes.size() == psd_blk_nums.size());
@@ -173,5 +177,5 @@ bool MatrixSizes::is_large(const int mat_size) const {
 }
 
 bool MatrixSizes::use_cusolver(const int mat_size) const {
-    return mat_size < 1000;
+    return is_medium_mat(mat_size);
 }
