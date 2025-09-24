@@ -21,6 +21,7 @@
 
 #include <algorithm>
 #include <stdio.h>
+#include <limits>
 
 void SDPSolver::synchronize_gpu0_streams() {
     CHECK_CUDA( cudaStreamSynchronize(this->stream_flex[0].stream) );
@@ -711,12 +712,21 @@ void SDPSolver::solve(
 
                         // every 100 iterations, we computed the EVD with the full matrix to compute the ranks
                         if (iter - this->switched_proj_method_iter % 100 == 0) {
+                            double largest_eigenvalue;
+                            CHECK_CUDA( cudaMemcpy(
+                                &largest_eigenvalue,
+                                this->large_W.vals + this->sizes.large_W_offset(i, j) + n - 1,
+                                sizeof(double), D2H
+                            ) );
+                            double rank_tol = std::numeric_limits<double>::epsilon() * n * largest_eigenvalue;
+
                             // compute the ranks
                             compute_ranks(
                                 this->large_W.vals + this->sizes.large_W_offset(i, j),
                                 n,
                                 this->positive_ranks.vals + all_counter,
-                                this->negative_ranks.vals + all_counter
+                                this->negative_ranks.vals + all_counter,
+                                rank_tol
                             );
 
                             // copy largest eigenpairs to use as a warmstart for LOBPCG
