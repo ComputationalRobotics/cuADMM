@@ -397,8 +397,8 @@ void SDPSolver::init(
         this->cpu_positive_ranks.allocate(this->sizes.large_mat_num);
         this->cpu_negative_ranks.allocate(this->sizes.large_mat_num);
 
-        this->deflated_W.allocate(GPU0, 0.05 * this->sizes.sum_large_mat_size); // since k <= 0.05*n
-        this->deflated_P.allocate(GPU0, 0.05 * this->sizes.total_large_mat_size);
+        this->deflated_W.allocate(GPU0, 1.5 * 0.05 * this->sizes.sum_large_mat_size); // since k <= 0.05*n
+        this->deflated_P.allocate(GPU0, 1.5 * 0.05 * this->sizes.total_large_mat_size);
     }
 
     /* others */
@@ -707,8 +707,8 @@ void SDPSolver::solve(
 
                     // if we are in the deflation phase
                     if (this->deflation && this->switched_proj_method && !this->sizes.use_cusolver(n)) {
-                        double *eigenvalues = this->deflated_W.vals + (int)(this->sizes.large_W_offset(i, j) * 0.05);
-                        double *eigenvectors = this->deflated_P.vals + (int)(this->sizes.large_mat_offset(i, j) * 0.05);
+                        double *eigenvalues = this->deflated_W.vals + (int)(this->sizes.large_W_offset(i, j) * 1.5 * 0.05);
+                        double *eigenvectors = this->deflated_P.vals + (int)(this->sizes.large_mat_offset(i, j) * 1.5 * 0.05);
 
                         // every 100 iterations, we computed the EVD with the full matrix to compute the ranks
                         if (iter - this->switched_proj_method_iter % 100 == 0) {
@@ -758,7 +758,7 @@ void SDPSolver::solve(
                                     this->cublasH_eig_large_arr[stream_id].cublas_handle, this->cusolverH_eig_large_arr[stream_id].cusolver_dn_handle,
                                     this->large_mat.vals + this->sizes.large_mat_offset(i, j),
                                     eigenvectors, eigenvalues,
-                                    n, k, true, 100, 1e-4, false
+                                    n, k, false, 100, 1e-4, false
                                 );
 
                                 // negate eigenvalues
@@ -979,8 +979,8 @@ void SDPSolver::solve(
                         }
                         int n = this->sizes.large_mat_sizes[i];
 
-                        double *eigenvalues = this->deflated_W.vals + (int)(this->sizes.large_W_offset(i, j) * 0.05);
-                        double *eigenvectors = this->deflated_P.vals + (int)(this->sizes.large_mat_offset(i, j) * 0.05);
+                        double *eigenvalues = this->deflated_W.vals + (int)(this->sizes.large_W_offset(i, j) * 1.5 * 0.05);
+                        double *eigenvectors = this->deflated_P.vals + (int)(this->sizes.large_mat_offset(i, j) * 1.5 * 0.05);
 
                         // TODO: preallocate
                         DeviceDenseVector<double> relu_eigenvalues;
