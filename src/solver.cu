@@ -729,6 +729,10 @@ void SDPSolver::solve(
                                 rank_tol
                             );
 
+                            // copy ranks to CPU
+                            CHECK_CUDA(cudaMemcpy(this->cpu_positive_ranks.vals + all_counter, this->positive_ranks.vals, sizeof(int), D2H));
+                            CHECK_CUDA(cudaMemcpy(this->cpu_negative_ranks.vals + all_counter, this->negative_ranks.vals, sizeof(int), D2H));
+
                             // copy largest eigenpairs to use as a warmstart for LOBPCG
                             if (cpu_positive_ranks.vals[all_counter] < 0.05 * n && cpu_positive_ranks.vals[all_counter] > 0) {
                                 int k = 1.5 * cpu_positive_ranks.vals[all_counter];
@@ -857,13 +861,6 @@ void SDPSolver::solve(
                 }
 
                 icounter++;
-            }
-
-            // if we are in the deflation phase
-            if (this->deflation && this->switched_proj_method && iter - this->switched_proj_method_iter % 100 == 0) {
-                // copy the ranks to CPU
-                CHECK_CUDA(cudaMemcpy(this->cpu_positive_ranks.vals + all_counter, this->positive_ranks.vals, sizeof(int), D2H));
-                CHECK_CUDA(cudaMemcpy(this->cpu_negative_ranks.vals + all_counter, this->negative_ranks.vals, sizeof(int), D2H));
             }
 
             // for each stream, synchronize
