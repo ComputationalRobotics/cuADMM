@@ -699,6 +699,7 @@ void SDPSolver::solve(
         // Then, project the matrices that use cuSOLVER
         int all_counter = 0; // serves as a stream id and as an info offset
         int icounter = 0;
+        int number_low_rank_matrices = 0;
         if (this->sizes.requires_cusolver || this->current_proj_method == ProjectionMethod::EIG_FP64) { // cuSOLVER version
             for (int i = 0; i < this->sizes.large_mat_sizes.size(); i++) {
                 // if the matrix does not require cuSOLVER, we skip it
@@ -713,7 +714,7 @@ void SDPSolver::solve(
                     // or if we are every 100 iterations
                     if (
                         !(this->deflation && this->switched_proj_method && !this->sizes.use_cusolver(n))
-                        || ((iter - this->switched_proj_method_iter) % 100 == 0)
+                        || (iter - this->switched_proj_method_iter) % 100 == 0
                     ) {
                         // compute the EVD using cuSOLVER
                         single_eig_cusolver(
@@ -760,6 +761,7 @@ void SDPSolver::solve(
                             // copy largest eigenpairs to use as a warmstart for LOBPCG
                             // TODO: take both positive and negative eigenpairs instead of top k
                             if (cpu_positive_ranks.vals[all_counter] < 0.05 * n && cpu_positive_ranks.vals[all_counter] > 0) {
+                                number_low_rank_matrices++;
                                 int k = 1.5 * cpu_positive_ranks.vals[all_counter];
 
                                 // copy to eigenvalues and reverse them
@@ -768,6 +770,7 @@ void SDPSolver::solve(
                                 // copy to eigenvectors and reverse the columns (vectors)
                                 reverse_columns(this->large_mat.vals + this->sizes.large_mat_offset(i, j) + (n - k) * n, eigenvectors, n, k);
                             } else if (cpu_negative_ranks.vals[all_counter] < 0.05 * n && cpu_negative_ranks.vals[all_counter] > 0) {
+                                number_low_rank_matrices++;
                                 int k = 1.5 * cpu_negative_ranks.vals[all_counter];
 
                                 // copy to eigenvalues and reverse them
@@ -782,7 +785,6 @@ void SDPSolver::solve(
                                     sizeof(double) * k*n, D2D
                                 ));
                             }
-                            
                         }
                         // otherwise, we compute the EVD of the deflated matrix
                         else {
@@ -903,6 +905,8 @@ void SDPSolver::solve(
 
                 icounter++;
             }
+            if (this->deflation && this->switched_proj_method && (iter - this->switched_proj_method_iter) % 100 == 0)
+                std::cout << " ------------------ Number of low rank matrices = " << std::setw(3) << number_low_rank_matrices << " / " << std::setw(3) << this->sizes.large_mat_num << "-------------------" << std::endl;
 
             // for each stream, synchronize
             for (int stream_id = 0; stream_id < this->eig_stream_num_per_gpu; stream_id++) {
