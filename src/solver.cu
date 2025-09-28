@@ -23,6 +23,10 @@
 #include <stdio.h>
 #include <limits>
 
+#define LOBPCG_MAXIT 100
+#define LOBPCG_TOL 1e-8
+#define LOBPCG_WARMSTART true
+
 void SDPSolver::synchronize_gpu0_streams() {
     CHECK_CUDA( cudaStreamSynchronize(this->stream_flex[0].stream) );
     CHECK_CUDA( cudaStreamSynchronize(this->stream_flex[1].stream) );
@@ -442,6 +446,25 @@ void SDPSolver::solve(
 
     double minus_one = -1.0;
 
+    std::cout << std::endl;
+    std::cout << "Problem parameters:" << std::endl;
+    std::cout << "              solver max iter: " << max_iter << std::endl;
+    std::cout << "        KKT stoping tolerance: " << stop_tol << std::endl;
+    std::cout << "       sigma update threshold: " << sig_update_threshold << std::endl;
+    std::cout << "         sigma update stage 1: " << sig_update_stage_1 << std::endl;
+    std::cout << "         sigma update stage 2: " << sig_update_stage_2 << std::endl;
+    std::cout << "                  switch admm: " << switch_admm << std::endl;
+    std::cout << "         switch proj max iter: " << switch_proj_max_iter << std::endl;
+    std::cout << "              switch proj tol: " << switch_proj_tol << std::endl;
+    std::cout << "                     sigscale: " << sigscale << std::endl;
+    std::cout << "                initial sigma: " << this->sig << std::endl;
+    std::cout << "                    deflation: " << (this->deflation ? "true" : "false") << std::endl;
+    std::cout << "    initial projection method: " << get_projection_method_name(this->initial_proj_method, false) << std::endl;
+    std::cout << "      final projection method: " << get_projection_method_name(this->final_proj_method, false) << std::endl;
+    std::cout << "              LOBPCG max iter: " << LOBPCG_MAXIT << std::endl;
+    std::cout << "             LOBPCG tolerance: " << LOBPCG_TOL << std::endl;
+    std::cout << "             LOBPCG warmstart: " << (LOBPCG_WARMSTART ? "true" : "false") << std::endl;
+
     /* Start the solver */
     std::cout << std::endl;
     std::cout << " ------------------------------------------------------------------------------" << std::endl;
@@ -771,7 +794,7 @@ void SDPSolver::solve(
                                     this->cublasH_eig_large_arr[stream_id].cublas_handle, this->cusolverH_eig_large_arr[stream_id].cusolver_dn_handle,
                                     this->large_mat.vals + this->sizes.large_mat_offset(i, j),
                                     eigenvectors, eigenvalues,
-                                    n, k, true, 100, 1e-8, false
+                                    n, k, LOBPCG_WARMSTART, LOBPCG_MAXIT, LOBPCG_TOL, false
                                 );
 
                                 // negate eigenvalues
@@ -822,7 +845,7 @@ void SDPSolver::solve(
                                     this->cublasH_eig_large_arr[stream_id].cublas_handle, this->cusolverH_eig_large_arr[stream_id].cusolver_dn_handle,
                                     this->large_mat.vals + this->sizes.large_mat_offset(i, j),
                                     eigenvectors, eigenvalues,
-                                    n, k, true, 100, 1e-8, false
+                                    n, k, LOBPCG_WARMSTART, LOBPCG_MAXIT, LOBPCG_TOL, false
                                 );
                                 // note: the eigenvalues are already negated since we use -A
 
