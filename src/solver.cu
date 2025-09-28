@@ -734,6 +734,7 @@ void SDPSolver::solve(
                             CHECK_CUDA(cudaMemcpy(this->cpu_negative_ranks.vals + all_counter, this->negative_ranks.vals, sizeof(int), D2H));
 
                             // copy largest eigenpairs to use as a warmstart for LOBPCG
+                            // TODO: take both positive and negative eigenpairs instead of top k
                             if (cpu_positive_ranks.vals[all_counter] < 0.05 * n && cpu_positive_ranks.vals[all_counter] > 0) {
                                 int k = 1.5 * cpu_positive_ranks.vals[all_counter];
 
@@ -743,7 +744,19 @@ void SDPSolver::solve(
                                 // copy to eigenvectors and reverse the columns (vectors)
                                 reverse_columns(this->large_mat.vals + this->sizes.large_mat_offset(i, j) + (n - k) * n, eigenvectors, n, k);
                             } else {
-                                // TODO: negative case
+                                int k = 1.5 * cpu_negative_ranks.vals[all_counter];
+
+                                // copy to eigenvalues and reverse them
+                                CHECK_CUDA(cudaMemcpy(
+                                    eigenvalues, this->large_W.vals + this->sizes.large_W_offset(i, j), sizeof(double) * k, D2D
+                                ));
+
+                                // copy to eigenvectors and reverse the columns (vectors)
+                                CHECK_CUDA(cudaMemcpy(
+                                    eigenvectors, 
+                                    this->large_mat.vals + this->sizes.large_mat_offset(i, j) + k * n, 
+                                    sizeof(double) * k*n, D2D
+                                ));
                             }
                             
                         }
@@ -800,13 +813,17 @@ void SDPSolver::solve(
                                     this->large_mat.vals + this->sizes.large_mat_offset(i, j), 1
                                 ));
 
+                                // multiply the warmstart values by -1 since we will use -A
+                                CHECK_CUBLAS(cublasDscal(this->cublasH_eig_large_arr[stream_id].cublas_handle, k, &minus_one, eigenvalues, 1));
+                                CHECK_CUBLAS(cublasDscal(this->cublasH_eig_large_arr[stream_id].cublas_handle, n*(n - k), &minus_one, eigenvectors, 1));
+
                                 // compute the largest eigenpairs
                                 lobpcg(
                                     this->cublasH_eig_large_arr[stream_id].cublas_handle, this->cusolverH_eig_large_arr[stream_id].cusolver_dn_handle,
                                     this->large_mat.vals + this->sizes.large_mat_offset(i, j),
                                     eigenvectors, eigenvalues,
-                                    n, k, false, 100, 1e-4, false
-                                ); // TODO: activate warmstarting
+                                    n, k, true, 100, 1e-8, false
+                                );
                                 // note: the eigenvalues are already negated since we use -A
 
                                 // restore the matrix sign
