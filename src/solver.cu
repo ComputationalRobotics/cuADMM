@@ -713,7 +713,7 @@ void SDPSolver::solve(
                     // or if we are every 100 iterations
                     if (
                         !(this->deflation && this->switched_proj_method && !this->sizes.use_cusolver(n))
-                        || iter - this->switched_proj_method_iter % 100 == 0
+                        || ((iter - this->switched_proj_method_iter) % 100 == 0)
                     ) {
                         // compute the EVD using cuSOLVER
                         single_eig_cusolver(
@@ -735,7 +735,7 @@ void SDPSolver::solve(
                         double *eigenvectors = this->deflated_P.vals + (int)(this->sizes.large_mat_offset(i, j) * 1.5 * 0.05);
 
                         // every 100 iterations, we computed the EVD with the full matrix to compute the ranks
-                        if (iter - this->switched_proj_method_iter % 100 == 0) {
+                        if ((iter - this->switched_proj_method_iter) % 100 == 0) {
                             double largest_eigenvalue;
                             CHECK_CUDA( cudaMemcpy(
                                 &largest_eigenvalue,
@@ -996,7 +996,7 @@ void SDPSolver::solve(
 
         // add the deflated eigenvalues back to the matrices
         all_counter = 0;
-        if (this->deflation && this->switched_proj_method && iter - this->switched_proj_method_iter % 100 != 0) {
+        if (this->deflation && this->switched_proj_method && (iter - this->switched_proj_method_iter) % 100 != 0) {
             for (int i = 0; i < this->sizes.large_mat_sizes.size(); i++) {
                 int n = this->sizes.large_mat_sizes[i];
                 for (int j = 0; j < this->sizes.large_mat_nums[i]; j++) {
