@@ -3,7 +3,7 @@
 clear; close all;
 addpath("./build");
 addpath("../examples/utils");
-addpath("../examples/mexfiles")
+addpath("../examples/mexfiles");
 
 sdpt3 = load("/home/jordan/antoine/sdp_problems/sdpt3/vibra4.mat");
 
@@ -20,8 +20,8 @@ S_new = zeros(vec_len, 1);
 sigma = 1.0;
 
 eig_stream_num_per_gpu = 12;
-max_iter = 50;
-stop_tol = 1e-4;
+max_iter = 1e6;
+stop_tol = 1e-3;
 
 addpath(genpath("/home/jordan/antoine/admmSDP"));
 addpath(genpath("~/matlab-install/SDPT3-4.0"));
@@ -34,7 +34,7 @@ optionsADMM.sig = sigma;
 optionsADMM.partialProj = 0;
 optionsADMM.useLowRankEigs = 0;
 optionsADMM.epsy = 1e-16;
-[X, y, S, infoADMM] = ADMM(sdpt3.blk, sdpt3.At, sdpt3.b, sdpt3.C, optionsADMM); return;
+% [X, y, S, infoADMM] = ADMM(sdpt3.blk, sdpt3.At, sdpt3.b, sdpt3.C, optionsADMM); return;
 
 [X_out, y_out, S_out, sig_out] = cuadmm_MATLAB(eig_stream_num_per_gpu,...
                                                 max_iter, stop_tol,...
