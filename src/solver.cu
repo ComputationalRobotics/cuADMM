@@ -264,9 +264,9 @@ void SDPSolver::init(
         this->eig_stream_arr[stream_id].set_gpu_id(GPU0);
         this->eig_stream_arr[stream_id].activate();
         this->cusolverH_eig_large_arr[stream_id].set_gpu_id(GPU0);
-        this->cusolverH_eig_large_arr[stream_id].activate(this->eig_stream_arr[stream_id]);
+        this->cusolverH_eig_large_arr[stream_id].activate();//this->eig_stream_arr[stream_id]);
         this->cublasH_eig_large_arr[stream_id].set_gpu_id(GPU0);
-        this->cublasH_eig_large_arr[stream_id].activate(this->eig_stream_arr[stream_id]);
+        this->cublasH_eig_large_arr[stream_id].activate();//this->eig_stream_arr[stream_id]);
     }
 
     // compute the buffer sizes of the large matrices eig decomposition
@@ -758,7 +758,7 @@ void SDPSolver::solve(
                                     this->cublasH_eig_large_arr[stream_id].cublas_handle, this->cusolverH_eig_large_arr[stream_id].cusolver_dn_handle,
                                     this->large_mat.vals + this->sizes.large_mat_offset(i, j),
                                     eigenvectors, eigenvalues,
-                                    n, k, false, 100, 1e-4, false
+                                    n, k, true, 100, 1e-8, false
                                 );
 
                                 // negate eigenvalues
