@@ -12,6 +12,8 @@
 #include <vector>
 #include <unordered_map>
 
+#define MEDIUM_MAT_LIMIT 1000
+
 // Heuristics to determine if a matrix is large or small.
 // This is used to determine if we use single QR or batched Jacobi for eig.
 // - mat_size: size of the matrix

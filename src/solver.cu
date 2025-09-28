@@ -10,6 +10,7 @@
 #include "cuadmm/solver.h"
 #include "cuadmm/kernels.h"
 #include "cuadmm/rank.h"
+#include "cuadmm/matrix_sizes.h"
 
 #include "psd_projection/composite_FP32.h"
 #if defined(CUDA_VERSION) && (CUDA_VERSION >= 12090)
@@ -449,7 +450,7 @@ void SDPSolver::solve(
     std::cout << std::endl;
     std::cout << "Problem parameters:" << std::endl;
     std::cout << "              solver max iter: " << max_iter << std::endl;
-    std::cout << "        KKT stoping tolerance: " << stop_tol << std::endl;
+    std::cout << "       KKT stopping tolerance: " << stop_tol << std::endl;
     std::cout << "       sigma update threshold: " << sig_update_threshold << std::endl;
     std::cout << "         sigma update stage 1: " << sig_update_stage_1 << std::endl;
     std::cout << "         sigma update stage 2: " << sig_update_stage_2 << std::endl;
@@ -464,6 +465,7 @@ void SDPSolver::solve(
     std::cout << "              LOBPCG max iter: " << LOBPCG_MAXIT << std::endl;
     std::cout << "             LOBPCG tolerance: " << LOBPCG_TOL << std::endl;
     std::cout << "             LOBPCG warmstart: " << (LOBPCG_WARMSTART ? "true" : "false") << std::endl;
+    std::cout << "          medium matrix limit: " << MEDIUM_MAT_LIMIT << std::endl;
 
     /* Start the solver */
     std::cout << std::endl;
@@ -519,7 +521,6 @@ void SDPSolver::solve(
             final_msg = "Solver ended: maximum iteration reached";
         }
         if (
-            true ||
             ( breakyes == true ) ||
             ( (iter <= 200) && ((iter % 50) == 1) ) ||
             ( (iter > 200) && ((iter % 100) == 1) )

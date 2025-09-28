@@ -20,7 +20,7 @@ bool is_large_mat(const int mat_size, const int mat_num) {
 }
 
 bool is_medium_mat(const int mat_size) {
-    return mat_size < 1000;
+    return mat_size < MEDIUM_MAT_LIMIT;
 }
 
 

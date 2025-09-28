@@ -30,14 +30,23 @@ enum ProjectionMethod {
     COMPOSITE_FP16
 };
 
-inline const char* get_projection_method_name(ProjectionMethod method) {
-    switch (method) {
-        case ProjectionMethod::EIG_FP64:                return "EIG_FP64 ---------------";
-        case ProjectionMethod::COMPOSITE_FP32:          return "COMPOSITE_FP32 ---------";
-        case ProjectionMethod::COMPOSITE_FP32_EMULATED: return "COMPOSITE_FP32_EMULATED ";
-        case ProjectionMethod::COMPOSITE_FP16:          return "COMPOSITE_FP16 ---------";
-        default:                                        return "UNKNOWN ----------------";
-    }
+inline const char* get_projection_method_name(ProjectionMethod method, bool dash=true) {
+    if (dash) 
+        switch (method) {
+            case ProjectionMethod::EIG_FP64:                return "EIG_FP64 ---------------";
+            case ProjectionMethod::COMPOSITE_FP32:          return "COMPOSITE_FP32 ---------";
+            case ProjectionMethod::COMPOSITE_FP32_EMULATED: return "COMPOSITE_FP32_EMULATED ";
+            case ProjectionMethod::COMPOSITE_FP16:          return "COMPOSITE_FP16 ---------";
+            default:                                        return "UNKNOWN ----------------";
+        }
+    else
+        switch (method) {
+            case ProjectionMethod::EIG_FP64:                return "EIG_FP64";
+            case ProjectionMethod::COMPOSITE_FP32:          return "COMPOSITE_FP32";
+            case ProjectionMethod::COMPOSITE_FP32_EMULATED: return "COMPOSITE_FP32_EMULATED";
+            case ProjectionMethod::COMPOSITE_FP16:          return "COMPOSITE_FP16";
+            default:                                        return "UNKNOWN";
+        }
 }
 
 /// @brief Main solver class for the SDP problem.
