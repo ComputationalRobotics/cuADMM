@@ -149,13 +149,13 @@ class SDPSolver {
         DeviceBlasHandle cublasH_proj;
         DeviceSolverDnHandle cusolverH_proj;
 
-        bool deflation; // whether to use deflation
+        bool use_lobpcg; // whether to use LOBPCG
         DeviceDenseVector<int> positive_ranks; // positive ranks of large matrices
         DeviceDenseVector<int> negative_ranks; // negative ranks of large matrices
         HostDenseVector<int> cpu_positive_ranks; // positive ranks of large matrices (CPU copy)
         HostDenseVector<int> cpu_negative_ranks; // negative ranks of large matrices (CPU copy)
-        DeviceDenseVector<double> deflated_W; // deflated eigenvalues of large matrices, each block being of size 0.05*n
-        DeviceDenseVector<double> deflated_P; // deflated eigenvectors of large matrices, each block being of size (0.05*n)*n
+        DeviceDenseVector<double> deflated_W; // deflated eigenvalues of large matrices, each block being of size 1.5*0.05*n
+        DeviceDenseVector<double> deflated_P; // deflated eigenvectors of large matrices, each block being of size (1.5*0.05*n)*n
 
         /* Small matrices eigen decomposition (batched Jacobi)  */
         DeviceDenseVector<double> small_mat;
@@ -240,6 +240,7 @@ class SDPSolver {
         /// @param cpu_y_vals Initial values for y (optional, default: zero vector).
         /// @param cpu_S_vals Initial values for S (optional, default: zero vector).
         /// @param sig Initial value for sigma (optional, default: `2e2`).
+        /// @param use_lobpcg Whether to use LOBPCG for large matrices (default: true).
         void init(
             int eig_stream_num_per_gpu,
             // core data
@@ -255,7 +256,7 @@ class SDPSolver {
             double* cpu_y_vals = nullptr, // |- values for warm start
             double* cpu_S_vals = nullptr, // |
             double sig = 1.0,
-            bool deflation = true
+            bool use_lobpcg = true
         );
 
         /// @brief Solves the SDP problem using the sGS-ADMM algorithm.

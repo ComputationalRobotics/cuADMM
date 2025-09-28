@@ -48,7 +48,7 @@ void SDPSolver::init(
     double* cpu_y_vals,
     double* cpu_S_vals,
     double sig,
-    bool deflation
+    bool use_lobpcg
 ) {
     // start record time
     this->total_time = 0.0;
@@ -389,11 +389,11 @@ void SDPSolver::init(
     this->Rd1.allocate(GPU0, this->vec_len);
     this->Xinput.allocate(GPU0, this->vec_len);
 
-    /* Deflation of large eigenvalues */
-    this->deflation = deflation;
-    if (deflation) {
+    /* Application of LOBPCG to large eigenvalues */
+    this->use_lobpcg = use_lobpcg;
+    if (use_lobpcg) {
         if (final_proj_method != ProjectionMethod::EIG_FP64) {
-            std::cout << " ERROR: when 'deflation' is enabled, the final projection method must be 'EIG_FP64'." << std::endl;
+            std::cout << " ERROR: when 'use_lobpcg' is enabled, the final projection method must be 'EIG_FP64'." << std::endl;
             exit(EXIT_FAILURE);
         }
 
@@ -459,7 +459,7 @@ void SDPSolver::solve(
     std::cout << "              switch proj tol: " << switch_proj_tol << std::endl;
     std::cout << "                     sigscale: " << sigscale << std::endl;
     std::cout << "                initial sigma: " << this->sig << std::endl;
-    std::cout << "                    deflation: " << (this->deflation ? "true" : "false") << std::endl;
+    std::cout << "                   use LOBPCG: " << (this->use_lobpcg ? "true" : "false") << std::endl;
     std::cout << "    initial projection method: " << get_projection_method_name(this->initial_proj_method, false) << std::endl;
     std::cout << "      final projection method: " << get_projection_method_name(this->final_proj_method, false) << std::endl;
     std::cout << "              LOBPCG max iter: " << LOBPCG_MAXIT << std::endl;
@@ -713,7 +713,7 @@ void SDPSolver::solve(
                     // if we don't do deflation at this step,
                     // or if we are every 100 iterations
                     if (
-                        !(this->deflation && this->switched_proj_method && !this->sizes.use_cusolver(n))
+                        !(this->use_lobpcg && this->switched_proj_method && !this->sizes.use_cusolver(n))
                         || (iter - this->switched_proj_method_iter) % 100 == 0
                     ) {
                         // compute the EVD using cuSOLVER
@@ -731,7 +731,7 @@ void SDPSolver::solve(
                     }
 
                     // if we are in the deflation phase
-                    if (this->deflation && this->switched_proj_method && !this->sizes.use_cusolver(n)) {
+                    if (this->use_lobpcg && this->switched_proj_method && !this->sizes.use_cusolver(n)) {
                         double *eigenvalues = this->deflated_W.vals + (int)(this->sizes.large_W_offset(i, j) * 1.5 * 0.05);
                         double *eigenvectors = this->deflated_P.vals + (int)(this->sizes.large_mat_offset(i, j) * 1.5 * 0.05);
 
@@ -800,34 +800,10 @@ void SDPSolver::solve(
                                     n, k, LOBPCG_WARMSTART, LOBPCG_MAXIT, LOBPCG_TOL, false
                                 );
 
-                                // negate eigenvalues
-                                CHECK_CUBLAS(cublasDscal(this->cublasH_eig_large_arr[stream_id].cublas_handle, k, &minus_one, eigenvalues, 1));
-
-                                // remove the largest eigenvalues from the matrix
-                                cublasSetPointerMode(this->cublasH_eig_large_arr[stream_id].cublas_handle, CUBLAS_POINTER_MODE_DEVICE);
-                                for (int l = 0; l < k; l++) {
-                                    // X <- X - \lambda_i * v_i v_i^T
-                                    double *v_i = eigenvectors + l * n;
-                                    double *m_lambda_i = eigenvalues + l;
-                                    CHECK_CUBLAS( cublasDger(this->cublasH_eig_large_arr[stream_id].cublas_handle, n, n, m_lambda_i, v_i, 1, v_i, 1, this->large_mat.vals + this->sizes.large_mat_offset(i, j), n) );
-                                }
-                                cublasSetPointerMode(this->cublasH_eig_large_arr[stream_id].cublas_handle, CUBLAS_POINTER_MODE_HOST);
-
-                                // compute the EVD
-                                single_eig_cusolver(
-                                    this->cusolverH_eig_large_arr[stream_id], eig_param_single,
-                                    this->large_mat, this->large_W,
-                                    this->eig_large_buffer, this->cpu_eig_large_buffer, this->large_info,
-                                    this->sizes.large_mat_sizes[i],
-                                    this->eig_large_buffer_size[icounter], this->cpu_eig_large_buffer_size[icounter],
-                                    this->sizes.large_mat_offset(i, j), this->sizes.large_W_offset(i, j),
-                                    this->sizes.large_buffer_offset(icounter, j, this->eig_large_buffer_size),
-                                    this->sizes.large_cpu_buffer_offset(icounter, j, this->eig_large_buffer_size),
-                                    all_counter
-                                );
-
-                                // negate eigenvalues back
-                                CHECK_CUBLAS(cublasDscal(this->cublasH_eig_large_arr[stream_id].cublas_handle, k, &minus_one, eigenvalues, 1));
+                                // set the matrix to zero
+                                CHECK_CUDA(cudaMemset(
+                                    this->large_mat.vals + this->sizes.large_mat_offset(i, j), 0, sizeof(double) * n * n
+                                ));
                             }
                             // if the matrix is negative low rank
                             else if (cpu_negative_ranks.vals[all_counter] < 0.05 * this->sizes.large_mat_sizes[i] && cpu_negative_ranks.vals[all_counter] > 0) {
@@ -852,36 +828,13 @@ void SDPSolver::solve(
                                 );
                                 // note: the eigenvalues are already negated since we use -A
 
-                                // restore the matrix sign
-                                CHECK_CUBLAS(cublasDscal(
-                                    this->cublasH_eig_large_arr[stream_id].cublas_handle, n*n, &minus_one, 
-                                    this->large_mat.vals + this->sizes.large_mat_offset(i, j), 1
-                                ));
-
-                                // remove the largest eigenvalues from the matrix
-                                cublasSetPointerMode(this->cublasH_eig_large_arr[stream_id].cublas_handle, CUBLAS_POINTER_MODE_DEVICE);
-                                for (int l = 0; l < k; l++) {
-                                    // X <- X - \lambda_i * v_i v_i^T
-                                    double *v_i = eigenvectors + l * n;
-                                    double *m_lambda_i = eigenvalues + l;
-                                    CHECK_CUBLAS( cublasDger(this->cublasH_eig_large_arr[stream_id].cublas_handle, n, n, m_lambda_i, v_i, 1, v_i, 1, this->large_mat.vals + this->sizes.large_mat_offset(i, j), n) );
-                                }
-                                cublasSetPointerMode(this->cublasH_eig_large_arr[stream_id].cublas_handle, CUBLAS_POINTER_MODE_HOST);
-
-                                single_eig_cusolver(
-                                    this->cusolverH_eig_large_arr[stream_id], eig_param_single,
-                                    this->large_mat, this->large_W,
-                                    this->eig_large_buffer, this->cpu_eig_large_buffer, this->large_info,
-                                    this->sizes.large_mat_sizes[i],
-                                    this->eig_large_buffer_size[icounter], this->cpu_eig_large_buffer_size[icounter],
-                                    this->sizes.large_mat_offset(i, j), this->sizes.large_W_offset(i, j),
-                                    this->sizes.large_buffer_offset(icounter, j, this->eig_large_buffer_size),
-                                    this->sizes.large_cpu_buffer_offset(icounter, j, this->eig_large_buffer_size),
-                                    all_counter
-                                );
-
                                 // negate eigenvalues back
                                 CHECK_CUBLAS(cublasDscal(this->cublasH_eig_large_arr[stream_id].cublas_handle, k, &minus_one, eigenvalues, 1));
+
+                                // put the matrix to zero
+                                CHECK_CUDA(cudaMemset(
+                                    this->large_mat.vals + this->sizes.large_mat_offset(i, j), 0, sizeof(double) * n * n
+                                ));
                             }
                             // otherwise, we don't deflate
                             else {
@@ -905,8 +858,8 @@ void SDPSolver::solve(
 
                 icounter++;
             }
-            if (this->deflation && this->switched_proj_method && (iter - this->switched_proj_method_iter) % 100 == 0)
-                std::cout << " ------------------ Number of low rank matrices = " << std::setw(3) << number_low_rank_matrices << " / " << std::setw(3) << this->sizes.large_mat_num << "-------------------" << std::endl;
+            if (this->use_lobpcg && this->switched_proj_method && (iter - this->switched_proj_method_iter) % 100 == 0)
+                std::cout << " ------------------ Number of low rank matrices = " << std::setw(3) << number_low_rank_matrices << " / " << std::setw(3) << this->sizes.large_mat_num << " ------------------" << std::endl;
 
             // for each stream, synchronize
             for (int stream_id = 0; stream_id < this->eig_stream_num_per_gpu; stream_id++) {
@@ -950,6 +903,7 @@ void SDPSolver::solve(
         }
 
         // multiply the large matrices by their eigenvalues
+        // TODO: only do it for the matrices without LOBPCG
         for (int i = 0; i < this->sizes.large_mat_sizes.size(); i++) {
             if (this->sizes.use_cusolver(this->sizes.large_mat_sizes[i]) || this->current_proj_method == ProjectionMethod::EIG_FP64) {
                 // stream_id = i % this->eig_stream_num_per_gpu;
@@ -979,6 +933,7 @@ void SDPSolver::solve(
         // }
 
         // multiply the large matrices by their eigenvectors
+        // TODO: only do it for the matrices without LOBPCG
         for (int i = 0; i < this->sizes.large_mat_sizes.size(); i++) {
             if (this->sizes.use_cusolver(this->sizes.large_mat_sizes[i]) || this->current_proj_method == ProjectionMethod::EIG_FP64) {
                 dense_matrix_mul_trans_batch(
@@ -999,8 +954,10 @@ void SDPSolver::solve(
         }
 
         // add the deflated eigenvalues back to the matrices
+        // TODO: try to do this the same way as other matrices,
+        // by storing eigenpairs in the standard buffers (this->large_W and this->large_mat)
         all_counter = 0;
-        if (this->deflation && this->switched_proj_method && (iter - this->switched_proj_method_iter) % 100 != 0) {
+        if (this->use_lobpcg && this->switched_proj_method && (iter - this->switched_proj_method_iter) % 100 != 0) {
             for (int i = 0; i < this->sizes.large_mat_sizes.size(); i++) {
                 int n = this->sizes.large_mat_sizes[i];
                 for (int j = 0; j < this->sizes.large_mat_nums[i]; j++) {
