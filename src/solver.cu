@@ -743,7 +743,7 @@ void SDPSolver::solve(
 
                                 // copy to eigenvectors and reverse the columns (vectors)
                                 reverse_columns(this->large_mat.vals + this->sizes.large_mat_offset(i, j) + (n - k) * n, eigenvectors, n, k);
-                            } else {
+                            } else if (cpu_negative_ranks.vals[all_counter] < 0.05 * n && cpu_negative_ranks.vals[all_counter] > 0) {
                                 int k = 1.5 * cpu_negative_ranks.vals[all_counter];
 
                                 // copy to eigenvalues and reverse them
@@ -754,7 +754,7 @@ void SDPSolver::solve(
                                 // copy to eigenvectors and reverse the columns (vectors)
                                 CHECK_CUDA(cudaMemcpy(
                                     eigenvectors, 
-                                    this->large_mat.vals + this->sizes.large_mat_offset(i, j) + k * n, 
+                                    this->large_mat.vals + this->sizes.large_mat_offset(i, j), 
                                     sizeof(double) * k*n, D2D
                                 ));
                             }
