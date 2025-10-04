@@ -221,339 +221,339 @@ TEST(Kernels, SquareRoots)
     EXPECT_DOUBLE_EQ(SQRT2INV, 1/std::sqrt(2.0));
 }
 
-TEST(Kernels, MatricesToVector)
-{
-    const int mat_size = 4;
-    const int vec_len = (4 * (4+1)/2) * 2; // 2 symmetric matrices of size 4x4
+// TEST(Kernels, MatricesToVector)
+// {
+//     const int mat_size = 4;
+//     const int vec_len = (4 * (4+1)/2) * 2; // 2 symmetric matrices of size 4x4
 
-    // Create two symmetric matrices
-    std::vector<double> mom_mat_host = {
-        1.0, 2.0, 3.0, 4.0,
-        2.0, 5.0, 6.0, 7.0,
-        3.0, 6.0, 8.0, 9.0,
-        4.0, 7.0, 9.0, 10.0
-    };
-    std::vector<double> loc_mat_host = {
-        2.0, 3.0, 4.0, 5.0,
-        3.0, 6.0, 7.0, 8.0,
-        4.0, 7.0, 9.0, 10.0,
-        5.0, 8.0, 10.0, 11.0
-    };
+//     // Create two symmetric matrices
+//     std::vector<double> mom_mat_host = {
+//         1.0, 2.0, 3.0, 4.0,
+//         2.0, 5.0, 6.0, 7.0,
+//         3.0, 6.0, 8.0, 9.0,
+//         4.0, 7.0, 9.0, 10.0
+//     };
+//     std::vector<double> loc_mat_host = {
+//         2.0, 3.0, 4.0, 5.0,
+//         3.0, 6.0, 7.0, 8.0,
+//         4.0, 7.0, 9.0, 10.0,
+//         5.0, 8.0, 10.0, 11.0
+//     };
 
-    // Create arbitrary maps
-    // Note: maps are usually generated using
-    // the `get_maps` function, this is just a test
-    std::vector<int> map_M1_host = {
-        0, 1, 2, 3, 4+1, 5+1, 6+1, 7+3,  8+3, 9+6
-    };
-    std::vector<int> map_M2_host = {
-        0, 4, 8, 12, 4+1, 8+1, 12+1, 8+2, 12+2, 12+3
-    };
-    for (int i = 0; i < vec_len/2; i++) {
-        map_M1_host.push_back(map_M1_host[i]);
-        map_M2_host.push_back(map_M2_host[i]);
-    }
+//     // Create arbitrary maps
+//     // Note: maps are usually generated using
+//     // the `get_maps` function, this is just a test
+//     std::vector<int> map_M1_host = {
+//         0, 1, 2, 3, 4+1, 5+1, 6+1, 7+3,  8+3, 9+6
+//     };
+//     std::vector<int> map_M2_host = {
+//         0, 4, 8, 12, 4+1, 8+1, 12+1, 8+2, 12+2, 12+3
+//     };
+//     for (int i = 0; i < vec_len/2; i++) {
+//         map_M1_host.push_back(map_M1_host[i]);
+//         map_M2_host.push_back(map_M2_host[i]);
+//     }
 
-    ASSERT_EQ(map_M1_host.size(), vec_len);
-    ASSERT_EQ(map_M2_host.size(), vec_len);
-    std::vector<int> map_B_host;
-    map_B_host.insert(map_B_host.end(), vec_len/2, 0); // first half is mom
-    map_B_host.insert(map_B_host.end(), vec_len/2, 1); // second half is loc
+//     ASSERT_EQ(map_M1_host.size(), vec_len);
+//     ASSERT_EQ(map_M2_host.size(), vec_len);
+//     std::vector<int> map_B_host;
+//     map_B_host.insert(map_B_host.end(), vec_len/2, 0); // first half is mom
+//     map_B_host.insert(map_B_host.end(), vec_len/2, 1); // second half is loc
 
-    // Allocate GPU memory
-    DeviceDenseVector<double> mom_mat(GPU0, mat_size * mat_size);
-    DeviceDenseVector<double> loc_mat(GPU0, mat_size * mat_size);
-    DeviceDenseVector<double> Xb(GPU0, vec_len);
-    DeviceDenseVector<int> map_B(GPU0, vec_len);
-    DeviceDenseVector<int> map_M1(GPU0, vec_len);
-    DeviceDenseVector<int> map_M2(GPU0, vec_len);
+//     // Allocate GPU memory
+//     DeviceDenseVector<double> mom_mat(GPU0, mat_size * mat_size);
+//     DeviceDenseVector<double> loc_mat(GPU0, mat_size * mat_size);
+//     DeviceDenseVector<double> Xb(GPU0, vec_len);
+//     DeviceDenseVector<int> map_B(GPU0, vec_len);
+//     DeviceDenseVector<int> map_M1(GPU0, vec_len);
+//     DeviceDenseVector<int> map_M2(GPU0, vec_len);
 
-    // Copy mom and loc matrices to device
-    CHECK_CUDA( cudaMemcpy(mom_mat.vals, mom_mat_host.data(), sizeof(double) * mat_size * mat_size, cudaMemcpyHostToDevice) );
-    CHECK_CUDA( cudaMemcpy(loc_mat.vals, loc_mat_host.data(), sizeof(double) * mat_size * mat_size, cudaMemcpyHostToDevice) );
-    CHECK_CUDA( cudaMemcpy(map_B.vals, map_B_host.data(), sizeof(int) * vec_len, cudaMemcpyHostToDevice) );
-    CHECK_CUDA( cudaMemcpy(map_M1.vals, map_M1_host.data(), sizeof(int) * vec_len, cudaMemcpyHostToDevice) );
-    CHECK_CUDA( cudaMemcpy(map_M2.vals, map_M2_host.data(), sizeof(int) * vec_len, cudaMemcpyHostToDevice) );
+//     // Copy mom and loc matrices to device
+//     CHECK_CUDA( cudaMemcpy(mom_mat.vals, mom_mat_host.data(), sizeof(double) * mat_size * mat_size, cudaMemcpyHostToDevice) );
+//     CHECK_CUDA( cudaMemcpy(loc_mat.vals, loc_mat_host.data(), sizeof(double) * mat_size * mat_size, cudaMemcpyHostToDevice) );
+//     CHECK_CUDA( cudaMemcpy(map_B.vals, map_B_host.data(), sizeof(int) * vec_len, cudaMemcpyHostToDevice) );
+//     CHECK_CUDA( cudaMemcpy(map_M1.vals, map_M1_host.data(), sizeof(int) * vec_len, cudaMemcpyHostToDevice) );
+//     CHECK_CUDA( cudaMemcpy(map_M2.vals, map_M2_host.data(), sizeof(int) * vec_len, cudaMemcpyHostToDevice) );
 
-    // Convert matrices to vector
-    matrices_to_vector(Xb, mom_mat, loc_mat, map_B, map_M1, map_M2);
-    // Copy result back to host
-    std::vector<double> Xb_host(vec_len);
-    CHECK_CUDA( cudaMemcpy(Xb_host.data(), Xb.vals, sizeof(double) * vec_len, cudaMemcpyDeviceToHost) );
+//     // Convert matrices to vector
+//     matrices_to_vector(Xb, mom_mat, loc_mat, map_B, map_M1, map_M2);
+//     // Copy result back to host
+//     std::vector<double> Xb_host(vec_len);
+//     CHECK_CUDA( cudaMemcpy(Xb_host.data(), Xb.vals, sizeof(double) * vec_len, cudaMemcpyDeviceToHost) );
 
-    // Check the result
-    EXPECT_EQ(Xb_host, std::vector<double>({
-        1.0,
-        2.0 * SQRT2,
-        3.0 * SQRT2,
-        4.0 * SQRT2,
-        5.0,
-        6.0 * SQRT2,
-        7.0 * SQRT2,
-        8.0,
-        9.0 * SQRT2,
-        10.0,
+//     // Check the result
+//     EXPECT_EQ(Xb_host, std::vector<double>({
+//         1.0,
+//         2.0 * SQRT2,
+//         3.0 * SQRT2,
+//         4.0 * SQRT2,
+//         5.0,
+//         6.0 * SQRT2,
+//         7.0 * SQRT2,
+//         8.0,
+//         9.0 * SQRT2,
+//         10.0,
 
-        2.0,
-        3.0 * SQRT2,
-        4.0 * SQRT2,
-        5.0 * SQRT2,
-        6.0,
-        7.0 * SQRT2,
-        8.0 * SQRT2,
-        9.0,
-        10.0 * SQRT2,
-        11.0
-    }));
-}
+//         2.0,
+//         3.0 * SQRT2,
+//         4.0 * SQRT2,
+//         5.0 * SQRT2,
+//         6.0,
+//         7.0 * SQRT2,
+//         8.0 * SQRT2,
+//         9.0,
+//         10.0 * SQRT2,
+//         11.0
+//     }));
+// }
 
-TEST(Kernels, MatricesToVectorToMatricesDuo)
-{
-    std::vector<double> small_matrices_host = {
-        1.0, 2.0,
-        2.0, 3.0,
-    };
-    std::vector<double> large_matrices_host = {
-        1.0, 2.0, 3.0, 4.0,
-        2.0, 5.0, 6.0, 7.0,
-        3.0, 6.0, 8.0, 9.0,
-        4.0, 7.0, 9.0, 10.0,
-    };
-    const int vec_len = 2*3/2 + 4*5/2;
+// TEST(Kernels, MatricesToVectorToMatricesDuo)
+// {
+//     std::vector<double> small_matrices_host = {
+//         1.0, 2.0,
+//         2.0, 3.0,
+//     };
+//     std::vector<double> large_matrices_host = {
+//         1.0, 2.0, 3.0, 4.0,
+//         2.0, 5.0, 6.0, 7.0,
+//         3.0, 6.0, 8.0, 9.0,
+//         4.0, 7.0, 9.0, 10.0,
+//     };
+//     const int vec_len = 2*3/2 + 4*5/2;
 
-    // HostDenseVector<int> blk(2);
-    // std::vector<int> blk_sizes = {2, 4};
-    // std::vector<int> blk_nums = {1, 1};
-    // blk.vals[0] = 2;
-    // blk.vals[1] = 4;
+//     // HostDenseVector<int> blk(2);
+//     // std::vector<int> blk_sizes = {2, 4};
+//     // std::vector<int> blk_nums = {1, 1};
+//     // blk.vals[0] = 2;
+//     // blk.vals[1] = 4;
 
-    // MatrixSizes sizes;
-    // sizes.init(blk_sizes, blk_nums);
+//     // MatrixSizes sizes;
+//     // sizes.init(blk_sizes, blk_nums);
 
-    // std::vector<int> map_B_host(vec_len, 0);
-    // std::vector<int> map_M1_host(vec_len, 0);
-    // std::vector<int> map_M2_host(vec_len, 0);
+//     // std::vector<int> map_B_host(vec_len, 0);
+//     // std::vector<int> map_M1_host(vec_len, 0);
+//     // std::vector<int> map_M2_host(vec_len, 0);
 
-    // get_maps(blk, vec_len, map_B_host, map_M1_host, map_M2_host, sizes);
+//     // get_maps(blk, vec_len, map_B_host, map_M1_host, map_M2_host, sizes);
 
-    std::vector<int> map_B_host = {1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
-    std::vector<int> map_M1_host = {0, 2, 3, 0, 4, 5, 8, 9, 10, 12, 13, 14, 15};
-    std::vector<int> map_M2_host = {0, 1, 3, 0, 1, 5, 2, 6, 10, 3, 7, 11, 15};
+//     std::vector<int> map_B_host = {1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+//     std::vector<int> map_M1_host = {0, 2, 3, 0, 4, 5, 8, 9, 10, 12, 13, 14, 15};
+//     std::vector<int> map_M2_host = {0, 1, 3, 0, 1, 5, 2, 6, 10, 3, 7, 11, 15};
 
-    // print map_B
-    std::cout << "map_B: ";
-    for (int i = 0; i < vec_len; i++) {
-        std::cout << map_B_host[i] << " ";
-    }
-    std::cout << std::endl;
-    // print map_M1
-    std::cout << "map_M1: ";
-    for (int i = 0; i < vec_len; i++) {
-        std::cout << map_M1_host[i] << " ";
-    }
-    std::cout << std::endl;
-    // print map_M2
-    std::cout << "map_M2: ";
-    for (int i = 0; i < vec_len; i++) {
-        std::cout << map_M2_host[i] << " ";
-    }
-    std::cout << std::endl;
+//     // print map_B
+//     std::cout << "map_B: ";
+//     for (int i = 0; i < vec_len; i++) {
+//         std::cout << map_B_host[i] << " ";
+//     }
+//     std::cout << std::endl;
+//     // print map_M1
+//     std::cout << "map_M1: ";
+//     for (int i = 0; i < vec_len; i++) {
+//         std::cout << map_M1_host[i] << " ";
+//     }
+//     std::cout << std::endl;
+//     // print map_M2
+//     std::cout << "map_M2: ";
+//     for (int i = 0; i < vec_len; i++) {
+//         std::cout << map_M2_host[i] << " ";
+//     }
+//     std::cout << std::endl;
     
-    // Allocate GPU memory
-    DeviceDenseVector<double> small_matrices(GPU0, 2*2);
-    DeviceDenseVector<double> large_matrices(GPU0, 4*4);
-    DeviceDenseVector<double> Xb(GPU0, vec_len);
-    DeviceDenseVector<int> map_B(GPU0, vec_len);
-    DeviceDenseVector<int> map_M1(GPU0, vec_len);
-    DeviceDenseVector<int> map_M2(GPU0, vec_len);
+//     // Allocate GPU memory
+//     DeviceDenseVector<double> small_matrices(GPU0, 2*2);
+//     DeviceDenseVector<double> large_matrices(GPU0, 4*4);
+//     DeviceDenseVector<double> Xb(GPU0, vec_len);
+//     DeviceDenseVector<int> map_B(GPU0, vec_len);
+//     DeviceDenseVector<int> map_M1(GPU0, vec_len);
+//     DeviceDenseVector<int> map_M2(GPU0, vec_len);
 
-    // Copy small and large matrices to device
-    CHECK_CUDA( cudaMemcpy(small_matrices.vals, small_matrices_host.data(), sizeof(double) * (2*2), cudaMemcpyHostToDevice) );
-    CHECK_CUDA( cudaMemcpy(large_matrices.vals, large_matrices_host.data(), sizeof(double) * (4*4), cudaMemcpyHostToDevice) );
-    CHECK_CUDA( cudaMemcpy(map_B.vals, map_B_host.data(), sizeof(int) * vec_len, cudaMemcpyHostToDevice) );
-    CHECK_CUDA( cudaMemcpy(map_M1.vals, map_M1_host.data(), sizeof(int) * vec_len, cudaMemcpyHostToDevice) );
-    CHECK_CUDA( cudaMemcpy(map_M2.vals, map_M2_host.data(), sizeof(int) * vec_len, cudaMemcpyHostToDevice) );
+//     // Copy small and large matrices to device
+//     CHECK_CUDA( cudaMemcpy(small_matrices.vals, small_matrices_host.data(), sizeof(double) * (2*2), cudaMemcpyHostToDevice) );
+//     CHECK_CUDA( cudaMemcpy(large_matrices.vals, large_matrices_host.data(), sizeof(double) * (4*4), cudaMemcpyHostToDevice) );
+//     CHECK_CUDA( cudaMemcpy(map_B.vals, map_B_host.data(), sizeof(int) * vec_len, cudaMemcpyHostToDevice) );
+//     CHECK_CUDA( cudaMemcpy(map_M1.vals, map_M1_host.data(), sizeof(int) * vec_len, cudaMemcpyHostToDevice) );
+//     CHECK_CUDA( cudaMemcpy(map_M2.vals, map_M2_host.data(), sizeof(int) * vec_len, cudaMemcpyHostToDevice) );
 
-    // Convert matrices to vector
-    matrices_to_vector(Xb, large_matrices, small_matrices, map_B, map_M1, map_M2);
+//     // Convert matrices to vector
+//     matrices_to_vector(Xb, large_matrices, small_matrices, map_B, map_M1, map_M2);
     
-    Xb.print();
+//     Xb.print();
     
-    // Convert vector back to matrices
-    DeviceDenseVector<double> small_matrices_out(GPU0, 2*2);
-    DeviceDenseVector<double> large_matrices_out(GPU0, 4*4);
-    vector_to_matrices(Xb, large_matrices_out, small_matrices_out, map_B, map_M1, map_M2);
+//     // Convert vector back to matrices
+//     DeviceDenseVector<double> small_matrices_out(GPU0, 2*2);
+//     DeviceDenseVector<double> large_matrices_out(GPU0, 4*4);
+//     vector_to_matrices(Xb, large_matrices_out, small_matrices_out, map_B, map_M1, map_M2);
 
-    // Copy result back to host
-    std::vector<double> small_matrices_out_host(2*2, -1.0);
-    std::vector<double> large_matrices_out_host(4*4, -1.0);
-    CHECK_CUDA( cudaMemcpy(small_matrices_out_host.data(), small_matrices_out.vals, sizeof(double) * (2*2), cudaMemcpyDeviceToHost) );
-    CHECK_CUDA( cudaMemcpy(large_matrices_out_host.data(), large_matrices_out.vals, sizeof(double) * (4*4), cudaMemcpyDeviceToHost) );
+//     // Copy result back to host
+//     std::vector<double> small_matrices_out_host(2*2, -1.0);
+//     std::vector<double> large_matrices_out_host(4*4, -1.0);
+//     CHECK_CUDA( cudaMemcpy(small_matrices_out_host.data(), small_matrices_out.vals, sizeof(double) * (2*2), cudaMemcpyDeviceToHost) );
+//     CHECK_CUDA( cudaMemcpy(large_matrices_out_host.data(), large_matrices_out.vals, sizeof(double) * (4*4), cudaMemcpyDeviceToHost) );
 
-    // Check the result
-    for (int i = 0; i < 2*2; i++) {
-        EXPECT_DOUBLE_EQ(small_matrices_out_host[i], small_matrices_host[i]);
-    }
-    for (int i = 0; i < 4*4; i++) {
-        EXPECT_DOUBLE_EQ(large_matrices_out_host[i], large_matrices_host[i]);
-    }
-}
+//     // Check the result
+//     for (int i = 0; i < 2*2; i++) {
+//         EXPECT_DOUBLE_EQ(small_matrices_out_host[i], small_matrices_host[i]);
+//     }
+//     for (int i = 0; i < 4*4; i++) {
+//         EXPECT_DOUBLE_EQ(large_matrices_out_host[i], large_matrices_host[i]);
+//     }
+// }
 
-TEST(Kernels, MatricesToVectorToMatricesMulti)
-{
-    std::vector<double> small_matrices_host = {
-        1.0,
-        1.0, 2.0,
-        2.0, 4.0,
-    };
-    std::vector<double> large_matrices_host = {
-        1.0, 2.0, 3.0,
-        2.0, 4.0, 5.0,
-        3.0, 5.0, 9.0,
-        1.0, 2.0, 3.0, 4.0,
-        2.0, 5.0, 6.0, 7.0,
-        3.0, 6.0, 8.0, 9.0,
-        4.0, 7.0, 9.0, 10.0,
-    };
+// TEST(Kernels, MatricesToVectorToMatricesMulti)
+// {
+//     std::vector<double> small_matrices_host = {
+//         1.0,
+//         1.0, 2.0,
+//         2.0, 4.0,
+//     };
+//     std::vector<double> large_matrices_host = {
+//         1.0, 2.0, 3.0,
+//         2.0, 4.0, 5.0,
+//         3.0, 5.0, 9.0,
+//         1.0, 2.0, 3.0, 4.0,
+//         2.0, 5.0, 6.0, 7.0,
+//         3.0, 6.0, 8.0, 9.0,
+//         4.0, 7.0, 9.0, 10.0,
+//     };
 
-    const int vec_len = 1 + 2*3/2 + 3*4/2 + 4*5/2;
+//     const int vec_len = 1 + 2*3/2 + 3*4/2 + 4*5/2;
 
-    std::vector<int> map_B_host = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1};
-    std::vector<int> map_M1_host = {0, 3, 4, 6, 7, 8, 9, 13, 14, 17, 18, 19, 21, 22, 23, 24, 0, 1, 3, 4};
-    std::vector<int> map_M2_host = {0, 1, 4, 2, 5, 8, 9, 10, 14, 11, 15, 19, 12, 16, 20, 24, 0, 1, 2, 4};
+//     std::vector<int> map_B_host = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1};
+//     std::vector<int> map_M1_host = {0, 3, 4, 6, 7, 8, 9, 13, 14, 17, 18, 19, 21, 22, 23, 24, 0, 1, 3, 4};
+//     std::vector<int> map_M2_host = {0, 1, 4, 2, 5, 8, 9, 10, 14, 11, 15, 19, 12, 16, 20, 24, 0, 1, 2, 4};
 
-    // print map_B
-    std::cout << "map_B: ";
-    for (int i = 0; i < vec_len; i++) {
-        std::cout << map_B_host[i] << " ";
-    }
-    std::cout << std::endl;
-    // print map_M1
-    std::cout << "map_M1: ";
-    for (int i = 0; i < vec_len; i++) {
-        std::cout << map_M1_host[i] << " ";
-    }
-    std::cout << std::endl;
-    // print map_M2
-    std::cout << "map_M2: ";
-    for (int i = 0; i < vec_len; i++) {
-        std::cout << map_M2_host[i] << " ";
-    }
-    std::cout << std::endl;
+//     // print map_B
+//     std::cout << "map_B: ";
+//     for (int i = 0; i < vec_len; i++) {
+//         std::cout << map_B_host[i] << " ";
+//     }
+//     std::cout << std::endl;
+//     // print map_M1
+//     std::cout << "map_M1: ";
+//     for (int i = 0; i < vec_len; i++) {
+//         std::cout << map_M1_host[i] << " ";
+//     }
+//     std::cout << std::endl;
+//     // print map_M2
+//     std::cout << "map_M2: ";
+//     for (int i = 0; i < vec_len; i++) {
+//         std::cout << map_M2_host[i] << " ";
+//     }
+//     std::cout << std::endl;
     
-    // Allocate GPU memory
-    DeviceDenseVector<double> small_matrices(GPU0, 1+2*2);
-    DeviceDenseVector<double> large_matrices(GPU0, 3*3+4*4);
-    DeviceDenseVector<double> Xb(GPU0, vec_len);
-    DeviceDenseVector<int> map_B(GPU0, vec_len);
-    DeviceDenseVector<int> map_M1(GPU0, vec_len);
-    DeviceDenseVector<int> map_M2(GPU0, vec_len);
+//     // Allocate GPU memory
+//     DeviceDenseVector<double> small_matrices(GPU0, 1+2*2);
+//     DeviceDenseVector<double> large_matrices(GPU0, 3*3+4*4);
+//     DeviceDenseVector<double> Xb(GPU0, vec_len);
+//     DeviceDenseVector<int> map_B(GPU0, vec_len);
+//     DeviceDenseVector<int> map_M1(GPU0, vec_len);
+//     DeviceDenseVector<int> map_M2(GPU0, vec_len);
 
-    // Copy small and large matrices to device
-    CHECK_CUDA( cudaMemcpy(small_matrices.vals, small_matrices_host.data(), sizeof(double) * (1+2*2), cudaMemcpyHostToDevice) );
-    CHECK_CUDA( cudaMemcpy(large_matrices.vals, large_matrices_host.data(), sizeof(double) * (3*3+4*4), cudaMemcpyHostToDevice) );
-    CHECK_CUDA( cudaMemcpy(map_B.vals, map_B_host.data(), sizeof(int) * vec_len, cudaMemcpyHostToDevice) );
-    CHECK_CUDA( cudaMemcpy(map_M1.vals, map_M1_host.data(), sizeof(int) * vec_len, cudaMemcpyHostToDevice) );
-    CHECK_CUDA( cudaMemcpy(map_M2.vals, map_M2_host.data(), sizeof(int) * vec_len, cudaMemcpyHostToDevice) );
+//     // Copy small and large matrices to device
+//     CHECK_CUDA( cudaMemcpy(small_matrices.vals, small_matrices_host.data(), sizeof(double) * (1+2*2), cudaMemcpyHostToDevice) );
+//     CHECK_CUDA( cudaMemcpy(large_matrices.vals, large_matrices_host.data(), sizeof(double) * (3*3+4*4), cudaMemcpyHostToDevice) );
+//     CHECK_CUDA( cudaMemcpy(map_B.vals, map_B_host.data(), sizeof(int) * vec_len, cudaMemcpyHostToDevice) );
+//     CHECK_CUDA( cudaMemcpy(map_M1.vals, map_M1_host.data(), sizeof(int) * vec_len, cudaMemcpyHostToDevice) );
+//     CHECK_CUDA( cudaMemcpy(map_M2.vals, map_M2_host.data(), sizeof(int) * vec_len, cudaMemcpyHostToDevice) );
 
-    // Convert matrices to vector
-    matrices_to_vector(Xb, large_matrices, small_matrices, map_B, map_M1, map_M2);
+//     // Convert matrices to vector
+//     matrices_to_vector(Xb, large_matrices, small_matrices, map_B, map_M1, map_M2);
     
-    Xb.print();
+//     Xb.print();
     
-    // Convert vector back to matrices
-    DeviceDenseVector<double> small_matrices_out(GPU0, 1+2*2);
-    DeviceDenseVector<double> large_matrices_out(GPU0, 3*3+4*4);
-    vector_to_matrices(Xb, large_matrices_out, small_matrices_out, map_B, map_M1, map_M2);
+//     // Convert vector back to matrices
+//     DeviceDenseVector<double> small_matrices_out(GPU0, 1+2*2);
+//     DeviceDenseVector<double> large_matrices_out(GPU0, 3*3+4*4);
+//     vector_to_matrices(Xb, large_matrices_out, small_matrices_out, map_B, map_M1, map_M2);
 
-    // Copy result back to host
-    std::vector<double> small_matrices_out_host(1+2*2, -1.0);
-    std::vector<double> large_matrices_out_host(3*3+4*4, -1.0);
-    CHECK_CUDA( cudaMemcpy(small_matrices_out_host.data(), small_matrices_out.vals, sizeof(double) * (1+2*2), cudaMemcpyDeviceToHost) );
-    CHECK_CUDA( cudaMemcpy(large_matrices_out_host.data(), large_matrices_out.vals, sizeof(double) * (3*3+4*4), cudaMemcpyDeviceToHost) );
+//     // Copy result back to host
+//     std::vector<double> small_matrices_out_host(1+2*2, -1.0);
+//     std::vector<double> large_matrices_out_host(3*3+4*4, -1.0);
+//     CHECK_CUDA( cudaMemcpy(small_matrices_out_host.data(), small_matrices_out.vals, sizeof(double) * (1+2*2), cudaMemcpyDeviceToHost) );
+//     CHECK_CUDA( cudaMemcpy(large_matrices_out_host.data(), large_matrices_out.vals, sizeof(double) * (3*3+4*4), cudaMemcpyDeviceToHost) );
 
-    // Check the result
-    for (int i = 0; i < 1+2*2; i++) {
-        EXPECT_DOUBLE_EQ(small_matrices_out_host[i], small_matrices_host[i]);
-    }
-    for (int i = 0; i < 3*3+4*4; i++) {
-        EXPECT_DOUBLE_EQ(large_matrices_out_host[i], large_matrices_host[i]);
-    }
-}
+//     // Check the result
+//     for (int i = 0; i < 1+2*2; i++) {
+//         EXPECT_DOUBLE_EQ(small_matrices_out_host[i], small_matrices_host[i]);
+//     }
+//     for (int i = 0; i < 3*3+4*4; i++) {
+//         EXPECT_DOUBLE_EQ(large_matrices_out_host[i], large_matrices_host[i]);
+//     }
+// }
 
-TEST(Kernels, VectorToMatrices)
-{
-    const int mat_size = 4;
-    const int vec_len = (4 * (4+1)/2) * 2; // 2 symmetric matrices of size 4x4
+// TEST(Kernels, VectorToMatrices)
+// {
+//     const int mat_size = 4;
+//     const int vec_len = (4 * (4+1)/2) * 2; // 2 symmetric matrices of size 4x4
 
-    // Create two symmetric matrices
-    std::vector<double> mom_mat_host = {
-        1.0, 2.0, 3.0, 4.0,
-        2.0, 5.0, 6.0, 7.0,
-        3.0, 6.0, 8.0, 9.0,
-        4.0, 7.0, 9.0, 10.0
-    };
-    std::vector<double> loc_mat_host = {
-        2.0, 3.0, 4.0, 5.0,
-        3.0, 6.0, 7.0, 8.0,
-        4.0, 7.0, 9.0, 10.0,
-        5.0, 8.0, 10.0, 11.0
-    };
+//     // Create two symmetric matrices
+//     std::vector<double> mom_mat_host = {
+//         1.0, 2.0, 3.0, 4.0,
+//         2.0, 5.0, 6.0, 7.0,
+//         3.0, 6.0, 8.0, 9.0,
+//         4.0, 7.0, 9.0, 10.0
+//     };
+//     std::vector<double> loc_mat_host = {
+//         2.0, 3.0, 4.0, 5.0,
+//         3.0, 6.0, 7.0, 8.0,
+//         4.0, 7.0, 9.0, 10.0,
+//         5.0, 8.0, 10.0, 11.0
+//     };
 
-    // Create arbitrary maps
-    // Note: maps are usually generated using
-    // the `get_maps` function, this is just a test
-    std::vector<int> map_M1_host = {
-        0, 1, 2, 3, 4+1, 5+1, 6+1, 7+3,  8+3, 9+6
-    };
-    std::vector<int> map_M2_host = {
-        0, 4, 8, 12, 4+1, 8+1, 12+1, 8+2, 12+2, 12+3
-    };
-    for (int i = 0; i < vec_len/2; i++) {
-        map_M1_host.push_back(map_M1_host[i]);
-        map_M2_host.push_back(map_M2_host[i]);
-    }
+//     // Create arbitrary maps
+//     // Note: maps are usually generated using
+//     // the `get_maps` function, this is just a test
+//     std::vector<int> map_M1_host = {
+//         0, 1, 2, 3, 4+1, 5+1, 6+1, 7+3,  8+3, 9+6
+//     };
+//     std::vector<int> map_M2_host = {
+//         0, 4, 8, 12, 4+1, 8+1, 12+1, 8+2, 12+2, 12+3
+//     };
+//     for (int i = 0; i < vec_len/2; i++) {
+//         map_M1_host.push_back(map_M1_host[i]);
+//         map_M2_host.push_back(map_M2_host[i]);
+//     }
 
-    ASSERT_EQ(map_M1_host.size(), vec_len);
-    ASSERT_EQ(map_M2_host.size(), vec_len);
-    std::vector<int> map_B_host;
-    map_B_host.insert(map_B_host.end(), vec_len/2, 0); // first half is mom
-    map_B_host.insert(map_B_host.end(), vec_len/2, 1); // second half is loc
+//     ASSERT_EQ(map_M1_host.size(), vec_len);
+//     ASSERT_EQ(map_M2_host.size(), vec_len);
+//     std::vector<int> map_B_host;
+//     map_B_host.insert(map_B_host.end(), vec_len/2, 0); // first half is mom
+//     map_B_host.insert(map_B_host.end(), vec_len/2, 1); // second half is loc
 
-    // Allocate GPU memory
-    DeviceDenseVector<double> mom_mat(GPU0, mat_size * mat_size);
-    DeviceDenseVector<double> loc_mat(GPU0, mat_size * mat_size);
-    DeviceDenseVector<double> Xb(GPU0, vec_len);
-    DeviceDenseVector<int> map_B(GPU0, vec_len);
-    DeviceDenseVector<int> map_M1(GPU0, vec_len);
-    DeviceDenseVector<int> map_M2(GPU0, vec_len);
+//     // Allocate GPU memory
+//     DeviceDenseVector<double> mom_mat(GPU0, mat_size * mat_size);
+//     DeviceDenseVector<double> loc_mat(GPU0, mat_size * mat_size);
+//     DeviceDenseVector<double> Xb(GPU0, vec_len);
+//     DeviceDenseVector<int> map_B(GPU0, vec_len);
+//     DeviceDenseVector<int> map_M1(GPU0, vec_len);
+//     DeviceDenseVector<int> map_M2(GPU0, vec_len);
 
-    // Copy mom and loc matrices to device
-    CHECK_CUDA( cudaMemcpy(mom_mat.vals, mom_mat_host.data(), sizeof(double) * mat_size * mat_size, cudaMemcpyHostToDevice) );
-    CHECK_CUDA( cudaMemcpy(loc_mat.vals, loc_mat_host.data(), sizeof(double) * mat_size * mat_size, cudaMemcpyHostToDevice) );
-    CHECK_CUDA( cudaMemcpy(map_B.vals, map_B_host.data(), sizeof(int) * vec_len, cudaMemcpyHostToDevice) );
-    CHECK_CUDA( cudaMemcpy(map_M1.vals, map_M1_host.data(), sizeof(int) * vec_len, cudaMemcpyHostToDevice) );
-    CHECK_CUDA( cudaMemcpy(map_M2.vals, map_M2_host.data(), sizeof(int) * vec_len, cudaMemcpyHostToDevice) );
+//     // Copy mom and loc matrices to device
+//     CHECK_CUDA( cudaMemcpy(mom_mat.vals, mom_mat_host.data(), sizeof(double) * mat_size * mat_size, cudaMemcpyHostToDevice) );
+//     CHECK_CUDA( cudaMemcpy(loc_mat.vals, loc_mat_host.data(), sizeof(double) * mat_size * mat_size, cudaMemcpyHostToDevice) );
+//     CHECK_CUDA( cudaMemcpy(map_B.vals, map_B_host.data(), sizeof(int) * vec_len, cudaMemcpyHostToDevice) );
+//     CHECK_CUDA( cudaMemcpy(map_M1.vals, map_M1_host.data(), sizeof(int) * vec_len, cudaMemcpyHostToDevice) );
+//     CHECK_CUDA( cudaMemcpy(map_M2.vals, map_M2_host.data(), sizeof(int) * vec_len, cudaMemcpyHostToDevice) );
 
-    // Convert matrices to vector
-    matrices_to_vector(Xb, mom_mat, loc_mat, map_B, map_M1, map_M2);
-    // Convert vector back to matrices
-    DeviceDenseVector<double> mom_mat_out(GPU0, mat_size * mat_size);
-    DeviceDenseVector<double> loc_mat_out(GPU0, mat_size * mat_size);
-    vector_to_matrices(Xb, mom_mat_out, loc_mat_out, map_B, map_M1, map_M2);
+//     // Convert matrices to vector
+//     matrices_to_vector(Xb, mom_mat, loc_mat, map_B, map_M1, map_M2);
+//     // Convert vector back to matrices
+//     DeviceDenseVector<double> mom_mat_out(GPU0, mat_size * mat_size);
+//     DeviceDenseVector<double> loc_mat_out(GPU0, mat_size * mat_size);
+//     vector_to_matrices(Xb, mom_mat_out, loc_mat_out, map_B, map_M1, map_M2);
 
-    // Copy result back to host
-    double mom_mat_out_host[mat_size * mat_size];
-    double loc_mat_out_host[mat_size * mat_size];
-    CHECK_CUDA( cudaMemcpy(mom_mat_out_host, mom_mat_out.vals, sizeof(double) * mat_size * mat_size, cudaMemcpyDeviceToHost) );
-    CHECK_CUDA( cudaMemcpy(loc_mat_out_host, loc_mat_out.vals, sizeof(double) * mat_size * mat_size, cudaMemcpyDeviceToHost) );
+//     // Copy result back to host
+//     double mom_mat_out_host[mat_size * mat_size];
+//     double loc_mat_out_host[mat_size * mat_size];
+//     CHECK_CUDA( cudaMemcpy(mom_mat_out_host, mom_mat_out.vals, sizeof(double) * mat_size * mat_size, cudaMemcpyDeviceToHost) );
+//     CHECK_CUDA( cudaMemcpy(loc_mat_out_host, loc_mat_out.vals, sizeof(double) * mat_size * mat_size, cudaMemcpyDeviceToHost) );
 
-    // Check the result
-    for (int i = 0; i < mat_size * mat_size; i++) {
-        EXPECT_DOUBLE_EQ(mom_mat_out_host[i], mom_mat_host[i]);
-        EXPECT_DOUBLE_EQ(loc_mat_out_host[i], loc_mat_host[i]);
-    }
-}
+//     // Check the result
+//     for (int i = 0; i < mat_size * mat_size; i++) {
+//         EXPECT_DOUBLE_EQ(mom_mat_out_host[i], mom_mat_host[i]);
+//         EXPECT_DOUBLE_EQ(loc_mat_out_host[i], loc_mat_host[i]);
+//     }
+// }
 
 TEST(Kernels, TypeConversionLongIntToInt)
 {

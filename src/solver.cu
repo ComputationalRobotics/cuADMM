@@ -994,7 +994,7 @@ void SDPSolver::solve(
 
         /* Step 3.2. Projection of the medium matrices */
         // project using cuSOLVER
-        int all_counter = 0; // serves as an info offset
+        all_counter = 0; // serves as an info offset
         for (int i = 0; i < this->sizes.medium_mat_sizes.size(); i++) {
             for (int j = 0; j < this->sizes.medium_mat_nums[i]; j++) {
                 int n = this->sizes.medium_mat_sizes[i];
