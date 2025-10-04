@@ -17,7 +17,6 @@
 #include "cublas_test.hpp"
 #include "cusolver_test.hpp"
 #include "cusparse_test.hpp"
-#include "duo_solver_test.hpp"
 #include "rank_test.hpp"
 
 #include "single_batched_comparison.hpp"
