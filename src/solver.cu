@@ -514,7 +514,7 @@ void SDPSolver::solve(
     std::cout << "              LOBPCG max iter: " << LOBPCG_MAXIT << std::endl;
     std::cout << "             LOBPCG tolerance: " << LOBPCG_TOL << std::endl;
     std::cout << "             LOBPCG warmstart: " << (LOBPCG_WARMSTART ? "true" : "false") << std::endl;
-    std::cout << "          small matrix limit: " << SMALL_MAT_LIMIT << std::endl;
+    std::cout << "           small matrix limit: " << SMALL_MAT_LIMIT << std::endl;
     std::cout << "          medium matrix limit: " << MEDIUM_MAT_LIMIT << std::endl;
 
     /* Start the solver */
@@ -901,7 +901,12 @@ void SDPSolver::solve(
 
                 icounter++;
             }
-            if (this->use_lobpcg && this->switched_proj_method && (iter - this->switched_proj_method_iter) % 100 == 0)
+            if (
+                this->use_lobpcg 
+                && this->switched_proj_method 
+                && (iter - this->switched_proj_method_iter) % 100 == 0 
+                && number_low_rank_matrices > 0
+            )
                 std::cout << " ------------------ Number of low rank matrices = " << std::setw(3) << number_low_rank_matrices << " / " << std::setw(3) << this->sizes.large_mat_num << " ------------------" << std::endl;
         }
 
@@ -1015,6 +1020,11 @@ void SDPSolver::solve(
 
                 all_counter++;
             }
+        }
+
+        // synchronize the streams used for the eigenvalue decomposition of medium matrices
+        for (int i = 0; i < this->eig_stream_num_per_gpu; i++) {
+            CHECK_CUDA( cudaStreamSynchronize(this->eig_medium_stream_arr[i].stream) );
         }
 
         if (this->sizes.medium_mat_num > 0) {
