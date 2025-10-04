@@ -302,6 +302,12 @@ void SDPSolver::init(
         );
     }
 
+    // allocate memory for the two buffers, host and device
+    if (total_eig_medium_buffer_size != 0)
+        this->eig_medium_buffer.allocate(GPU0, total_eig_medium_buffer_size, true);
+    if (total_cpu_eig_medium_buffer_size != 0)
+        this->cpu_eig_medium_buffer.allocate(total_cpu_eig_medium_buffer_size, true);
+
     /* Eigen decomposition for large matrices */
     // allocate GPU0 memory for large matrices
     this->large_mat.allocate(GPU0, this->sizes.total_large_mat_size);
@@ -321,12 +327,8 @@ void SDPSolver::init(
     int total_cpu_eig_large_buffer_size = 0;
     int counter = 0;
     for (int i = 0; i < this->sizes.large_mat_sizes.size(); i++) {
-        // we only do this for matrices that require cuSOLVER
-        if (
-            this->sizes.get_size_category(this->sizes.large_mat_sizes[i]) == MatrixSizeCategory::MEDIUM
-            || this->initial_proj_method == ProjectionMethod::EIG_FP64
-            || this->final_proj_method == ProjectionMethod::EIG_FP64
-        ) {
+        // we only do this if cuSOLVER is used at some point
+        if (this->initial_proj_method == ProjectionMethod::EIG_FP64 || this->final_proj_method == ProjectionMethod::EIG_FP64) {
             single_eig_get_buffersize_cusolver(
                 this->cusolverH_eig_large, eig_param_single, this->large_mat, this->large_W,
                 this->sizes.large_mat_sizes[i],
@@ -365,8 +367,6 @@ void SDPSolver::init(
         || this->final_proj_method == ProjectionMethod::COMPOSITE_FP32_EMULATED 
         || this->final_proj_method == ProjectionMethod::COMPOSITE_FP16
     )) {
-        // TODO: create one of each per stream (require psd_projection lib to take a stream as an argument)
-
         // create a workspace for the composite projection
         int largest_size = *std::max_element(this->sizes.large_mat_sizes.begin(), this->sizes.large_mat_sizes.end());
         size_t nn = largest_size * largest_size;
@@ -377,19 +377,23 @@ void SDPSolver::init(
             this->half_proj_workspace.allocate(GPU0, 3 * stride);
 
         // create a cuBLAS handle
-        this->cublasH_proj.set_gpu_id(GPU0);
-        this->cublasH_proj.activate();
-        CHECK_CUBLAS( cublasSetMathMode(this->cublasH_proj.cublas_handle, CUBLAS_TENSOR_OP_MATH) );
+        this->cublasH_composite_proj.set_gpu_id(GPU0);
+        this->cublasH_composite_proj.activate();
+        CHECK_CUBLAS( cublasSetMathMode(this->cublasH_composite_proj.cublas_handle, CUBLAS_TENSOR_OP_MATH) );
         #if defined(CUDA_VERSION) && (CUDA_VERSION >= 12090)
         if (this->initial_proj_method == ProjectionMethod::COMPOSITE_FP32_EMULATED || this->final_proj_method == ProjectionMethod::COMPOSITE_FP32_EMULATED) {
-            CHECK_CUBLAS(cublasSetEmulationStrategy(this->cublasH_proj.cublas_handle, CUBLAS_EMULATION_STRATEGY_EAGER));
+            CHECK_CUBLAS(cublasSetEmulationStrategy(this->cublasH_composite_proj.cublas_handle, CUBLAS_EMULATION_STRATEGY_EAGER));
         }
         #endif
 
         // create a cuSOLVER handle
-        this->cusolverH_proj.set_gpu_id(GPU0);
-        this->cusolverH_proj.activate();
+        this->cusolverH_composite_proj.set_gpu_id(GPU0);
+        this->cusolverH_composite_proj.activate();
     }
+
+    this->cublasH_eig_large.set_gpu_id(GPU0);
+    this->cublasH_eig_large.activate();
+    this->cusolverH_eig_large.activate();
 
     /* Eigenvalue decomposition for small matrices */
     this->cusolverH_eig_small.set_gpu_id(GPU0);
@@ -679,40 +683,39 @@ void SDPSolver::solve(
 
         /* Compute Pi(X^{k+1}) (this is long) */
 
-        // first, we convert Xinput back to matrices (large and small)
+        // first, we convert Xinput back to matrices
         vector_to_matrices(this->Xinput, this->large_mat, this->medium_mat, this->small_mat, this->map_B, this->map_M1, this->map_M2);
         CHECK_CUDA( cudaDeviceSynchronize() ); 
 
-        // we perform the GPU decomposition of large matrices
-        // for each large matrix on this GPU, compute the eig decomposition
-        int stream_id;
+        /* 
+            Step 3.1. PSD projection of the large matrices
+            - if before the switch, use the initial projection method
+            - if after the switch
+                - if low rank, use LOBPCG
+                - else, use cuSOLVER
+        */
 
-        // Start by projecting the matrices that use the composite method
+        // project with the composite method
         if (
             this->current_proj_method == ProjectionMethod::COMPOSITE_FP32 ||
             this->current_proj_method == ProjectionMethod::COMPOSITE_FP16 ||
             this->current_proj_method == ProjectionMethod::COMPOSITE_FP32_EMULATED
         ) {
             for (int i = 0; i < this->sizes.large_mat_sizes.size(); i++) {
-                if (this->sizes.get_size_category(this->sizes.large_mat_sizes[i]) == MatrixSizeCategory::MEDIUM)
-                    continue;
-
                 for (int j = 0; j < this->sizes.large_mat_nums[i]; j++) {
-                    // stream_id = counter % this->eig_stream_num_per_gpu;
-                    stream_id = 0;
 
                     if (this->current_proj_method == ProjectionMethod::COMPOSITE_FP32)
                         composite_FP32_auto_scale(
-                            this->cublasH_proj.cublas_handle,
-                            this->cusolverH_proj.cusolver_dn_handle,
+                            this->cublasH_composite_proj.cublas_handle,
+                            this->cusolverH_composite_proj.cusolver_dn_handle,
                             this->large_mat.vals + this->sizes.large_mat_offset(i, j),
                             this->sizes.large_mat_sizes[i],
                             this->float_proj_workspace.vals
                         );
                     else if (this->current_proj_method == ProjectionMethod::COMPOSITE_FP16) {
                         composite_FP16_auto_scale(
-                            this->cublasH_proj.cublas_handle,
-                            this->cusolverH_proj.cusolver_dn_handle,
+                            this->cublasH_composite_proj.cublas_handle,
+                            this->cusolverH_composite_proj.cusolver_dn_handle,
                             this->large_mat.vals + this->sizes.large_mat_offset(i, j),
                             this->sizes.large_mat_sizes[i],
                             this->float_proj_workspace.vals,
@@ -722,45 +725,38 @@ void SDPSolver::solve(
                     #if defined(CUDA_VERSION) && (CUDA_VERSION >= 12090)
                     else if (this->current_proj_method == ProjectionMethod::COMPOSITE_FP32_EMULATED) {
                         composite_FP32_emulated_auto_scale(
-                            this->cublasH_proj.cublas_handle,
-                            this->cusolverH_proj.cusolver_dn_handle,
+                            this->cublasH_composite_proj.cublas_handle,
+                            this->cusolverH_composite_proj.cusolver_dn_handle,
                             this->large_mat.vals + this->sizes.large_mat_offset(i, j),
                             this->sizes.large_mat_sizes[i],
                             this->float_proj_workspace.vals
                         );
                     }
                     #endif
-
-                    // counter++;
                 }
             }
-
-            // for each stream, synchronize
-            // for (int stream_id = 0; stream_id < this->eig_stream_num_per_gpu; stream_id++) {
-            //     CHECK_CUDA( cudaStreamSynchronize(this->eig_stream_arr[stream_id].stream) );
-            // }
         }
 
-        // Then, project the matrices that use cuSOLVER
-        int all_counter = 0; // serves as a stream id and as an info offset
+        // project using cuSOLVER
+        int all_counter = 0; // serves as an info offset
         int icounter = 0;
         int number_low_rank_matrices = 0;
-        if (this->sizes.medium_mat_num > 0 || this->current_proj_method == ProjectionMethod::EIG_FP64) { // cuSOLVER version
+        if (this->current_proj_method == ProjectionMethod::EIG_FP64) { // cuSOLVER version
             for (int i = 0; i < this->sizes.large_mat_sizes.size(); i++) {
-                // if the matrix does not require cuSOLVER, we skip it
-                if (this->sizes.get_size_category(this->sizes.large_mat_sizes[i]) != MatrixSizeCategory::MEDIUM && this->current_proj_method != ProjectionMethod::EIG_FP64)
-                    continue;
 
                 for (int j = 0; j < this->sizes.large_mat_nums[i]; j++) {
-                    stream_id = all_counter % this->eig_stream_num_per_gpu;
                     int n = this->sizes.large_mat_sizes[i];
+
+                    bool is_lobpcg_phase = this->use_lobpcg && this->switched_proj_method;
+
+                    // we apply cuSOLVER if:
+                    // - we are not in the LOBPCG phase
+                    // - or if we are every 100 iterations in the LOBPCG phase
+                    bool apply_cusolver = !is_lobpcg_phase || (iter - this->switched_proj_method_iter) % 100 == 0;
 
                     // if we don't do LOBPCG at this step,
                     // or if we are every 100 iterations
-                    if (
-                        !(this->use_lobpcg && this->switched_proj_method && this->sizes.get_size_category(n) != MatrixSizeCategory::LARGE)
-                        || (iter - this->switched_proj_method_iter) % 100 == 0
-                    ) {
+                    if (apply_cusolver) {
                         // compute the EVD using cuSOLVER
                         single_eig_cusolver(
                             this->cusolverH_eig_large, eig_param_single,
@@ -776,12 +772,13 @@ void SDPSolver::solve(
                     }
 
                     // if we are in the LOBPCG phase
-                    if (this->use_lobpcg && this->switched_proj_method && this->sizes.get_size_category(n) != MatrixSizeCategory::LARGE) {
+                    if (is_lobpcg_phase) {
                         double *eigenvalues = this->lobpcg_W.vals + (int)(this->sizes.large_W_offset(i, j) * 1.5 * 0.05);
                         double *eigenvectors = this->lobpcg_P.vals + (int)(this->sizes.large_mat_offset(i, j) * 1.5 * 0.05);
 
                         // every 100 iterations, we computed the EVD with the full matrix to compute the ranks
-                        if ((iter - this->switched_proj_method_iter) % 100 == 0) {
+                        if (apply_cusolver) {
+                            // compute the rank tolerance
                             double largest_eigenvalue;
                             CHECK_CUDA( cudaMemcpy(
                                 &largest_eigenvalue,
@@ -839,7 +836,7 @@ void SDPSolver::solve(
 
                                 // compute the largest eigenpairs
                                 lobpcg(
-                                    this->cublasH_eig_medium_arr[stream_id].cublas_handle, this->cusolverH_eig_medium_arr[stream_id].cusolver_dn_handle,
+                                    this->cublasH_eig_large.cublas_handle, this->cusolverH_eig_large.cusolver_dn_handle,
                                     this->large_mat.vals + this->sizes.large_mat_offset(i, j),
                                     eigenvectors, eigenvalues,
                                     n, k, LOBPCG_WARMSTART, LOBPCG_MAXIT, LOBPCG_TOL, false
@@ -856,40 +853,40 @@ void SDPSolver::solve(
 
                                 // change the matrix sign to reuse LOBPCG code
                                 CHECK_CUBLAS(cublasDscal(
-                                    this->cublasH_eig_medium_arr[stream_id].cublas_handle, n*n, &minus_one, 
-                                    this->medium_mat.vals + this->sizes.medium_mat_offset(i, j), 1
+                                    this->cublasH_eig_large.cublas_handle, n*n, &minus_one, 
+                                    this->large_mat.vals + this->sizes.large_mat_offset(i, j), 1
                                 ));
 
                                 // multiply the warmstart values by -1 since we will use -A
-                                CHECK_CUBLAS(cublasDscal(this->cublasH_eig_medium_arr[stream_id].cublas_handle, k, &minus_one, eigenvalues, 1));
-                                CHECK_CUBLAS(cublasDscal(this->cublasH_eig_medium_arr[stream_id].cublas_handle, n*(n - k), &minus_one, eigenvectors, 1));
+                                CHECK_CUBLAS(cublasDscal(this->cublasH_eig_large.cublas_handle, k, &minus_one, eigenvalues, 1));
+                                CHECK_CUBLAS(cublasDscal(this->cublasH_eig_large.cublas_handle, n*(n - k), &minus_one, eigenvectors, 1));
 
                                 // compute the largest eigenpairs
                                 lobpcg(
-                                    this->cublasH_eig_medium_arr[stream_id].cublas_handle, this->cusolverH_eig_medium_arr[stream_id].cusolver_dn_handle,
-                                    this->medium_mat.vals + this->sizes.medium_mat_offset(i, j),
+                                    this->cublasH_eig_large.cublas_handle, this->cusolverH_eig_large.cusolver_dn_handle,
+                                    this->large_mat.vals + this->sizes.large_mat_offset(i, j),
                                     eigenvectors, eigenvalues,
                                     n, k, LOBPCG_WARMSTART, LOBPCG_MAXIT, LOBPCG_TOL, false
                                 );
                                 // note: the eigenvalues are already negated since we use -A
 
                                 // negate eigenvalues back
-                                CHECK_CUBLAS(cublasDscal(this->cublasH_eig_medium_arr[stream_id].cublas_handle, k, &minus_one, eigenvalues, 1));
+                                CHECK_CUBLAS(cublasDscal(this->cublasH_eig_large.cublas_handle, k, &minus_one, eigenvalues, 1));
 
                                 // put the matrix to zero
                                 CHECK_CUDA(cudaMemset(
-                                    this->medium_mat.vals + this->sizes.medium_mat_offset(i, j), 0, sizeof(double) * n * n
+                                    this->large_mat.vals + this->sizes.large_mat_offset(i, j), 0, sizeof(double) * n * n
                                 ));
                             }
                             // otherwise, we don't use LOBPCG
                             else {
                                 single_eig_cusolver(
-                                    this->cusolverH_eig_medium_arr[stream_id], eig_param_single,
-                                    this->medium_mat, this->medium_W,
-                                    this->eig_medium_buffer, this->cpu_eig_medium_buffer, this->medium_info,
-                                    this->sizes.medium_mat_sizes[i],
-                                    this->eig_medium_buffer_size[icounter], this->cpu_eig_medium_buffer_size[icounter],
-                                    this->sizes.medium_mat_offset(i, j), this->sizes.medium_W_offset(i, j),
+                                    this->cusolverH_eig_large, eig_param_single,
+                                    this->large_mat, this->large_W,
+                                    this->eig_large_buffer, this->cpu_eig_large_buffer, this->large_info,
+                                    this->sizes.large_mat_sizes[i],
+                                    this->eig_large_buffer_size[icounter], this->cpu_eig_large_buffer_size[icounter],
+                                    this->sizes.large_mat_offset(i, j), this->sizes.large_W_offset(i, j),
                                     this->sizes.large_buffer_offset(icounter, j, this->eig_large_buffer_size),
                                     this->sizes.large_cpu_buffer_offset(icounter, j, this->eig_large_buffer_size),
                                     all_counter
@@ -905,83 +902,28 @@ void SDPSolver::solve(
             }
             if (this->use_lobpcg && this->switched_proj_method && (iter - this->switched_proj_method_iter) % 100 == 0)
                 std::cout << " ------------------ Number of low rank matrices = " << std::setw(3) << number_low_rank_matrices << " / " << std::setw(3) << this->sizes.large_mat_num << " ------------------" << std::endl;
-
-            // for each stream, synchronize
-            for (int stream_id = 0; stream_id < this->eig_stream_num_per_gpu; stream_id++) {
-                CHECK_CUDA( cudaStreamSynchronize(this->eig_medium_stream_arr[stream_id].stream) );
-            }
         }
 
-        if (breakyes) {
-            if (iter > this->switch_admm) {
-                CHECK_CUDA( cudaMemcpyAsync(this->X.vals, this->X_best.vals, sizeof(double) * this->vec_len, D2D, this->stream_flex[0].stream) );
-                CHECK_CUDA( cudaMemcpyAsync(this->y.vals, this->y_best.vals, sizeof(double) * this->con_num, D2D, this->stream_flex[1].stream) );
-                CHECK_CUDA( cudaMemcpyAsync(this->S.vals, this->S_best.vals, sizeof(double) * this->vec_len, D2D, this->stream_flex[2].stream) );
-                this->synchronize_gpu0_streams();
-                printf("Best max KKT residual after switch  = %2.1e \n", this->best_KKT);
-            }
-            break;
-        }
-
-        // we call cuSOLVER for the batch eig decomposition of small matrices
-        int info_offset = 0;
-        for (int i = 0; i < this->sizes.small_mat_sizes.size(); i++) {
-            batch_eig_cusolver(
-                this->cusolverH_eig_small, this->eig_param_batch,
-                this->small_mat, this->small_W,
-                this->eig_small_buffer, this->small_info,
-                this->sizes.small_mat_sizes[i], this->sizes.small_mat_nums[i],
-                this->eig_small_buffer_size[i],
-                this->sizes.small_mat_offset(i), this->sizes.small_W_offset(i),
-                this->sizes.small_buffer_offset(i, this->eig_small_buffer_size),
-                info_offset
-            );
-            info_offset += this->sizes.small_mat_nums[i];
-        }
-
-        if (this->sizes.medium_mat_num > 0 || this->current_proj_method == ProjectionMethod::EIG_FP64) {
+        if (this->sizes.large_mat_num > 0 || this->current_proj_method == ProjectionMethod::EIG_FP64) {
             max_dense_vector_zero(this->large_W);
         }
 
-        if (this->sizes.small_mat_num > 0) {
-            max_dense_vector_zero(this->small_W);
-        }
-
         // multiply the large matrices by their eigenvalues
-        // TODO: only do it for the matrices without LOBPCG
-        for (int i = 0; i < this->sizes.large_mat_sizes.size(); i++) {
-            if (this->sizes.get_size_category(this->sizes.large_mat_sizes[i]) == MatrixSizeCategory::MEDIUM || this->current_proj_method == ProjectionMethod::EIG_FP64) {
-                // stream_id = i % this->eig_stream_num_per_gpu;
+        // TODO: only do it for matrices without LOBPCG
+        if (this->current_proj_method == ProjectionMethod::EIG_FP64) {
+            for (int i = 0; i < this->sizes.large_mat_sizes.size(); i++) {
                 dense_matrix_mul_diag_batch(
                     this->large_mat_tmp, this->large_mat, this->large_W,
                     this->sizes.large_mat_sizes[i], this->sizes.large_mat_nums[i],
-                    this->sizes.large_mat_offset(i, 0), this->sizes.large_W_offset(i, 0)//,
-                    // this->eig_stream_arr[stream_id].stream
+                    this->sizes.large_mat_offset(i, 0), this->sizes.large_W_offset(i, 0)
                 );
             }
         }
 
-        // multiply the small matrices by their eigenvalues
-        for (int i = 0; i < this->sizes.small_mat_sizes.size(); i++) {
-            // stream_id = (this->sizes.large_mat_sizes.size() + i) % this->eig_stream_num_per_gpu;
-            dense_matrix_mul_diag_batch(
-                this->small_mat_tmp, this->small_mat, this->small_W,
-                this->sizes.small_mat_sizes[i], this->sizes.small_mat_nums[i],
-                this->sizes.small_mat_offset(i), this->sizes.small_W_offset(i)//,
-                // this->eig_stream_arr[stream_id].stream
-            );
-        }
-
-        // synchronize the streams
-        // for (int stream_id = 0; stream_id < this->eig_stream_num_per_gpu; stream_id++) {
-        //     CHECK_CUDA( cudaStreamSynchronize(this->eig_stream_arr[stream_id].stream) );
-        // }
-
         // multiply the large matrices by their eigenvectors
         // TODO: only do it for the matrices without LOBPCG
         for (int i = 0; i < this->sizes.large_mat_sizes.size(); i++) {
-            if (
-                this->sizes.get_size_category(this->sizes.large_mat_sizes[i]) == MatrixSizeCategory::MEDIUM || this->current_proj_method == ProjectionMethod::EIG_FP64) {
+            if (this->current_proj_method == ProjectionMethod::EIG_FP64) {
                 dense_matrix_mul_trans_batch(
                     this->cublasH,
                     this->large_mat_P, this->large_mat_tmp, this->large_mat,
@@ -1007,12 +949,6 @@ void SDPSolver::solve(
             for (int i = 0; i < this->sizes.large_mat_sizes.size(); i++) {
                 int n = this->sizes.large_mat_sizes[i];
                 for (int j = 0; j < this->sizes.large_mat_nums[i]; j++) {
-                    stream_id = all_counter % this->eig_stream_num_per_gpu;
-
-                    if (this->sizes.get_size_category(this->sizes.large_mat_sizes[i]) == MatrixSizeCategory::LARGE) {
-                        all_counter++;
-                        continue;
-                    }
                     
                     // if the matrix is positive or negative low rank
                     if (
@@ -1040,26 +976,54 @@ void SDPSolver::solve(
                         // add back only the positive eigenvalues
                         max_dense_vector_zero(relu_eigenvalues.vals, k);
 
-                        cublasSetPointerMode(this->cublasH_eig_medium_arr[stream_id].cublas_handle, CUBLAS_POINTER_MODE_DEVICE);
+                        cublasSetPointerMode(this->cublasH_eig_large.cublas_handle, CUBLAS_POINTER_MODE_DEVICE);
                         for (int l = 0; l < k; l++) {
                             // X <- X + \lambda_i * v_i v_i^T
                             double *v_i = eigenvectors + l * n;
                             double *m_lambda_i = relu_eigenvalues.vals + l;
-                            CHECK_CUBLAS( cublasDger(this->cublasH_eig_medium_arr[stream_id].cublas_handle, n, n, m_lambda_i, v_i, 1, v_i, 1, this->medium_mat_P.vals + this->sizes.medium_mat_offset(i, j), n) );
+                            CHECK_CUBLAS( cublasDger(this->cublasH_eig_large.cublas_handle, n, n, m_lambda_i, v_i, 1, v_i, 1, this->large_mat_P.vals + this->sizes.large_mat_offset(i, j), n) );
                         }
-                        cublasSetPointerMode(this->cublasH_eig_medium_arr[stream_id].cublas_handle, CUBLAS_POINTER_MODE_HOST);
+                        cublasSetPointerMode(this->cublasH_eig_large.cublas_handle, CUBLAS_POINTER_MODE_HOST);
                     }
 
                     all_counter++;
                 }
             }
         }
+        
 
-        // for each stream, synchronize
-        for (int stream_id = 0; stream_id < this->eig_stream_num_per_gpu; stream_id++) {
-            CHECK_CUDA( cudaStreamSynchronize(this->eig_medium_stream_arr[stream_id].stream) );
+        /* Step 3.2. Projection of the medium matrices */
+        // TODO: project medium matrices
+
+
+        /* Step 3.3. Projection of the small matrices */
+        int info_offset = 0;
+        for (int i = 0; i < this->sizes.small_mat_sizes.size(); i++) {
+            batch_eig_cusolver(
+                this->cusolverH_eig_small, this->eig_param_batch,
+                this->small_mat, this->small_W,
+                this->eig_small_buffer, this->small_info,
+                this->sizes.small_mat_sizes[i], this->sizes.small_mat_nums[i],
+                this->eig_small_buffer_size[i],
+                this->sizes.small_mat_offset(i), this->sizes.small_W_offset(i),
+                this->sizes.small_buffer_offset(i, this->eig_small_buffer_size),
+                info_offset
+            );
+            info_offset += this->sizes.small_mat_nums[i];
         }
 
+        if (this->sizes.small_mat_num > 0) {
+            max_dense_vector_zero(this->small_W);
+        }
+
+        // multiply the small matrices by their eigenvalues
+        for (int i = 0; i < this->sizes.small_mat_sizes.size(); i++) {
+            dense_matrix_mul_diag_batch(
+                this->small_mat_tmp, this->small_mat, this->small_W,
+                this->sizes.small_mat_sizes[i], this->sizes.small_mat_nums[i],
+                this->sizes.small_mat_offset(i), this->sizes.small_W_offset(i)
+            );
+        }
 
         // multiply the small matrices by their eigenvectors
         for (int i = 0; i < this->sizes.small_mat_sizes.size(); i++) {
@@ -1071,12 +1035,25 @@ void SDPSolver::solve(
             );
         }
 
+        /* Step 3.4. Compute S */
+
         // put S to zero (the projection of free variables)
         CHECK_CUDA( cudaMemsetAsync(this->S.vals, 0, sizeof(double) * this->vec_len) );
 
         // convert the matrices back to vectorized format
         matrices_to_vector(this->S, this->large_mat_P, this->medium_mat_P, this->small_mat_P, this->map_B, this->map_M1, this->map_M2);
 
+
+        if (breakyes) {
+            if (iter > this->switch_admm) {
+                CHECK_CUDA( cudaMemcpyAsync(this->X.vals, this->X_best.vals, sizeof(double) * this->vec_len, D2D, this->stream_flex[0].stream) );
+                CHECK_CUDA( cudaMemcpyAsync(this->y.vals, this->y_best.vals, sizeof(double) * this->con_num, D2D, this->stream_flex[1].stream) );
+                CHECK_CUDA( cudaMemcpyAsync(this->S.vals, this->S_best.vals, sizeof(double) * this->vec_len, D2D, this->stream_flex[2].stream) );
+                this->synchronize_gpu0_streams();
+                printf("Best max KKT residual after switch  = %2.1e \n", this->best_KKT);
+            }
+            break;
+        }
 
         /*
             Step 3: Compute:

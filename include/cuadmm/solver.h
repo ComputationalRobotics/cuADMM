@@ -159,8 +159,8 @@ class SDPSolver {
         ProjectionMethod final_proj_method; // projection used in the end (high precision)
         bool switched_proj_method; // whether the projection method has been switched
         int switched_proj_method_iter; // iteration at which the projection method was switched
-        DeviceBlasHandle cublasH_proj;
-        DeviceSolverDnHandle cusolverH_proj;
+        DeviceBlasHandle cublasH_composite_proj;
+        DeviceSolverDnHandle cusolverH_composite_proj;
 
         bool use_lobpcg; // whether to use LOBPCG
         DeviceDenseVector<int> positive_ranks; // positive ranks of large matrices
@@ -169,6 +169,8 @@ class SDPSolver {
         HostDenseVector<int> cpu_negative_ranks; // negative ranks of large matrices (CPU copy)
         DeviceDenseVector<double> lobpcg_W; // eigenvalues of large matrices computed with LOBPCG, each block being of size 1.5*0.05*n
         DeviceDenseVector<double> lobpcg_P; // eigenvectors of large matrices computed with LOBPCG, each block being of size (1.5*0.05*n)*n
+        DeviceBlasHandle cublasH_eig_large;
+        DeviceBlasHandle cublasH_eig_large_update;
 
         /* Small matrices eigen decomposition (batched Jacobi)  */
         DeviceDenseVector<double> small_mat;
