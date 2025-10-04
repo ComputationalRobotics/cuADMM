@@ -9,7 +9,6 @@
 #ifndef CUADMM_MEMORY_H
 #define CUADMM_MEMORY_H
 
-#include <cblas.h>
 #include <cassert>
 #include <iostream>
 #include <cuda_runtime_api.h>

@@ -11,7 +11,7 @@
 #define CUADMM_CHOLESKY_CPU_H
 
 #include <cholmod.h>
-#include <cblas.h>
+// #include <cblas.h>
 
 // A wrapper for the Cholesky decomposition and forward/bakward
 // linear system solver. Based on CHOLDMOD from SuiteSparse.
@@ -155,14 +155,14 @@ class CholeskySolverCPU {
         }
 
         // Compute the norm of the `rhs` vector.
-        inline double get_rhs_norm() {
-            return cblas_dnrm2(this->AAt_size, (double*) this->chol_dn_rhs->x, 1);
-        }
+        // inline double get_rhs_norm() {
+        //     return cblas_dnrm2(this->AAt_size, (double*) this->chol_dn_rhs->x, 1);
+        // }
 
         // Compute the norm of the `res` vector.
-        inline double get_res_norm() {
-            return cblas_dnrm2(this->AAt_size, (double*) this->chol_dn_res->x, 1);
-        }
+        // inline double get_res_norm() {
+        //     return cblas_dnrm2(this->AAt_size, (double*) this->chol_dn_res->x, 1);
+        // }
 
         ~CholeskySolverCPU() {
             cholmod_free_sparse(&this->chol_sp_AAt, &this->cc);
