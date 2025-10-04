@@ -186,16 +186,16 @@ double constexpr sqrtNewtonRaphson(double x, double curr, double prev)
 constexpr double SQRT2 = sqrtNewtonRaphson(2.0, 2.0, 0.0);
 constexpr double SQRT2INV = 1.0/SQRT2;
 
-// Convert the vector Xb to the matrices mom_mat and loc_mat using the mapping provided by map_B, map_M1, and map_M2.
+// Convert the vector Xb to the matrices large_mat, medium_mat and small_mat using the mapping provided by map_B, map_M1, and map_M2.
 void vector_to_matrices(
-    DeviceDenseVector<double>& Xb, DeviceDenseVector<double>& mom_mat, DeviceDenseVector<double>& loc_mat,
+    DeviceDenseVector<double>& Xb, DeviceDenseVector<double>& large_mat, DeviceDenseVector<double>& medium_mat, DeviceDenseVector<double>& small_mat,
     DeviceDenseVector<int>& map_B, DeviceDenseVector<int>& map_M1, DeviceDenseVector<int>& map_M2,
     const cudaStream_t& stream = (cudaStream_t) 0, int block_size = 1024
 );
 
-// Convert the matrices mom_mat and loc_mat to the vector Xb using the mapping provided by map_B, map_M1, and map_M2.
+// Convert the matrices large_mat, medium_mat and small_mat to the vector Xb using the mapping provided by map_B, map_M1, and map_M2.
 void matrices_to_vector(
-    DeviceDenseVector<double>& Xb, DeviceDenseVector<double>& mom_mat, DeviceDenseVector<double>& loc_mat,
+    DeviceDenseVector<double>& Xb, DeviceDenseVector<double>& large_mat, DeviceDenseVector<double>& medium_mat, DeviceDenseVector<double>& small_mat,
     DeviceDenseVector<int>& map_B, DeviceDenseVector<int>& map_M1, DeviceDenseVector<int>& map_M2,
     const cudaStream_t& stream = (cudaStream_t) 0, int block_size = 1024
 );

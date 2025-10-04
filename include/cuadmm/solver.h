@@ -124,15 +124,28 @@ class SDPSolver {
         DeviceDenseVector<int> map_M1; // |- maps for vectorization of matrices
         DeviceDenseVector<int> map_M2; // |    (cached from get_maps())
 
+        /* Medium matrices decomposition */
+        DeviceDenseVector<double> medium_mat;
+        DeviceDenseVector<double> medium_W;
+        DeviceDenseVector<int> medium_info;
+        DeviceDenseVector<double> medium_mat_tmp;
+        DeviceDenseVector<double> medium_mat_P;
+
+        std::vector<size_t> eig_medium_buffer_size;                // one GPU buffer size per unique medium size
+        DeviceDenseVector<double> eig_medium_buffer;  // one GPU buffer per unique medium size
+        std::vector<size_t> cpu_eig_medium_buffer_size;             // one CPU buffer size per unique medium size
+        HostDenseVector<double> cpu_eig_medium_buffer; // one CPU buffer per unique medium size
+        std::vector<DeviceStream> eig_medium_stream_arr;
+        std::vector<DeviceSolverDnHandle> cusolverH_eig_medium_arr; // one handle per stream
+        std::vector<DeviceBlasHandle> cublasH_eig_medium_arr;     // one handle per stream
+
         /* Large matrix decomposition */
         DeviceDenseVector<double> Xinput;
         DeviceDenseVector<double> large_mat;
         DeviceDenseVector<double> large_W;
         DeviceDenseVector<int> large_info;
         int eig_stream_num_per_gpu;    // number of streams per GPU
-        std::vector<DeviceStream> eig_stream_arr;
-        std::vector<DeviceSolverDnHandle> cusolverH_eig_large_arr; // one handle per stream
-        std::vector<DeviceBlasHandle> cublasH_eig_large_arr;     // one handle per stream
+        DeviceSolverDnHandle cusolverH_eig_large; // single handle for large matrices
         SingleEigParameter eig_param_single;
         std::vector<size_t> eig_large_buffer_size;                // one GPU buffer size per unique large size
         DeviceDenseVector<double> eig_large_buffer;  // one GPU buffer per unique large size

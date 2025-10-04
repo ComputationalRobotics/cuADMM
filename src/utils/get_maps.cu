@@ -43,6 +43,7 @@ void get_maps(
     int mat_size_index; // n-th size of matrix in sizes.large_mat_sizes or sizes.small_mat_sizes
     int same_size_index; // n-th matrix of the same size
     std::vector<int> large_mat_nb_encoutered(sizes.large_mat_sizes.size(), 0);
+    std::vector<int> medium_mat_nb_encoutered(sizes.large_mat_sizes.size(), 0);
     std::vector<int> small_mat_nb_encoutered(sizes.small_mat_sizes.size(), 0);
     int s; // block size
     int b; // block type (0 for large, 1 for small)
@@ -53,14 +54,21 @@ void get_maps(
         }
             
         s = blk_sizes.vals[k];
-        if (sizes.is_large(s)) {
-            b = 0;
+        if (sizes.get_size_category(s) == MatrixSizeCategory::LARGE) {
+            b = MatrixSizeCategory::LARGE;
             auto findex = std::find(sizes.large_mat_sizes.begin(), sizes.large_mat_sizes.end(), s);
             mat_size_index = std::distance(sizes.large_mat_sizes.begin(), findex);
             same_size_index = large_mat_nb_encoutered[mat_size_index];
             ++large_mat_nb_encoutered[mat_size_index];
-        } else {
-            b = 1;
+        } else if (sizes.get_size_category(s) == MatrixSizeCategory::MEDIUM) {
+            b = MatrixSizeCategory::MEDIUM;
+            auto findex = std::find(sizes.medium_mat_sizes.begin(), sizes.medium_mat_sizes.end(), s);
+            mat_size_index = std::distance(sizes.medium_mat_sizes.begin(), findex);
+            same_size_index = medium_mat_nb_encoutered[mat_size_index];
+            ++medium_mat_nb_encoutered[mat_size_index];
+        }
+        else {
+            b = MatrixSizeCategory::SMALL;
             auto findex = std::find(sizes.small_mat_sizes.begin(), sizes.small_mat_sizes.end(), s);
             mat_size_index = std::distance(sizes.small_mat_sizes.begin(), findex);
             same_size_index = small_mat_nb_encoutered[mat_size_index];
@@ -69,11 +77,16 @@ void get_maps(
         for (int i = 1; i <= s; ++i) {      // for each coefficient
             for (int j = 1; j <= i; ++j) {  // in the triangle
                 map_B_tmp[idx] = b;
-                if (sizes.is_large(s)) {
+                if (sizes.get_size_category(s) == MatrixSizeCategory::LARGE) {
                     // count horizontally
                     map_M1_tmp[idx] = sizes.large_mat_offset(mat_size_index, same_size_index) + s * (i-1) + j-1;
                     // count vertically
                     map_M2_tmp[idx] = sizes.large_mat_offset(mat_size_index, same_size_index) + s * (j-1) + i-1;
+                } else if (sizes.get_size_category(s) == MatrixSizeCategory::MEDIUM) {
+                    // count horizontally
+                    map_M1_tmp[idx] = sizes.medium_mat_offset(mat_size_index, same_size_index) + s * (i-1) + j-1;
+                    // count vertically
+                    map_M2_tmp[idx] = sizes.medium_mat_offset(mat_size_index, same_size_index) + s * (j-1) + i-1;
                 } else {
                     // count horizontally
                     map_M1_tmp[idx] = sizes.small_mat_offset(mat_size_index, same_size_index) + s * (i-1) + j-1;
