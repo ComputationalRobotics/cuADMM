@@ -402,8 +402,8 @@ void SDPSolver::init(
         this->cpu_positive_ranks.allocate(this->sizes.large_mat_num);
         this->cpu_negative_ranks.allocate(this->sizes.large_mat_num);
 
-        this->deflated_W.allocate(GPU0, 1.5 * 0.05 * this->sizes.sum_large_mat_size); // since k <= 0.05*n
-        this->deflated_P.allocate(GPU0, 1.5 * 0.05 * this->sizes.total_large_mat_size);
+        this->lobpcg_W.allocate(GPU0, 1.5 * 0.05 * this->sizes.sum_large_mat_size); // since k <= 0.05*n
+        this->lobpcg_P.allocate(GPU0, 1.5 * 0.05 * this->sizes.total_large_mat_size);
     }
 
     /* others */
@@ -710,7 +710,7 @@ void SDPSolver::solve(
                     stream_id = all_counter % this->eig_stream_num_per_gpu;
                     int n = this->sizes.large_mat_sizes[i];
 
-                    // if we don't do deflation at this step,
+                    // if we don't do LOBPCG at this step,
                     // or if we are every 100 iterations
                     if (
                         !(this->use_lobpcg && this->switched_proj_method && !this->sizes.use_cusolver(n))
@@ -730,10 +730,10 @@ void SDPSolver::solve(
                         );
                     }
 
-                    // if we are in the deflation phase
+                    // if we are in the LOBPCG phase
                     if (this->use_lobpcg && this->switched_proj_method && !this->sizes.use_cusolver(n)) {
-                        double *eigenvalues = this->deflated_W.vals + (int)(this->sizes.large_W_offset(i, j) * 1.5 * 0.05);
-                        double *eigenvectors = this->deflated_P.vals + (int)(this->sizes.large_mat_offset(i, j) * 1.5 * 0.05);
+                        double *eigenvalues = this->lobpcg_W.vals + (int)(this->sizes.large_W_offset(i, j) * 1.5 * 0.05);
+                        double *eigenvectors = this->lobpcg_P.vals + (int)(this->sizes.large_mat_offset(i, j) * 1.5 * 0.05);
 
                         // every 100 iterations, we computed the EVD with the full matrix to compute the ranks
                         if ((iter - this->switched_proj_method_iter) % 100 == 0) {
@@ -786,7 +786,7 @@ void SDPSolver::solve(
                                 ));
                             }
                         }
-                        // otherwise, we compute the EVD of the deflated matrix
+                        // otherwise, we compute the EVD using LOBPCG
                         else {
                             // if the matrix is positive low rank
                             if (cpu_positive_ranks.vals[all_counter] < 0.05 * this->sizes.large_mat_sizes[i] && cpu_positive_ranks.vals[all_counter] > 0) {
@@ -836,7 +836,7 @@ void SDPSolver::solve(
                                     this->large_mat.vals + this->sizes.large_mat_offset(i, j), 0, sizeof(double) * n * n
                                 ));
                             }
-                            // otherwise, we don't deflate
+                            // otherwise, we don't use LOBPCG
                             else {
                                 single_eig_cusolver(
                                     this->cusolverH_eig_large_arr[stream_id], eig_param_single,
@@ -953,7 +953,7 @@ void SDPSolver::solve(
             }
         }
 
-        // add the deflated eigenvalues back to the matrices
+        // add the eigenvalues computed with LOBPCG back to the matrices
         // TODO: try to do this the same way as other matrices,
         // by storing eigenpairs in the standard buffers (this->large_W and this->large_mat)
         all_counter = 0;
@@ -981,8 +981,8 @@ void SDPSolver::solve(
                         }
                         int n = this->sizes.large_mat_sizes[i];
 
-                        double *eigenvalues = this->deflated_W.vals + (int)(this->sizes.large_W_offset(i, j) * 1.5 * 0.05);
-                        double *eigenvectors = this->deflated_P.vals + (int)(this->sizes.large_mat_offset(i, j) * 1.5 * 0.05);
+                        double *eigenvalues = this->lobpcg_W.vals + (int)(this->sizes.large_W_offset(i, j) * 1.5 * 0.05);
+                        double *eigenvectors = this->lobpcg_P.vals + (int)(this->sizes.large_mat_offset(i, j) * 1.5 * 0.05);
 
                         // TODO: preallocate
                         DeviceDenseVector<double> relu_eigenvalues;
