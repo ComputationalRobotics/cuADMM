@@ -49,8 +49,8 @@ void MatrixSizes::init(const std::vector<int>& psd_blk_sizes, const std::vector<
         int mat_num = psd_blk_nums[i]; // number of matrices of this size
         
         this->is_large_map[mat_size] = is_large_mat(mat_size, mat_num);
-        
-        if (this->is_large(mat_size)) {
+
+        if (this->get_size_category(mat_size) == MatrixSizeCategory::LARGE || this->get_size_category(mat_size) == MatrixSizeCategory::MEDIUM) {
             this->large_mat_num += mat_num;
             this->sum_large_mat_size += mat_size * mat_num;
             this->total_large_mat_size += mat_num * mat_size * mat_size;
@@ -61,7 +61,7 @@ void MatrixSizes::init(const std::vector<int>& psd_blk_sizes, const std::vector<
             this->large_mat_start_indices.push_back(this->total_large_mat_size);
             this->large_W_start_indices.push_back(this->sum_large_mat_size);
 
-            if (this->use_cusolver(mat_size)) {
+            if (this->get_size_category(mat_size) == MatrixSizeCategory::MEDIUM) {
                 this->requires_cusolver = true; // at least one large matrix requires cuSOLVER
             }
         } else {
@@ -174,8 +174,4 @@ int MatrixSizes::small_buffer_offset(int small_idx, std::vector<size_t>& eig_sma
 
 bool MatrixSizes::is_large(const int mat_size) const {
     return this->is_large_map.at(mat_size);
-}
-
-bool MatrixSizes::use_cusolver(const int mat_size) const {
-    return is_medium_mat(mat_size);
 }

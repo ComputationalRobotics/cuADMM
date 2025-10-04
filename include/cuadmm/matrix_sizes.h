@@ -14,6 +14,12 @@
 
 #define MEDIUM_MAT_LIMIT 1000
 
+enum MatrixSizeCategory {
+    SMALL,
+    MEDIUM,
+    LARGE
+};
+
 // Heuristics to determine if a matrix is large or small.
 // This is used to determine if we use single QR or batched Jacobi for eig.
 // - mat_size: size of the matrix
@@ -81,10 +87,15 @@ public:
     // Given a matrix size and an index i, returns the offset of the i-th GPU buffer for matrices of size mat_size.
     int small_buffer_offset(int mat_size_index, std::vector<size_t>& buffer_sizes) const;
 
-    /// @brief Determines whether to use cuSOLVER to project a large matrix of given size.
-    /// @param mat_size The size of the matrix.
-    /// @return `true` if cuSOLVER should be used, `false` otherwise.
-    bool use_cusolver(const int mat_size) const;
+    MatrixSizeCategory get_size_category(const int mat_size) const {
+        if (is_large(mat_size)) {
+            return MatrixSizeCategory::LARGE;
+        } else if (is_medium_mat(mat_size)) {
+            return MatrixSizeCategory::MEDIUM;
+        } else {
+            return MatrixSizeCategory::SMALL;
+        }
+    }
 };
 
 #endif // CUADMM_MATRIX_SIZES_H

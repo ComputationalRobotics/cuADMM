@@ -285,7 +285,11 @@ void SDPSolver::init(
     int counter = 0;
     for (int i = 0; i < this->sizes.large_mat_sizes.size(); i++) {
         // we only do this for matrices that require cuSOLVER
-        if (this->sizes.use_cusolver(this->sizes.large_mat_sizes[i]) || this->initial_proj_method == ProjectionMethod::EIG_FP64 || this->final_proj_method == ProjectionMethod::EIG_FP64) {
+        if (
+            this->sizes.get_size_category(this->sizes.large_mat_sizes[i]) == MatrixSizeCategory::MEDIUM
+            || this->initial_proj_method == ProjectionMethod::EIG_FP64
+            || this->final_proj_method == ProjectionMethod::EIG_FP64
+        ) {
             single_eig_get_buffersize_cusolver(
                 this->cusolverH_eig_large_arr[counter % this->eig_stream_num_per_gpu], eig_param_single, this->large_mat, this->large_W,
                 this->sizes.large_mat_sizes[i],
@@ -649,7 +653,7 @@ void SDPSolver::solve(
             this->current_proj_method == ProjectionMethod::COMPOSITE_FP32_EMULATED
         ) {
             for (int i = 0; i < this->sizes.large_mat_sizes.size(); i++) {
-                if (this->sizes.use_cusolver(this->sizes.large_mat_sizes[i]))
+                if (this->sizes.get_size_category(this->sizes.large_mat_sizes[i]) == MatrixSizeCategory::MEDIUM)
                     continue;
 
                 for (int j = 0; j < this->sizes.large_mat_nums[i]; j++) {
@@ -703,7 +707,7 @@ void SDPSolver::solve(
         if (this->sizes.requires_cusolver || this->current_proj_method == ProjectionMethod::EIG_FP64) { // cuSOLVER version
             for (int i = 0; i < this->sizes.large_mat_sizes.size(); i++) {
                 // if the matrix does not require cuSOLVER, we skip it
-                if (!this->sizes.use_cusolver(this->sizes.large_mat_sizes[i]) && this->current_proj_method != ProjectionMethod::EIG_FP64)
+                if (this->sizes.get_size_category(this->sizes.large_mat_sizes[i]) != MatrixSizeCategory::MEDIUM && this->current_proj_method != ProjectionMethod::EIG_FP64)
                     continue;
 
                 for (int j = 0; j < this->sizes.large_mat_nums[i]; j++) {
@@ -713,7 +717,7 @@ void SDPSolver::solve(
                     // if we don't do LOBPCG at this step,
                     // or if we are every 100 iterations
                     if (
-                        !(this->use_lobpcg && this->switched_proj_method && !this->sizes.use_cusolver(n))
+                        !(this->use_lobpcg && this->switched_proj_method && this->sizes.get_size_category(n) != MatrixSizeCategory::LARGE)
                         || (iter - this->switched_proj_method_iter) % 100 == 0
                     ) {
                         // compute the EVD using cuSOLVER
@@ -731,7 +735,7 @@ void SDPSolver::solve(
                     }
 
                     // if we are in the LOBPCG phase
-                    if (this->use_lobpcg && this->switched_proj_method && !this->sizes.use_cusolver(n)) {
+                    if (this->use_lobpcg && this->switched_proj_method && this->sizes.get_size_category(n) != MatrixSizeCategory::LARGE) {
                         double *eigenvalues = this->lobpcg_W.vals + (int)(this->sizes.large_W_offset(i, j) * 1.5 * 0.05);
                         double *eigenvectors = this->lobpcg_P.vals + (int)(this->sizes.large_mat_offset(i, j) * 1.5 * 0.05);
 
@@ -905,7 +909,7 @@ void SDPSolver::solve(
         // multiply the large matrices by their eigenvalues
         // TODO: only do it for the matrices without LOBPCG
         for (int i = 0; i < this->sizes.large_mat_sizes.size(); i++) {
-            if (this->sizes.use_cusolver(this->sizes.large_mat_sizes[i]) || this->current_proj_method == ProjectionMethod::EIG_FP64) {
+            if (this->sizes.get_size_category(this->sizes.large_mat_sizes[i]) == MatrixSizeCategory::MEDIUM || this->current_proj_method == ProjectionMethod::EIG_FP64) {
                 // stream_id = i % this->eig_stream_num_per_gpu;
                 dense_matrix_mul_diag_batch(
                     this->large_mat_tmp, this->large_mat, this->large_W,
@@ -935,7 +939,8 @@ void SDPSolver::solve(
         // multiply the large matrices by their eigenvectors
         // TODO: only do it for the matrices without LOBPCG
         for (int i = 0; i < this->sizes.large_mat_sizes.size(); i++) {
-            if (this->sizes.use_cusolver(this->sizes.large_mat_sizes[i]) || this->current_proj_method == ProjectionMethod::EIG_FP64) {
+            if (
+                this->sizes.get_size_category(this->sizes.large_mat_sizes[i]) == MatrixSizeCategory::MEDIUM || this->current_proj_method == ProjectionMethod::EIG_FP64) {
                 dense_matrix_mul_trans_batch(
                     this->cublasH,
                     this->large_mat_P, this->large_mat_tmp, this->large_mat,
@@ -963,7 +968,7 @@ void SDPSolver::solve(
                 for (int j = 0; j < this->sizes.large_mat_nums[i]; j++) {
                     stream_id = all_counter % this->eig_stream_num_per_gpu;
 
-                    if (this->sizes.use_cusolver(this->sizes.large_mat_sizes[i])) {
+                    if (this->sizes.get_size_category(this->sizes.large_mat_sizes[i]) == MatrixSizeCategory::LARGE) {
                         all_counter++;
                         continue;
                     }
