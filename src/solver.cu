@@ -993,7 +993,51 @@ void SDPSolver::solve(
         
 
         /* Step 3.2. Projection of the medium matrices */
-        // TODO: project medium matrices
+        // project using cuSOLVER
+        int all_counter = 0; // serves as an info offset
+        for (int i = 0; i < this->sizes.medium_mat_sizes.size(); i++) {
+            for (int j = 0; j < this->sizes.medium_mat_nums[i]; j++) {
+                int n = this->sizes.medium_mat_sizes[i];
+
+                // compute the EVD using cuSOLVER
+                single_eig_cusolver(
+                    this->cusolverH_eig_medium_arr[all_counter % this->eig_stream_num_per_gpu], eig_param_single,
+                    this->medium_mat, this->medium_W,
+                    this->eig_medium_buffer, this->cpu_eig_medium_buffer, this->medium_info,
+                    this->sizes.medium_mat_sizes[i],
+                    this->eig_medium_buffer_size[i], this->cpu_eig_medium_buffer_size[i],
+                    this->sizes.medium_mat_offset(i, j), this->sizes.medium_W_offset(i, j),
+                    this->sizes.medium_buffer_offset(i, j, this->eig_medium_buffer_size),
+                    this->sizes.medium_cpu_buffer_offset(i, j, this->eig_medium_buffer_size),
+                    all_counter
+                ); // TODO: create one buffer per matrix
+
+                all_counter++;
+            }
+        }
+
+        if (this->sizes.medium_mat_num > 0) {
+            max_dense_vector_zero(this->medium_W);
+        }
+
+        // multiply the medium matrices by their eigenvalues
+        for (int i = 0; i < this->sizes.medium_mat_sizes.size(); i++) {
+            dense_matrix_mul_diag_batch(
+                this->medium_mat_tmp, this->medium_mat, this->medium_W,
+                this->sizes.medium_mat_sizes[i], this->sizes.medium_mat_nums[i],
+                this->sizes.medium_mat_offset(i, 0), this->sizes.medium_W_offset(i, 0)
+            );
+        }
+
+        // multiply the medium matrices by their eigenvectors
+        for (int i = 0; i < this->sizes.medium_mat_sizes.size(); i++) {
+            dense_matrix_mul_trans_batch(
+                this->cublasH,
+                this->medium_mat_P, this->medium_mat_tmp, this->medium_mat,
+                this->sizes.medium_mat_sizes[i], this->sizes.medium_mat_nums[i],
+                this->sizes.medium_mat_offset(i, 0)
+            );
+        }
 
 
         /* Step 3.3. Projection of the small matrices */
