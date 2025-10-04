@@ -43,7 +43,7 @@ void get_maps(
     int mat_size_index; // n-th size of matrix in sizes.large_mat_sizes or sizes.small_mat_sizes
     int same_size_index; // n-th matrix of the same size
     std::vector<int> large_mat_nb_encoutered(sizes.large_mat_sizes.size(), 0);
-    std::vector<int> medium_mat_nb_encoutered(sizes.large_mat_sizes.size(), 0);
+    std::vector<int> medium_mat_nb_encoutered(sizes.medium_mat_sizes.size(), 0);
     std::vector<int> small_mat_nb_encoutered(sizes.small_mat_sizes.size(), 0);
     int s; // block size
     int b; // block type (0 for large, 1 for small)

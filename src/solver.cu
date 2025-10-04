@@ -283,11 +283,11 @@ void SDPSolver::init(
     int total_cpu_eig_medium_buffer_size = 0;
     for (int i = 0; i < this->sizes.medium_mat_sizes.size(); i++) {
         single_eig_get_buffersize_cusolver(
-            this->cusolverH_eig_medium_arr[i % this->eig_stream_num_per_gpu], eig_param_single, this->medium_mat, this->large_W,
+            this->cusolverH_eig_medium_arr[i % this->eig_stream_num_per_gpu], eig_param_single, this->medium_mat, this->medium_W,
             this->sizes.medium_mat_sizes[i],
             &this->eig_medium_buffer_size[i],
             &this->cpu_eig_medium_buffer_size[i],
-            this->sizes.medium_mat_offset(i, 0), this->sizes.large_W_offset(i, 0)
+            this->sizes.medium_mat_offset(i, 0), this->sizes.medium_W_offset(i, 0)
         ); // buffer size per medium matrix of a given size
 
         // we need to multiply the buffer size by the number of matrices of this size
@@ -514,6 +514,7 @@ void SDPSolver::solve(
     std::cout << "              LOBPCG max iter: " << LOBPCG_MAXIT << std::endl;
     std::cout << "             LOBPCG tolerance: " << LOBPCG_TOL << std::endl;
     std::cout << "             LOBPCG warmstart: " << (LOBPCG_WARMSTART ? "true" : "false") << std::endl;
+    std::cout << "          small matrix limit: " << SMALL_MAT_LIMIT << std::endl;
     std::cout << "          medium matrix limit: " << MEDIUM_MAT_LIMIT << std::endl;
 
     /* Start the solver */
