@@ -312,6 +312,7 @@ void SDPSolver::init(
     // allocate GPU0 memory for large matrices
     this->large_mat.allocate(GPU0, this->sizes.total_large_mat_size);
     this->large_W.allocate(GPU0, this->sizes.sum_large_mat_size);
+    this->large_W_relu.allocate(GPU0, this->sizes.sum_large_mat_size * 1.5 * 0.05);
     this->large_info.allocate(GPU0, this->sizes.large_mat_num);
 
     this->cusolverH_eig_large.set_gpu_id(GPU0);
@@ -744,7 +745,6 @@ void SDPSolver::solve(
         int number_low_rank_matrices = 0;
         if (this->current_proj_method == ProjectionMethod::EIG_FP64) { // cuSOLVER version
             for (int i = 0; i < this->sizes.large_mat_sizes.size(); i++) {
-
                 for (int j = 0; j < this->sizes.large_mat_nums[i]; j++) {
                     int n = this->sizes.large_mat_sizes[i];
 
@@ -904,8 +904,7 @@ void SDPSolver::solve(
             if (
                 this->use_lobpcg 
                 && this->switched_proj_method 
-                && (iter - this->switched_proj_method_iter) % 100 == 0 
-                && number_low_rank_matrices > 0
+                && (iter - this->switched_proj_method_iter) % 100 == 0
             )
                 std::cout << " ------------------ Number of low rank matrices = " << std::setw(3) << number_low_rank_matrices << " / " << std::setw(3) << this->sizes.large_mat_num << " ------------------" << std::endl;
         }
@@ -971,22 +970,20 @@ void SDPSolver::solve(
 
                         double *eigenvalues = this->lobpcg_W.vals + (int)(this->sizes.large_W_offset(i, j) * 1.5 * 0.05);
                         double *eigenvectors = this->lobpcg_P.vals + (int)(this->sizes.large_mat_offset(i, j) * 1.5 * 0.05);
+                        double *relu_eigenvalues = this->large_W_relu.vals + (int)(this->sizes.large_W_offset(i, j) * 1.5 * 0.05);
 
-                        // TODO: preallocate
-                        DeviceDenseVector<double> relu_eigenvalues;
-                        relu_eigenvalues.allocate(GPU0, k);
                         CHECK_CUDA( cudaMemcpy(
-                            relu_eigenvalues.vals, eigenvalues, sizeof(double) * k, D2D
+                            relu_eigenvalues, eigenvalues, sizeof(double) * k, D2D
                         ) );
 
                         // add back only the positive eigenvalues
-                        max_dense_vector_zero(relu_eigenvalues.vals, k);
+                        max_dense_vector_zero(relu_eigenvalues, k);
 
                         cublasSetPointerMode(this->cublasH_eig_large.cublas_handle, CUBLAS_POINTER_MODE_DEVICE);
                         for (int l = 0; l < k; l++) {
                             // X <- X + \lambda_i * v_i v_i^T
                             double *v_i = eigenvectors + l * n;
-                            double *m_lambda_i = relu_eigenvalues.vals + l;
+                            double *m_lambda_i = relu_eigenvalues + l;
                             CHECK_CUBLAS( cublasDger(this->cublasH_eig_large.cublas_handle, n, n, m_lambda_i, v_i, 1, v_i, 1, this->large_mat_P.vals + this->sizes.large_mat_offset(i, j), n) );
                         }
                         cublasSetPointerMode(this->cublasH_eig_large.cublas_handle, CUBLAS_POINTER_MODE_HOST);

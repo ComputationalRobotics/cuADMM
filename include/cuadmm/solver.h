@@ -123,6 +123,7 @@ class SDPSolver {
         DeviceDenseVector<int> map_B;  // |
         DeviceDenseVector<int> map_M1; // |- maps for vectorization of matrices
         DeviceDenseVector<int> map_M2; // |    (cached from get_maps())
+        DeviceDenseVector<double> Xinput;
 
         /* Medium matrices decomposition */
         DeviceDenseVector<double> medium_mat;
@@ -140,9 +141,9 @@ class SDPSolver {
         std::vector<DeviceBlasHandle> cublasH_eig_medium_arr;     // one handle per stream
 
         /* Large matrix decomposition */
-        DeviceDenseVector<double> Xinput;
         DeviceDenseVector<double> large_mat;
         DeviceDenseVector<double> large_W;
+        DeviceDenseVector<double> large_W_relu; // large_W after ReLU
         DeviceDenseVector<int> large_info;
         int eig_stream_num_per_gpu;    // number of streams per GPU
         DeviceSolverDnHandle cusolverH_eig_large; // single handle for large matrices
