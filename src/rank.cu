@@ -26,6 +26,12 @@ void compute_ranks(
     const int block_size
 ) {
     int num_blocks = (mat_size + block_size - 1) / block_size;
+
+    // set positive and negative ranks to zero
+    cudaMemset(positive_rank, 0, sizeof(int));
+    cudaMemset(negative_rank, 0, sizeof(int));
+
+    // launch kernel to compute ranks
     compute_ranks_kernel<<<num_blocks, block_size>>>(
         eigenvalues,
         mat_size,
