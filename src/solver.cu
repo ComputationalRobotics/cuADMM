@@ -495,6 +495,8 @@ void SDPSolver::solve(
 
     this->info_iter_num = 0; // iteration number
 
+    double one = 1.0;
+    double zero = 0.0;
     double minus_one = -1.0;
 
     std::cout << std::endl;
@@ -776,6 +778,7 @@ void SDPSolver::solve(
                     if (is_lobpcg_phase) {
                         double *eigenvalues = this->lobpcg_W.vals + (int)(this->sizes.large_W_offset(i, j) * 1.5 * 0.05);
                         double *eigenvectors = this->lobpcg_P.vals + (int)(this->sizes.large_mat_offset(i, j) * 1.5 * 0.05);
+                        double *relu_eigenvalues = this->large_W_relu.vals + (int)(this->sizes.large_W_offset(i, j) * 1.5 * 0.05);
 
                         // every 100 iterations, we computed the EVD with the full matrix to compute the ranks
                         if (apply_cusolver) {
@@ -843,16 +846,39 @@ void SDPSolver::solve(
                                     n, k, LOBPCG_WARMSTART, LOBPCG_MAXIT, LOBPCG_TOL, false
                                 );
 
-                                // set the matrix to zero
+                                // put the matrix to zero
                                 CHECK_CUDA(cudaMemset(
                                     this->large_mat.vals + this->sizes.large_mat_offset(i, j), 0, sizeof(double) * n * n
                                 ));
+
+                                // add back the positive eigenvalues to the matrix
+                                CHECK_CUDA( cudaMemcpy(
+                                    relu_eigenvalues, eigenvalues, sizeof(double) * k, D2D
+                                ) );
+
+                                // add back only the positive eigenvalues
+                                max_dense_vector_zero(relu_eigenvalues, k);
+
+                                // rank one updates
+                                cublasSetPointerMode(this->cublasH_eig_large.cublas_handle, CUBLAS_POINTER_MODE_DEVICE);
+                                for (int l = 0; l < k; l++) {
+                                    // X <- X + \lambda_i * v_i v_i^T
+                                    double *v_i = eigenvectors + l * n;
+                                    double *m_lambda_i = relu_eigenvalues + l;
+                                    CHECK_CUBLAS( cublasDger(this->cublasH_eig_large.cublas_handle, n, n, m_lambda_i, v_i, 1, v_i, 1, this->large_mat_P.vals + this->sizes.large_mat_offset(i, j), n) );
+                                }
+                                cublasSetPointerMode(this->cublasH_eig_large.cublas_handle, CUBLAS_POINTER_MODE_HOST);
                             }
                             // if the matrix is negative low rank
                             else if (cpu_negative_ranks.vals[all_counter] < 0.05 * this->sizes.large_mat_sizes[i] && cpu_negative_ranks.vals[all_counter] > 0) {
                                 int k = 1.5 * cpu_negative_ranks.vals[all_counter];
 
+                                // TODO: preallocate
+                                double *A1;
+                                CHECK_CUDA( cudaMalloc((void**)&A1, sizeof(double) * n * n) );
+
                                 // change the matrix sign to reuse LOBPCG code
+                                // A <- -A
                                 CHECK_CUBLAS(cublasDscal(
                                     this->cublasH_eig_large.cublas_handle, n*n, &minus_one, 
                                     this->large_mat.vals + this->sizes.large_mat_offset(i, j), 1
@@ -863,6 +889,7 @@ void SDPSolver::solve(
                                 CHECK_CUBLAS(cublasDscal(this->cublasH_eig_large.cublas_handle, n*(n - k), &minus_one, eigenvectors, 1));
 
                                 // compute the largest eigenpairs
+                                // eigenvalues <- -sp(A)
                                 lobpcg(
                                     this->cublasH_eig_large.cublas_handle, this->cusolverH_eig_large.cusolver_dn_handle,
                                     this->large_mat.vals + this->sizes.large_mat_offset(i, j),
@@ -871,13 +898,40 @@ void SDPSolver::solve(
                                 );
                                 // note: the eigenvalues are already negated since we use -A
 
-                                // negate eigenvalues back
-                                CHECK_CUBLAS(cublasDscal(this->cublasH_eig_large.cublas_handle, k, &minus_one, eigenvalues, 1));
-
-                                // put the matrix to zero
-                                CHECK_CUDA(cudaMemset(
-                                    this->large_mat.vals + this->sizes.large_mat_offset(i, j), 0, sizeof(double) * n * n
+                                // restore the sign of A
+                                CHECK_CUBLAS(cublasDscal(
+                                    this->cublasH_eig_large.cublas_handle, n*n, &minus_one, 
+                                    this->large_mat.vals + this->sizes.large_mat_offset(i, j), 1
                                 ));
+                                // A now contains -A
+
+                                // reconstruct proj(-A)
+                                // put the matrix to zero
+                                CHECK_CUDA(cudaMemset(A1, 0, sizeof(double) * n * n));
+
+                                // compute ReLU(sp(-A))
+                                CHECK_CUDA( cudaMemcpy(
+                                    relu_eigenvalues, eigenvalues, sizeof(double) * k, D2D
+                                ) );
+                                max_dense_vector_zero(relu_eigenvalues, k);
+
+                                // rank one updates
+                                cublasSetPointerMode(this->cublasH_eig_large.cublas_handle, CUBLAS_POINTER_MODE_DEVICE);
+                                for (int l = 0; l < k; l++) {
+                                    // X <- X + \lambda_i * v_i v_i^T
+                                    double *v_i = eigenvectors + l * n;
+                                    double *m_lambda_i = relu_eigenvalues + l;
+                                    CHECK_CUBLAS( cublasDger(this->cublasH_eig_large.cublas_handle, n, n, m_lambda_i, v_i, 1, v_i, 1, A1, n) );
+                                }
+                                cublasSetPointerMode(this->cublasH_eig_large.cublas_handle, CUBLAS_POINTER_MODE_HOST);
+                                // A1 now contains proj(-A)
+
+                                // add A1 to A
+                                CHECK_CUBLAS(cublasDaxpy(
+                                    this->cublasH_eig_large.cublas_handle, n*n, &one, A1, 1,
+                                    this->large_mat.vals + this->sizes.large_mat_offset(i, j), 1
+                                ));
+                                // A now contains A + proj(-A) = proj(A)
                             }
                             // otherwise, we don't use LOBPCG
                             else {
@@ -913,9 +967,6 @@ void SDPSolver::solve(
             max_dense_vector_zero(this->large_W);
         }
 
-        double one = 1.0;
-        double zero = 0.0;
-
         // set pointer mode to device
         cublasSetPointerMode(this->cublasH_eig_large.cublas_handle, CUBLAS_POINTER_MODE_DEVICE);
 
@@ -926,23 +977,29 @@ void SDPSolver::solve(
                 for (int j = 0; j < this->sizes.large_mat_nums[i]; j++) {
                     // scale each column of large_mat_tmp by the corresponding eigenvalue
 
-                    // copy large_mat to large_mat_tmp
-                    CHECK_CUDA( cudaMemcpyAsync(
-                        this->large_mat_tmp.vals + this->sizes.large_mat_offset(i, j),
-                        this->large_mat.vals + this->sizes.large_mat_offset(i, j),
-                        sizeof(double) * this->sizes.large_mat_sizes[i] * this->sizes.large_mat_sizes[i],
-                        D2D
-                    ) );
-
-                    for (int k = 0; k < this->sizes.large_mat_sizes[i]; k++) {
-                        // scale the k-th column
-                        CHECK_CUBLAS( cublasDscal(
-                            this->cublasH_eig_large.cublas_handle,
-                            this->sizes.large_mat_sizes[i],
-                            this->large_W.vals + this->sizes.large_W_offset(i, j) + k,
-                            this->large_mat_tmp.vals + this->sizes.large_mat_offset(i, j) + k * this->sizes.large_mat_sizes[i],
-                            1
+                    // only do it if we didn't use LOBPCG on the matrix
+                    if (
+                        !(cpu_positive_ranks.vals[all_counter] < 0.05 * this->sizes.large_mat_sizes[i] && cpu_positive_ranks.vals[all_counter] > 0)
+                        && !(cpu_negative_ranks.vals[all_counter] < 0.05 * this->sizes.large_mat_sizes[i] && cpu_negative_ranks.vals[all_counter] > 0)
+                    ) {
+                        // copy large_mat to large_mat_tmp
+                        CHECK_CUDA( cudaMemcpyAsync(
+                            this->large_mat_tmp.vals + this->sizes.large_mat_offset(i, j),
+                            this->large_mat.vals + this->sizes.large_mat_offset(i, j),
+                            sizeof(double) * this->sizes.large_mat_sizes[i] * this->sizes.large_mat_sizes[i],
+                            D2D
                         ) );
+
+                        for (int k = 0; k < this->sizes.large_mat_sizes[i]; k++) {
+                            // scale the k-th column
+                            CHECK_CUBLAS( cublasDscal(
+                                this->cublasH_eig_large.cublas_handle,
+                                this->sizes.large_mat_sizes[i],
+                                this->large_W.vals + this->sizes.large_W_offset(i, j) + k,
+                                this->large_mat_tmp.vals + this->sizes.large_mat_offset(i, j) + k * this->sizes.large_mat_sizes[i],
+                                1
+                            ) );
+                        }
                     }
                 }
             }
@@ -956,16 +1013,22 @@ void SDPSolver::solve(
             if (this->current_proj_method == ProjectionMethod::EIG_FP64) {
                 // TODO: use batch again, without altering LOBPCG
                 for (int j = 0; j < this->sizes.large_mat_nums[i]; j++) {
-                    CHECK_CUBLAS( cublasDgemm(
-                        this->cublasH_eig_large.cublas_handle,
-                        CUBLAS_OP_N, CUBLAS_OP_T,
-                        this->sizes.large_mat_sizes[i], this->sizes.large_mat_sizes[i], this->sizes.large_mat_sizes[i],
-                        &one,
-                        this->large_mat_tmp.vals + this->sizes.large_mat_offset(i, j), this->sizes.large_mat_sizes[i],
-                        this->large_mat.vals + this->sizes.large_mat_offset(i, j), this->sizes.large_mat_sizes[i],
-                        &zero,
-                        this->large_mat_P.vals + this->sizes.large_mat_offset(i, j), this->sizes.large_mat_sizes[i]
-                    ) );
+                    // if we didn't use LOBPCG on the matrix
+                    if (
+                        !(cpu_positive_ranks.vals[all_counter] < 0.05 * this->sizes.large_mat_sizes[i] && cpu_positive_ranks.vals[all_counter] > 0)
+                        && !(cpu_negative_ranks.vals[all_counter] < 0.05 * this->sizes.large_mat_sizes[i] && cpu_negative_ranks.vals[all_counter] > 0)
+                    ) {
+                        CHECK_CUBLAS( cublasDgemm(
+                            this->cublasH_eig_large.cublas_handle,
+                            CUBLAS_OP_N, CUBLAS_OP_T,
+                            this->sizes.large_mat_sizes[i], this->sizes.large_mat_sizes[i], this->sizes.large_mat_sizes[i],
+                            &one,
+                            this->large_mat_tmp.vals + this->sizes.large_mat_offset(i, j), this->sizes.large_mat_sizes[i],
+                            this->large_mat.vals + this->sizes.large_mat_offset(i, j), this->sizes.large_mat_sizes[i],
+                            &zero,
+                            this->large_mat_P.vals + this->sizes.large_mat_offset(i, j), this->sizes.large_mat_sizes[i]
+                        ) );
+                    }
                 }
             } else {
                 // copy large_mat to large_mat_P
@@ -975,54 +1038,6 @@ void SDPSolver::solve(
                     sizeof(double) * this->sizes.large_mat_sizes[i] * this->sizes.large_mat_sizes[i] * this->sizes.large_mat_nums[i],
                     D2D
                 ) );
-            }
-        }
-
-        // add the eigenvalues computed with LOBPCG back to the matrices
-        // TODO: try to do this the same way as other matrices,
-        // by storing eigenpairs in the standard buffers (this->large_W and this->large_mat)
-        all_counter = 0;
-        if (this->use_lobpcg && this->switched_proj_method && (iter - this->switched_proj_method_iter) % 100 != 0) {
-            for (int i = 0; i < this->sizes.large_mat_sizes.size(); i++) {
-                int n = this->sizes.large_mat_sizes[i];
-                for (int j = 0; j < this->sizes.large_mat_nums[i]; j++) {
-                    
-                    // if the matrix is positive or negative low rank
-                    if (
-                        (cpu_positive_ranks.vals[all_counter] < 0.05 * this->sizes.large_mat_sizes[i] && cpu_positive_ranks.vals[all_counter] > 0)
-                        || (cpu_negative_ranks.vals[all_counter] < 0.05 * this->sizes.large_mat_sizes[i] && cpu_negative_ranks.vals[all_counter] > 0)
-                    ) {
-                        int k;
-                        if ((cpu_positive_ranks.vals[all_counter] < 0.05 * this->sizes.large_mat_sizes[i] && cpu_positive_ranks.vals[all_counter] > 0)) {
-                            k = 1.5 * cpu_positive_ranks.vals[all_counter];
-                        } else {
-                            k = 1.5 * cpu_negative_ranks.vals[all_counter];
-                        }
-                        int n = this->sizes.large_mat_sizes[i];
-
-                        double *eigenvalues = this->lobpcg_W.vals + (int)(this->sizes.large_W_offset(i, j) * 1.5 * 0.05);
-                        double *eigenvectors = this->lobpcg_P.vals + (int)(this->sizes.large_mat_offset(i, j) * 1.5 * 0.05);
-                        double *relu_eigenvalues = this->large_W_relu.vals + (int)(this->sizes.large_W_offset(i, j) * 1.5 * 0.05);
-
-                        CHECK_CUDA( cudaMemcpy(
-                            relu_eigenvalues, eigenvalues, sizeof(double) * k, D2D
-                        ) );
-
-                        // add back only the positive eigenvalues
-                        max_dense_vector_zero(relu_eigenvalues, k);
-
-                        cublasSetPointerMode(this->cublasH_eig_large.cublas_handle, CUBLAS_POINTER_MODE_DEVICE);
-                        for (int l = 0; l < k; l++) {
-                            // X <- X + \lambda_i * v_i v_i^T
-                            double *v_i = eigenvectors + l * n;
-                            double *m_lambda_i = relu_eigenvalues + l;
-                            CHECK_CUBLAS( cublasDger(this->cublasH_eig_large.cublas_handle, n, n, m_lambda_i, v_i, 1, v_i, 1, this->large_mat_P.vals + this->sizes.large_mat_offset(i, j), n) );
-                        }
-                        cublasSetPointerMode(this->cublasH_eig_large.cublas_handle, CUBLAS_POINTER_MODE_HOST);
-                    }
-
-                    all_counter++;
-                }
             }
         }
         
