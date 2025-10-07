@@ -913,28 +913,60 @@ void SDPSolver::solve(
             max_dense_vector_zero(this->large_W);
         }
 
+        double one = 1.0;
+        double zero = 0.0;
+
+        // set pointer mode to device
+        cublasSetPointerMode(this->cublasH_eig_large.cublas_handle, CUBLAS_POINTER_MODE_DEVICE);
+
         // multiply the large matrices by their eigenvalues
-        // TODO: only do it for matrices without LOBPCG
         if (this->current_proj_method == ProjectionMethod::EIG_FP64) {
             for (int i = 0; i < this->sizes.large_mat_sizes.size(); i++) {
-                dense_matrix_mul_diag_batch(
-                    this->large_mat_tmp, this->large_mat, this->large_W,
-                    this->sizes.large_mat_sizes[i], this->sizes.large_mat_nums[i],
-                    this->sizes.large_mat_offset(i, 0), this->sizes.large_W_offset(i, 0)
-                );
+                // TODO: use batch again, without altering LOBPCG
+                for (int j = 0; j < this->sizes.large_mat_nums[i]; j++) {
+                    // scale each column of large_mat_tmp by the corresponding eigenvalue
+
+                    // copy large_mat to large_mat_tmp
+                    CHECK_CUDA( cudaMemcpyAsync(
+                        this->large_mat_tmp.vals + this->sizes.large_mat_offset(i, j),
+                        this->large_mat.vals + this->sizes.large_mat_offset(i, j),
+                        sizeof(double) * this->sizes.large_mat_sizes[i] * this->sizes.large_mat_sizes[i],
+                        D2D
+                    ) );
+
+                    for (int k = 0; k < this->sizes.large_mat_sizes[i]; k++) {
+                        // scale the k-th column
+                        CHECK_CUBLAS( cublasDscal(
+                            this->cublasH_eig_large.cublas_handle,
+                            this->sizes.large_mat_sizes[i],
+                            this->large_W.vals + this->sizes.large_W_offset(i, j) + k,
+                            this->large_mat_tmp.vals + this->sizes.large_mat_offset(i, j) + k * this->sizes.large_mat_sizes[i],
+                            1
+                        ) );
+                    }
+                }
             }
         }
 
+        // set pointer mode back to host
+        cublasSetPointerMode(this->cublasH_eig_large.cublas_handle, CUBLAS_POINTER_MODE_HOST);
+
         // multiply the large matrices by their eigenvectors
-        // TODO: only do it for the matrices without LOBPCG
         for (int i = 0; i < this->sizes.large_mat_sizes.size(); i++) {
             if (this->current_proj_method == ProjectionMethod::EIG_FP64) {
-                dense_matrix_mul_trans_batch(
-                    this->cublasH,
-                    this->large_mat_P, this->large_mat_tmp, this->large_mat,
-                    this->sizes.large_mat_sizes[i], this->sizes.large_mat_nums[i],
-                    this->sizes.large_mat_offset(i, 0)
-                );
+                // TODO: use batch again, without altering LOBPCG
+                for (int j = 0; j < this->sizes.large_mat_nums[i]; j++) {
+                    CHECK_CUBLAS( cublasDgemm(
+                        this->cublasH_eig_large.cublas_handle,
+                        CUBLAS_OP_N, CUBLAS_OP_T,
+                        this->sizes.large_mat_sizes[i], this->sizes.large_mat_sizes[i], this->sizes.large_mat_sizes[i],
+                        &one,
+                        this->large_mat_tmp.vals + this->sizes.large_mat_offset(i, j), this->sizes.large_mat_sizes[i],
+                        this->large_mat.vals + this->sizes.large_mat_offset(i, j), this->sizes.large_mat_sizes[i],
+                        &zero,
+                        this->large_mat_P.vals + this->sizes.large_mat_offset(i, j), this->sizes.large_mat_sizes[i]
+                    ) );
+                }
             } else {
                 // copy large_mat to large_mat_P
                 CHECK_CUDA( cudaMemcpyAsync(
