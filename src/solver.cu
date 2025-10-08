@@ -979,9 +979,9 @@ void SDPSolver::solve(
 
                     // only do it if we didn't use LOBPCG on the matrix
                     if (
-                        !apply_cusolver
-                        && !(cpu_positive_ranks.vals[all_counter] < 0.05 * this->sizes.large_mat_sizes[i] && cpu_positive_ranks.vals[all_counter] > 0)
-                        && !(cpu_negative_ranks.vals[all_counter] < 0.05 * this->sizes.large_mat_sizes[i] && cpu_negative_ranks.vals[all_counter] > 0)
+                        apply_cusolver ||
+                        (!(cpu_positive_ranks.vals[all_counter] < 0.05 * this->sizes.large_mat_sizes[i] && cpu_positive_ranks.vals[all_counter] > 0)
+                        && !(cpu_negative_ranks.vals[all_counter] < 0.05 * this->sizes.large_mat_sizes[i] && cpu_negative_ranks.vals[all_counter] > 0))
                     ) {
                         // copy large_mat to large_mat_tmp
                         CHECK_CUDA( cudaMemcpyAsync(
@@ -1016,9 +1016,9 @@ void SDPSolver::solve(
                 for (int j = 0; j < this->sizes.large_mat_nums[i]; j++) {
                     // if we didn't use LOBPCG on the matrix
                     if (
-                        !apply_cusolver
-                        && !(cpu_positive_ranks.vals[all_counter] < 0.05 * this->sizes.large_mat_sizes[i] && cpu_positive_ranks.vals[all_counter] > 0)
-                        && !(cpu_negative_ranks.vals[all_counter] < 0.05 * this->sizes.large_mat_sizes[i] && cpu_negative_ranks.vals[all_counter] > 0)
+                        apply_cusolver ||
+                        (!(cpu_positive_ranks.vals[all_counter] < 0.05 * this->sizes.large_mat_sizes[i] && cpu_positive_ranks.vals[all_counter] > 0)
+                        && !(cpu_negative_ranks.vals[all_counter] < 0.05 * this->sizes.large_mat_sizes[i] && cpu_negative_ranks.vals[all_counter] > 0))
                     ) {
                         CHECK_CUBLAS( cublasDgemm(
                             this->cublasH_eig_large.cublas_handle,
