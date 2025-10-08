@@ -741,6 +741,13 @@ void SDPSolver::solve(
             }
         }
 
+        
+        // we apply cuSOLVER if:
+        // - we are not in the LOBPCG phase
+        // - or if we are every 100 iterations in the LOBPCG phase
+        bool is_lobpcg_phase = this->use_lobpcg && this->switched_proj_method;
+        bool apply_cusolver = !is_lobpcg_phase || (iter - this->switched_proj_method_iter) % 100 == 0;
+
         // project using cuSOLVER
         int all_counter = 0; // serves as an info offset
         int icounter = 0;
@@ -749,13 +756,6 @@ void SDPSolver::solve(
             for (int i = 0; i < this->sizes.large_mat_sizes.size(); i++) {
                 for (int j = 0; j < this->sizes.large_mat_nums[i]; j++) {
                     int n = this->sizes.large_mat_sizes[i];
-
-                    bool is_lobpcg_phase = this->use_lobpcg && this->switched_proj_method;
-
-                    // we apply cuSOLVER if:
-                    // - we are not in the LOBPCG phase
-                    // - or if we are every 100 iterations in the LOBPCG phase
-                    bool apply_cusolver = !is_lobpcg_phase || (iter - this->switched_proj_method_iter) % 100 == 0;
 
                     // if we don't do LOBPCG at this step,
                     // or if we are every 100 iterations
@@ -979,7 +979,8 @@ void SDPSolver::solve(
 
                     // only do it if we didn't use LOBPCG on the matrix
                     if (
-                        !(cpu_positive_ranks.vals[all_counter] < 0.05 * this->sizes.large_mat_sizes[i] && cpu_positive_ranks.vals[all_counter] > 0)
+                        !apply_cusolver
+                        && !(cpu_positive_ranks.vals[all_counter] < 0.05 * this->sizes.large_mat_sizes[i] && cpu_positive_ranks.vals[all_counter] > 0)
                         && !(cpu_negative_ranks.vals[all_counter] < 0.05 * this->sizes.large_mat_sizes[i] && cpu_negative_ranks.vals[all_counter] > 0)
                     ) {
                         // copy large_mat to large_mat_tmp
@@ -1015,7 +1016,8 @@ void SDPSolver::solve(
                 for (int j = 0; j < this->sizes.large_mat_nums[i]; j++) {
                     // if we didn't use LOBPCG on the matrix
                     if (
-                        !(cpu_positive_ranks.vals[all_counter] < 0.05 * this->sizes.large_mat_sizes[i] && cpu_positive_ranks.vals[all_counter] > 0)
+                        !apply_cusolver
+                        && !(cpu_positive_ranks.vals[all_counter] < 0.05 * this->sizes.large_mat_sizes[i] && cpu_positive_ranks.vals[all_counter] > 0)
                         && !(cpu_negative_ranks.vals[all_counter] < 0.05 * this->sizes.large_mat_sizes[i] && cpu_negative_ranks.vals[all_counter] > 0)
                     ) {
                         CHECK_CUBLAS( cublasDgemm(
