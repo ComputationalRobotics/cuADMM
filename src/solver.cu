@@ -873,7 +873,7 @@ void SDPSolver::solve(
                             else if (cpu_negative_ranks.vals[all_counter] < 0.05 * this->sizes.large_mat_sizes[i] && cpu_negative_ranks.vals[all_counter] > 0) {
                                 int k = 1.5 * cpu_negative_ranks.vals[all_counter];
 
-                                // TODO: preallocate
+                                // TODO: do this without A1
                                 double *A1;
                                 CHECK_CUDA( cudaMalloc((void**)&A1, sizeof(double) * n * n) );
 
@@ -932,6 +932,8 @@ void SDPSolver::solve(
                                     this->large_mat.vals + this->sizes.large_mat_offset(i, j), 1
                                 ));
                                 // A now contains A + proj(-A) = proj(A)
+
+                                CHECK_CUDA( cudaFree(A1) );
                             }
                             // otherwise, we don't use LOBPCG
                             else {
@@ -959,8 +961,10 @@ void SDPSolver::solve(
                 this->use_lobpcg 
                 && this->switched_proj_method 
                 && (iter - this->switched_proj_method_iter) % 100 == 0
-            )
+            ) {
                 std::cout << " ------------------ Number of low rank matrices = " << std::setw(3) << number_low_rank_matrices << " / " << std::setw(3) << this->sizes.large_mat_num << " ------------------" << std::endl;
+                std::cout << " Ranks:   +" << cpu_positive_ranks.vals[0] << "  -" << cpu_negative_ranks.vals[0] << std::endl;
+            }
         }
 
         if (this->sizes.large_mat_num > 0 || this->current_proj_method == ProjectionMethod::EIG_FP64) {
@@ -971,6 +975,7 @@ void SDPSolver::solve(
         cublasSetPointerMode(this->cublasH_eig_large.cublas_handle, CUBLAS_POINTER_MODE_DEVICE);
 
         // multiply the large matrices by their eigenvalues
+        all_counter = 0;
         if (this->current_proj_method == ProjectionMethod::EIG_FP64) {
             for (int i = 0; i < this->sizes.large_mat_sizes.size(); i++) {
                 // TODO: use batch again, without altering LOBPCG
@@ -1002,6 +1007,8 @@ void SDPSolver::solve(
                             ) );
                         }
                     }
+
+                    all_counter++;
                 }
             }
         }
@@ -1010,6 +1017,7 @@ void SDPSolver::solve(
         cublasSetPointerMode(this->cublasH_eig_large.cublas_handle, CUBLAS_POINTER_MODE_HOST);
 
         // multiply the large matrices by their eigenvectors
+        all_counter = 0;
         for (int i = 0; i < this->sizes.large_mat_sizes.size(); i++) {
             if (this->current_proj_method == ProjectionMethod::EIG_FP64) {
                 // TODO: use batch again, without altering LOBPCG
@@ -1031,6 +1039,8 @@ void SDPSolver::solve(
                             this->large_mat_P.vals + this->sizes.large_mat_offset(i, j), this->sizes.large_mat_sizes[i]
                         ) );
                     }
+
+                    all_counter++;
                 }
             } else {
                 // copy large_mat to large_mat_P
