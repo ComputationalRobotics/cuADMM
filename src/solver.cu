@@ -873,10 +873,6 @@ void SDPSolver::solve(
                             else if (cpu_negative_ranks.vals[all_counter] < 0.05 * this->sizes.large_mat_sizes[i] && cpu_negative_ranks.vals[all_counter] > 0) {
                                 int k = 1.5 * cpu_negative_ranks.vals[all_counter];
 
-                                // TODO: do this without A1
-                                double *A1;
-                                CHECK_CUDA( cudaMalloc((void**)&A1, sizeof(double) * n * n) );
-
                                 // change the matrix sign to reuse LOBPCG code
                                 // A <- -A
                                 CHECK_CUBLAS(cublasDscal(
@@ -903,11 +899,7 @@ void SDPSolver::solve(
                                     this->cublasH_eig_large.cublas_handle, n*n, &minus_one, 
                                     this->large_mat.vals + this->sizes.large_mat_offset(i, j), 1
                                 ));
-                                // A now contains -A
-
-                                // reconstruct proj(-A)
-                                // put the matrix to zero
-                                CHECK_CUDA(cudaMemset(A1, 0, sizeof(double) * n * n));
+                                // A now contains the original A
 
                                 // compute ReLU(sp(-A))
                                 CHECK_CUDA( cudaMemcpy(
@@ -921,19 +913,10 @@ void SDPSolver::solve(
                                     // X <- X + \lambda_i * v_i v_i^T
                                     double *v_i = eigenvectors + l * n;
                                     double *m_lambda_i = relu_eigenvalues + l;
-                                    CHECK_CUBLAS( cublasDger(this->cublasH_eig_large.cublas_handle, n, n, m_lambda_i, v_i, 1, v_i, 1, A1, n) );
+                                    CHECK_CUBLAS( cublasDger(this->cublasH_eig_large.cublas_handle, n, n, m_lambda_i, v_i, 1, v_i, 1, this->large_mat.vals + this->sizes.large_mat_offset(i, j), n) );
                                 }
                                 cublasSetPointerMode(this->cublasH_eig_large.cublas_handle, CUBLAS_POINTER_MODE_HOST);
-                                // A1 now contains proj(-A)
-
-                                // add A1 to A
-                                CHECK_CUBLAS(cublasDaxpy(
-                                    this->cublasH_eig_large.cublas_handle, n*n, &one, A1, 1,
-                                    this->large_mat.vals + this->sizes.large_mat_offset(i, j), 1
-                                ));
-                                // A now contains A + proj(-A) = proj(A)
-
-                                CHECK_CUDA( cudaFree(A1) );
+                                // A now contains A + proj(-A)
                             }
                             // otherwise, we don't use LOBPCG
                             else {
