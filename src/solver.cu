@@ -27,6 +27,10 @@
 #define LOBPCG_MAXIT 100
 #define LOBPCG_TOL 1e-8
 #define LOBPCG_WARMSTART true
+#define LOBPCG_RATIO 0.05
+#define LOBPCG_RELAXATION 1.5
+#define LOBPCG_REEVALUATE 100
+#define LOBPCG_RANK_THRESHOLD 1e-6
 
 void SDPSolver::synchronize_gpu0_streams() {
     CHECK_CUDA( cudaStreamSynchronize(this->stream_flex[0].stream) );
@@ -312,7 +316,7 @@ void SDPSolver::init(
     // allocate GPU0 memory for large matrices
     this->large_mat.allocate(GPU0, this->sizes.total_large_mat_size);
     this->large_W.allocate(GPU0, this->sizes.sum_large_mat_size);
-    this->large_W_relu.allocate(GPU0, this->sizes.sum_large_mat_size * 1.5 * 0.05);
+    this->large_W_relu.allocate(GPU0, this->sizes.sum_large_mat_size * LOBPCG_RATIO * LOBPCG_RELAXATION);
     this->large_info.allocate(GPU0, this->sizes.large_mat_num);
 
     this->cusolverH_eig_large.set_gpu_id(GPU0);
@@ -452,16 +456,16 @@ void SDPSolver::init(
         this->cpu_positive_ranks.allocate(this->sizes.large_mat_num);
         this->cpu_negative_ranks.allocate(this->sizes.large_mat_num);
 
-        this->lobpcg_W.allocate(GPU0, 1.5 * 0.05 * this->sizes.sum_large_mat_size); // since k <= 0.05*n
-        this->lobpcg_P.allocate(GPU0, 1.5 * 0.05 * this->sizes.total_large_mat_size);
+        this->lobpcg_W.allocate(GPU0, LOBPCG_RATIO * LOBPCG_RELAXATION * this->sizes.sum_large_mat_size); // since k <= LOBPCG_RATIO*n
+        this->lobpcg_P.allocate(GPU0, LOBPCG_RATIO * LOBPCG_RELAXATION * this->sizes.total_large_mat_size);
     }
 
     /* others */
     this->prim_win = 0;
     this->dual_win = 0;
     this->ratioconst = 1e0;
-    this->sigmax = 1e6;
-    this->sigmin = 1e-6;
+    this->sigmax = 1e2;
+    this->sigmin = 1e-2;
 
     /* Main elements for the sGS-ADMM algorithm */
     this->X_best.allocate(GPU0, this->vec_len);
@@ -517,6 +521,9 @@ void SDPSolver::solve(
     std::cout << "              LOBPCG max iter: " << LOBPCG_MAXIT << std::endl;
     std::cout << "             LOBPCG tolerance: " << LOBPCG_TOL << std::endl;
     std::cout << "             LOBPCG warmstart: " << (LOBPCG_WARMSTART ? "true" : "false") << std::endl;
+    std::cout << "                 LOBPCG ratio: " << LOBPCG_RATIO << std::endl;
+    std::cout << "            LOBPCG relaxation: " << LOBPCG_RELAXATION << std::endl;
+    std::cout << "        LOBPCG rank threshold: " << LOBPCG_RANK_THRESHOLD << std::endl;
     std::cout << "           small matrix limit: " << SMALL_MAT_LIMIT << std::endl;
     std::cout << "          medium matrix limit: " << MEDIUM_MAT_LIMIT << std::endl;
 
@@ -574,6 +581,7 @@ void SDPSolver::solve(
             final_msg = "Solver ended: maximum iteration reached";
         }
         if (
+            true ||
             ( breakyes == true ) ||
             ( (iter <= 200) && ((iter % 50) == 1) ) ||
             ( (iter > 200) && ((iter % 100) == 1) )
@@ -744,9 +752,9 @@ void SDPSolver::solve(
         
         // we apply cuSOLVER if:
         // - we are not in the LOBPCG phase
-        // - or if we are every 100 iterations in the LOBPCG phase
+        // - or if we are every LOBPCG_REEVALUATE iterations in the LOBPCG phase
         bool is_lobpcg_phase = this->use_lobpcg && this->switched_proj_method;
-        bool apply_cusolver = !is_lobpcg_phase || (iter - this->switched_proj_method_iter) % 100 == 0;
+        bool apply_cusolver = (!is_lobpcg_phase || (iter - this->switched_proj_method_iter) % LOBPCG_REEVALUATE == 0);
 
         // project using cuSOLVER
         int all_counter = 0; // serves as an info offset
@@ -758,7 +766,7 @@ void SDPSolver::solve(
                     int n = this->sizes.large_mat_sizes[i];
 
                     // if we don't do LOBPCG at this step,
-                    // or if we are every 100 iterations
+                    // or if we are every LOBPCG_REEVALUATE iterations
                     if (apply_cusolver) {
                         // compute the EVD using cuSOLVER
                         single_eig_cusolver(
@@ -776,11 +784,11 @@ void SDPSolver::solve(
 
                     // if we are in the LOBPCG phase
                     if (is_lobpcg_phase) {
-                        double *eigenvalues = this->lobpcg_W.vals + (int)(this->sizes.large_W_offset(i, j) * 1.5 * 0.05);
-                        double *eigenvectors = this->lobpcg_P.vals + (int)(this->sizes.large_mat_offset(i, j) * 1.5 * 0.05);
-                        double *relu_eigenvalues = this->large_W_relu.vals + (int)(this->sizes.large_W_offset(i, j) * 1.5 * 0.05);
+                        double *eigenvalues = this->lobpcg_W.vals + (int)(this->sizes.large_W_offset(i, j) * LOBPCG_RATIO * LOBPCG_RELAXATION);
+                        double *eigenvectors = this->lobpcg_P.vals + (int)(this->sizes.large_mat_offset(i, j) * LOBPCG_RATIO * LOBPCG_RELAXATION);
+                        double *relu_eigenvalues = this->large_W_relu.vals + (int)(this->sizes.large_W_offset(i, j) * LOBPCG_RATIO * LOBPCG_RELAXATION);
 
-                        // every 100 iterations, we computed the EVD with the full matrix to compute the ranks
+                        // every LOBPCG_REEVALUATE iterations, we computed the EVD with the full matrix to compute the ranks
                         if (apply_cusolver) {
                             // compute the rank tolerance
                             double largest_eigenvalue;
@@ -789,7 +797,6 @@ void SDPSolver::solve(
                                 this->large_W.vals + this->sizes.large_W_offset(i, j) + n - 1,
                                 sizeof(double), D2H
                             ) );
-                            double rank_tol = std::numeric_limits<double>::epsilon() * n * largest_eigenvalue;
 
                             // compute the ranks
                             compute_ranks(
@@ -797,7 +804,7 @@ void SDPSolver::solve(
                                 n,
                                 this->positive_ranks.vals + all_counter,
                                 this->negative_ranks.vals + all_counter,
-                                rank_tol
+                                LOBPCG_RANK_THRESHOLD
                             );
 
                             // copy ranks to CPU
@@ -805,19 +812,18 @@ void SDPSolver::solve(
                             CHECK_CUDA(cudaMemcpy(this->cpu_negative_ranks.vals + all_counter, this->negative_ranks.vals, sizeof(int), D2H));
 
                             // copy largest eigenpairs to use as a warmstart for LOBPCG
-                            // TODO: take both positive and negative eigenpairs instead of top k
-                            if (cpu_positive_ranks.vals[all_counter] < 0.05 * n && cpu_positive_ranks.vals[all_counter] > 0) {
+                            if (cpu_positive_ranks.vals[all_counter] < LOBPCG_RATIO * n && cpu_positive_ranks.vals[all_counter] > 0) {
                                 number_low_rank_matrices++;
-                                int k = 1.5 * cpu_positive_ranks.vals[all_counter];
+                                int k = std::ceil(LOBPCG_RELAXATION * cpu_positive_ranks.vals[all_counter]);
 
                                 // copy to eigenvalues and reverse them
                                 reverse_vector(this->large_W.vals + this->sizes.large_W_offset(i, j) + n - k, eigenvalues, k);
 
                                 // copy to eigenvectors and reverse the columns (vectors)
                                 reverse_columns(this->large_mat.vals + this->sizes.large_mat_offset(i, j) + (n - k) * n, eigenvectors, n, k);
-                            } else if (cpu_negative_ranks.vals[all_counter] < 0.05 * n && cpu_negative_ranks.vals[all_counter] > 0) {
+                            } else if (cpu_negative_ranks.vals[all_counter] < LOBPCG_RATIO * n && cpu_negative_ranks.vals[all_counter] > 0) {
                                 number_low_rank_matrices++;
-                                int k = 1.5 * cpu_negative_ranks.vals[all_counter];
+                                int k = std::ceil(LOBPCG_RELAXATION * cpu_negative_ranks.vals[all_counter]);
 
                                 // copy to eigenvalues and reverse them
                                 CHECK_CUDA(cudaMemcpy(
@@ -835,8 +841,8 @@ void SDPSolver::solve(
                         // otherwise, we compute the EVD using LOBPCG
                         else {
                             // if the matrix is positive low rank
-                            if (cpu_positive_ranks.vals[all_counter] < 0.05 * this->sizes.large_mat_sizes[i] && cpu_positive_ranks.vals[all_counter] > 0) {
-                                int k = 1.5 * cpu_positive_ranks.vals[all_counter];
+                            if (cpu_positive_ranks.vals[all_counter] < LOBPCG_RATIO * this->sizes.large_mat_sizes[i] && cpu_positive_ranks.vals[all_counter] > 0) {
+                                int k = std::ceil(LOBPCG_RELAXATION * cpu_positive_ranks.vals[all_counter]);
 
                                 // compute the largest eigenpairs
                                 lobpcg(
@@ -848,7 +854,7 @@ void SDPSolver::solve(
 
                                 // put the matrix to zero
                                 CHECK_CUDA(cudaMemset(
-                                    this->large_mat.vals + this->sizes.large_mat_offset(i, j), 0, sizeof(double) * n * n
+                                    this->large_mat_P.vals + this->sizes.large_mat_offset(i, j), 0, sizeof(double) * n * n
                                 ));
 
                                 // add back the positive eigenvalues to the matrix
@@ -870,8 +876,8 @@ void SDPSolver::solve(
                                 cublasSetPointerMode(this->cublasH_eig_large.cublas_handle, CUBLAS_POINTER_MODE_HOST);
                             }
                             // if the matrix is negative low rank
-                            else if (cpu_negative_ranks.vals[all_counter] < 0.05 * this->sizes.large_mat_sizes[i] && cpu_negative_ranks.vals[all_counter] > 0) {
-                                int k = 1.5 * cpu_negative_ranks.vals[all_counter];
+                            else if (cpu_negative_ranks.vals[all_counter] < LOBPCG_RATIO * this->sizes.large_mat_sizes[i] && cpu_negative_ranks.vals[all_counter] > 0) {
+                                int k = std::ceil(LOBPCG_RELAXATION * cpu_negative_ranks.vals[all_counter]);
 
                                 // change the matrix sign to reuse LOBPCG code
                                 // A <- -A
@@ -907,13 +913,20 @@ void SDPSolver::solve(
                                 ) );
                                 max_dense_vector_zero(relu_eigenvalues, k);
 
+                                // copy large_mat to large_mat_P
+                                CHECK_CUDA(cudaMemcpy(
+                                    this->large_mat_P.vals + this->sizes.large_mat_offset(i, j),
+                                    this->large_mat.vals + this->sizes.large_mat_offset(i, j),
+                                    sizeof(double) * n * n, D2D
+                                ));
+
                                 // rank one updates
                                 cublasSetPointerMode(this->cublasH_eig_large.cublas_handle, CUBLAS_POINTER_MODE_DEVICE);
                                 for (int l = 0; l < k; l++) {
                                     // X <- X + \lambda_i * v_i v_i^T
                                     double *v_i = eigenvectors + l * n;
                                     double *m_lambda_i = relu_eigenvalues + l;
-                                    CHECK_CUBLAS( cublasDger(this->cublasH_eig_large.cublas_handle, n, n, m_lambda_i, v_i, 1, v_i, 1, this->large_mat.vals + this->sizes.large_mat_offset(i, j), n) );
+                                    CHECK_CUBLAS( cublasDger(this->cublasH_eig_large.cublas_handle, n, n, m_lambda_i, v_i, 1, v_i, 1, this->large_mat_P.vals + this->sizes.large_mat_offset(i, j), n) );
                                 }
                                 cublasSetPointerMode(this->cublasH_eig_large.cublas_handle, CUBLAS_POINTER_MODE_HOST);
                                 // A now contains A + proj(-A)
@@ -943,7 +956,7 @@ void SDPSolver::solve(
             if (
                 this->use_lobpcg 
                 && this->switched_proj_method 
-                && (iter - this->switched_proj_method_iter) % 100 == 0
+                && (iter - this->switched_proj_method_iter) % LOBPCG_REEVALUATE == 0
             ) {
                 std::cout << " ------------------ Number of low rank matrices = " << std::setw(3) << number_low_rank_matrices << " / " << std::setw(3) << this->sizes.large_mat_num << " ------------------" << std::endl;
                 std::cout << " Ranks:   +" << cpu_positive_ranks.vals[0] << "  -" << cpu_negative_ranks.vals[0] << std::endl;
@@ -968,11 +981,11 @@ void SDPSolver::solve(
                     // only do it if we didn't use LOBPCG on the matrix
                     if (
                         apply_cusolver ||
-                        (!(cpu_positive_ranks.vals[all_counter] < 0.05 * this->sizes.large_mat_sizes[i] && cpu_positive_ranks.vals[all_counter] > 0)
-                        && !(cpu_negative_ranks.vals[all_counter] < 0.05 * this->sizes.large_mat_sizes[i] && cpu_negative_ranks.vals[all_counter] > 0))
+                        (!(cpu_positive_ranks.vals[all_counter] < LOBPCG_RATIO * this->sizes.large_mat_sizes[i] && cpu_positive_ranks.vals[all_counter] > 0)
+                        && !(cpu_negative_ranks.vals[all_counter] < LOBPCG_RATIO * this->sizes.large_mat_sizes[i] && cpu_negative_ranks.vals[all_counter] > 0))
                     ) {
                         // copy large_mat to large_mat_tmp
-                        CHECK_CUDA( cudaMemcpyAsync(
+                        CHECK_CUDA( cudaMemcpy(
                             this->large_mat_tmp.vals + this->sizes.large_mat_offset(i, j),
                             this->large_mat.vals + this->sizes.large_mat_offset(i, j),
                             sizeof(double) * this->sizes.large_mat_sizes[i] * this->sizes.large_mat_sizes[i],
@@ -1008,8 +1021,8 @@ void SDPSolver::solve(
                     // if we didn't use LOBPCG on the matrix
                     if (
                         apply_cusolver ||
-                        (!(cpu_positive_ranks.vals[all_counter] < 0.05 * this->sizes.large_mat_sizes[i] && cpu_positive_ranks.vals[all_counter] > 0)
-                        && !(cpu_negative_ranks.vals[all_counter] < 0.05 * this->sizes.large_mat_sizes[i] && cpu_negative_ranks.vals[all_counter] > 0))
+                        (!(cpu_positive_ranks.vals[all_counter] < LOBPCG_RATIO * this->sizes.large_mat_sizes[i] && cpu_positive_ranks.vals[all_counter] > 0)
+                        && !(cpu_negative_ranks.vals[all_counter] < LOBPCG_RATIO * this->sizes.large_mat_sizes[i] && cpu_negative_ranks.vals[all_counter] > 0))
                     ) {
                         CHECK_CUBLAS( cublasDgemm(
                             this->cublasH_eig_large.cublas_handle,
@@ -1027,7 +1040,7 @@ void SDPSolver::solve(
                 }
             } else {
                 // copy large_mat to large_mat_P
-                CHECK_CUDA( cudaMemcpyAsync(
+                CHECK_CUDA( cudaMemcpy(
                     this->large_mat_P.vals + this->sizes.large_mat_offset(i, 0),
                     this->large_mat.vals + this->sizes.large_mat_offset(i, 0),
                     sizeof(double) * this->sizes.large_mat_sizes[i] * this->sizes.large_mat_sizes[i] * this->sizes.large_mat_nums[i],
@@ -1132,7 +1145,7 @@ void SDPSolver::solve(
         /* Step 3.4. Compute S */
 
         // put S to zero (the projection of free variables)
-        CHECK_CUDA( cudaMemsetAsync(this->S.vals, 0, sizeof(double) * this->vec_len) );
+        CHECK_CUDA( cudaMemset(this->S.vals, 0, sizeof(double) * this->vec_len) );
 
         // convert the matrices back to vectorized format
         matrices_to_vector(this->S, this->large_mat_P, this->medium_mat_P, this->small_mat_P, this->map_B, this->map_M1, this->map_M2);
