@@ -863,6 +863,7 @@ void SDPSolver::solve(
                         else {
                             // if the matrix is positive low rank
                             if (cpu_positive_ranks.vals[all_counter] < LOBPCG_RATIO * this->sizes.large_mat_sizes[i] && cpu_positive_ranks.vals[all_counter] > 0) {
+                                number_low_rank_matrices++;
                                 int k = std::ceil(LOBPCG_RELAXATION * cpu_positive_ranks.vals[all_counter]);
 
                                 // compute the largest eigenpairs
@@ -898,6 +899,7 @@ void SDPSolver::solve(
                             }
                             // if the matrix is negative low rank
                             else if (cpu_negative_ranks.vals[all_counter] < LOBPCG_RATIO * this->sizes.large_mat_sizes[i] && cpu_negative_ranks.vals[all_counter] > 0) {
+                                number_low_rank_matrices++;
                                 int k = std::ceil(LOBPCG_RELAXATION * cpu_negative_ranks.vals[all_counter]);
 
                                 // change the matrix sign to reuse LOBPCG code
@@ -1003,6 +1005,7 @@ void SDPSolver::solve(
                 );
             }
         }
+        CHECK_CUDA( cudaDeviceSynchronize() );
 
         // set pointer mode back to host
         cublasSetPointerMode(this->cublasH_eig_large.cublas_handle, CUBLAS_POINTER_MODE_HOST);
@@ -1011,28 +1014,38 @@ void SDPSolver::solve(
         all_counter = 0;
         for (int i = 0; i < this->sizes.large_mat_sizes.size(); i++) {
             if (this->current_proj_method == ProjectionMethod::EIG_FP64) {
-                // TODO: use batch again, without altering LOBPCG
-                for (int j = 0; j < this->sizes.large_mat_nums[i]; j++) {
-                    // if we didn't use LOBPCG on the matrix
-                    if (
-                        apply_cusolver ||
-                        (!(cpu_positive_ranks.vals[all_counter] < LOBPCG_RATIO * this->sizes.large_mat_sizes[i] && cpu_positive_ranks.vals[all_counter] > 0)
-                        && !(cpu_negative_ranks.vals[all_counter] < LOBPCG_RATIO * this->sizes.large_mat_sizes[i] && cpu_negative_ranks.vals[all_counter] > 0))
-                    ) {
-                        CHECK_CUBLAS( cublasDgemm(
-                            this->cublasH_eig_large.cublas_handle,
-                            CUBLAS_OP_N, CUBLAS_OP_T,
-                            this->sizes.large_mat_sizes[i], this->sizes.large_mat_sizes[i], this->sizes.large_mat_sizes[i],
-                            &one,
-                            this->large_mat_tmp.vals + this->sizes.large_mat_offset(i, j), this->sizes.large_mat_sizes[i],
-                            this->large_mat.vals + this->sizes.large_mat_offset(i, j), this->sizes.large_mat_sizes[i],
-                            &zero,
-                            this->large_mat_P.vals + this->sizes.large_mat_offset(i, j), this->sizes.large_mat_sizes[i]
-                        ) );
+                if (apply_cusolver || number_low_rank_matrices == 0) { // if we didn't use LOBPCG on any matrix
+                    dense_matrix_mul_trans_batch(
+                        this->cublasH,
+                        this->large_mat_P, this->large_mat_tmp, this->large_mat,
+                        this->sizes.large_mat_sizes[i], this->sizes.large_mat_nums[i],
+                        this->sizes.large_mat_offset(i, 0)
+                    );
+                } else {
+                    // TODO: find a way to accelerate this too
+                    for (int j = 0; j < this->sizes.large_mat_nums[i]; j++) {
+                        // if we didn't use LOBPCG on the matrix
+                        if (
+                            apply_cusolver ||
+                            (!(cpu_positive_ranks.vals[all_counter] < LOBPCG_RATIO * this->sizes.large_mat_sizes[i] && cpu_positive_ranks.vals[all_counter] > 0)
+                            && !(cpu_negative_ranks.vals[all_counter] < LOBPCG_RATIO * this->sizes.large_mat_sizes[i] && cpu_negative_ranks.vals[all_counter] > 0))
+                        ) {
+                            CHECK_CUBLAS( cublasDgemm(
+                                this->cublasH_eig_large.cublas_handle,
+                                CUBLAS_OP_N, CUBLAS_OP_T,
+                                this->sizes.large_mat_sizes[i], this->sizes.large_mat_sizes[i], this->sizes.large_mat_sizes[i],
+                                &one,
+                                this->large_mat_tmp.vals + this->sizes.large_mat_offset(i, j), this->sizes.large_mat_sizes[i],
+                                this->large_mat.vals + this->sizes.large_mat_offset(i, j), this->sizes.large_mat_sizes[i],
+                                &zero,
+                                this->large_mat_P.vals + this->sizes.large_mat_offset(i, j), this->sizes.large_mat_sizes[i]
+                            ) );
+                        }
+    
+                        all_counter++;
                     }
-
-                    all_counter++;
                 }
+
             } else {
                 // copy large_mat to large_mat_P
                 CHECK_CUDA( cudaMemcpy(
@@ -1043,7 +1056,7 @@ void SDPSolver::solve(
                 ) );
             }
         }
-        
+        CHECK_CUDA( cudaDeviceSynchronize() );
 
         /* Step 3.2. Projection of the medium matrices */
         // project using cuSOLVER
