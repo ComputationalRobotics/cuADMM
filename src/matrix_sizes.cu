@@ -45,6 +45,9 @@ void MatrixSizes::init(const std::vector<int>& psd_blk_sizes, const std::vector<
 
             this->large_mat_start_indices.push_back(this->total_large_mat_size);
             this->large_W_start_indices.push_back(this->sum_large_mat_size);
+
+            if (mat_size > this->max_large_mat_size)
+                this->max_large_mat_size = mat_size;
         } else if (this->get_size_category(mat_size) == MatrixSizeCategory::MEDIUM) {
             this->medium_mat_num += mat_num;
             this->sum_medium_mat_size += mat_size * mat_num;

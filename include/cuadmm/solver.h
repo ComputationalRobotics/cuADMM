@@ -143,7 +143,6 @@ class SDPSolver {
         /* Large matrix decomposition */
         DeviceDenseVector<double> large_mat;
         DeviceDenseVector<double> large_W;
-        DeviceDenseVector<double> large_W_relu; // large_W after ReLU
         DeviceDenseVector<int> large_info;
         int eig_stream_num_per_gpu;    // number of streams per GPU
         DeviceSolverDnHandle cusolverH_eig_large; // single handle for large matrices
@@ -170,6 +169,7 @@ class SDPSolver {
         HostDenseVector<int> cpu_negative_ranks; // negative ranks of large matrices (CPU copy)
         DeviceDenseVector<double> lobpcg_W; // eigenvalues of large matrices computed with LOBPCG, each block being of size 1.5*0.05*n
         DeviceDenseVector<double> lobpcg_P; // eigenvectors of large matrices computed with LOBPCG, each block being of size (1.5*0.05*n)*n
+        DeviceDenseVector<double> lobpcg_W_relu; // large_W after ReLU
         DeviceBlasHandle cublasH_eig_large;
         DeviceBlasHandle cublasH_eig_large_update;
 
