@@ -32,6 +32,7 @@ public:
     std::vector<int> large_W_start_indices; // start indices of large matrices in the W vector
     std::vector<int> large_buffer_start_indices; // start indices of GPU buffers for large matrices
     std::vector<int> large_cpu_buffer_start_indices; // start indices of CPU buffers for large matrices
+    int max_large_mat_size;
 
     /* medium */
     int medium_mat_num;        // number of medium matrices (with multiplicity)

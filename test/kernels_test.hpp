@@ -179,6 +179,7 @@ TEST(Kernels, DiagonalBatchStreams)
             result, mat, vec,
             mat_size, mat_nums,
             mat_offset, vec_offset,
+            nullptr, false,
             eig_stream_arr[i % eig_stream_num_per_gpu].stream
         );
         mat_offset += mat_size * mat_size * mat_nums;

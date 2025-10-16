@@ -318,6 +318,15 @@ void SDPSolver::init(
     this->large_W.allocate(GPU0, this->sizes.sum_large_mat_size);
     this->large_info.allocate(GPU0, this->sizes.large_mat_num);
 
+    for (int i = 0; i < this->sizes.large_mat_sizes.size(); i++) {
+        // create a mask for diag_batch to skip multiplication by W when using LOBPCG
+        this->diag_batch_masks.push_back(DeviceDenseVector<int>());
+        this->diag_batch_masks[i].allocate(GPU0, this->sizes.large_mat_nums[i]);
+        // fill the mask with ones
+        std::vector<int> mask_tmp(this->sizes.large_mat_nums[i], 1);
+        CHECK_CUDA( cudaMemcpy(this->diag_batch_masks[i].vals, mask_tmp.data(), sizeof(int) * this->sizes.large_mat_nums[i], H2D) );
+    }
+
     this->cusolverH_eig_large.set_gpu_id(GPU0);
     this->cusolverH_eig_large.activate();
 
@@ -824,6 +833,9 @@ void SDPSolver::solve(
 
                                 // copy to eigenvectors and reverse the columns (vectors)
                                 reverse_columns(this->large_mat.vals + this->sizes.large_mat_offset(i, j) + (n - k) * n, eigenvectors, n, k);
+
+                                // we use LOBPCG for this matrix, so we set the mask to false
+                                CHECK_CUDA( cudaMemset(this->diag_batch_masks[i].vals + j, 0, sizeof(int)) );
                             } else if (cpu_negative_ranks.vals[all_counter] < LOBPCG_RATIO * n && cpu_negative_ranks.vals[all_counter] > 0) {
                                 number_low_rank_matrices++;
                                 int k = std::ceil(LOBPCG_RELAXATION * cpu_negative_ranks.vals[all_counter]);
@@ -839,6 +851,12 @@ void SDPSolver::solve(
                                     this->large_mat.vals + this->sizes.large_mat_offset(i, j), 
                                     sizeof(double) * k*n, D2D
                                 ));
+
+                                // we use LOBPCG for this matrix, so we set the mask to false
+                                CHECK_CUDA( cudaMemset(this->diag_batch_masks[i].vals + j, 0, sizeof(int)) );
+                            } else {
+                                // we won't use LOBPCG for this matrix, so we set the mask to true
+                                CHECK_CUDA( cudaMemset(this->diag_batch_masks[i].vals + j, 1, 1) );
                             }
                         }
                         // otherwise, we compute the EVD using LOBPCG
@@ -975,41 +993,14 @@ void SDPSolver::solve(
         cublasSetPointerMode(this->cublasH_eig_large.cublas_handle, CUBLAS_POINTER_MODE_DEVICE);
 
         // multiply the large matrices by their eigenvalues
-        all_counter = 0;
         if (this->current_proj_method == ProjectionMethod::EIG_FP64) {
             for (int i = 0; i < this->sizes.large_mat_sizes.size(); i++) {
-                // TODO: use batch again, without altering LOBPCG
-                for (int j = 0; j < this->sizes.large_mat_nums[i]; j++) {
-                    // scale each column of large_mat_tmp by the corresponding eigenvalue
-
-                    // only do it if we didn't use LOBPCG on the matrix
-                    if (
-                        apply_cusolver ||
-                        (!(cpu_positive_ranks.vals[all_counter] < LOBPCG_RATIO * this->sizes.large_mat_sizes[i] && cpu_positive_ranks.vals[all_counter] > 0)
-                        && !(cpu_negative_ranks.vals[all_counter] < LOBPCG_RATIO * this->sizes.large_mat_sizes[i] && cpu_negative_ranks.vals[all_counter] > 0))
-                    ) {
-                        // copy large_mat to large_mat_tmp
-                        CHECK_CUDA( cudaMemcpy(
-                            this->large_mat_tmp.vals + this->sizes.large_mat_offset(i, j),
-                            this->large_mat.vals + this->sizes.large_mat_offset(i, j),
-                            sizeof(double) * this->sizes.large_mat_sizes[i] * this->sizes.large_mat_sizes[i],
-                            D2D
-                        ) );
-
-                        for (int k = 0; k < this->sizes.large_mat_sizes[i]; k++) {
-                            // scale the k-th column
-                            CHECK_CUBLAS( cublasDscal(
-                                this->cublasH_eig_large.cublas_handle,
-                                this->sizes.large_mat_sizes[i],
-                                this->large_W.vals + this->sizes.large_W_offset(i, j) + k,
-                                this->large_mat_tmp.vals + this->sizes.large_mat_offset(i, j) + k * this->sizes.large_mat_sizes[i],
-                                1
-                            ) );
-                        }
-                    }
-
-                    all_counter++;
-                }
+                dense_matrix_mul_diag_batch(
+                    this->large_mat_tmp, this->large_mat, this->large_W,
+                    this->sizes.large_mat_sizes[i], this->sizes.large_mat_nums[i],
+                    this->sizes.large_mat_offset(i, 0), this->sizes.large_W_offset(i, 0),
+                    this->diag_batch_masks[i].vals, !apply_cusolver // when applying cuSOLVER, we don't use the mask
+                );
             }
         }
 

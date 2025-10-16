@@ -172,6 +172,7 @@ class SDPSolver {
         DeviceDenseVector<double> lobpcg_W_relu; // large_W after ReLU
         DeviceBlasHandle cublasH_eig_large;
         DeviceBlasHandle cublasH_eig_large_update;
+        std::vector<DeviceDenseVector<int>> diag_batch_masks; // mask indicating which matrices need to be multiplied by W in diag_batch
 
         /* Small matrices eigen decomposition (batched Jacobi)  */
         DeviceDenseVector<double> small_mat;

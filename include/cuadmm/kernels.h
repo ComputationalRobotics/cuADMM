@@ -165,8 +165,9 @@ void dense_matrix_mul_diag_batch(
     DeviceDenseVector<double>& dnmat1,
     const DeviceDenseVector<double>& dnmat2,
     const DeviceDenseVector<double>& dnvec,
-    const int mat_size,
-    const int mat_nums = -1, const int mat_offset = 0, const int vec_offset = 0,
+    const int mat_size, const int mat_nums = -1,
+    const int mat_offset = 0, const int vec_offset = 0,
+    const int* mask = nullptr, const bool use_mask = false,
     const cudaStream_t& stream = (cudaStream_t) 0, int block_size = 1024
 );
 
