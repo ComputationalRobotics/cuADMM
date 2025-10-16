@@ -24,13 +24,13 @@
 #include <stdio.h>
 #include <limits>
 
-#define LOBPCG_MAXIT 100
-#define LOBPCG_TOL 1e-8
+#define LOBPCG_MAXIT 20
+#define LOBPCG_TOL 1e-5
 #define LOBPCG_WARMSTART true
-#define LOBPCG_RATIO 0.05
-#define LOBPCG_RELAXATION 1.5
+#define LOBPCG_RATIO 0.03
+#define LOBPCG_RELAXATION 1.2
 #define LOBPCG_REEVALUATE 100
-#define LOBPCG_RANK_THRESHOLD 1e-6
+#define LOBPCG_RANK_THRESHOLD 1e-5
 
 void SDPSolver::synchronize_gpu0_streams() {
     CHECK_CUDA( cudaStreamSynchronize(this->stream_flex[0].stream) );
@@ -316,7 +316,7 @@ void SDPSolver::init(
     // allocate GPU0 memory for large matrices
     this->large_mat.allocate(GPU0, this->sizes.total_large_mat_size);
     this->large_W.allocate(GPU0, this->sizes.sum_large_mat_size);
-    this->large_W_relu.allocate(GPU0, this->sizes.sum_large_mat_size * LOBPCG_RATIO * LOBPCG_RELAXATION);
+    this->large_W_relu.allocate(GPU0, std::ceil(this->sizes.sum_large_mat_size * LOBPCG_RATIO * LOBPCG_RELAXATION)); // TODO: update this
     this->large_info.allocate(GPU0, this->sizes.large_mat_num);
 
     this->cusolverH_eig_large.set_gpu_id(GPU0);
@@ -456,16 +456,17 @@ void SDPSolver::init(
         this->cpu_positive_ranks.allocate(this->sizes.large_mat_num);
         this->cpu_negative_ranks.allocate(this->sizes.large_mat_num);
 
-        this->lobpcg_W.allocate(GPU0, LOBPCG_RATIO * LOBPCG_RELAXATION * this->sizes.sum_large_mat_size); // since k <= LOBPCG_RATIO*n
-        this->lobpcg_P.allocate(GPU0, LOBPCG_RATIO * LOBPCG_RELAXATION * this->sizes.total_large_mat_size);
+        this->lobpcg_W.allocate(GPU0, std::ceil(LOBPCG_RATIO * LOBPCG_RELAXATION * this->sizes.sum_large_mat_size)); // since k <= LOBPCG_RATIO*n
+        // this->lobpcg_P.allocate(GPU0, std::ceil(LOBPCG_RATIO * LOBPCG_RELAXATION * this->sizes.total_large_mat_size));
+        this->lobpcg_P.allocate(GPU0, 7000 * 700);  // TODO: update this
     }
 
     /* others */
     this->prim_win = 0;
     this->dual_win = 0;
     this->ratioconst = 1e0;
-    this->sigmax = 1e2;
-    this->sigmin = 1e-2;
+    this->sigmax = 1e6;
+    this->sigmin = 1e-6;
 
     /* Main elements for the sGS-ADMM algorithm */
     this->X_best.allocate(GPU0, this->vec_len);
@@ -515,15 +516,17 @@ void SDPSolver::solve(
     std::cout << "              switch proj tol: " << switch_proj_tol << std::endl;
     std::cout << "                     sigscale: " << sigscale << std::endl;
     std::cout << "                initial sigma: " << this->sig << std::endl;
-    std::cout << "                   use LOBPCG: " << (this->use_lobpcg ? "true" : "false") << std::endl;
     std::cout << "    initial projection method: " << get_projection_method_name(this->initial_proj_method, false) << std::endl;
     std::cout << "      final projection method: " << get_projection_method_name(this->final_proj_method, false) << std::endl;
+    std::cout << "                   use LOBPCG: " << (this->use_lobpcg ? "true" : "false") << std::endl;
+    if (this->use_lobpcg) {
     std::cout << "              LOBPCG max iter: " << LOBPCG_MAXIT << std::endl;
     std::cout << "             LOBPCG tolerance: " << LOBPCG_TOL << std::endl;
     std::cout << "             LOBPCG warmstart: " << (LOBPCG_WARMSTART ? "true" : "false") << std::endl;
     std::cout << "                 LOBPCG ratio: " << LOBPCG_RATIO << std::endl;
     std::cout << "            LOBPCG relaxation: " << LOBPCG_RELAXATION << std::endl;
     std::cout << "        LOBPCG rank threshold: " << LOBPCG_RANK_THRESHOLD << std::endl;
+    }
     std::cout << "           small matrix limit: " << SMALL_MAT_LIMIT << std::endl;
     std::cout << "          medium matrix limit: " << MEDIUM_MAT_LIMIT << std::endl;
 
@@ -814,7 +817,8 @@ void SDPSolver::solve(
                             // copy largest eigenpairs to use as a warmstart for LOBPCG
                             if (cpu_positive_ranks.vals[all_counter] < LOBPCG_RATIO * n && cpu_positive_ranks.vals[all_counter] > 0) {
                                 number_low_rank_matrices++;
-                                int k = std::ceil(LOBPCG_RELAXATION * cpu_positive_ranks.vals[all_counter]);
+                                 // TODO: update this
+                                int k = (int)(LOBPCG_RELAXATION * cpu_positive_ranks.vals[all_counter]);
 
                                 // copy to eigenvalues and reverse them
                                 reverse_vector(this->large_W.vals + this->sizes.large_W_offset(i, j) + n - k, eigenvalues, k);
@@ -823,7 +827,8 @@ void SDPSolver::solve(
                                 reverse_columns(this->large_mat.vals + this->sizes.large_mat_offset(i, j) + (n - k) * n, eigenvectors, n, k);
                             } else if (cpu_negative_ranks.vals[all_counter] < LOBPCG_RATIO * n && cpu_negative_ranks.vals[all_counter] > 0) {
                                 number_low_rank_matrices++;
-                                int k = std::ceil(LOBPCG_RELAXATION * cpu_negative_ranks.vals[all_counter]);
+                                // TODO: update this
+                                int k = (int)(LOBPCG_RELAXATION * cpu_negative_ranks.vals[all_counter]);
 
                                 // copy to eigenvalues and reverse them
                                 CHECK_CUDA(cudaMemcpy(
@@ -842,7 +847,8 @@ void SDPSolver::solve(
                         else {
                             // if the matrix is positive low rank
                             if (cpu_positive_ranks.vals[all_counter] < LOBPCG_RATIO * this->sizes.large_mat_sizes[i] && cpu_positive_ranks.vals[all_counter] > 0) {
-                                int k = std::ceil(LOBPCG_RELAXATION * cpu_positive_ranks.vals[all_counter]);
+                                // TODO: update this
+                                int k = (int)(LOBPCG_RELAXATION * cpu_positive_ranks.vals[all_counter]);
 
                                 // compute the largest eigenpairs
                                 lobpcg(
@@ -877,7 +883,8 @@ void SDPSolver::solve(
                             }
                             // if the matrix is negative low rank
                             else if (cpu_negative_ranks.vals[all_counter] < LOBPCG_RATIO * this->sizes.large_mat_sizes[i] && cpu_negative_ranks.vals[all_counter] > 0) {
-                                int k = std::ceil(LOBPCG_RELAXATION * cpu_negative_ranks.vals[all_counter]);
+                                // TODO: update this
+                                int k = (int)(LOBPCG_RELAXATION * cpu_negative_ranks.vals[all_counter]);
 
                                 // change the matrix sign to reuse LOBPCG code
                                 // A <- -A
@@ -886,9 +893,9 @@ void SDPSolver::solve(
                                     this->large_mat.vals + this->sizes.large_mat_offset(i, j), 1
                                 ));
 
-                                // multiply the warmstart values by -1 since we will use -A
+                                // multiply the warmstart eigenvalues by -1 since we will use -A
                                 CHECK_CUBLAS(cublasDscal(this->cublasH_eig_large.cublas_handle, k, &minus_one, eigenvalues, 1));
-                                CHECK_CUBLAS(cublasDscal(this->cublasH_eig_large.cublas_handle, n*(n - k), &minus_one, eigenvectors, 1));
+                                // note: the eigenvectors are not multiplied by -1 since it doesn't matter
 
                                 // compute the largest eigenpairs
                                 // eigenvalues <- -sp(A)
@@ -963,6 +970,7 @@ void SDPSolver::solve(
             }
         }
 
+        // TODO: check if this is correct
         if (this->sizes.large_mat_num > 0 || this->current_proj_method == ProjectionMethod::EIG_FP64) {
             max_dense_vector_zero(this->large_W);
         }
@@ -1309,7 +1317,7 @@ void SDPSolver::solve(
                 (               iter <=  200 && (iter %   10) == 1) ||
                 (iter >  200 && iter <= 1000 && (iter %   25) == 1) ||
                 (iter > 1000 && iter <= 5000 && (iter %   50) == 1) ||
-                (iter > 5000                 && (iter % 1000) == 1)
+                (iter > 5000                 && (iter %  100) == 1)
             ) {
                 if (this->prim_win > 1.35 * this->dual_win) {
                     this->prim_win = 0;
