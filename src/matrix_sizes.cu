@@ -22,6 +22,8 @@ void MatrixSizes::init(const std::vector<int>& psd_blk_sizes, const std::vector<
     this->medium_mat_num = 0;
     this->small_mat_num = 0;
 
+    this->max_large_mat_size = 0;
+
     // first matrix starts at index 0
     this->large_mat_start_indices.push_back(0);
     this->large_W_start_indices.push_back(0);
