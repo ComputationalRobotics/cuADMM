@@ -318,9 +318,10 @@ void SDPSolver::init(
     this->large_W.allocate(GPU0, this->sizes.sum_large_mat_size);
     this->large_info.allocate(GPU0, this->sizes.large_mat_num);
 
+    this->diag_batch_masks = std::vector<DeviceDenseVector<int>>(this->sizes.large_mat_sizes.size());
     for (int i = 0; i < this->sizes.large_mat_sizes.size(); i++) {
         // create a mask for diag_batch to skip multiplication by W when using LOBPCG
-        this->diag_batch_masks.push_back(DeviceDenseVector<int>());
+        this->diag_batch_masks[i] = DeviceDenseVector<int>();
         this->diag_batch_masks[i].allocate(GPU0, this->sizes.large_mat_nums[i]);
         // fill the mask with ones
         std::vector<int> mask_tmp(this->sizes.large_mat_nums[i], 1);
@@ -978,11 +979,13 @@ void SDPSolver::solve(
             }
             if (
                 this->use_lobpcg 
+                && this->sizes.large_mat_num > 0
                 && this->switched_proj_method 
                 && (iter - this->switched_proj_method_iter) % LOBPCG_REEVALUATE == 0
             ) {
                 std::cout << " ------------------ Number of low rank matrices = " << std::setw(3) << number_low_rank_matrices << " / " << std::setw(3) << this->sizes.large_mat_num << " ------------------" << std::endl;
-                std::cout << " Ranks:   +" << cpu_positive_ranks.vals[0] << "  -" << cpu_negative_ranks.vals[0] << std::endl;
+                for (int i = 0; i < this->sizes.large_mat_num; i++)
+                    std::cout << " Ranks (matrix " << i << "):   +" << cpu_positive_ranks.vals[i] << "  -" << cpu_negative_ranks.vals[i] << std::endl;
             }
         }
 
@@ -1317,8 +1320,11 @@ void SDPSolver::solve(
                 (               iter <=  200 && (iter %   10) == 1) ||
                 (iter >  200 && iter <= 1000 && (iter %   25) == 1) ||
                 (iter > 1000 && iter <= 5000 && (iter %   50) == 1) ||
-                (iter > 5000                 && (iter %  100) == 1)
+                (iter > 5000                 && (iter %  100) == 1) 
             ) {
+                this->sigscale = std::max(2.0 * std::exp(-iter / 50000.0), 2.0);
+                // std::printf("Current sigscale = %4.2f \n", this->sigscale);
+
                 if (this->prim_win > 1.35 * this->dual_win) {
                     this->prim_win = 0;
                     this->sig = min(this->sigmax, this->sig * this->sigscale);
