@@ -33,12 +33,14 @@ __global__ void vector_to_matrices_kernel(
             small_mat_vals[m1] = Xb_vals[idx] * (SQRT2INV + int(if_diag) * (1 - SQRT2INV));
             small_mat_vals[m2] = small_mat_vals[m1];
         }
+        // otherwise, do nothing (for free and nonnegative variables)
     }
     return;
 }
 
 __global__ void matrices_to_vector_kernel(
-    double* Xb_vals, double* large_mat_vals, double* medium_mat_vals, double* small_mat_vals,
+    double* Xb_vals, double* Xinput_vals,
+    double* large_mat_vals, double* medium_mat_vals, double* small_mat_vals,
     int* map_B_vals, int* map_M1_vals, int* map_M2_vals,
     int vec_len
 ) {
@@ -57,6 +59,11 @@ __global__ void matrices_to_vector_kernel(
             Xb_vals[idx] = medium_mat_vals[m1] * (SQRT2 + int(if_diag) * (1 - SQRT2));
         } else if (b == MatrixSizeCategory::SMALL) { // from small matrix
             Xb_vals[idx] = small_mat_vals[m1] * (SQRT2 + int(if_diag) * (1 - SQRT2));
+        } else if (b == MatrixSizeCategory::FREE) {
+            Xb_vals[idx] = 0.0; // free variables are set to zero for the projection
+        } else if (b == MatrixSizeCategory::NONNEGATIVE) {
+            double val = Xinput_vals[idx];
+            Xb_vals[idx] = (val > 0.0) ? val : 0.0; // nonnegative variables are projected to be nonnegative
         }
     }
     return;
@@ -89,14 +96,15 @@ void vector_to_matrices(
 // - map_M2 is used to determine if the coefficient is on the diagonal or off-diagonal. If map_M1[idx] == map_M2[idx], the coefficient is on the diagonal, otherwise it is off-diagonal.
 // The coefficients are multiplied by sqrt(2) if they are off-diagonal, to compensate for the previous multiplication by 1/sqrt(2) when converting from vector to matrix.
 void matrices_to_vector(
-    DeviceDenseVector<double>& Xb, DeviceDenseVector<double>& large_mat, DeviceDenseVector<double>& medium_mat, DeviceDenseVector<double>& small_mat,
+    DeviceDenseVector<double>& Xb, DeviceDenseVector<double>& Xinput,
+    DeviceDenseVector<double>& large_mat, DeviceDenseVector<double>& medium_mat, DeviceDenseVector<double>& small_mat,
     DeviceDenseVector<int>& map_B, DeviceDenseVector<int>& map_M1, DeviceDenseVector<int>& map_M2,
     const cudaStream_t& stream, int block_size
 ) {
     int vec_len = Xb.size;
     int num_block = (vec_len + block_size - 1) / block_size;
     matrices_to_vector_kernel<<<num_block, block_size, 0, stream>>>(
-        Xb.vals, large_mat.vals, medium_mat.vals, small_mat.vals,
+        Xb.vals, Xinput.vals, large_mat.vals, medium_mat.vals, small_mat.vals,
         map_B.vals, map_M1.vals, map_M2.vals,
         vec_len
     );

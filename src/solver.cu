@@ -1155,11 +1155,9 @@ void SDPSolver::solve(
 
         /* Step 3.4. Compute S */
 
-        // put S to zero (the projection of free variables)
-        CHECK_CUDA( cudaMemset(this->S.vals, 0, sizeof(double) * this->vec_len) );
-
         // convert the matrices back to vectorized format
-        matrices_to_vector(this->S, this->large_mat_P, this->medium_mat_P, this->small_mat_P, this->map_B, this->map_M1, this->map_M2);
+        // at the same time, free variables and nonnegative variables are projected
+        matrices_to_vector(this->S, this->Xinput, this->large_mat_P, this->medium_mat_P, this->small_mat_P, this->map_B, this->map_M1, this->map_M2);
 
 
         if (breakyes) {
