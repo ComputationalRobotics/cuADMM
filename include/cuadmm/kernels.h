@@ -196,7 +196,8 @@ void vector_to_matrices(
 
 // Convert the matrices large_mat, medium_mat and small_mat to the vector Xb using the mapping provided by map_B, map_M1, and map_M2.
 void matrices_to_vector(
-    DeviceDenseVector<double>& Xb, DeviceDenseVector<double>& large_mat, DeviceDenseVector<double>& medium_mat, DeviceDenseVector<double>& small_mat,
+    DeviceDenseVector<double>& Xb, DeviceDenseVector<double>& Xinput,
+    DeviceDenseVector<double>& large_mat, DeviceDenseVector<double>& medium_mat, DeviceDenseVector<double>& small_mat,
     DeviceDenseVector<int>& map_B, DeviceDenseVector<int>& map_M1, DeviceDenseVector<int>& map_M2,
     const cudaStream_t& stream = (cudaStream_t) 0, int block_size = 1024
 );

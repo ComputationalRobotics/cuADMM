@@ -17,7 +17,9 @@
 enum MatrixSizeCategory {
     SMALL,
     MEDIUM,
-    LARGE
+    LARGE,
+    FREE,
+    NONNEGATIVE
 };
 
 class MatrixSizes {
