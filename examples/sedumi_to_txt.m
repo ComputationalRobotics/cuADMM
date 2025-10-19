@@ -67,7 +67,7 @@ end
 function store_blk(blk, output_name)
     fileID = fopen(output_name, 'w');
     for i = 1: size(blk,1)
-        if blk{i,1} == 's' || blk{i,1} == 'u'
+        if blk{i,1} == 's' || blk{i,1} == 'u' || blk{i,1} == 'l'
             fprintf(fileID, "%c %d\n", blk{i,1}, fix(blk{i,2}));
         else
             fprintf("ERROR: unsupported block type %s\n", blk{i,1});

@@ -29,7 +29,7 @@ __global__ void vector_to_matrices_kernel(
         } else if (b == MatrixSizeCategory::MEDIUM) { // to medium matrix
             medium_mat_vals[m1] = Xb_vals[idx] * (SQRT2INV + int(if_diag) * (1 - SQRT2INV));
             medium_mat_vals[m2] = medium_mat_vals[m1];
-        } else {
+        } else if (b == MatrixSizeCategory::SMALL) { // to small matrix
             small_mat_vals[m1] = Xb_vals[idx] * (SQRT2INV + int(if_diag) * (1 - SQRT2INV));
             small_mat_vals[m2] = small_mat_vals[m1];
         }
@@ -50,12 +50,12 @@ __global__ void matrices_to_vector_kernel(
         m1 = map_M1_vals[idx];
         m2 = map_M2_vals[idx];
         if_diag = (m1 == m2);
-        if (b == MatrixSizeCategory::LARGE) { // from moment matrix
+        if (b == MatrixSizeCategory::LARGE) { // from large matrix
             // if the coefficient is not on the diagonal, we need to multiply by sqrt(2)
             Xb_vals[idx] = large_mat_vals[m1] * (SQRT2 + int(if_diag) * (1 - SQRT2));
-        } else if (b == MatrixSizeCategory::MEDIUM) { // from localizing matrix
+        } else if (b == MatrixSizeCategory::MEDIUM) { // from medium matrix
             Xb_vals[idx] = medium_mat_vals[m1] * (SQRT2 + int(if_diag) * (1 - SQRT2));
-        } else {
+        } else if (b == MatrixSizeCategory::SMALL) { // from small matrix
             Xb_vals[idx] = small_mat_vals[m1] * (SQRT2 + int(if_diag) * (1 - SQRT2));
         }
     }

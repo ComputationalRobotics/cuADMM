@@ -38,6 +38,9 @@ void Problem::from_txt(std::string& prefix, bool warm_start) {
                 case 'u': // free variable
                     this->vec_len += blk_size;
                     break;
+                case 'l': // non-negative variable
+                    this->vec_len += blk_size;
+                    break;
                 default:
                     std::cerr << "ERROR: unknown block type '" << blk_type << "' in blk.txt" << std::endl;
                     exit(1);

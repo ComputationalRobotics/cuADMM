@@ -51,6 +51,14 @@ void analyze_blk(
         }
     }
 
+    // print unconstrained variables
+    for (int i = 0; i < blk.size; i++) {
+        if (cpu_blk_types[i] == 'l') {
+            std::cout << "     " << std::setw(4) << 1 << " l. block of size " << std::setw(3) << blk.vals[i];
+            std::cout << std::endl;
+        }
+    }
+
     // print the PSD matrices of the map
     for (int i = 0; i < psd_blk_sizes.size(); i++) {
         std::cout << "     " << std::setw(4) << psd_blk_nums[i] << " matrices of size " << std::setw(4) << psd_blk_sizes[i];
