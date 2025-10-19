@@ -821,8 +821,8 @@ void SDPSolver::solve(
                             );
 
                             // copy ranks to CPU
-                            CHECK_CUDA(cudaMemcpy(this->cpu_positive_ranks.vals + all_counter, this->positive_ranks.vals, sizeof(int), D2H));
-                            CHECK_CUDA(cudaMemcpy(this->cpu_negative_ranks.vals + all_counter, this->negative_ranks.vals, sizeof(int), D2H));
+                            CHECK_CUDA(cudaMemcpy(this->cpu_positive_ranks.vals + all_counter, this->positive_ranks.vals + all_counter, sizeof(int), D2H));
+                            CHECK_CUDA(cudaMemcpy(this->cpu_negative_ranks.vals + all_counter, this->negative_ranks.vals + all_counter, sizeof(int), D2H));
 
                             // copy largest eigenpairs to use as a warmstart for LOBPCG
                             if (cpu_positive_ranks.vals[all_counter] < LOBPCG_RATIO * n && cpu_positive_ranks.vals[all_counter] > 0) {
@@ -1079,7 +1079,7 @@ void SDPSolver::solve(
                     this->sizes.medium_buffer_offset(i, j, this->eig_medium_buffer_size),
                     this->sizes.medium_cpu_buffer_offset(i, j, this->eig_medium_buffer_size),
                     all_counter
-                ); // TODO: create one buffer per matrix
+                );
 
                 all_counter++;
             }
