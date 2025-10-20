@@ -594,7 +594,7 @@ void SDPSolver::solve(
             final_msg = "Solver ended: maximum iteration reached";
         }
         if (
-            true ||
+            // true ||
             ( breakyes == true ) ||
             ( (iter <= 200) && ((iter % 50) == 1) ) ||
             ( (iter > 200) && ((iter % 100) == 1) )

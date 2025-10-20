@@ -217,6 +217,7 @@ class DeviceDenseVector {
 
         inline void allocate(const int gpu_id, const int size, bool as_byte = false) {
             if (this->vals == nullptr) {
+                assert(size >= 0);
                 this->gpu_id = gpu_id;
                 this->size = size;
                 CHECK_CUDA( cudaSetDevice(this->gpu_id) );
@@ -284,8 +285,15 @@ class DeviceDenseVector {
                 CHECK_CUDA( cudaDeviceSynchronize() );
 
                 // write the vector to the file
-                for (size_t i = 0; i < this->size; i++) {
-                    fprintf(file, "%.17f\n", host_vec[i]);
+                if (std::is_same<T,float>::value || std::is_same<T,double>::value) {
+                    for (size_t i = 0; i < this->size; i++)
+                        fprintf(file, "%.17f\n", host_vec[i]);
+                } else if (std::is_same<T,int>::value) {
+                    for (size_t i = 0; i < this->size; i++)
+                        fprintf(file, "%d\n", host_vec[i]);
+                } else {
+                    std::cerr << "to_txt only supports float, double and int types." << std::endl;
+                    return;
                 }
                 fclose(file);
             } else {
