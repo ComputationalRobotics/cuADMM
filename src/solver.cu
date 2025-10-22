@@ -1315,10 +1315,11 @@ void SDPSolver::solve(
         } else {
             // standard ADMM update rule
             if (
-                (               iter <=  200 && (iter %   10) == 1) ||
-                (iter >  200 && iter <= 1000 && (iter %   25) == 1) ||
-                (iter > 1000 && iter <= 5000 && (iter %   50) == 1) ||
-                (iter > 5000                 && (iter %  100) == 1) 
+                (                iter <=  200  && (iter %  10) == 1) ||
+                (iter >  200  && iter <= 1000  && (iter %  25) == 1) ||
+                (iter > 1000  && iter <= 5000  && (iter %  50) == 1) ||
+                (iter > 5000  && iter <= 10000 && (iter %  200) == 1) ||
+                (iter > 10000                  && (iter %  1000) == 1)
             ) {
                 this->sigscale = std::max(2.0 * std::exp(-iter / 50000.0), 2.0);
                 // std::printf("Current sigscale = %4.2f \n", this->sigscale);
@@ -1330,6 +1331,10 @@ void SDPSolver::solve(
                     this->dual_win = 0;
                     this->sig = max(this->sigmin, this->sig / this->sigscale);
                 }
+            }
+            // reset sigma every 5000 iterations to avoid stagnation
+            if (iter > 5000 && iter % 5000 == 1) {
+                this->sig = 1.0;
             }
         }
 
