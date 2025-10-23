@@ -11,6 +11,7 @@
 #include "cuadmm/kernels.h"
 #include "cuadmm/rank.h"
 #include "cuadmm/matrix_sizes.h"
+#include "cuadmm/monitors.h"
 
 #include "psd_projection/composite_FP32.h"
 #if defined(CUDA_VERSION) && (CUDA_VERSION >= 12090)
@@ -579,6 +580,7 @@ void SDPSolver::solve(
     std::cout << " --------------- Starting with projection method " << get_projection_method_name(this->current_proj_method) << "------" << std::endl;
 
     // for each iteration of the main solver
+    Monitor1 monitor1;
     for (int iter = 1; iter <= max_iter + 1; iter++) {
         /*
             Step 0: Check if terminal conditions hold and log information
