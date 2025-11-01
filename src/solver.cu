@@ -338,7 +338,7 @@ void SDPSolver::init(
 
     this->sizes.large_buffer_start_indices.push_back(0);
     this->sizes.large_cpu_buffer_start_indices.push_back(0);
-    int total_eig_large_buffer_size = 0;
+    size_t total_eig_large_buffer_size = 0;
     int total_cpu_eig_large_buffer_size = 0;
     int counter = 0;
     for (int i = 0; i < this->sizes.large_mat_sizes.size(); i++) {
@@ -366,9 +366,10 @@ void SDPSolver::init(
         }
     }
 
+    std::cout << "cpu_eig_large_buffer_size: " << total_cpu_eig_large_buffer_size << std::endl;
     // allocate memory for the two buffers, host and device
     if (total_eig_large_buffer_size != 0)
-        this->eig_large_buffer.allocate(GPU0, total_eig_large_buffer_size, true);
+        this->eig_large_buffer.allocate_size_t(GPU0, total_eig_large_buffer_size, true);
     if (total_cpu_eig_large_buffer_size != 0)
         this->cpu_eig_large_buffer.allocate(total_cpu_eig_large_buffer_size, true);
 

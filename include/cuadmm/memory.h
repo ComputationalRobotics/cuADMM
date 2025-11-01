@@ -206,7 +206,7 @@ template <typename T>
 class DeviceDenseVector {
     public:
         int gpu_id;
-        int size;
+        size_t size;
         T* vals;
         cusparseDnVecDescr_t cusparse_descr;
 
@@ -218,6 +218,25 @@ class DeviceDenseVector {
         inline void allocate(const int gpu_id, const int size, bool as_byte = false) {
             if (this->vals == nullptr) {
                 assert(size >= 0);
+                this->gpu_id = gpu_id;
+                this->size = size;
+                CHECK_CUDA( cudaSetDevice(this->gpu_id) );
+                // as_byte is used to allocate buffer size, which is usually given in terms of bytes
+                if (as_byte) {
+                    this->size = (size + sizeof(T) - 1) / sizeof(T);
+                } else {
+                    this->size = size;
+                }
+                CHECK_CUDA( cudaMalloc((void**) &this->vals, sizeof(T) * this->size) );
+                if (std::is_same<T,float>::value || std::is_same<T,double>::value) {
+                    CHECK_CUSPARSE( cusparseCreateDnVec(&this->cusparse_descr, this->size, this->vals, CudaTypeMapper<T>::value) );
+                }
+            }
+            return;
+        }
+
+        inline void allocate_size_t(const int gpu_id, const size_t size, bool as_byte = false) {
+            if (this->vals == nullptr) {
                 this->gpu_id = gpu_id;
                 this->size = size;
                 CHECK_CUDA( cudaSetDevice(this->gpu_id) );
