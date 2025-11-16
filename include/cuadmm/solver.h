@@ -167,8 +167,8 @@ class SDPSolver {
         DeviceDenseVector<int> negative_ranks; // negative ranks of large matrices
         HostDenseVector<int> cpu_positive_ranks; // positive ranks of large matrices (CPU copy)
         HostDenseVector<int> cpu_negative_ranks; // negative ranks of large matrices (CPU copy)
-        DeviceDenseVector<double> lobpcg_W; // eigenvalues of large matrices computed with LOBPCG, each block being of size 1.5*0.05*n
-        DeviceDenseVector<double> lobpcg_P; // eigenvectors of large matrices computed with LOBPCG, each block being of size (1.5*0.05*n)*n
+        std::vector<DeviceDenseVector<double>> lobpcg_W; // eigenvalues of large matrices computed with LOBPCG
+        std::vector<DeviceDenseVector<double>> lobpcg_P; // eigenvectors of large matrices computed with LOBPCG
         DeviceDenseVector<double> lobpcg_W_relu; // large_W after ReLU
         DeviceBlasHandle cublasH_eig_large;
         DeviceBlasHandle cublasH_eig_large_update;
