@@ -366,7 +366,6 @@ void SDPSolver::init(
         }
     }
 
-    std::cout << "cpu_eig_large_buffer_size: " << total_cpu_eig_large_buffer_size << std::endl;
     // allocate memory for the two buffers, host and device
     if (total_eig_large_buffer_size != 0)
         this->eig_large_buffer.allocate_size_t(GPU0, total_eig_large_buffer_size, true);
@@ -467,10 +466,25 @@ void SDPSolver::init(
         this->cpu_positive_ranks.allocate(this->sizes.large_mat_num);
         this->cpu_negative_ranks.allocate(this->sizes.large_mat_num);
         
+        // we only need the ReLU workspace for one matrix at a time
         int max_k = std::ceil(this->sizes.max_large_mat_size * LOBPCG_RATIO * LOBPCG_RELAXATION);
-        this->lobpcg_W.allocate(GPU0, max_k); // maximum possible size
         this->lobpcg_W_relu.allocate(GPU0, max_k);
-        this->lobpcg_P.allocate(GPU0, max_k * this->sizes.max_large_mat_size); // we only need the workspace for one matrix at a time
+        
+        // allocate one pointer for each large matrix
+        this->lobpcg_W.reserve(this->sizes.large_mat_num);
+        this->lobpcg_P.reserve(this->sizes.large_mat_num);
+        int counter = 0;
+        for (int i = 0; i < this->sizes.large_mat_sizes.size(); i++) {
+            for (int j = 0; j < this->sizes.large_mat_nums[i]; j++) {
+                int n = this->sizes.large_mat_sizes[i];
+                int k = std::ceil(n * LOBPCG_RATIO * LOBPCG_RELAXATION);
+                // allocate space to store warmstarting eigenpairs
+                this->lobpcg_W[counter].allocate(GPU0, k);
+                this->lobpcg_P[counter].allocate(GPU0, k * n);
+                counter++;
+            }
+        }
+    
     }
 
     /* others */
@@ -597,7 +611,7 @@ void SDPSolver::solve(
             final_msg = "Solver ended: maximum iteration reached";
         }
         if (
-            // true ||
+            true ||
             ( breakyes == true ) ||
             ( (iter <= 200) && ((iter % 50) == 1) ) ||
             ( (iter > 200) && ((iter % 100) == 1) )
@@ -800,8 +814,8 @@ void SDPSolver::solve(
 
                     // if we are in the LOBPCG phase
                     if (is_lobpcg_phase) {
-                        double *eigenvalues = this->lobpcg_W.vals;
-                        double *eigenvectors = this->lobpcg_P.vals;
+                        double *eigenvalues = this->lobpcg_W[all_counter].vals;
+                        double *eigenvectors = this->lobpcg_P[all_counter].vals;
                         double *relu_eigenvalues = this->lobpcg_W_relu.vals;
 
                         // every LOBPCG_REEVALUATE iterations, we computed the EVD with the full matrix to compute the ranks
