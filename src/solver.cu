@@ -1315,6 +1315,8 @@ void SDPSolver::solve(
                 }
             }
         } else {
+            // this->sig = 1e2;
+
             // standard ADMM update rule
             if (
                 (                iter <=  200  && (iter %  10) == 1) ||
@@ -1334,9 +1336,26 @@ void SDPSolver::solve(
                     this->sig = max(this->sigmin, this->sig / this->sigscale);
                 }
             }
-            // reset sigma every 5000 iterations to avoid stagnation
-            if (iter > 5000 && iter % 5000 == 1) {
-                this->sig = 1.0;
+            
+            // use monitor1 for the chasing phenomenon
+            if (iter > 5000 && iter % monitor1.update_interval == 0) { 
+                monitor1.push(this->pobj, this->dobj, this->errRp, this->errRd, this->relgap);
+                if (monitor1.if_full()) {
+                    this->sig = monitor1.chase_update_sig(this->sig);
+                    // for debug
+                    // if (iter % 100 == 0) {
+                    //     std::printf("\npobj diff:\n");
+                    //     monitor1.buffer_pobj.print_dq();
+                    //     std::printf("\ndobj diff:\n");
+                    //     monitor1.buffer_dobj.print_dq();
+                    //     std::printf("\nobj diff:\n");
+                    //     monitor1.buffer_obj_diff.print_q1();
+                    //     std::printf("\nratio:\n");
+                    //     monitor1.buffer_relgap_feas_ratio.print_q1();
+                    //     std::printf("\n");
+                    // }
+                    
+                }
             }
         }
 

@@ -72,7 +72,7 @@ public:
         for (const auto& x : this->q1) {
             if (!first) os << sep;
             first = false;
-            if constexpr (std::is_floating_point_v<T>) {
+            if (std::is_floating_point<T>::value) {
                 std::snprintf(buf, sizeof(buf), "%3.2e", static_cast<double>(x));
                 os << buf;
             } else {
@@ -88,7 +88,7 @@ public:
         for (const auto& x : this->dq) {
             if (!first) os << sep;
             first = false;
-            if constexpr (std::is_floating_point_v<T>) {
+            if (std::is_floating_point<T>::value) {
                 std::snprintf(buf, sizeof(buf), "%3.2e", static_cast<double>(x));
                 os << buf;
             } else {
@@ -150,15 +150,17 @@ public:
         bool if_obj_diff_positive = this->buffer_obj_diff.data_all_greater(0.0);
         bool if_obj_diff_negative = this->buffer_obj_diff.data_all_smaller(0.0);
 
-        const double sig_help_dual = 1e2;
-        const double sig_help_primal = 1e-2;
+        double sig_help_dual = std::max(1e2, sig);
+        double sig_help_primal = std::min(1e-2, sig);
 
         if (if_pobj_ascend && if_dobj_ascend) {
             if (if_obj_diff_positive) {
                 std::cout << "pobj and dobj both ascend, pobj > dobj, help dual!" << std::endl;
+                this->reset();
                 return sig_help_dual;
             } else if (if_obj_diff_negative) {
                 std::cout << "pobj and dobj both ascend, pobj < dobj, help primal!" << std::endl;
+                this->reset();
                 return sig_help_primal;
             }
         }
@@ -166,9 +168,11 @@ public:
         if (if_pobj_descend && if_dobj_descend) {
             if (if_obj_diff_positive) {
                 std::cout << "pobj and dobj both descend, pobj > dobj, help primal!" << std::endl;
+                this->reset();
                 return sig_help_primal;
             } else if (if_obj_diff_negative) {
                 std::cout << "pobj and dobj both descend, pobj < dobj, help dual!" << std::endl;
+                this->reset();
                 return sig_help_dual;
             }
         }

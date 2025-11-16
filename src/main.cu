@@ -21,7 +21,7 @@ int main(int argc, char* argv[]) {
     }
     
     SDPSolver solver;
-    double sig = 1e0;
+    double sig = 1e2;
     solver.init(
         eig_stream_num_per_gpu,
         problem.vec_len, problem.con_num,
