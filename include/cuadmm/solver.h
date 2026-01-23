@@ -100,17 +100,18 @@ public:
     DeviceDenseVector<double> Rd;    // dual residual, A^T * y - C + S
     DeviceDenseVector<double> Rporg; // original primal residual (size con_num)
     DeviceDenseVector<double> Rdorg; // original dual residual (size vec_len)
-    double norm_borg;                // original norm of b
-    double norm_Corg;                // original norm of C
+    double norm_borg;                // 1 + original norm of b
+    double norm_Corg;                // 1 + original norm of C
     double bscale;                   // scale for b
     double Cscale;                   // scale for C
     double objscale;                 // scale for objective function
-    double errRp;
-    double errRd;
-    double maxfeas;
-    double pobj;   // primal objective (<C,X>)
-    double dobj;   // dual objective (<b, y>)
-    double relgap; // eta_g, the normalized duality gap
+    double errRp;                    // primal feasibility violation (eta_p)
+    double errRd;                    // dual feasibility violation (eta_d)
+    double maxfeas;                  // maximum feasibility violation (max(eta_p, eta_d))
+    double pobj;                     // primal objective (<C,X>)
+    double dobj;                     // dual objective (<b, y>)
+    double relgap;                   // normalized duality gap (eta_g)
+
     // buffers for cuSPARSE matrix-vector and inner products
     size_t SpMV_Aty_buffer_size;               // |
     DeviceDenseVector<double> SpMV_Aty_buffer; // |

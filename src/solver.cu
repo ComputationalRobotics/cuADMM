@@ -157,7 +157,7 @@ void SDPSolver::init(
     // if the input is nullptr (no warm start), we will set them to 0
     if (cpu_X_vals != nullptr)
     {
-        // copy
+        // copy from CPU to GPU
         CHECK_CUDA(cudaMemcpyAsync(this->X.vals, cpu_X_vals, sizeof(double) * vec_len, H2D, this->stream_flex[1].stream));
     }
     else
@@ -533,7 +533,6 @@ void SDPSolver::solve(
     // declare variables
     bool breakyes = false; // for breaking out of the loop
     std::string final_msg; // output message
-
     this->info_iter_num = 0; // iteration number
 
     double one = 1.0;
@@ -641,8 +640,106 @@ void SDPSolver::solve(
                 iter - 1, this->errRp, this->errRd, this->pobj, this->dobj, this->relgap, seconds, this->sig);
             std::cout << std::endl;
         }
-        if (breakyes > 0)
+        if (breakyes == true)
         {
+            /* Compute the PSD constraint violations for X and S */
+
+            // convert X back to matrices
+            vector_to_matrices(this->X, this->large_mat, this->medium_mat, this->small_mat, this->map_B, this->map_M1, this->map_M2);
+            CHECK_CUDA(cudaDeviceSynchronize());
+
+            // we only need to check the min eigenvalues of large_mat
+            // since other matrices use cuSOLVER which is exact
+            double err_PSD_X = 0.0;
+            if (this->sizes.large_mat_num > 0)
+            {
+                int all_counter = 0;
+                for (int i = 0; i < this->sizes.large_mat_sizes.size(); i++)
+                {
+                    for (int j = 0; j < this->sizes.large_mat_nums[i]; j++)
+                    {
+                        int n = this->sizes.large_mat_sizes[i];
+
+                        // compute the EVD using cuSOLVER
+                        single_eig_cusolver(
+                            this->cusolverH_eig_large, eig_param_single,
+                            this->large_mat, this->large_W,
+                            this->eig_large_buffer, this->cpu_eig_large_buffer, this->large_info,
+                            this->sizes.large_mat_sizes[i],
+                            this->eig_large_buffer_size[i], this->cpu_eig_large_buffer_size[i],
+                            this->sizes.large_mat_offset(i, j), this->sizes.large_W_offset(i, j),
+                            this->sizes.large_buffer_offset(i, j, this->eig_large_buffer_size),
+                            this->sizes.large_cpu_buffer_offset(i, j, this->eig_large_buffer_size),
+                            all_counter);
+
+                        // copy eigenvalues to host
+                        std::vector<double> W_host(n);
+                        CHECK_CUDA(cudaMemcpy(W_host.data(),
+                                              this->large_W.vals + this->sizes.large_W_offset(i, j),
+                                              sizeof(double) * n, D2H));
+                        
+                        // find the minimum eigenvalue
+                        for (int k = 0; k < n; k++)
+                        {
+                            if (W_host[k] < err_PSD_X)
+                                err_PSD_X = W_host[k];
+                        }
+
+                        all_counter++;
+                    }
+                }
+            }
+            // scale it back by sigma and 1 + ||b||
+            err_PSD_X = -err_PSD_X / this->bscale;
+
+            // convert S to matrices
+            vector_to_matrices(this->S, this->large_mat, this->medium_mat, this->small_mat, this->map_B, this->map_M1, this->map_M2);
+            CHECK_CUDA(cudaDeviceSynchronize());
+
+            // we only need to check the min eigenvalues of large_mat
+            // since other matrices use cuSOLVER which is exact
+            double err_PSD_S = 0.0;
+            if (this->sizes.large_mat_num > 0)
+            {
+                int all_counter = 0;
+                for (int i = 0; i < this->sizes.large_mat_sizes.size(); i++)
+                {
+                    for (int j = 0; j < this->sizes.large_mat_nums[i]; j++)
+                    {
+                        int n = this->sizes.large_mat_sizes[i];
+
+                        // compute the EVD using cuSOLVER
+                        single_eig_cusolver(
+                            this->cusolverH_eig_large, eig_param_single,
+                            this->large_mat, this->large_W,
+                            this->eig_large_buffer, this->cpu_eig_large_buffer, this->large_info,
+                            this->sizes.large_mat_sizes[i],
+                            this->eig_large_buffer_size[i], this->cpu_eig_large_buffer_size[i],
+                            this->sizes.large_mat_offset(i, j), this->sizes.large_W_offset(i, j),
+                            this->sizes.large_buffer_offset(i, j, this->eig_large_buffer_size),
+                            this->sizes.large_cpu_buffer_offset(i, j, this->eig_large_buffer_size),
+                            all_counter);
+
+                        // copy eigenvalues to host
+                        std::vector<double> W_host(n);
+                        CHECK_CUDA(cudaMemcpy(W_host.data(),
+                                              this->large_W.vals + this->sizes.large_W_offset(i, j),
+                                              sizeof(double) * n, D2H));
+                        
+                        // find the minimum eigenvalue
+                        for (int k = 0; k < n; k++)
+                        {
+                            if (W_host[k] < err_PSD_S)
+                                err_PSD_S = W_host[k];
+                        }
+
+                        all_counter++;
+                    }
+                }
+            }
+            // scale it back by sigma and 1 + ||C||
+            err_PSD_S = -err_PSD_S / this->Cscale;
+
             // print the final message
             printf(" ------------------------------------------------------------------------------\n\n");
             std::cout << final_msg << std::endl;
@@ -650,7 +747,10 @@ void SDPSolver::solve(
                 "\n primal infeasibility = %2.1e \n dual   infeasibility = %2.1e \n relative gap         = %2.1e",
                 this->errRp, this->errRd, this->relgap);
             printf(
-                "\n primal objective = %- 9.8e \n dual   objective = %- 9.8e",
+                "\n PSD violation X      = %2.1e \n PSD violation S      = %2.1e",
+                err_PSD_X, err_PSD_S);
+            printf(
+                "\n\n primal objective = %- 9.8e \n dual   objective = %- 9.8e",
                 this->pobj, this->dobj);
             printf(
                 "\n\n time per iteration = %2.4fs \n total time         = %2.1fs",
@@ -1003,7 +1103,7 @@ void SDPSolver::solve(
                     all_counter++;
                 }
 
-                icounter++;
+                icounter++; // TODO: check if this is the same as i?
             }
             if (
                 this->use_lobpcg && this->sizes.large_mat_num > 0 && this->switched_proj_method && (iter - this->switched_proj_method_iter) % LOBPCG_REEVALUATE == 0)
@@ -1093,7 +1193,7 @@ void SDPSolver::solve(
         CHECK_CUDA(cudaDeviceSynchronize());
 
         /* Step 3.2. Projection of the medium matrices */
-        // project using cuSOLVER
+        // always project using non-batched cuSOLVER
         all_counter = 0; // serves as an info offset
         for (int i = 0; i < this->sizes.medium_mat_sizes.size(); i++)
         {
@@ -1148,6 +1248,7 @@ void SDPSolver::solve(
         }
 
         /* Step 3.3. Projection of the small matrices */
+        // always project with batched cuSOLVER
         int info_offset = 0;
         for (int i = 0; i < this->sizes.small_mat_sizes.size(); i++)
         {
@@ -1322,23 +1423,26 @@ void SDPSolver::solve(
         // hence Rp = b - A X
 
         /* Update errors and compute residuals */
+        // compute primal error and objective
         dense_vector_mul_dense_vector_mul_scalar(this->Rporg, this->normA, this->Rp, this->bscale);
-        this->errRp = this->Rporg.get_norm(this->cublasH) / this->norm_borg;
+        this->errRp = this->Rporg.get_norm(this->cublasH) / this->norm_borg; // scale it
         this->pobj = SparseVV_cusparse(this->cusparseH, this->C, this->X, this->SpVV_CtX_buffer) * this->objscale;
+
+        // compute dual error and objective
         dense_vector_mul_scalar(this->Rdorg, this->Rd, this->Cscale);
-        this->errRd = this->Rdorg.get_norm(this->cublasH) / this->norm_Corg;
+        this->errRd = this->Rdorg.get_norm(this->cublasH) / this->norm_Corg; // scale it
         this->dobj = SparseVV_cusparse(this->cusparseH, this->b, this->y, this->SpVV_bty_buffer) * this->objscale;
+
+        // compute maximum feasibility violation and relative gap
         this->maxfeas = max(this->errRp, this->errRd);
         this->relgap = abs(this->pobj - this->dobj) / (1 + abs(this->pobj) + abs(this->dobj));
+
+        // check whether primal or dual "wins" to schedule sigma update
         this->feasratio = this->ratioconst * this->errRp / this->errRd;
         if (this->feasratio < 1)
-        {
             this->prim_win += 1;
-        }
         else
-        {
             this->dual_win += 1;
-        }
 
         /* Update sigma */
         if (iter < this->switch_admm)
@@ -1392,21 +1496,7 @@ void SDPSolver::solve(
             {
                 monitor1.push(this->pobj, this->dobj, this->errRp, this->errRd, this->relgap);
                 if (monitor1.if_full())
-                {
                     this->sig = monitor1.chase_update_sig(this->sig);
-                    // for debug
-                    // if (iter % 100 == 0) {
-                    //     std::printf("\npobj diff:\n");
-                    //     monitor1.buffer_pobj.print_dq();
-                    //     std::printf("\ndobj diff:\n");
-                    //     monitor1.buffer_dobj.print_dq();
-                    //     std::printf("\nobj diff:\n");
-                    //     monitor1.buffer_obj_diff.print_q1();
-                    //     std::printf("\nratio:\n");
-                    //     monitor1.buffer_relgap_feas_ratio.print_q1();
-                    //     std::printf("\n");
-                    // }
-                }
             }
         }
 
