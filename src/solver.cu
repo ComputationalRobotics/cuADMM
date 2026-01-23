@@ -690,7 +690,7 @@ void SDPSolver::solve(
                 }
             }
             // scale it back by sigma and 1 + ||b||
-            err_PSD_X = -err_PSD_X / this->bscale;
+            err_PSD_X = -err_PSD_X * this->bscale / this->norm_borg;
 
             // convert S to matrices
             vector_to_matrices(this->S, this->large_mat, this->medium_mat, this->small_mat, this->map_B, this->map_M1, this->map_M2);
@@ -738,7 +738,7 @@ void SDPSolver::solve(
                 }
             }
             // scale it back by sigma and 1 + ||C||
-            err_PSD_S = -err_PSD_S / this->Cscale;
+            err_PSD_S = -err_PSD_S * this->Cscale / this->norm_Corg;
 
             // print the final message
             printf(" ------------------------------------------------------------------------------\n\n");
