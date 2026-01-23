@@ -17,7 +17,7 @@ int check_gpus();
 
 // Compute the inverse of a permutation vector.
 // The inverse permutation is a vector such that if perm[i] = j, then perm_inv[j] = i.
-void get_inverse_permutation(std::vector<int>& perm_inv, const std::vector<int>& perm);
+void get_inverse_permutation(std::vector<int> &perm_inv, const std::vector<int> &perm);
 
 // Computes the maps for the vectorized representation of symmetric matrices.
 // Matrices are split into to groups depending on their sizes and numbers:
@@ -31,28 +31,25 @@ void get_inverse_permutation(std::vector<int>& perm_inv, const std::vector<int>&
 // - map_M2_tmp: output map for M2 (vertical count of upper triangle)
 // - sizes: structure containing the sizes of the matrices
 void get_maps(
-    const char* blk_types,
-    const HostDenseVector<int>& blk_sizes,
+    const char *blk_types,
+    const HostDenseVector<int> &blk_sizes,
     const int vec_len,
-    std::vector<int>& map_B_tmp, std::vector<int>& map_M1_tmp, std::vector<int>& map_M2_tmp,
-    const MatrixSizes& sizes
-);
+    std::vector<int> &map_B_tmp, std::vector<int> &map_M1_tmp, std::vector<int> &map_M2_tmp,
+    const MatrixSizes &sizes);
 
 // Compute a mask based on the rank limit for batched
 // eigenvalue decomposition.
 // The full matrix is of size batch_size * mat_size.
 // Eigenvalues are sorted in ascending order.
 void get_eig_rank_mask(
-    std::vector<int>& eig_rank_mask,
-    int batch_size, int mat_size, int eig_rank
-);
+    std::vector<int> &eig_rank_mask,
+    int batch_size, int mat_size, int eig_rank);
 
 // Analyze the blk vector to determine the size and number of PSD matrices
 void analyze_blk(
-    char* blk_types,
-    HostDenseVector<int>& blk, 
-    std::vector<int>& blk_sizes,
-    std::vector<int>& blk_nums
-);
+    char *blk_types,
+    HostDenseVector<int> &blk,
+    std::vector<int> &blk_sizes,
+    std::vector<int> &blk_nums);
 
 #endif // CUADMM_UTILS_H

@@ -9,13 +9,14 @@
 #include "cuadmm/kernels.h"
 
 __global__ void dense_matrix_mul_diag_batch_kernel(
-    double* dnmat1_vals, double* dnmat2_vals, double* dnvec_vals, 
+    double *dnmat1_vals, double *dnmat2_vals, double *dnvec_vals,
     int mat_size, int total_len,
-    const int* mask, const bool use_mask
-) {
+    const int *mask, const bool use_mask)
+{
     int idx = threadIdx.x + blockIdx.x * blockDim.x;
     int k, i;
-    if (idx < total_len) {
+    if (idx < total_len)
+    {
         k = idx / (mat_size * mat_size);
         i = (idx % (mat_size * mat_size)) / mat_size;
 
@@ -48,14 +49,14 @@ __global__ void dense_matrix_mul_diag_batch_kernel(
 // - mask: a boolean mask indicating which matrices to process (default: nullptr)
 // - use_mask: whether to use the mask or not (default: false)
 void dense_matrix_mul_diag_batch(
-    DeviceDenseVector<double>& dnmat1,
-    const DeviceDenseVector<double>& dnmat2,
-    const DeviceDenseVector<double>& dnvec,
+    DeviceDenseVector<double> &dnmat1,
+    const DeviceDenseVector<double> &dnmat2,
+    const DeviceDenseVector<double> &dnvec,
     const int mat_size, const int mat_nums,
     const int mat_offset, const int vec_offset,
-    const int* mask, const bool use_mask,
-    const cudaStream_t& stream, int block_size
-) {
+    const int *mask, const bool use_mask,
+    const cudaStream_t &stream, int block_size)
+{
     int dnmat_size;
     if (mat_nums == -1)
         dnmat_size = dnmat1.size;
@@ -65,7 +66,6 @@ void dense_matrix_mul_diag_batch(
     dense_matrix_mul_diag_batch_kernel<<<num_block, block_size, 0, stream>>>(
         dnmat1.vals + mat_offset, dnmat2.vals + mat_offset, dnvec.vals + vec_offset,
         mat_size, dnmat_size,
-        mask, use_mask
-    );
+        mask, use_mask);
     return;
 }

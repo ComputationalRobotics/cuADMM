@@ -15,27 +15,32 @@ template <typename T>
 struct CudaTypeMapper;
 
 template <>
-struct CudaTypeMapper<double> {
+struct CudaTypeMapper<double>
+{
     static const cudaDataType value = CUDA_R_64F;
 };
 
 template <>
-struct CudaTypeMapper<float> {
+struct CudaTypeMapper<float>
+{
     static const cudaDataType value = CUDA_R_32F;
 };
 
 template <>
-struct CudaTypeMapper<int> {
+struct CudaTypeMapper<int>
+{
     static const cudaDataType value = CUDA_R_32I;
 };
 
 template <>
-struct CudaTypeMapper<size_t> {
+struct CudaTypeMapper<size_t>
+{
     static const cudaDataType value = CUDA_R_32U;
 };
 
 template <>
-struct CudaTypeMapper<__half> {
+struct CudaTypeMapper<__half>
+{
     static const cudaDataType value = CUDA_R_16F;
 };
 

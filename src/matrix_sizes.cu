@@ -6,7 +6,8 @@
 #include <iostream>
 #include <iomanip>
 
-void MatrixSizes::init(const std::vector<int>& psd_blk_sizes, const std::vector<int>& psd_blk_nums) {
+void MatrixSizes::init(const std::vector<int> &psd_blk_sizes, const std::vector<int> &psd_blk_nums)
+{
     assert(psd_blk_sizes.size() == psd_blk_nums.size());
 
     // initialize the sizes and numbers
@@ -33,11 +34,13 @@ void MatrixSizes::init(const std::vector<int>& psd_blk_sizes, const std::vector<
     this->small_W_start_indices.push_back(0);
 
     // for each matrix size, determine if it is large, medium or small
-    for (int i = 0; i < psd_blk_sizes.size(); i++) {
+    for (int i = 0; i < psd_blk_sizes.size(); i++)
+    {
         int mat_size = psd_blk_sizes[i]; // size of the matrix
-        int mat_num = psd_blk_nums[i]; // number of matrices of this size
+        int mat_num = psd_blk_nums[i];   // number of matrices of this size
 
-        if (this->get_size_category(mat_size) == MatrixSizeCategory::LARGE) {
+        if (this->get_size_category(mat_size) == MatrixSizeCategory::LARGE)
+        {
             this->large_mat_num += mat_num;
             this->sum_large_mat_size += mat_size * mat_num;
             this->total_large_mat_size += mat_num * mat_size * mat_size;
@@ -50,7 +53,9 @@ void MatrixSizes::init(const std::vector<int>& psd_blk_sizes, const std::vector<
 
             if (mat_size > this->max_large_mat_size)
                 this->max_large_mat_size = mat_size;
-        } else if (this->get_size_category(mat_size) == MatrixSizeCategory::MEDIUM) {
+        }
+        else if (this->get_size_category(mat_size) == MatrixSizeCategory::MEDIUM)
+        {
             this->medium_mat_num += mat_num;
             this->sum_medium_mat_size += mat_size * mat_num;
             this->total_medium_mat_size += mat_num * mat_size * mat_size;
@@ -60,7 +65,9 @@ void MatrixSizes::init(const std::vector<int>& psd_blk_sizes, const std::vector<
 
             this->medium_mat_start_indices.push_back(this->total_medium_mat_size);
             this->medium_W_start_indices.push_back(this->sum_medium_mat_size);
-        } else {
+        }
+        else
+        {
             this->sum_small_mat_size += mat_size * mat_num;
             this->small_mat_num += mat_num;
             this->total_small_mat_size += mat_num * mat_size * mat_size;
@@ -118,21 +125,24 @@ void MatrixSizes::init(const std::vector<int>& psd_blk_sizes, const std::vector<
     // std::cout << std::endl;
 }
 
-int MatrixSizes::large_mat_offset(int large_idx, int same_size_idx) const {
+int MatrixSizes::large_mat_offset(int large_idx, int same_size_idx) const
+{
     assert(large_idx < this->large_mat_sizes.size());
     assert(same_size_idx < this->large_mat_nums[large_idx]);
 
     return this->large_mat_start_indices[large_idx] + same_size_idx * this->large_mat_sizes[large_idx] * this->large_mat_sizes[large_idx];
 }
 
-int MatrixSizes::large_W_offset(int large_idx, int same_size_idx) const {
+int MatrixSizes::large_W_offset(int large_idx, int same_size_idx) const
+{
     assert(large_idx < this->large_mat_sizes.size());
     assert(same_size_idx < this->large_mat_nums[large_idx]);
 
     return this->large_W_start_indices[large_idx] + same_size_idx * this->large_mat_sizes[large_idx];
 }
 
-int MatrixSizes::large_buffer_offset(int large_idx, int same_size_idx, std::vector<size_t>& eig_large_buffer_size) const {
+int MatrixSizes::large_buffer_offset(int large_idx, int same_size_idx, std::vector<size_t> &eig_large_buffer_size) const
+{
     assert(large_idx < this->large_mat_sizes.size());
     assert(same_size_idx < this->large_mat_nums[large_idx]);
 
@@ -140,7 +150,8 @@ int MatrixSizes::large_buffer_offset(int large_idx, int same_size_idx, std::vect
     return this->large_buffer_start_indices[large_idx] + eig_large_buffer_size[large_idx] * same_size_idx;
 }
 
-int MatrixSizes::large_cpu_buffer_offset(int large_idx, int same_size_idx, std::vector<size_t>& eig_large_cpu_buffer_size) const {
+int MatrixSizes::large_cpu_buffer_offset(int large_idx, int same_size_idx, std::vector<size_t> &eig_large_cpu_buffer_size) const
+{
     assert(large_idx < this->large_mat_sizes.size());
     assert(same_size_idx < this->large_mat_nums[large_idx]);
 
@@ -148,21 +159,24 @@ int MatrixSizes::large_cpu_buffer_offset(int large_idx, int same_size_idx, std::
     return this->large_cpu_buffer_start_indices[large_idx] + eig_large_cpu_buffer_size[large_idx] * same_size_idx;
 }
 
-int MatrixSizes::medium_mat_offset(int medium_idx, int same_size_idx) const {
+int MatrixSizes::medium_mat_offset(int medium_idx, int same_size_idx) const
+{
     assert(medium_idx < this->medium_mat_sizes.size());
     assert(same_size_idx < this->medium_mat_nums[medium_idx]);
 
     return this->medium_mat_start_indices[medium_idx] + same_size_idx * this->medium_mat_sizes[medium_idx] * this->medium_mat_sizes[medium_idx];
 }
 
-int MatrixSizes::medium_W_offset(int medium_idx, int same_size_idx) const {
+int MatrixSizes::medium_W_offset(int medium_idx, int same_size_idx) const
+{
     assert(medium_idx < this->medium_mat_sizes.size());
     assert(same_size_idx < this->medium_mat_nums[medium_idx]);
 
     return this->medium_W_start_indices[medium_idx] + same_size_idx * this->medium_mat_sizes[medium_idx];
 }
 
-int MatrixSizes::medium_buffer_offset(int medium_idx, int same_size_idx, std::vector<size_t>& eig_medium_buffer_size) const {
+int MatrixSizes::medium_buffer_offset(int medium_idx, int same_size_idx, std::vector<size_t> &eig_medium_buffer_size) const
+{
     assert(medium_idx < this->medium_mat_sizes.size());
     assert(same_size_idx < this->medium_mat_nums[medium_idx]);
 
@@ -170,7 +184,8 @@ int MatrixSizes::medium_buffer_offset(int medium_idx, int same_size_idx, std::ve
     return this->medium_buffer_start_indices[medium_idx] + eig_medium_buffer_size[medium_idx] * same_size_idx;
 }
 
-int MatrixSizes::medium_cpu_buffer_offset(int medium_idx, int same_size_idx, std::vector<size_t>& eig_medium_cpu_buffer_size) const {
+int MatrixSizes::medium_cpu_buffer_offset(int medium_idx, int same_size_idx, std::vector<size_t> &eig_medium_cpu_buffer_size) const
+{
     assert(medium_idx < this->medium_mat_sizes.size());
     assert(same_size_idx < this->medium_mat_nums[medium_idx]);
 
@@ -178,32 +193,41 @@ int MatrixSizes::medium_cpu_buffer_offset(int medium_idx, int same_size_idx, std
     return this->medium_cpu_buffer_start_indices[medium_idx] + eig_medium_cpu_buffer_size[medium_idx] * same_size_idx;
 }
 
-int MatrixSizes::small_mat_offset(int mat_size_index, int same_size_idx) const {
+int MatrixSizes::small_mat_offset(int mat_size_index, int same_size_idx) const
+{
     assert(mat_size_index < this->small_mat_sizes.size());
     assert(same_size_idx < this->small_mat_nums[mat_size_index]);
 
     return this->small_mat_start_indices[mat_size_index] + same_size_idx * this->small_mat_sizes[mat_size_index] * this->small_mat_sizes[mat_size_index];
 }
 
-int MatrixSizes::small_W_offset(int mat_size_index) const {
+int MatrixSizes::small_W_offset(int mat_size_index) const
+{
     assert(mat_size_index < this->small_mat_sizes.size());
 
     return this->small_W_start_indices[mat_size_index];
 }
 
-int MatrixSizes::small_buffer_offset(int small_idx, std::vector<size_t>& eig_small_buffer_size) const {
+int MatrixSizes::small_buffer_offset(int small_idx, std::vector<size_t> &eig_small_buffer_size) const
+{
     assert(small_idx < this->small_mat_sizes.size());
 
     // note: this is for the case where we only use a single vector as buffer
     return this->small_buffer_start_indices[small_idx];
 }
 
-MatrixSizeCategory MatrixSizes::get_size_category(const int mat_size) {
-    if (mat_size <= SMALL_MAT_LIMIT) {
+MatrixSizeCategory MatrixSizes::get_size_category(const int mat_size)
+{
+    if (mat_size <= SMALL_MAT_LIMIT)
+    {
         return MatrixSizeCategory::SMALL;
-    } else if (mat_size <= MEDIUM_MAT_LIMIT) {
+    }
+    else if (mat_size <= MEDIUM_MAT_LIMIT)
+    {
         return MatrixSizeCategory::MEDIUM;
-    } else {
+    }
+    else
+    {
         return MatrixSizeCategory::LARGE;
     }
 }

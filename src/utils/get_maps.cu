@@ -23,12 +23,12 @@
 // - map_M2_tmp: output map for M2 (vertical count of upper triangle)
 // - sizes: structure containing the sizes of the matrices
 void get_maps(
-    const char* blk_types,
-    const HostDenseVector<int>& blk_sizes,
+    const char *blk_types,
+    const HostDenseVector<int> &blk_sizes,
     const int vec_len,
-    std::vector<int>& map_B_tmp, std::vector<int>& map_M1_tmp, std::vector<int>& map_M2_tmp,
-    const MatrixSizes& sizes
-) {
+    std::vector<int> &map_B_tmp, std::vector<int> &map_M1_tmp, std::vector<int> &map_M2_tmp,
+    const MatrixSizes &sizes)
+{
     // Reserve space for the maps
     map_B_tmp.clear();
     map_B_tmp.resize(vec_len);
@@ -39,66 +39,80 @@ void get_maps(
     map_M2_tmp.clear();
     map_M2_tmp.resize(vec_len);
 
-    int idx = 0;    // current index in the maps
-    int mat_size_index; // n-th size of matrix in sizes.large_mat_sizes or sizes.small_mat_sizes
+    int idx = 0;         // current index in the maps
+    int mat_size_index;  // n-th size of matrix in sizes.large_mat_sizes or sizes.small_mat_sizes
     int same_size_index; // n-th matrix of the same size
     std::vector<int> large_mat_nb_encoutered(sizes.large_mat_sizes.size(), 0);
     std::vector<int> medium_mat_nb_encoutered(sizes.medium_mat_sizes.size(), 0);
     std::vector<int> small_mat_nb_encoutered(sizes.small_mat_sizes.size(), 0);
     int s; // block size
     int b; // block type (0 for large, 1 for small)
-    for (int k = 0; k < blk_sizes.size; ++k) { // for each block
-        if (blk_types[k] == 'u') {
+    for (int k = 0; k < blk_sizes.size; ++k)
+    { // for each block
+        if (blk_types[k] == 'u')
+        {
             std::fill(map_B_tmp.begin() + idx, map_B_tmp.begin() + idx + blk_sizes.vals[k], MatrixSizeCategory::FREE);
             idx += blk_sizes.vals[k];
             continue;
         }
 
-        if (blk_types[k] == 'l') {
+        if (blk_types[k] == 'l')
+        {
             std::fill(map_B_tmp.begin() + idx, map_B_tmp.begin() + idx + blk_sizes.vals[k], MatrixSizeCategory::NONNEGATIVE);
             idx += blk_sizes.vals[k];
             continue;
         }
-            
+
         s = blk_sizes.vals[k];
-        if (sizes.get_size_category(s) == MatrixSizeCategory::LARGE) {
+        if (sizes.get_size_category(s) == MatrixSizeCategory::LARGE)
+        {
             b = MatrixSizeCategory::LARGE;
             auto findex = std::find(sizes.large_mat_sizes.begin(), sizes.large_mat_sizes.end(), s);
             mat_size_index = std::distance(sizes.large_mat_sizes.begin(), findex);
             same_size_index = large_mat_nb_encoutered[mat_size_index];
             ++large_mat_nb_encoutered[mat_size_index];
-        } else if (sizes.get_size_category(s) == MatrixSizeCategory::MEDIUM) {
+        }
+        else if (sizes.get_size_category(s) == MatrixSizeCategory::MEDIUM)
+        {
             b = MatrixSizeCategory::MEDIUM;
             auto findex = std::find(sizes.medium_mat_sizes.begin(), sizes.medium_mat_sizes.end(), s);
             mat_size_index = std::distance(sizes.medium_mat_sizes.begin(), findex);
             same_size_index = medium_mat_nb_encoutered[mat_size_index];
             ++medium_mat_nb_encoutered[mat_size_index];
         }
-        else {
+        else
+        {
             b = MatrixSizeCategory::SMALL;
             auto findex = std::find(sizes.small_mat_sizes.begin(), sizes.small_mat_sizes.end(), s);
             mat_size_index = std::distance(sizes.small_mat_sizes.begin(), findex);
             same_size_index = small_mat_nb_encoutered[mat_size_index];
             ++small_mat_nb_encoutered[mat_size_index];
         }
-        for (int i = 1; i <= s; ++i) {      // for each coefficient
-            for (int j = 1; j <= i; ++j) {  // in the triangle
+        for (int i = 1; i <= s; ++i)
+        { // for each coefficient
+            for (int j = 1; j <= i; ++j)
+            { // in the triangle
                 map_B_tmp[idx] = b;
-                if (sizes.get_size_category(s) == MatrixSizeCategory::LARGE) {
+                if (sizes.get_size_category(s) == MatrixSizeCategory::LARGE)
+                {
                     // count horizontally
-                    map_M1_tmp[idx] = sizes.large_mat_offset(mat_size_index, same_size_index) + s * (i-1) + j-1;
+                    map_M1_tmp[idx] = sizes.large_mat_offset(mat_size_index, same_size_index) + s * (i - 1) + j - 1;
                     // count vertically
-                    map_M2_tmp[idx] = sizes.large_mat_offset(mat_size_index, same_size_index) + s * (j-1) + i-1;
-                } else if (sizes.get_size_category(s) == MatrixSizeCategory::MEDIUM) {
+                    map_M2_tmp[idx] = sizes.large_mat_offset(mat_size_index, same_size_index) + s * (j - 1) + i - 1;
+                }
+                else if (sizes.get_size_category(s) == MatrixSizeCategory::MEDIUM)
+                {
                     // count horizontally
-                    map_M1_tmp[idx] = sizes.medium_mat_offset(mat_size_index, same_size_index) + s * (i-1) + j-1;
+                    map_M1_tmp[idx] = sizes.medium_mat_offset(mat_size_index, same_size_index) + s * (i - 1) + j - 1;
                     // count vertically
-                    map_M2_tmp[idx] = sizes.medium_mat_offset(mat_size_index, same_size_index) + s * (j-1) + i-1;
-                } else {
+                    map_M2_tmp[idx] = sizes.medium_mat_offset(mat_size_index, same_size_index) + s * (j - 1) + i - 1;
+                }
+                else
+                {
                     // count horizontally
-                    map_M1_tmp[idx] = sizes.small_mat_offset(mat_size_index, same_size_index) + s * (i-1) + j-1;
+                    map_M1_tmp[idx] = sizes.small_mat_offset(mat_size_index, same_size_index) + s * (i - 1) + j - 1;
                     // count vertically
-                    map_M2_tmp[idx] = sizes.small_mat_offset(mat_size_index, same_size_index) + s * (j-1) + i-1;
+                    map_M2_tmp[idx] = sizes.small_mat_offset(mat_size_index, same_size_index) + s * (j - 1) + i - 1;
                 }
                 ++idx;
             }

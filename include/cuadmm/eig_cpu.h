@@ -29,26 +29,24 @@
 // - workspace2_offset: offset for the second workspace
 // - info_offset: offset for the info array
 inline void single_eig_lapack(
-    HostDenseVector<double>& mat, HostDenseVector<double>& W,
-    HostDenseVector<double>& workspace, HostDenseVector<ptrdiff_t>& workspace2, HostDenseVector<ptrdiff_t>& info,
-    const ptrdiff_t mat_size, const ptrdiff_t lwork, const ptrdiff_t lwork2, 
-    const int mat_offset = 0, const int W_offset = 0, 
-    const int workspace_offset = 0, const int workspace2_offset = 0, const int info_offset = 0
-) {
+    HostDenseVector<double> &mat, HostDenseVector<double> &W,
+    HostDenseVector<double> &workspace, HostDenseVector<ptrdiff_t> &workspace2, HostDenseVector<ptrdiff_t> &info,
+    const ptrdiff_t mat_size, const ptrdiff_t lwork, const ptrdiff_t lwork2,
+    const int mat_offset = 0, const int W_offset = 0,
+    const int workspace_offset = 0, const int workspace2_offset = 0, const int info_offset = 0)
+{
     const char jobz = 'V'; // compute eigenvalues and eigenvectors
     const char uplo = 'U'; // upper triangle of mat is provided
 
     // LAPACK function to compute eigenvalues and eigenvectors
     dsyevd(
-        &jobz, &uplo, 
-        &mat_size, mat.vals + mat_offset, 
+        &jobz, &uplo,
+        &mat_size, mat.vals + mat_offset,
         &mat_size, W.vals + W_offset,
         workspace.vals + workspace_offset, &lwork,
         workspace2.vals + workspace2_offset, &lwork2,
-        info.vals + info_offset
-    );
+        info.vals + info_offset);
     return;
 }
-
 
 #endif // CUADMM_EIG_CPU_H
