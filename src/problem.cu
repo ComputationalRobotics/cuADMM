@@ -8,39 +8,49 @@
 #include "cuadmm/io.h"
 #include <algorithm>
 
-void Problem::from_txt(std::string& prefix, bool warm_start) {
+void Problem::from_txt(std::string &prefix, bool warm_start)
+{
     // if prefix does not end with a slash, add it
-    if (prefix.back() != '/') {
+    if (prefix.back() != '/')
+    {
         prefix += '/';
     }
 
     read_blk(prefix + "blk.txt", this->blk_vals);
     this->mat_num = this->blk_vals.size(); // TODO
 
-    if (warm_start) {
+    if (warm_start)
+    {
         read_dense_vector_data(prefix + "X.txt", this->X_vals);
         this->vec_len = this->X_vals.size();
-    
+
         read_dense_vector_data(prefix + "y.txt", this->y_vals);
         this->con_num = this->y_vals.size();
-    
+
         read_dense_vector_data(prefix + "S.txt", this->S_vals);
-    } else {
+    }
+    else
+    {
         this->vec_len = 0;
-        for (int i = 0; i < this->blk_vals.size(); i++) {
+        for (int i = 0; i < this->blk_vals.size(); i++)
+        {
             auto [blk_type, blk_size] = this->blk_vals[i];
 
-            switch (blk_type) {
-                case 's': // symmetric matrix
-                    // size of the upper triangular part of a symmetric matrix
-                    this->vec_len += blk_size * (blk_size + 1) / 2;
-                    break;
-                case 'u': // free variable
-                    this->vec_len += blk_size;
-                    break;
-                default:
-                    std::cerr << "ERROR: unknown block type '" << blk_type << "' in blk.txt" << std::endl;
-                    exit(1);
+            switch (blk_type)
+            {
+            case 's': // symmetric matrix
+                // size of the upper triangular part of a symmetric matrix
+                this->vec_len += blk_size * (blk_size + 1) / 2;
+                break;
+            case 'u': // free variable
+                this->vec_len += blk_size;
+                break;
+            case 'l': // non-negative variable
+                this->vec_len += blk_size;
+                break;
+            default:
+                std::cerr << "ERROR: unknown block type '" << blk_type << "' in blk.txt" << std::endl;
+                exit(1);
             }
         }
 
@@ -64,16 +74,21 @@ void Problem::from_txt(std::string& prefix, bool warm_start) {
 
     /* check if the dimensions are correct */
     int max_col_id = *std::max_element(this->At_csc_row_ids.begin(), this->At_csc_row_ids.end());
-    if (max_col_id != this->vec_len - 1) {
-        std::cerr << "WARNING: the largest column index in At is different from the specified column number!\n" << std::endl;
+    if (max_col_id != this->vec_len - 1)
+    {
+        std::cerr << "WARNING: the largest column index in At is different from the specified column number!\n"
+                  << std::endl;
     }
 
     int max_row_id = *std::max_element(this->At_coo_col_ids.begin(), this->At_coo_col_ids.end());
-    if (max_row_id != this->con_num - 1) {
-        std::cerr << "WARNING: the largest row index in At is different from the SDP vector length!\n" << std::endl;
+    if (max_row_id != this->con_num - 1)
+    {
+        std::cerr << "WARNING: the largest row index in At is different from the SDP vector length!\n"
+                  << std::endl;
     }
 
-    if (warm_start && this->vec_len != this->X_vals.size()) {
+    if (warm_start && this->vec_len != this->X_vals.size())
+    {
         std::cerr << "ERROR: the length of warmstarted X does not match the vector length." << std::endl;
         exit(1);
     }
@@ -94,7 +109,7 @@ void Problem::from_txt(std::string& prefix, bool warm_start) {
 //     read_COO_sparse_matrix_data(prefix + "At.txt", this->At_csc_row_ids, this->At_coo_col_ids, this->At_csc_vals);
 //     this->At_nnz = this->At_csc_vals.size();
 //     COO_to_CSC(this->At_csc_col_ptrs, this->At_coo_col_ids, this->At_csc_row_ids, this->At_csc_vals, this->At_nnz, this->con_num);
-    
+
 //     read_sparse_vector_data(prefix + "b.txt", this->b_indices, this->b_vals);
 //     this->b_nnz = this->b_vals.size();
 

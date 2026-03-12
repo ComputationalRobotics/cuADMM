@@ -5,7 +5,8 @@
 #include "cuadmm/solver.h"
 #include "cuadmm/problem.h"
 
-int main(int argc, char* argv[]) {
+int main(int argc, char *argv[])
+{
     std::string prefix = argv[1];
     int eig_stream_num_per_gpu = 15;
 
@@ -15,13 +16,14 @@ int main(int argc, char* argv[]) {
     // extract the second element of each tuple in blk_vals
     std::vector<char> blk_sizes;
     std::vector<int> blk_vals;
-    for (const auto& blk : problem.blk_vals) {
+    for (const auto &blk : problem.blk_vals)
+    {
         blk_sizes.push_back(std::get<0>(blk));
         blk_vals.push_back(std::get<1>(blk));
     }
-    
+
     SDPSolver solver;
-    double sig = 1e0;
+    double sig = 1e2;
     solver.init(
         eig_stream_num_per_gpu,
         problem.vec_len, problem.con_num,
@@ -32,16 +34,15 @@ int main(int argc, char* argv[]) {
         ProjectionMethod::EIG_FP64,
         ProjectionMethod::EIG_FP64,
         problem.X_vals.data(), problem.y_vals.data(), problem.S_vals.data(),
-        sig
-    );
+        sig, true);
 
     // sGS-ADMM
     // solver.solve((int) 1e6, 1e-4, 500, 50, 100, 5000);
 
     // standard ADMM
-    solver.solve((int) 1e6, 1e-4, 500, 50, 100, 0);
+    solver.solve((int)1e6, 1e-4, 500, 50, 100, 0, 0);
 
     // solver.X.to_txt(prefix + "X_opt.txt");
-    
+
     return 0;
 }

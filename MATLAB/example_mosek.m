@@ -6,7 +6,7 @@ addpath("../examples/utils");
 addpath("../examples/mexfiles")
 
 % loads the variable "prob" containing the problem in MOSEK format
-load("../examples/SPOT/data/MOSEK/PushBot_N=1_MOMENT.mat");
+load("/home/jordan/antoine/cuADMM/examples/SPOT/data/MOSEK/PushBot_N=1_MOMENT.mat");
 
 %% Convert the problem to SeDuMi format
 problem = column2row_recursive(prob);
@@ -50,9 +50,14 @@ eig_stream_num_per_gpu = 12;
 max_iter = 2e2;
 stop_tol = 1e-3;
 
+blk_types = char(zeros(size(blk, 1), 1));
+for i = 1: size(blk, 1)
+    blk_types(i) = 's'; % SDP blocks
+end
+
 [X_out, y_out, S_out, sig_out] = cuadmm_MATLAB(eig_stream_num_per_gpu,...
                                                 max_iter, stop_tol,...
-                                                At, b, C, blk,...
+                                                At, b, C, blk_types, blk,...
                                                 X_new, y_new, S_new, sig_new);
 
 function [cuda_At, cuda_b, cuda_C, cuda_blk] = sdpt3_to_cuadmm(sdpt3)

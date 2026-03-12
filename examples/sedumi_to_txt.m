@@ -17,8 +17,7 @@ function sedumi_to_txt(problem, output_dir)
     % SDP.C = sdpt3_C;
     % SDP.b = sdpt3_b;
     % SDP.blk = sdpt3_blk;
-
-    % save(fullfile("/home/jordan/antoine/admmSDP/examples", 'PushBox_N=10_SOS.mat'), 'SDP');
+    % save(fullfile("/home/jordan/antoine/admmSDP/examples", 'PushBox_N=1_MOMENT.mat'), 'SDP');
     % return;
 
     % SDPT3 -> cuADMM
@@ -30,13 +29,13 @@ function sedumi_to_txt(problem, output_dir)
     store_sparse_vec(size(cuda_At, 2), fullfile(output_dir, 'con_num.txt'));
 
     % SeDuMi -> MOSEK
-    prob = convert_sedumi2mosek(problem.A, problem.b, problem.c, problem.K);
+    % prob = convert_sedumi2mosek(problem.A, problem.b, problem.c, problem.K);
     
     % solve with MOSEK
-    [~, ~] = mosekopt('minimize info', prob);
+    % [~, ~] = mosekopt('minimize info', prob);
 
     % solve with ADMM+
-    run_admmplus(sdpt3_blk, sdpt3_At, sdpt3_C, sdpt3_b);
+    % run_admmplus(sdpt3_blk, sdpt3_At, sdpt3_C, sdpt3_b);
 end
 
 function v = from_cell_to_array(c)
@@ -67,11 +66,11 @@ end
 
 function store_blk(blk, output_name)
     fileID = fopen(output_name, 'w');
-    for i = 1: length(blk)
-        if blk{i, 1} == 's' || blk{i, 1} == 'u'
-            fprintf(fileID, "%c %d\n", blk{i, 1}, fix(blk{i, 2}));
+    for i = 1: size(blk,1)
+        if blk{i,1} == 's' || blk{i,1} == 'u' || blk{i,1} == 'l'
+            fprintf(fileID, "%c %d\n", blk{i,1}, fix(blk{i,2}));
         else
-            fprintf("ERROR: unsupported block type %s\n", blk{i, 1});
+            fprintf("ERROR: unsupported block type %s\n", blk{i,1});
             fclose(fileID);
             return;
         end
@@ -90,7 +89,7 @@ function store_sparse_mat(mat, output_name)
     vals = vals(indices);
     fileID = fopen(output_name, 'w');
     for i = 1: length(rows)
-        fprintf(fileID, "%d %d %.16f\n", rows(i), cols(i), vals(i));
+        fprintf(fileID, "%d %d %.17g\n", rows(i), cols(i), vals(i));
     end
     fclose(fileID);
 end

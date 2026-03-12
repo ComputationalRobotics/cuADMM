@@ -7,11 +7,13 @@ project(
 
 add_compile_options($<$<COMPILE_LANGUAGE:CUDA>:-Wno-deprecated-gpu-targets>)
 
-### GoogleTest for unit testing
-# GoogleTest requires at least C++14
-set(CMAKE_CXX_STANDARD 14)
+set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_C_COMPILER "/usr/bin/gcc")
+
+# set(CMAKE_BUILD_TYPE Debug)
+# set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g")
+# set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -g")
 
 # Explicitly add CUDA library path for linker
 link_directories(/usr/local/cuda/lib64)

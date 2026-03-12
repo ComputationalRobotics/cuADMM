@@ -121,13 +121,12 @@ class INPUT_ID_factory {
         int At;
         int b;
         int C;
-        int blk_sizes;
+        int blk_types;
         int blk_vals;
         int X;
         int y;
         int S;
         int sig;
-        // int lam;
         int sig_update_threshold;
         int sig_update_stage_1;
         int sig_update_stage_2;
@@ -137,14 +136,13 @@ class INPUT_ID_factory {
         int sigscale;
 
         INPUT_ID_factory(int offset = 0) {
-            // this->device_num_requested = offset + 0;
             this->eig_stream_num_per_gpu = offset + 0;
             this->max_iter = offset + 1;
             this->stop_tol = offset + 2;
             this->At = offset + 3;
             this->b = offset + 4;
             this->C = offset + 5;
-            this->blk_sizes = offset + 6;
+            this->blk_types = offset + 6;
             this->blk_vals = offset + 7;
             this->X = offset + 8;
             this->y = offset + 9;
@@ -272,12 +270,12 @@ void mexFunction(int nlhs, mxArray* plhs[], int nrhs, const mxArray* prhs[]) {
     int mat_num;
     std::vector<char> cpu_blk_types;
     get_char_vec_from_matlab(
-        prhs[INPUT_ID.blk_vals], 
+        prhs[INPUT_ID.blk_types], 
         mat_num, cpu_blk_types
     );
     std::vector<double> cpu_blk_vals_double;
     get_dnvec_from_matlab(
-        prhs[INPUT_ID.blk_sizes], 
+        prhs[INPUT_ID.blk_vals], 
         mat_num, cpu_blk_vals_double
     );
     std::vector<int> cpu_blk_vals(mat_num, 0);
@@ -322,7 +320,7 @@ void mexFunction(int nlhs, mxArray* plhs[], int nrhs, const mxArray* prhs[]) {
         prhs[INPUT_ID.y],
         y_size, cpu_y_vals
     );
-    assert(y_size = con_num);
+    assert(y_size == con_num);
 
 
     // S

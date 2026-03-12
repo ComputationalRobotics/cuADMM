@@ -16,34 +16,34 @@
 // mat1[i] = mat2[i] * mat3[i]^T   (i = 0, .., batch_size-1)
 // where * is the matrix multiplication operator.
 inline void dense_matrix_mul_trans_batch(
-    DeviceBlasHandle& cublas_H, 
-    DeviceDenseVector<double>& mat1, const DeviceDenseVector<double>& mat2, const DeviceDenseVector<double>& mat3,
+    DeviceBlasHandle &cublas_H,
+    DeviceDenseVector<double> &mat1,
+    const DeviceDenseVector<double> &mat2,
+    const DeviceDenseVector<double> &mat3,
     const int mat_size, const int batch_size,
-    const int mat_offset = 0
-) {
+    const int mat_offset = 0)
+{
     const double alpha = 1.0;
     const double beta = 0.0;
     const long long int stride = mat_size * mat_size;
-    CHECK_CUBLAS( cublasDgemmStridedBatched(
+    CHECK_CUBLAS(cublasDgemmStridedBatched(
         cublas_H.cublas_handle, CUBLAS_OP_N, CUBLAS_OP_T,
-        mat_size, mat_size, mat_size, 
+        mat_size, mat_size, mat_size,
         &alpha, mat2.vals + mat_offset, mat_size, stride, mat3.vals + mat_offset, mat_size, stride,
         &beta, mat1.vals + mat_offset, mat_size, stride,
-        batch_size
-    ) );
+        batch_size));
     return;
 }
 
 // Multiply a dense vector by a scalar and add to another dense vector:
 // y = alpha * x + y
 inline void axpy_cublas(
-    DeviceBlasHandle& cublas_H, const DeviceDenseVector<double>& x, DeviceDenseVector<double>& y,
-    const double alpha
-) {
-    CHECK_CUBLAS( cublasDaxpy_v2(
-        cublas_H.cublas_handle, x.size, &alpha, 
-        x.vals, 1, y.vals, 1
-    ) );
+    DeviceBlasHandle &cublas_H, const DeviceDenseVector<double> &x, DeviceDenseVector<double> &y,
+    const double alpha)
+{
+    CHECK_CUBLAS(cublasDaxpy_v2(
+        cublas_H.cublas_handle, x.size, &alpha,
+        x.vals, 1, y.vals, 1));
     return;
 }
 

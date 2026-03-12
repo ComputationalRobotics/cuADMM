@@ -9,14 +9,20 @@
 #include "cuadmm/kernels.h"
 
 __global__ void dense_matrix_mul_diag_batch_kernel(
-    double* dnmat1_vals, double* dnmat2_vals, double* dnvec_vals, 
-    int mat_size, int total_len
-) {
+    double *dnmat1_vals, double *dnmat2_vals, double *dnvec_vals,
+    int mat_size, int total_len,
+    const int *mask, const bool use_mask)
+{
     int idx = threadIdx.x + blockIdx.x * blockDim.x;
     int k, i;
-    if (idx < total_len) {
+    if (idx < total_len)
+    {
         k = idx / (mat_size * mat_size);
         i = (idx % (mat_size * mat_size)) / mat_size;
+
+        if (use_mask && mask[k] == 0)
+            return;
+
         dnmat1_vals[idx] = dnmat2_vals[idx] * dnvec_vals[k * mat_size + i];
     }
     return;
@@ -40,14 +46,17 @@ __global__ void dense_matrix_mul_diag_batch_kernel(
 // - mat_nums: the number of matrices to process (default: -1, which means that the number of matrices is inferred from the size of dnmat1)
 // - mat_offset: the offset to start processing the matrices (default: 0)
 // - vec_offset: the offset to start processing the vectors (default: 0)
+// - mask: a boolean mask indicating which matrices to process (default: nullptr)
+// - use_mask: whether to use the mask or not (default: false)
 void dense_matrix_mul_diag_batch(
-    DeviceDenseVector<double>& dnmat1,
-    const DeviceDenseVector<double>& dnmat2,
-    const DeviceDenseVector<double>& dnvec,
-    const int mat_size,
-    const int mat_nums, const int mat_offset, const int vec_offset,
-    const cudaStream_t& stream, int block_size
-) {
+    DeviceDenseVector<double> &dnmat1,
+    const DeviceDenseVector<double> &dnmat2,
+    const DeviceDenseVector<double> &dnvec,
+    const int mat_size, const int mat_nums,
+    const int mat_offset, const int vec_offset,
+    const int *mask, const bool use_mask,
+    const cudaStream_t &stream, int block_size)
+{
     int dnmat_size;
     if (mat_nums == -1)
         dnmat_size = dnmat1.size;
@@ -56,7 +65,7 @@ void dense_matrix_mul_diag_batch(
     int num_block = (dnmat_size + block_size - 1) / block_size;
     dense_matrix_mul_diag_batch_kernel<<<num_block, block_size, 0, stream>>>(
         dnmat1.vals + mat_offset, dnmat2.vals + mat_offset, dnvec.vals + vec_offset,
-        mat_size, dnmat_size
-    );
+        mat_size, dnmat_size,
+        mask, use_mask);
     return;
 }

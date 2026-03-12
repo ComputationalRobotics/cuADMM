@@ -31,9 +31,14 @@ eig_stream_num_per_gpu = 12;
 max_iter = 2e2;
 stop_tol = 1e-3;
 
+blk_types = char(zeros(size(blk_vec, 1), 1));
+for i = 1: size(blk, 1)
+    blk_types(i) = 's'; % SDP blocks
+end
+
 [X_out, y_out, S_out, sig_out] = cuadmm_MATLAB(eig_stream_num_per_gpu,...
                                                 max_iter, stop_tol,...
-                                                At_stack, b, C_stack, blk_vec,...
+                                                At_stack, b, C_stack, blk_types, blk_vec,...
                                                 X_new, y_new, S_new, sig_new);
 fprintf("|| X_out ||: %3.2e \n", norm(X_out));
 fprintf("|| y_out ||: %3.2e \n", norm(y_out));
