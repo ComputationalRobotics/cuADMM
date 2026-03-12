@@ -1,4 +1,7 @@
 function sdpt3_to_txt(problem, output_dir)
+    addpath("~/matlab-install/mosek/10.1/toolbox/r2017a")
+    addpath("./mexfiles")
+    addpath("./utils")
 
     [cuda_At, cuda_b, cuda_C, cuda_blk] = data_sdpt3_to_admmSDPcuda(problem);
     store_sparse_mat(cuda_C, fullfile(output_dir, 'C.txt'));

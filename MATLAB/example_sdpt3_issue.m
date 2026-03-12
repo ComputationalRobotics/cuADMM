@@ -5,34 +5,8 @@ addpath("./build");
 addpath("../examples/utils");
 addpath("../examples/mexfiles")
 
-% loads the variable "prob" containing the problem in MOSEK format
-load("/home/jordan/antoine/cuADMM/examples/SPOT/data/MOSEK/PushBot_N=1_MOMENT.mat");
-
-%% Convert the problem to SeDuMi format
-problem = column2row_recursive(prob);
-problem.blx = ones(size(problem.c'));
-
-% handle the case where the problem does not have a barc field
-no_barc = ~isfield(problem, 'barc');
-if no_barc
-    problem.barc.subj = [];
-    problem.barc.subl = [];
-    problem.barc.subk = [];
-    problem.barc.val = [];
-    problem.c = -problem.c';
-end
-[A, b, c, K] = convert_mosek2sedumi(problem);
-sedumi.A = A;
-sedumi.b = b;
-sedumi.c = c;
-sedumi.K = K;
-
-%% Convert SeDuMi to SDPT3 format
-[sdpt3_blk, sdpt3_At, sdpt3_C, sdpt3_b, ~] = read_sedumi(sedumi.A, sedumi.b, sedumi.c, sedumi.K, 0);
-sdpt3.At = sdpt3_At;
-sdpt3.C = sdpt3_C;
-sdpt3.b = sdpt3_b;
-sdpt3.blk = sdpt3_blk;
+sdpt3 = load("../examples/sjtu-issues/N20_2.mat");
+sdpt3 = sdpt3.N20;
 
 %% Convert SDPT3 to cuADMM format
 [At, b, C, blk] = sdpt3_to_cuadmm(sdpt3);
@@ -47,7 +21,7 @@ S_new = zeros(vec_len, 1);
 sig_new = 2e2;
 
 eig_stream_num_per_gpu = 12;
-max_iter = 2e2;
+max_iter = 1e3;
 stop_tol = 1e-3;
 
 blk_types = char(zeros(size(blk, 1), 1));
