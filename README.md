@@ -14,8 +14,8 @@ where $\Omega_+$ is the cartesian product of symmetric cones corresponding to th
 The following dependencies are required to build and run the project:
 - [`CMake`](https://cmake.org/download/)
 - [`CUDA`](https://developer.nvidia.com/cuda-downloads)
-- [`BLAS`](https://www.netlib.org/blas/) (for basic linear algebra operations)
-- [`SuiteSparse`](https://github.com/DrTimothyAldenDavis/SuiteSparse) (for `CHOLMOD`)
+- [`BLAS`](https://www.netlib.org/blas/) (for basic linear algebra operations on CPU)
+- [`SuiteSparse`](https://github.com/DrTimothyAldenDavis/SuiteSparse) (for Cholesky factorization)
 - [`MATLAB`](https://www.mathworks.com/products/matlab.html) (for the bindings)
 
 This project has been tested on Linux.
@@ -35,6 +35,8 @@ Run the project:
 where `dir_name` is the directory containing the input files. See below for the expected input format.
 
 ## Input format
+cuADMM can be called in two ways: in the command line by specifying a directory containing `TXT` input files, or by using the MATLAB bindings.
+
 ### From `TXT`
 When using the executable, you need to provide a directory containing the input files, in a format close to SDPT3. The expected files are:
 - `At.txt`: the transpose of the constraint matrix in sparse `svec` COO format
@@ -54,13 +56,11 @@ Examples files are provided in the `examples` directory, in the `TXT` subfolders
 
 ### Block types
 The `blk.txt` file can contain the following block types:
-| Character | Description                               |
-|-----------|-------------------------------------------|
-| `s`       | PSD matrix of size `n` by `n`             |
-| `u`       | WIP: Unconstrained vector of size `n`     |
-
-> [!WARNING]
-> The support of unconstrained variables (`u`) is currently a work in progress.
+| Character | Description                                           |
+|-----------|-------------------------------------------------------|
+| `s`       | PSD matrix of size `n` by `n`                         |
+| `u`       | Unconstrained vector of size `n` (free variables)     |
+| `l`       | Non-negative vector of size `n` (linear cone)         |
 
 ### From other formats
 We provide in `examples` a few MATLAB scripts to convert from other formats to the expected `TXT` format:
