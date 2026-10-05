@@ -1,0 +1,51 @@
+{
+ "datasets": 26,
+ "practical_reached_adaptive": 8,
+ "practical_reached_fixed": 6,
+ "strict_reached_adaptive": 4,
+ "strict_reached_fixed": 4,
+ "practical_both": 4,
+ "practical_only_adaptive": 4,
+ "practical_only_fixed": 2,
+ "practical_neither": 16,
+ "strict_both": 1,
+ "gmean_speedup_practical_adaptive_over_fixed": 41.07750219525129,
+ "gmean_speedup_strict_adaptive_over_fixed": 14.081069415269123,
+ "gmean_end_to_end_ratio_fixed_over_adaptive_on_practical_both": 12.618769616859375,
+ "practical_both_adaptive_faster": 4,
+ "practical_both_fixed_faster": 0,
+ "neither_lower_dimacs_adaptive": 4,
+ "neither_lower_dimacs_fixed": 12,
+ "gmean_dimacs_ratio_fixed_over_adaptive_neither": 0.30183237555043935,
+ "timeouts_adaptive": 18,
+ "timeouts_fixed": 20
+}
+| dataset | ms per iteration | s per validation | interval | overhead |
+|---|---|---|---|---|
+| trto1 | 0.363 | 0.000 | 50 | 1.1% |
+| buck1 | 0.519 | 0.000 | 50 | 0.9% |
+| vibra1 | 0.569 | 0.000 | 50 | 0.8% |
+| mater-1 | 0.302 | 0.001 | 50 | 4.8% |
+| shmup1 | 0.982 | 0.000 | 50 | 0.8% |
+| trto2 | 1.463 | 0.001 | 50 | 1.7% |
+| mater-2 | 0.317 | 0.002 | 100 | 7.1% |
+| buck2 | 1.952 | 0.001 | 50 | 1.5% |
+| vibra2 | 1.948 | 0.001 | 50 | 1.5% |
+| mater-3 | 0.364 | 0.008 | 500 | 4.3% |
+| trto3 | 3.163 | 0.013 | 50 | 8.3% |
+| mater-4 | 0.593 | 0.028 | 500 | 9.5% |
+| vibra3 | 4.625 | 0.016 | 50 | 7.0% |
+| buck3 | 4.623 | 0.016 | 50 | 6.8% |
+| mater-5 | 1.091 | 0.065 | 1000 | 5.9% |
+| shmup2 | 6.701 | 0.028 | 50 | 8.5% |
+| trto4 | 7.195 | 0.067 | 100 | 9.3% |
+| mater-6 | 2.061 | 0.125 | 1000 | 6.1% |
+| vibra4 | 13.536 | 0.077 | 100 | 5.7% |
+| buck4 | 13.594 | 0.078 | 100 | 5.7% |
+| shmup3 | 18.558 | 0.120 | 100 | 6.5% |
+| trto5 | 23.415 | 0.527 | 500 | 4.5% |
+| shmup4 | 9.681 | 0.484 | 500 | 10.0% |
+| buck5 | 44.699 | 0.657 | 200 | 7.3% |
+| vibra5 | 44.254 | 0.654 | 200 | 7.4% |
+| shmup5 | 16.245 | 3.605 | 5000 | 4.4% |
+wrote /n/home00/yukuanwei/cuadmm-worktrees/plato-cold/experiments/2026-09-29_plato_cold_plain_admm_sigma/plato_cold_plain_admm_sigma_results.xlsx

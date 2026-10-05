@@ -1,0 +1,177 @@
+/n/sw/helmod-rocky8/apps/Core/cmake/3.31.6-fasrc01/bin/cmake -S/n/home00/yukuanwei/cuadmm-worktrees/plato-cold -B/n/home00/yukuanwei/cuadmm-builds/plato_official --check-build-system CMakeFiles/Makefile.cmake 0
+/n/sw/helmod-rocky8/apps/Core/cmake/3.31.6-fasrc01/bin/cmake -E cmake_progress_start /n/home00/yukuanwei/cuadmm-builds/plato_official/CMakeFiles /n/home00/yukuanwei/cuadmm-builds/plato_official//CMakeFiles/progress.marks
+/usr/bin/gmake  -f CMakeFiles/Makefile2 all
+gmake[1]: Entering directory '/n/home00/yukuanwei/cuadmm-builds/plato_official'
+/usr/bin/gmake  -f psd_projection/CMakeFiles/psd_lib.dir/build.make psd_projection/CMakeFiles/psd_lib.dir/depend
+/usr/bin/gmake  -f _deps/googletest-build/googletest/CMakeFiles/gtest.dir/build.make _deps/googletest-build/googletest/CMakeFiles/gtest.dir/depend
+gmake[2]: Entering directory '/n/home00/yukuanwei/cuadmm-builds/plato_official'
+gmake[2]: Entering directory '/n/home00/yukuanwei/cuadmm-builds/plato_official'
+cd /n/home00/yukuanwei/cuadmm-builds/plato_official && /n/sw/helmod-rocky8/apps/Core/cmake/3.31.6-fasrc01/bin/cmake -E cmake_depends "Unix Makefiles" /n/home00/yukuanwei/cuadmm-worktrees/plato-cold /n/home00/yukuanwei/cuadmm-worktrees/plato-cold/psd_projection /n/home00/yukuanwei/cuadmm-builds/plato_official /n/home00/yukuanwei/cuadmm-builds/plato_official/psd_projection /n/home00/yukuanwei/cuadmm-builds/plato_official/psd_projection/CMakeFiles/psd_lib.dir/DependInfo.cmake "--color="
+cd /n/home00/yukuanwei/cuadmm-builds/plato_official && /n/sw/helmod-rocky8/apps/Core/cmake/3.31.6-fasrc01/bin/cmake -E cmake_depends "Unix Makefiles" /n/home00/yukuanwei/cuadmm-worktrees/plato-cold /n/home00/yukuanwei/cuADMM/build/_deps/googletest-src/googletest /n/home00/yukuanwei/cuadmm-builds/plato_official /n/home00/yukuanwei/cuadmm-builds/plato_official/_deps/googletest-build/googletest /n/home00/yukuanwei/cuadmm-builds/plato_official/_deps/googletest-build/googletest/CMakeFiles/gtest.dir/DependInfo.cmake "--color="
+Dependencies file "psd_projection/CMakeFiles/psd_lib.dir/src/composite_FP16.cu.o.d" is newer than depends file "/n/home00/yukuanwei/cuadmm-builds/plato_official/psd_projection/CMakeFiles/psd_lib.dir/compiler_depend.internal".
+Dependencies file "_deps/googletest-build/googletest/CMakeFiles/gtest.dir/src/gtest-all.cc.o.d" is newer than depends file "/n/home00/yukuanwei/cuadmm-builds/plato_official/_deps/googletest-build/googletest/CMakeFiles/gtest.dir/compiler_depend.internal".
+Dependencies file "psd_projection/CMakeFiles/psd_lib.dir/src/composite_FP32.cu.o.d" is newer than depends file "/n/home00/yukuanwei/cuadmm-builds/plato_official/psd_projection/CMakeFiles/psd_lib.dir/compiler_depend.internal".
+Dependencies file "psd_projection/CMakeFiles/psd_lib.dir/src/composite_FP32_emulated.cu.o.d" is newer than depends file "/n/home00/yukuanwei/cuadmm-builds/plato_official/psd_projection/CMakeFiles/psd_lib.dir/compiler_depend.internal".
+Dependencies file "psd_projection/CMakeFiles/psd_lib.dir/src/eig_FP32_psd.cu.o.d" is newer than depends file "/n/home00/yukuanwei/cuadmm-builds/plato_official/psd_projection/CMakeFiles/psd_lib.dir/compiler_depend.internal".
+Dependencies file "psd_projection/CMakeFiles/psd_lib.dir/src/eig_FP64_psd.cu.o.d" is newer than depends file "/n/home00/yukuanwei/cuadmm-builds/plato_official/psd_projection/CMakeFiles/psd_lib.dir/compiler_depend.internal".
+Dependencies file "psd_projection/CMakeFiles/psd_lib.dir/src/lanczos.cu.o.d" is newer than depends file "/n/home00/yukuanwei/cuadmm-builds/plato_official/psd_projection/CMakeFiles/psd_lib.dir/compiler_depend.internal".
+Dependencies file "psd_projection/CMakeFiles/psd_lib.dir/src/lobpcg.cu.o.d" is newer than depends file "/n/home00/yukuanwei/cuadmm-builds/plato_official/psd_projection/CMakeFiles/psd_lib.dir/compiler_depend.internal".
+Dependencies file "psd_projection/CMakeFiles/psd_lib.dir/src/utils.cu.o.d" is newer than depends file "/n/home00/yukuanwei/cuadmm-builds/plato_official/psd_projection/CMakeFiles/psd_lib.dir/compiler_depend.internal".
+Consolidate compiler generated dependencies of target gtest
+gmake[2]: Leaving directory '/n/home00/yukuanwei/cuadmm-builds/plato_official'
+/usr/bin/gmake  -f _deps/googletest-build/googletest/CMakeFiles/gtest.dir/build.make _deps/googletest-build/googletest/CMakeFiles/gtest.dir/build
+Consolidate compiler generated dependencies of target psd_lib
+gmake[2]: Leaving directory '/n/home00/yukuanwei/cuadmm-builds/plato_official'
+/usr/bin/gmake  -f psd_projection/CMakeFiles/psd_lib.dir/build.make psd_projection/CMakeFiles/psd_lib.dir/build
+gmake[2]: Entering directory '/n/home00/yukuanwei/cuadmm-builds/plato_official'
+gmake[2]: Entering directory '/n/home00/yukuanwei/cuadmm-builds/plato_official'
+gmake[2]: Nothing to be done for 'psd_projection/CMakeFiles/psd_lib.dir/build'.
+gmake[2]: Nothing to be done for '_deps/googletest-build/googletest/CMakeFiles/gtest.dir/build'.
+gmake[2]: Leaving directory '/n/home00/yukuanwei/cuadmm-builds/plato_official'
+gmake[2]: Leaving directory '/n/home00/yukuanwei/cuadmm-builds/plato_official'
+[  9%] Built target gtest
+/usr/bin/gmake  -f _deps/googletest-build/googletest/CMakeFiles/gtest_main.dir/build.make _deps/googletest-build/googletest/CMakeFiles/gtest_main.dir/depend
+/usr/bin/gmake  -f _deps/googletest-build/googlemock/CMakeFiles/gmock.dir/build.make _deps/googletest-build/googlemock/CMakeFiles/gmock.dir/depend
+gmake[2]: Entering directory '/n/home00/yukuanwei/cuadmm-builds/plato_official'
+gmake[2]: Entering directory '/n/home00/yukuanwei/cuadmm-builds/plato_official'
+cd /n/home00/yukuanwei/cuadmm-builds/plato_official && /n/sw/helmod-rocky8/apps/Core/cmake/3.31.6-fasrc01/bin/cmake -E cmake_depends "Unix Makefiles" /n/home00/yukuanwei/cuadmm-worktrees/plato-cold /n/home00/yukuanwei/cuADMM/build/_deps/googletest-src/googletest /n/home00/yukuanwei/cuadmm-builds/plato_official /n/home00/yukuanwei/cuadmm-builds/plato_official/_deps/googletest-build/googletest /n/home00/yukuanwei/cuadmm-builds/plato_official/_deps/googletest-build/googletest/CMakeFiles/gtest_main.dir/DependInfo.cmake "--color="
+cd /n/home00/yukuanwei/cuadmm-builds/plato_official && /n/sw/helmod-rocky8/apps/Core/cmake/3.31.6-fasrc01/bin/cmake -E cmake_depends "Unix Makefiles" /n/home00/yukuanwei/cuadmm-worktrees/plato-cold /n/home00/yukuanwei/cuADMM/build/_deps/googletest-src/googlemock /n/home00/yukuanwei/cuadmm-builds/plato_official /n/home00/yukuanwei/cuadmm-builds/plato_official/_deps/googletest-build/googlemock /n/home00/yukuanwei/cuadmm-builds/plato_official/_deps/googletest-build/googlemock/CMakeFiles/gmock.dir/DependInfo.cmake "--color="
+Dependencies file "_deps/googletest-build/googletest/CMakeFiles/gtest_main.dir/src/gtest_main.cc.o.d" is newer than depends file "/n/home00/yukuanwei/cuadmm-builds/plato_official/_deps/googletest-build/googletest/CMakeFiles/gtest_main.dir/compiler_depend.internal".
+Dependencies file "_deps/googletest-build/googlemock/CMakeFiles/gmock.dir/src/gmock-all.cc.o.d" is newer than depends file "/n/home00/yukuanwei/cuadmm-builds/plato_official/_deps/googletest-build/googlemock/CMakeFiles/gmock.dir/compiler_depend.internal".
+[ 25%] Built target psd_lib
+/usr/bin/gmake  -f CMakeFiles/cuadmm_lib.dir/build.make CMakeFiles/cuadmm_lib.dir/depend
+Consolidate compiler generated dependencies of target gmock
+Consolidate compiler generated dependencies of target gtest_main
+gmake[2]: Leaving directory '/n/home00/yukuanwei/cuadmm-builds/plato_official'
+gmake[2]: Leaving directory '/n/home00/yukuanwei/cuadmm-builds/plato_official'
+/usr/bin/gmake  -f _deps/googletest-build/googlemock/CMakeFiles/gmock.dir/build.make _deps/googletest-build/googlemock/CMakeFiles/gmock.dir/build
+/usr/bin/gmake  -f _deps/googletest-build/googletest/CMakeFiles/gtest_main.dir/build.make _deps/googletest-build/googletest/CMakeFiles/gtest_main.dir/build
+gmake[2]: Entering directory '/n/home00/yukuanwei/cuadmm-builds/plato_official'
+cd /n/home00/yukuanwei/cuadmm-builds/plato_official && /n/sw/helmod-rocky8/apps/Core/cmake/3.31.6-fasrc01/bin/cmake -E cmake_depends "Unix Makefiles" /n/home00/yukuanwei/cuadmm-worktrees/plato-cold /n/home00/yukuanwei/cuadmm-worktrees/plato-cold /n/home00/yukuanwei/cuadmm-builds/plato_official /n/home00/yukuanwei/cuadmm-builds/plato_official /n/home00/yukuanwei/cuadmm-builds/plato_official/CMakeFiles/cuadmm_lib.dir/DependInfo.cmake "--color="
+Dependencies file "CMakeFiles/cuadmm_lib.dir/src/external_validation.cu.o.d" is newer than depends file "/n/home00/yukuanwei/cuadmm-builds/plato_official/CMakeFiles/cuadmm_lib.dir/compiler_depend.internal".
+Dependencies file "CMakeFiles/cuadmm_lib.dir/src/kernels/dense_dense.cu.o.d" is newer than depends file "/n/home00/yukuanwei/cuadmm-builds/plato_official/CMakeFiles/cuadmm_lib.dir/compiler_depend.internal".
+gmake[2]: Entering directory '/n/home00/yukuanwei/cuadmm-builds/plato_official'
+gmake[2]: Nothing to be done for '_deps/googletest-build/googletest/CMakeFiles/gtest_main.dir/build'.
+gmake[2]: Leaving directory '/n/home00/yukuanwei/cuadmm-builds/plato_official'
+Dependencies file "CMakeFiles/cuadmm_lib.dir/src/kernels/dense_scalar.cu.o.d" is newer than depends file "/n/home00/yukuanwei/cuadmm-builds/plato_official/CMakeFiles/cuadmm_lib.dir/compiler_depend.internal".
+Dependencies file "CMakeFiles/cuadmm_lib.dir/src/kernels/diagonal_batch.cu.o.d" is newer than depends file "/n/home00/yukuanwei/cuadmm-builds/plato_official/CMakeFiles/cuadmm_lib.dir/compiler_depend.internal".
+Dependencies file "CMakeFiles/cuadmm_lib.dir/src/kernels/permutation.cu.o.d" is newer than depends file "/n/home00/yukuanwei/cuadmm-builds/plato_official/CMakeFiles/cuadmm_lib.dir/compiler_depend.internal".
+Dependencies file "CMakeFiles/cuadmm_lib.dir/src/kernels/sparse_dense.cu.o.d" is newer than depends file "/n/home00/yukuanwei/cuadmm-builds/plato_official/CMakeFiles/cuadmm_lib.dir/compiler_depend.internal".
+Dependencies file "CMakeFiles/cuadmm_lib.dir/src/kernels/sparse_matrix_norm.cu.o.d" is newer than depends file "/n/home00/yukuanwei/cuadmm-builds/plato_official/CMakeFiles/cuadmm_lib.dir/compiler_depend.internal".
+Dependencies file "CMakeFiles/cuadmm_lib.dir/src/kernels/sparse_scalar.cu.o.d" is newer than depends file "/n/home00/yukuanwei/cuadmm-builds/plato_official/CMakeFiles/cuadmm_lib.dir/compiler_depend.internal".
+Dependencies file "CMakeFiles/cuadmm_lib.dir/src/kernels/type_conversion.cu.o.d" is newer than depends file "/n/home00/yukuanwei/cuadmm-builds/plato_official/CMakeFiles/cuadmm_lib.dir/compiler_depend.internal".
+Dependencies file "CMakeFiles/cuadmm_lib.dir/src/kernels/vec_mat_conversion.cu.o.d" is newer than depends file "/n/home00/yukuanwei/cuadmm-builds/plato_official/CMakeFiles/cuadmm_lib.dir/compiler_depend.internal".
+[ 29%] Built target gtest_main
+Dependencies file "CMakeFiles/cuadmm_lib.dir/src/main.cu.o.d" is newer than depends file "/n/home00/yukuanwei/cuadmm-builds/plato_official/CMakeFiles/cuadmm_lib.dir/compiler_depend.internal".
+gmake[2]: Entering directory '/n/home00/yukuanwei/cuadmm-builds/plato_official'
+gmake[2]: Nothing to be done for '_deps/googletest-build/googlemock/CMakeFiles/gmock.dir/build'.
+gmake[2]: Leaving directory '/n/home00/yukuanwei/cuadmm-builds/plato_official'
+Dependencies file "CMakeFiles/cuadmm_lib.dir/src/matrix_sizes.cu.o.d" is newer than depends file "/n/home00/yukuanwei/cuadmm-builds/plato_official/CMakeFiles/cuadmm_lib.dir/compiler_depend.internal".
+Dependencies file "CMakeFiles/cuadmm_lib.dir/src/problem.cu.o.d" is newer than depends file "/n/home00/yukuanwei/cuadmm-builds/plato_official/CMakeFiles/cuadmm_lib.dir/compiler_depend.internal".
+Dependencies file "CMakeFiles/cuadmm_lib.dir/src/rank.cu.o.d" is newer than depends file "/n/home00/yukuanwei/cuadmm-builds/plato_official/CMakeFiles/cuadmm_lib.dir/compiler_depend.internal".
+Dependencies file "CMakeFiles/cuadmm_lib.dir/src/solver.cu.o.d" is newer than depends file "/n/home00/yukuanwei/cuadmm-builds/plato_official/CMakeFiles/cuadmm_lib.dir/compiler_depend.internal".
+Dependencies file "CMakeFiles/cuadmm_lib.dir/src/utils/analyze_blk.cu.o.d" is newer than depends file "/n/home00/yukuanwei/cuadmm-builds/plato_official/CMakeFiles/cuadmm_lib.dir/compiler_depend.internal".
+Dependencies file "CMakeFiles/cuadmm_lib.dir/src/utils/block_structure.cu.o.d" is newer than depends file "/n/home00/yukuanwei/cuadmm-builds/plato_official/CMakeFiles/cuadmm_lib.dir/compiler_depend.internal".
+Dependencies file "CMakeFiles/cuadmm_lib.dir/src/utils/check_gpus.cu.o.d" is newer than depends file "/n/home00/yukuanwei/cuadmm-builds/plato_official/CMakeFiles/cuadmm_lib.dir/compiler_depend.internal".
+[ 34%] Built target gmock
+Dependencies file "CMakeFiles/cuadmm_lib.dir/src/utils/get_eig_rank_mask.cu.o.d" is newer than depends file "/n/home00/yukuanwei/cuadmm-builds/plato_official/CMakeFiles/cuadmm_lib.dir/compiler_depend.internal".
+/usr/bin/gmake  -f _deps/googletest-build/googlemock/CMakeFiles/gmock_main.dir/build.make _deps/googletest-build/googlemock/CMakeFiles/gmock_main.dir/depend
+Dependencies file "CMakeFiles/cuadmm_lib.dir/src/utils/get_maps.cu.o.d" is newer than depends file "/n/home00/yukuanwei/cuadmm-builds/plato_official/CMakeFiles/cuadmm_lib.dir/compiler_depend.internal".
+Dependencies file "CMakeFiles/cuadmm_lib.dir/src/utils/inverse_permutation.cu.o.d" is newer than depends file "/n/home00/yukuanwei/cuadmm-builds/plato_official/CMakeFiles/cuadmm_lib.dir/compiler_depend.internal".
+Dependencies file "CMakeFiles/cuadmm_lib.dir/src/utils/io.cu.o.d" is newer than depends file "/n/home00/yukuanwei/cuadmm-builds/plato_official/CMakeFiles/cuadmm_lib.dir/compiler_depend.internal".
+gmake[2]: Entering directory '/n/home00/yukuanwei/cuadmm-builds/plato_official'
+cd /n/home00/yukuanwei/cuadmm-builds/plato_official && /n/sw/helmod-rocky8/apps/Core/cmake/3.31.6-fasrc01/bin/cmake -E cmake_depends "Unix Makefiles" /n/home00/yukuanwei/cuadmm-worktrees/plato-cold /n/home00/yukuanwei/cuADMM/build/_deps/googletest-src/googlemock /n/home00/yukuanwei/cuadmm-builds/plato_official /n/home00/yukuanwei/cuadmm-builds/plato_official/_deps/googletest-build/googlemock /n/home00/yukuanwei/cuadmm-builds/plato_official/_deps/googletest-build/googlemock/CMakeFiles/gmock_main.dir/DependInfo.cmake "--color="
+Dependencies file "_deps/googletest-build/googlemock/CMakeFiles/gmock_main.dir/src/gmock_main.cc.o.d" is newer than depends file "/n/home00/yukuanwei/cuadmm-builds/plato_official/_deps/googletest-build/googlemock/CMakeFiles/gmock_main.dir/compiler_depend.internal".
+Consolidate compiler generated dependencies of target gmock_main
+gmake[2]: Leaving directory '/n/home00/yukuanwei/cuadmm-builds/plato_official'
+/usr/bin/gmake  -f _deps/googletest-build/googlemock/CMakeFiles/gmock_main.dir/build.make _deps/googletest-build/googlemock/CMakeFiles/gmock_main.dir/build
+Consolidate compiler generated dependencies of target cuadmm_lib
+gmake[2]: Leaving directory '/n/home00/yukuanwei/cuadmm-builds/plato_official'
+/usr/bin/gmake  -f CMakeFiles/cuadmm_lib.dir/build.make CMakeFiles/cuadmm_lib.dir/build
+gmake[2]: Entering directory '/n/home00/yukuanwei/cuadmm-builds/plato_official'
+gmake[2]: Nothing to be done for '_deps/googletest-build/googlemock/CMakeFiles/gmock_main.dir/build'.
+gmake[2]: Leaving directory '/n/home00/yukuanwei/cuadmm-builds/plato_official'
+[ 38%] Built target gmock_main
+gmake[2]: Entering directory '/n/home00/yukuanwei/cuadmm-builds/plato_official'
+gmake[2]: Nothing to be done for 'CMakeFiles/cuadmm_lib.dir/build'.
+gmake[2]: Leaving directory '/n/home00/yukuanwei/cuadmm-builds/plato_official'
+[ 90%] Built target cuadmm_lib
+/usr/bin/gmake  -f CMakeFiles/cuadmm_exe.dir/build.make CMakeFiles/cuadmm_exe.dir/depend
+/usr/bin/gmake  -f CMakeFiles/tests.dir/build.make CMakeFiles/tests.dir/depend
+gmake[2]: Entering directory '/n/home00/yukuanwei/cuadmm-builds/plato_official'
+gmake[2]: Entering directory '/n/home00/yukuanwei/cuadmm-builds/plato_official'
+cd /n/home00/yukuanwei/cuadmm-builds/plato_official && /n/sw/helmod-rocky8/apps/Core/cmake/3.31.6-fasrc01/bin/cmake -E cmake_depends "Unix Makefiles" /n/home00/yukuanwei/cuadmm-worktrees/plato-cold /n/home00/yukuanwei/cuadmm-worktrees/plato-cold /n/home00/yukuanwei/cuadmm-builds/plato_official /n/home00/yukuanwei/cuadmm-builds/plato_official /n/home00/yukuanwei/cuadmm-builds/plato_official/CMakeFiles/cuadmm_exe.dir/DependInfo.cmake "--color="
+cd /n/home00/yukuanwei/cuadmm-builds/plato_official && /n/sw/helmod-rocky8/apps/Core/cmake/3.31.6-fasrc01/bin/cmake -E cmake_depends "Unix Makefiles" /n/home00/yukuanwei/cuadmm-worktrees/plato-cold /n/home00/yukuanwei/cuadmm-worktrees/plato-cold /n/home00/yukuanwei/cuadmm-builds/plato_official /n/home00/yukuanwei/cuadmm-builds/plato_official /n/home00/yukuanwei/cuadmm-builds/plato_official/CMakeFiles/tests.dir/DependInfo.cmake "--color="
+Dependencies file "CMakeFiles/tests.dir/test/tests.cpp.o.d" is newer than depends file "/n/home00/yukuanwei/cuadmm-builds/plato_official/CMakeFiles/tests.dir/compiler_depend.internal".
+Dependencies file "CMakeFiles/cuadmm_exe.dir/src/main.cu.o.d" is newer than depends file "/n/home00/yukuanwei/cuadmm-builds/plato_official/CMakeFiles/cuadmm_exe.dir/compiler_depend.internal".
+Consolidate compiler generated dependencies of target cuadmm_exe
+Consolidate compiler generated dependencies of target tests
+gmake[2]: Leaving directory '/n/home00/yukuanwei/cuadmm-builds/plato_official'
+gmake[2]: Leaving directory '/n/home00/yukuanwei/cuadmm-builds/plato_official'
+/usr/bin/gmake  -f CMakeFiles/cuadmm_exe.dir/build.make CMakeFiles/cuadmm_exe.dir/build
+/usr/bin/gmake  -f CMakeFiles/tests.dir/build.make CMakeFiles/tests.dir/build
+gmake[2]: Entering directory '/n/home00/yukuanwei/cuadmm-builds/plato_official'
+gmake[2]: Nothing to be done for 'CMakeFiles/cuadmm_exe.dir/build'.
+gmake[2]: Leaving directory '/n/home00/yukuanwei/cuadmm-builds/plato_official'
+gmake[2]: Entering directory '/n/home00/yukuanwei/cuadmm-builds/plato_official'
+[ 95%] Building CXX object CMakeFiles/tests.dir/test/tests.cpp.o
+/n/sw/helmod-rocky8/apps/Core/gcc/12.2.0-fasrc01/bin/g++ -DCUADMM_PLAIN_ADMM_ONLY -DCUADMM_TEST_DATA_DIR=\"/n/home00/yukuanwei/cuadmm-worktrees/plato-cold/test/data\" -I/n/home00/yukuanwei/cuadmm-env/include/suitesparse -I/n/home00/yukuanwei/cuadmm-worktrees/plato-cold/include -I/n/home00/yukuanwei/cuadmm-worktrees/plato-cold/psd_projection/include -isystem /n/home00/yukuanwei/cuADMM/build/_deps/googletest-src/googletest/include -isystem /n/home00/yukuanwei/cuADMM/build/_deps/googletest-src/googletest -isystem /n/sw/helmod-rocky8/apps/Core/cuda/12.9.1-fasrc01/cuda/targets/x86_64-linux/include -O3 -DNDEBUG -std=gnu++17 -MD -MT CMakeFiles/tests.dir/test/tests.cpp.o -MF CMakeFiles/tests.dir/test/tests.cpp.o.d -o CMakeFiles/tests.dir/test/tests.cpp.o -c /n/home00/yukuanwei/cuadmm-worktrees/plato-cold/test/tests.cpp
+[ 97%] Built target cuadmm_exe
+In file included from /n/home00/yukuanwei/cuadmm-worktrees/plato-cold/include/cuadmm/memory.h:21,
+                 from /n/home00/yukuanwei/cuadmm-worktrees/plato-cold/include/cuadmm/utils.h:12,
+                 from /n/home00/yukuanwei/cuadmm-worktrees/plato-cold/test/tests.cpp:3:
+/n/home00/yukuanwei/cuadmm-worktrees/plato-cold/include/cuadmm/cusparse.h: In function ‘void axpby_cusparse(DeviceSparseHandle&, const DeviceSparseVector<double>&, const DeviceDenseVector<double>&, double, double)’:
+/n/home00/yukuanwei/cuadmm-worktrees/plato-cold/include/cuadmm/cusparse.h:88:33: warning: ‘cusparseStatus_t cusparseAxpby(cusparseHandle_t, const void*, cusparseConstSpVecDescr_t, const void*, cusparseDnVecDescr_t)’ is deprecated: The routine will be removed in the next major release [-Wdeprecated-declarations]
+   88 |     CHECK_CUSPARSE(cusparseAxpby(
+      |                    ~~~~~~~~~~~~~^
+   89 |         cusparse_H.cusparse_handle,
+      |         ~~~~~~~~~~~~~~~~~~~~~~~~~~~
+   90 |         &alpha, x.cusparse_descr, &beta, y.cusparse_descr));
+      |         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/n/home00/yukuanwei/cuadmm-worktrees/plato-cold/include/cuadmm/check.h:70:36: note: in definition of macro ‘CHECK_CUSPARSE’
+   70 |         cusparseStatus_t status = (func);                                                                    \
+      |                                    ^~~~
+In file included from /n/home00/yukuanwei/cuadmm-worktrees/plato-cold/include/cuadmm/check.h:16:
+/n/sw/helmod-rocky8/apps/Core/cuda/12.9.1-fasrc01/cuda/targets/x86_64-linux/include/cusparse.h:5570:1: note: declared here
+ 5570 | cusparseAxpby(cusparseHandle_t          handle,
+      | ^~~~~~~~~~~~~
+/n/home00/yukuanwei/cuadmm-worktrees/plato-cold/include/cuadmm/cusparse.h: In function ‘size_t SparseVV_get_buffersize_cusparse(DeviceSparseHandle&, const DeviceSparseVector<double>&, const DeviceDenseVector<double>&)’:
+/n/home00/yukuanwei/cuadmm-worktrees/plato-cold/include/cuadmm/cusparse.h:101:43: warning: ‘cusparseStatus_t cusparseSpVV_bufferSize(cusparseHandle_t, cusparseOperation_t, cusparseConstSpVecDescr_t, cusparseConstDnVecDescr_t, const void*, cudaDataType, size_t*)’ is deprecated: The routine will be removed in the next major release [-Wdeprecated-declarations]
+  101 |     CHECK_CUSPARSE(cusparseSpVV_bufferSize(
+      |                    ~~~~~~~~~~~~~~~~~~~~~~~^
+  102 |         cusparse_H.cusparse_handle, CUSPARSE_OPERATION_NON_TRANSPOSE,
+      |         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  103 |         x.cusparse_descr, y.cusparse_descr, &inprod,
+      |         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  104 |         CUDA_R_64F, &buffer_size));
+      |         ~~~~~~~~~~~~~~~~~~~~~~~~~          
+/n/home00/yukuanwei/cuadmm-worktrees/plato-cold/include/cuadmm/check.h:70:36: note: in definition of macro ‘CHECK_CUSPARSE’
+   70 |         cusparseStatus_t status = (func);                                                                    \
+      |                                    ^~~~
+/n/sw/helmod-rocky8/apps/Core/cuda/12.9.1-fasrc01/cuda/targets/x86_64-linux/include/cusparse.h:5596:1: note: declared here
+ 5596 | cusparseSpVV_bufferSize(cusparseHandle_t          handle,
+      | ^~~~~~~~~~~~~~~~~~~~~~~
+/n/home00/yukuanwei/cuadmm-worktrees/plato-cold/include/cuadmm/cusparse.h: In function ‘double SparseVV_cusparse(DeviceSparseHandle&, const DeviceSparseVector<double>&, const DeviceDenseVector<double>&, DeviceDenseVector<double>&)’:
+/n/home00/yukuanwei/cuadmm-worktrees/plato-cold/include/cuadmm/cusparse.h:118:32: warning: ‘cusparseStatus_t cusparseSpVV(cusparseHandle_t, cusparseOperation_t, cusparseConstSpVecDescr_t, cusparseConstDnVecDescr_t, void*, cudaDataType, void*)’ is deprecated: The routine will be removed in the next major release [-Wdeprecated-declarations]
+  118 |     CHECK_CUSPARSE(cusparseSpVV(
+      |                    ~~~~~~~~~~~~^
+  119 |         cusparse_H.cusparse_handle, CUSPARSE_OPERATION_NON_TRANSPOSE,
+      |         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  120 |         x.cusparse_descr, y.cusparse_descr, &inprod,
+      |         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  121 |         CUDA_R_64F, buffer.vals));
+      |         ~~~~~~~~~~~~~~~~~~~~~~~~
+/n/home00/yukuanwei/cuadmm-worktrees/plato-cold/include/cuadmm/check.h:70:36: note: in definition of macro ‘CHECK_CUSPARSE’
+   70 |         cusparseStatus_t status = (func);                                                                    \
+      |                                    ^~~~
+/n/sw/helmod-rocky8/apps/Core/cuda/12.9.1-fasrc01/cuda/targets/x86_64-linux/include/cusparse.h:5606:1: note: declared here
+ 5606 | cusparseSpVV(cusparseHandle_t          handle,
+      | ^~~~~~~~~~~~
+[100%] Linking CXX executable tests
+/n/sw/helmod-rocky8/apps/Core/cmake/3.31.6-fasrc01/bin/cmake -E cmake_link_script CMakeFiles/tests.dir/link.txt --verbose=1
+/n/sw/helmod-rocky8/apps/Core/gcc/12.2.0-fasrc01/bin/g++ -O3 -DNDEBUG CMakeFiles/tests.dir/test/tests.cpp.o -o tests   -L/usr/local/cuda/lib64  -Wl,-rpath,/usr/local/cuda/lib64:/n/home00/yukuanwei/cuadmm-builds/plato_official:/n/home00/yukuanwei/cuadmm-env/lib:/n/home00/yukuanwei/cuadmm-builds/plato_official/psd_projection lib/libgtest_main.a libcuadmm_lib.so -lnvJitLink lib/libgtest.a -lcudart -lcusparse -lcublas -lcusolver /n/home00/yukuanwei/cuadmm-env/lib/libcamd.so /n/home00/yukuanwei/cuadmm-env/lib/libccolamd.so /n/home00/yukuanwei/cuadmm-env/lib/libcholmod.so /n/home00/yukuanwei/cuadmm-env/lib/liblapack.so /n/home00/yukuanwei/cuadmm-env/lib/libblas.so psd_projection/libpsd_lib.so /n/sw/helmod-rocky8/apps/Core/cuda/12.9.1-fasrc01/cuda/targets/x86_64-linux/lib/libcudart.so -lpthread -ldl /usr/lib64/librt.so /n/sw/helmod-rocky8/apps/Core/cuda/12.9.1-fasrc01/cuda/targets/x86_64-linux/lib/libcusolver.so /n/sw/helmod-rocky8/apps/Core/cuda/12.9.1-fasrc01/cuda/targets/x86_64-linux/lib/libcublas.so /n/sw/helmod-rocky8/apps/Core/cuda/12.9.1-fasrc01/cuda/targets/x86_64-linux/lib/libculibos.a /n/sw/helmod-rocky8/apps/Core/cuda/12.9.1-fasrc01/cuda/targets/x86_64-linux/lib/libcublasLt.so /n/sw/helmod-rocky8/apps/Core/cuda/12.9.1-fasrc01/cuda/targets/x86_64-linux/lib/libcusparse.so /n/sw/helmod-rocky8/apps/Core/cuda/12.9.1-fasrc01/cuda/targets/x86_64-linux/lib/libnvJitLink.so
+/n/sw/helmod-rocky8/apps/Core/cmake/3.31.6-fasrc01/bin/cmake -D TEST_TARGET=tests -D TEST_EXECUTABLE=/n/home00/yukuanwei/cuadmm-builds/plato_official/tests -D TEST_EXECUTOR= -D TEST_WORKING_DIR=/n/home00/yukuanwei/cuadmm-builds/plato_official -D TEST_EXTRA_ARGS= -D "TEST_PROPERTIES=ENVIRONMENT;CUADMM_REGRESSION_DATA_DIR=/n/home00/yukuanwei/cuadmm-builds/plato_official/regression_data;TIMEOUT;1800" -D TEST_PREFIX= -D TEST_SUFFIX= -D TEST_FILTER= -D NO_PRETTY_TYPES=FALSE -D NO_PRETTY_VALUES=FALSE -D TEST_LIST=tests_TESTS -D CTEST_FILE=/n/home00/yukuanwei/cuadmm-builds/plato_official/tests[1]_tests.cmake -D TEST_DISCOVERY_TIMEOUT=5 -D TEST_DISCOVERY_EXTRA_ARGS= -D TEST_XML_OUTPUT_DIR= -P /n/sw/helmod-rocky8/apps/Core/cmake/3.31.6-fasrc01/share/cmake-3.31/Modules/GoogleTestAddTests.cmake
+gmake[2]: Leaving directory '/n/home00/yukuanwei/cuadmm-builds/plato_official'
+[100%] Built target tests
+gmake[1]: Leaving directory '/n/home00/yukuanwei/cuadmm-builds/plato_official'
+/n/sw/helmod-rocky8/apps/Core/cmake/3.31.6-fasrc01/bin/cmake -E cmake_progress_start /n/home00/yukuanwei/cuadmm-builds/plato_official/CMakeFiles 0

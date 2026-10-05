@@ -4,9 +4,24 @@
 
     This file is part of cuADMM. It defines MATLAB interface functions for the cuADMM library.
 
+    Usage:
+        [X, y, S, info] = cuadmm_MATLAB(eig_stream_num_per_gpu, max_iter, stop_tol, At, b, C, blk_types, blk_sizes,
+                                        X0, y0, S0, sig, sig_update_threshold, sig_update_stage_1,
+                                        sig_update_stage_2, switch_admm, switch_proj_iter, switch_proj_tol, sigscale)
+    At (vec_len x con_num), b (con_num x 1) and C (vec_len x 1) are sparse; blk_types is a char column vector of
+    's' (PSD), 'l' (nonnegative) or 'u' (free) blocks and blk_sizes a column vector of the same length.
+    X0, S0 (vec_len x 1) and y0 (con_num x 1) are dense column vectors (the starting point).
+    The first 12 inputs are required. The last 7 are optional (defaults: 500, 50, 100, 0, 5000, 1e-2, 2.0): they can
+    be omitted from the end, or passed as [] to keep their default. info is a 10x2 cell array of {name, value} pairs.
+    switch_admm: sGS-ADMM (Algorithm 1 of arXiv 2406.05846) for iter < switch_admm, then plain two-block ADMM
+    (0, the default: plain ADMM throughout). sig_update_* and sigscale act in the sGS phase only (sigscale = 1 keeps
+    sigma fixed, as in Algorithm 1); the plain ADMM phase has its own schedule.
+
 */
 
 #include <memory>
+#include <stdexcept>
+#include <string>
 
 #include "mex.h"
 #include "matrix.h"
@@ -15,6 +30,26 @@
 #include "cuadmm/check.h"
 #include "cuadmm/io.h"
 #include "cuadmm/solver.h"
+
+// Invalid input from MATLAB, reported as cuADMM:invalidInput (other exceptions are reported as cuADMM:solverError)
+class InputError : public std::runtime_error {
+    public:
+        explicit InputError(const std::string& msg) : std::runtime_error(msg) {}
+};
+
+// Throws an InputError unless arr is a real double column vector (or matrix), sparse or dense as requested,
+// since the readers below access its data with mxGetPr/mxGetJc/mxGetIr without further checks
+void check_double_input(const mxArray* arr, const char* name, bool sparse, bool column = true) {
+    if (!mxIsDouble(arr) || mxIsComplex(arr) || mxIsSparse(arr) != sparse || (column && mxGetN(arr) != 1)) {
+        throw InputError(std::string(name) + " must be a real " + (sparse ? "sparse" : "dense") + " double " +
+                         (column ? "column vector" : "matrix") + ".");
+    }
+}
+
+// An optional input is used if the caller passed it and it is not [] (pass [] to keep its default value)
+bool has_optional_input(int nrhs, const mxArray* prhs[], int input_id) {
+    return nrhs > input_id && !mxIsEmpty(prhs[input_id]);
+}
 
 void get_dnvec_from_matlab(
     const mxArray* mx_dnvec,
@@ -212,15 +247,33 @@ void set_cell_array(
     return;
 }
 
+// plhs only has room for max(nlhs, 1) outputs: hand the output to MATLAB only if it was requested
+void set_output(int nlhs, mxArray* plhs[], int output_id, mxArray* mx_out) {
+    if (output_id == 0 || output_id < nlhs)
+        plhs[output_id] = mx_out;
+    else
+        mxDestroyArray(mx_out);
+    return;
+}
 
 
-void mexFunction(int nlhs, mxArray* plhs[], int nrhs, const mxArray* prhs[]) {
+// Body of mexFunction; reports errors by throwing (InputError for invalid inputs).
+void cuadmm_mex(int nlhs, mxArray* plhs[], int nrhs, const mxArray* prhs[]) {
     INPUT_ID_factory INPUT_ID(0);
     OUTPUT_ID_factory OUTPUT_ID(0);
     OUTPUT_INFO_RID_factory OUTPUT_INFO_RID;
 
     // -------------------------------------------------------
     // input:
+
+    // inputs up to sig are required, the ones after it are optional
+    if (nrhs < INPUT_ID.sig + 1 || nrhs > INPUT_ID.sigscale + 1) {
+        throw InputError("cuadmm_MATLAB expects between " + std::to_string(INPUT_ID.sig + 1) + " and " +
+                         std::to_string(INPUT_ID.sigscale + 1) + " inputs, got " + std::to_string(nrhs) + ".");
+    }
+    if (nlhs > OUTPUT_ID.info + 1) {
+        throw InputError("cuadmm_MATLAB returns at most " + std::to_string(OUTPUT_ID.info + 1) + " outputs.");
+    }
 
     // eig_stream_num_per_gpu
     int eig_stream_num_per_gpu = static_cast<int>( mxGetScalar(prhs[INPUT_ID.eig_stream_num_per_gpu]) );
@@ -238,6 +291,7 @@ void mexFunction(int nlhs, mxArray* plhs[], int nrhs, const mxArray* prhs[]) {
     std::vector<int> cpu_At_csc_row_ids; 
     std::vector<double> cpu_At_csc_vals; 
     int At_nnz;
+    check_double_input(prhs[INPUT_ID.At], "At", true, false);
     get_spmat_csc_from_matlab(
         prhs[INPUT_ID.At],
         vec_len, con_num, At_nnz, cpu_At_csc_col_ptrs, cpu_At_csc_row_ids, cpu_At_csc_vals
@@ -248,96 +302,118 @@ void mexFunction(int nlhs, mxArray* plhs[], int nrhs, const mxArray* prhs[]) {
     std::vector<double> cpu_b_vals; 
     int b_nnz;
     int b_size;
+    check_double_input(prhs[INPUT_ID.b], "b", true);
     get_spvec_from_matlab(
         prhs[INPUT_ID.b],
         b_size, b_nnz, cpu_b_indices, cpu_b_vals
     );
-    assert(b_size == con_num);
+    if (b_size != con_num) {
+        throw InputError("The length of b (" + std::to_string(b_size) + ") does not match the number of columns of At (" +
+                         std::to_string(con_num) + ").");
+    }
     
     // C
     std::vector<int> cpu_C_indices; 
     std::vector<double> cpu_C_vals; 
     int C_nnz;
     int C_size;
+    check_double_input(prhs[INPUT_ID.C], "C", true);
     get_spvec_from_matlab(
         prhs[INPUT_ID.C],
         C_size, C_nnz, cpu_C_indices, cpu_C_vals
     );
-    assert(C_size == vec_len);
+    if (C_size != vec_len) {
+        throw InputError("The length of C (" + std::to_string(C_size) + ") does not match the number of rows of At (" +
+                         std::to_string(vec_len) + ").");
+    }
 
     // blk
     // TODO: adapt for new signature
     int mat_num;
     std::vector<char> cpu_blk_types;
+    if (!mxIsChar(prhs[INPUT_ID.blk_types]) || mxGetN(prhs[INPUT_ID.blk_types]) != 1) {
+        throw InputError("blk_types must be a char column vector.");
+    }
     get_char_vec_from_matlab(
         prhs[INPUT_ID.blk_types], 
         mat_num, cpu_blk_types
     );
+    int blk_vals_size;
     std::vector<double> cpu_blk_vals_double;
+    check_double_input(prhs[INPUT_ID.blk_vals], "blk_sizes", false);
     get_dnvec_from_matlab(
         prhs[INPUT_ID.blk_vals], 
-        mat_num, cpu_blk_vals_double
+        blk_vals_size, cpu_blk_vals_double
     );
+    if (blk_vals_size != mat_num) {
+        throw InputError("blk_types and blk_sizes must have the same length (got " + std::to_string(mat_num) + " and " +
+                         std::to_string(blk_vals_size) + ").");
+    }
     std::vector<int> cpu_blk_vals(mat_num, 0);
     int vec_len_from_blk = 0;
     for (int i = 0; i < mat_num; i++) {
         cpu_blk_vals[i] = static_cast<int>( cpu_blk_vals_double[i] );
         if (cpu_blk_types[i] == 's')
             vec_len_from_blk = vec_len_from_blk + cpu_blk_vals[i] * (cpu_blk_vals[i] + 1) / 2;
-        else if (cpu_blk_types[i] == 'u')
+        else if (cpu_blk_types[i] == 'u' || cpu_blk_types[i] == 'l')
             vec_len_from_blk = vec_len_from_blk + cpu_blk_vals[i];
         else {
-            char err_msg[256];
-            sprintf(err_msg, "The type of blk should be 's' or 'u', but got '%c'.", cpu_blk_types[i]);
-            mxArray *arg = mxCreateString(err_msg);
-            mexCallMATLAB(0,0,1,&arg,"error");
-            return;
+            throw InputError(std::string("The type of blk should be 's', 'l' or 'u', but got '") + cpu_blk_types[i] + "'.");
         }
 
     }
     if (vec_len_from_blk != vec_len) {
-        char err_msg[256];
-        sprintf(err_msg, "The length of blk does not match the length of At. (blk length: %d, At length: %d)", vec_len_from_blk, vec_len);
-        mxArray *arg = mxCreateString(err_msg);
-        mexCallMATLAB(0,0,1,&arg,"error");
-        return;
+        throw InputError("The length of blk does not match the length of At. (blk length: " +
+                         std::to_string(vec_len_from_blk) + ", At length: " + std::to_string(vec_len) + ")");
     }
 
     // X
     int X_size;
     std::vector<double> cpu_X_vals;
+    check_double_input(prhs[INPUT_ID.X], "X0", false);
     get_dnvec_from_matlab(
         prhs[INPUT_ID.X], 
         X_size, cpu_X_vals
     );
-    assert(X_size == vec_len);
+    if (X_size != vec_len) {
+        throw InputError("The length of X0 (" + std::to_string(X_size) + ") does not match the number of rows of At (" +
+                         std::to_string(vec_len) + ").");
+    }
 
 
     // y
     int y_size;
     std::vector<double> cpu_y_vals;
+    check_double_input(prhs[INPUT_ID.y], "y0", false);
     get_dnvec_from_matlab(
         prhs[INPUT_ID.y],
         y_size, cpu_y_vals
     );
-    assert(y_size == con_num);
+    if (y_size != con_num) {
+        throw InputError("The length of y0 (" + std::to_string(y_size) + ") does not match the number of columns of At (" +
+                         std::to_string(con_num) + ").");
+    }
 
 
     // S
     int S_size;
     std::vector<double> cpu_S_vals;
+    check_double_input(prhs[INPUT_ID.S], "S0", false);
     get_dnvec_from_matlab(
         prhs[INPUT_ID.S], 
         S_size, cpu_S_vals
     );
-    assert(S_size == vec_len);
+    if (S_size != vec_len) {
+        throw InputError("The length of S0 (" + std::to_string(S_size) + ") does not match the number of rows of At (" +
+                         std::to_string(vec_len) + ").");
+    }
 
     // sig
     double sig = mxGetScalar(prhs[INPUT_ID.sig]);
 
     // sig_update_threshold
     int sig_update_threshold;
-    if (nlhs >= 12) {
+    if (has_optional_input(nrhs, prhs, INPUT_ID.sig_update_threshold)) {
         sig_update_threshold = static_cast<int>( mxGetScalar(prhs[INPUT_ID.sig_update_threshold]) );
     } else {
         sig_update_threshold = 500;
@@ -345,7 +421,7 @@ void mexFunction(int nlhs, mxArray* plhs[], int nrhs, const mxArray* prhs[]) {
 
     // sig_update_stage_1
     int sig_update_stage_1;
-    if (nlhs >= 13) {
+    if (has_optional_input(nrhs, prhs, INPUT_ID.sig_update_stage_1)) {
         sig_update_stage_1 = static_cast<int>( mxGetScalar(prhs[INPUT_ID.sig_update_stage_1]) );
     } else {
         sig_update_stage_1 = 50;
@@ -353,7 +429,7 @@ void mexFunction(int nlhs, mxArray* plhs[], int nrhs, const mxArray* prhs[]) {
 
     // sig_update_stage_2
     int sig_update_stage_2;
-    if (nlhs >= 14) {
+    if (has_optional_input(nrhs, prhs, INPUT_ID.sig_update_stage_2)) {
         sig_update_stage_2 = static_cast<int>( mxGetScalar(prhs[INPUT_ID.sig_update_stage_2]) );
     } else {
         sig_update_stage_2 = 100;
@@ -361,7 +437,7 @@ void mexFunction(int nlhs, mxArray* plhs[], int nrhs, const mxArray* prhs[]) {
 
     // switch_admm
     int switch_admm;
-    if (nlhs >= 15) {
+    if (has_optional_input(nrhs, prhs, INPUT_ID.switch_admm)) {
         switch_admm = static_cast<int>( mxGetScalar(prhs[INPUT_ID.switch_admm]) );
     } else {
         switch_admm = 0;
@@ -369,7 +445,7 @@ void mexFunction(int nlhs, mxArray* plhs[], int nrhs, const mxArray* prhs[]) {
 
     // switch_proj_iter
     int switch_proj_iter;
-    if (nlhs >= 15) {
+    if (has_optional_input(nrhs, prhs, INPUT_ID.switch_proj_iter)) {
         switch_proj_iter = static_cast<int>( mxGetScalar(prhs[INPUT_ID.switch_proj_iter]) );
     } else {
         switch_proj_iter = (int) 5000;
@@ -377,15 +453,15 @@ void mexFunction(int nlhs, mxArray* plhs[], int nrhs, const mxArray* prhs[]) {
 
     // switch_proj_tol
     double switch_proj_tol;
-    if (nlhs >= 15) {
-        switch_proj_tol = static_cast<int>( mxGetScalar(prhs[INPUT_ID.switch_proj_tol]) );
+    if (has_optional_input(nrhs, prhs, INPUT_ID.switch_proj_tol)) {
+        switch_proj_tol = mxGetScalar(prhs[INPUT_ID.switch_proj_tol]);
     } else {
         switch_proj_tol = (double) 1e-2;
     }
 
     // sigscale
     double sigscale;
-    if (nlhs >= 18) {
+    if (has_optional_input(nrhs, prhs, INPUT_ID.sigscale)) {
         sigscale = mxGetScalar(prhs[INPUT_ID.sigscale]);
     } else {
         sigscale = 2.0;
@@ -412,13 +488,13 @@ void mexFunction(int nlhs, mxArray* plhs[], int nrhs, const mxArray* prhs[]) {
     );
     solver.solve(
         max_iter, stop_tol,
-        sig_update_threshold = sig_update_threshold,
-        sig_update_stage_1 = sig_update_stage_1,
-        sig_update_stage_2 = sig_update_stage_2,
-        switch_admm = switch_admm,
-        5000,
-        0.01,
-        sigscale = sigscale
+        sig_update_threshold, // sig_update_threshold
+        sig_update_stage_1,   // sig_update_stage_1
+        sig_update_stage_2,   // sig_update_stage_2
+        switch_admm,          // switch_admm
+        switch_proj_iter,     // switch_proj_max_iter
+        switch_proj_tol,      // switch_proj_tol
+        sigscale              // sigscale
     );
     // -------------------------------------------------------
 
@@ -429,19 +505,19 @@ void mexFunction(int nlhs, mxArray* plhs[], int nrhs, const mxArray* prhs[]) {
     mxArray* mx_X_out = mxCreateDoubleMatrix(vec_len, 1, mxREAL);
     double* X_out = mxGetPr(mx_X_out);
     CHECK_CUDA( cudaMemcpy(X_out, solver.X.vals, sizeof(double) * vec_len, D2H) );
-    plhs[OUTPUT_ID.X] = mx_X_out;
+    set_output(nlhs, plhs, OUTPUT_ID.X, mx_X_out);
 
     // y
     mxArray* mx_y_out = mxCreateDoubleMatrix(con_num, 1, mxREAL);
     double* y_out = mxGetPr(mx_y_out);
     CHECK_CUDA( cudaMemcpy(y_out, solver.y.vals, sizeof(double) * con_num, D2H) );
-    plhs[OUTPUT_ID.y] = mx_y_out;
+    set_output(nlhs, plhs, OUTPUT_ID.y, mx_y_out);
 
     // S
     mxArray* mx_S_out = mxCreateDoubleMatrix(vec_len, 1, mxREAL);
     double* S_out = mxGetPr(mx_S_out);
     CHECK_CUDA( cudaMemcpy(S_out, solver.S.vals, sizeof(double) * vec_len, D2H) );
-    plhs[OUTPUT_ID.S] = mx_S_out;
+    set_output(nlhs, plhs, OUTPUT_ID.S, mx_S_out);
 
     // info
     mxArray* mx_info_out = mxCreateCellMatrix(info_size, 2);
@@ -480,10 +556,10 @@ void mexFunction(int nlhs, mxArray* plhs[], int nrhs, const mxArray* prhs[]) {
     mxSetCell(mx_info_out, OUTPUT_INFO_RID.Cscale_arr + info_size * 0, mxCreateString("Cscale_arr"));
     mxArray* mx_info_Cscale_arr_out = mxCreateDoubleMatrix(solver.info_iter_num, 1, mxREAL);
     set_cell_array(mx_info_out, mx_info_Cscale_arr_out, solver.info_Cscale_arr, solver.info_iter_num, OUTPUT_INFO_RID.Cscale_arr);
-    plhs[OUTPUT_ID.info] = mx_info_out;
     // info_total_time
     mxSetCell(mx_info_out, OUTPUT_INFO_RID.total_time + info_size * 0, mxCreateString("total_time"));
     mxSetCell(mx_info_out, OUTPUT_INFO_RID.total_time + info_size * 1, mxCreateDoubleScalar((double)(solver.total_time)));
+    set_output(nlhs, plhs, OUTPUT_ID.info, mx_info_out);
     // -------------------------------------------------------
 
     // -------------------------------------------------------
@@ -492,4 +568,25 @@ void mexFunction(int nlhs, mxArray* plhs[], int nrhs, const mxArray* prhs[]) {
     // -------------------------------------------------------
 
     return;
+}
+
+void mexFunction(int nlhs, mxArray* plhs[], int nrhs, const mxArray* prhs[]) {
+    // mexErrMsgIdAndTxt does not return and does not unwind the C++ stack (it jumps back to MATLAB), so it must only be
+    // called once every C++ object owning host or GPU memory is gone. All of them (the SDPSolver included) live in
+    // cuadmm_mex and are destroyed while the exception propagates out of it; the message is copied into a local buffer
+    // so that the exception object itself is destroyed at the end of its handler, before the error is raised.
+    const char* err_id = "cuADMM:solverError";
+    char err_msg[1024];
+    try {
+        cuadmm_mex(nlhs, plhs, nrhs, prhs);
+        return;
+    } catch (const InputError& e) {
+        err_id = "cuADMM:invalidInput";
+        snprintf(err_msg, sizeof(err_msg), "%s", e.what());
+    } catch (const std::exception& e) {
+        snprintf(err_msg, sizeof(err_msg), "%s", e.what());
+    } catch (...) {
+        snprintf(err_msg, sizeof(err_msg), "unknown C++ exception");
+    }
+    mexErrMsgIdAndTxt(err_id, "%s", err_msg);
 }

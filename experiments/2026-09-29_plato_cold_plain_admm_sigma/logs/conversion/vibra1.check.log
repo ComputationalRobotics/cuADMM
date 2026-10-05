@@ -1,0 +1,1 @@
+{"problem": "vibra1", "all_ok": true, "blocks": true, "con_num": true, "largest_indices": true, "b_equals_c": true, "forward_inner_products": true, "objective_matrix": true, "adjoint": true, "round_trip": true, "full_row_rank": true}

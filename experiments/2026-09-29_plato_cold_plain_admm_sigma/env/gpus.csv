@@ -1,0 +1,2 @@
+index, name, uuid, pci.bus_id, driver_version, memory.total [MiB], clocks.max.sm [MHz], clocks.max.memory [MHz], clocks.current.sm [MHz], power.limit [W], mig.mode.current, compute_mode
+0, NVIDIA H200, GPU-0c6ea7b2-63ac-0972-3d86-66a50b208176, 00000000:DD:00.0, 610.57.04, 143771 MiB, 1980 MHz, 3201 MHz, 345 MHz, 700.00 W, Disabled, Default

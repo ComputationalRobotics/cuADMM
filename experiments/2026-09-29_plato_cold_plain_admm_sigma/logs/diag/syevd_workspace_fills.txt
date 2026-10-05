@@ -1,0 +1,32 @@
+n 673 mode none rep 0 info 0 finite 1 lambda_min -14.984383817642845 lambda_max 15.105237778533921 hashW 190095b176ed8bc9 hashV b0c45b06d790be93 workspace 15530160 bytes host 0 bytes
+n 673 mode none rep 1 info 0 finite 1 lambda_min -14.984383817642845 lambda_max 15.105237778533921 hashW 190095b176ed8bc9 hashV b0c45b06d790be93 workspace 15530160 bytes host 0 bytes
+n 673 mode none rep 2 info 0 finite 1 lambda_min -14.984383817642845 lambda_max 15.105237778533921 hashW 190095b176ed8bc9 hashV b0c45b06d790be93 workspace 15530160 bytes host 0 bytes
+RESULT n 673 mode none hashW 190095b176ed8bc9 hashV b0c45b06d790be93 stable_across_reps 1
+n 673 mode zero rep 0 info 0 finite 1 lambda_min -14.984383817642845 lambda_max 15.105237778533921 hashW 190095b176ed8bc9 hashV b0c45b06d790be93 workspace 15530160 bytes host 0 bytes
+n 673 mode zero rep 1 info 0 finite 1 lambda_min -14.984383817642845 lambda_max 15.105237778533921 hashW 190095b176ed8bc9 hashV b0c45b06d790be93 workspace 15530160 bytes host 0 bytes
+n 673 mode zero rep 2 info 0 finite 1 lambda_min -14.984383817642845 lambda_max 15.105237778533921 hashW 190095b176ed8bc9 hashV b0c45b06d790be93 workspace 15530160 bytes host 0 bytes
+RESULT n 673 mode zero hashW 190095b176ed8bc9 hashV b0c45b06d790be93 stable_across_reps 1
+n 673 mode nan rep 0 info 0 finite 1 lambda_min -14.984383817642845 lambda_max 15.105237778533921 hashW 190095b176ed8bc9 hashV b0c45b06d790be93 workspace 15530160 bytes host 0 bytes
+n 673 mode nan rep 1 info 0 finite 1 lambda_min -14.984383817642845 lambda_max 15.105237778533921 hashW 190095b176ed8bc9 hashV b0c45b06d790be93 workspace 15530160 bytes host 0 bytes
+n 673 mode nan rep 2 info 0 finite 1 lambda_min -14.984383817642845 lambda_max 15.105237778533921 hashW 190095b176ed8bc9 hashV b0c45b06d790be93 workspace 15530160 bytes host 0 bytes
+RESULT n 673 mode nan hashW 190095b176ed8bc9 hashV b0c45b06d790be93 stable_across_reps 1
+n 673 mode garbage rep 0 info 0 finite 1 lambda_min -14.984383817642845 lambda_max 15.105237778533921 hashW 190095b176ed8bc9 hashV b0c45b06d790be93 workspace 15530160 bytes host 0 bytes
+n 673 mode garbage rep 1 info 0 finite 1 lambda_min -14.984383817642845 lambda_max 15.105237778533921 hashW 190095b176ed8bc9 hashV b0c45b06d790be93 workspace 15530160 bytes host 0 bytes
+n 673 mode garbage rep 2 info 0 finite 1 lambda_min -14.984383817642845 lambda_max 15.105237778533921 hashW 190095b176ed8bc9 hashV b0c45b06d790be93 workspace 15530160 bytes host 0 bytes
+RESULT n 673 mode garbage hashW 190095b176ed8bc9 hashV b0c45b06d790be93 stable_across_reps 1
+n 1761 mode none rep 0 info 0 finite 1 lambda_min -24.186365058585917 lambda_max 24.161702385882688 hashW a60031022383505f hashV a7c7ca72a06f5c44 workspace 101288880 bytes host 0 bytes
+n 1761 mode none rep 1 info 0 finite 1 lambda_min -24.186365058585917 lambda_max 24.161702385882688 hashW a60031022383505f hashV a7c7ca72a06f5c44 workspace 101288880 bytes host 0 bytes
+n 1761 mode none rep 2 info 0 finite 1 lambda_min -24.186365058585917 lambda_max 24.161702385882688 hashW a60031022383505f hashV a7c7ca72a06f5c44 workspace 101288880 bytes host 0 bytes
+RESULT n 1761 mode none hashW a60031022383505f hashV a7c7ca72a06f5c44 stable_across_reps 1
+n 1761 mode zero rep 0 info 0 finite 1 lambda_min -24.186365058585917 lambda_max 24.161702385882688 hashW a60031022383505f hashV a7c7ca72a06f5c44 workspace 101288880 bytes host 0 bytes
+n 1761 mode zero rep 1 info 0 finite 1 lambda_min -24.186365058585917 lambda_max 24.161702385882688 hashW a60031022383505f hashV a7c7ca72a06f5c44 workspace 101288880 bytes host 0 bytes
+n 1761 mode zero rep 2 info 0 finite 1 lambda_min -24.186365058585917 lambda_max 24.161702385882688 hashW a60031022383505f hashV a7c7ca72a06f5c44 workspace 101288880 bytes host 0 bytes
+RESULT n 1761 mode zero hashW a60031022383505f hashV a7c7ca72a06f5c44 stable_across_reps 1
+n 1761 mode nan rep 0 info 0 finite 1 lambda_min -24.186365058585917 lambda_max 24.161702385882688 hashW a60031022383505f hashV a7c7ca72a06f5c44 workspace 101288880 bytes host 0 bytes
+n 1761 mode nan rep 1 info 0 finite 1 lambda_min -24.186365058585917 lambda_max 24.161702385882688 hashW a60031022383505f hashV a7c7ca72a06f5c44 workspace 101288880 bytes host 0 bytes
+n 1761 mode nan rep 2 info 0 finite 1 lambda_min -24.186365058585917 lambda_max 24.161702385882688 hashW a60031022383505f hashV a7c7ca72a06f5c44 workspace 101288880 bytes host 0 bytes
+RESULT n 1761 mode nan hashW a60031022383505f hashV a7c7ca72a06f5c44 stable_across_reps 1
+n 1761 mode garbage rep 0 info 0 finite 1 lambda_min -24.186365058585917 lambda_max 24.161702385882688 hashW a60031022383505f hashV a7c7ca72a06f5c44 workspace 101288880 bytes host 0 bytes
+n 1761 mode garbage rep 1 info 0 finite 1 lambda_min -24.186365058585917 lambda_max 24.161702385882688 hashW a60031022383505f hashV a7c7ca72a06f5c44 workspace 101288880 bytes host 0 bytes
+n 1761 mode garbage rep 2 info 0 finite 1 lambda_min -24.186365058585917 lambda_max 24.161702385882688 hashW a60031022383505f hashV a7c7ca72a06f5c44 workspace 101288880 bytes host 0 bytes
+RESULT n 1761 mode garbage hashW a60031022383505f hashV a7c7ca72a06f5c44 stable_across_reps 1

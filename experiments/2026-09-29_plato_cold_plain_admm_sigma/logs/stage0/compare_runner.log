@@ -1,0 +1,45 @@
+date: 2026-09-29T19:33:10-04:00 host: holygpu8a12103.rc.fas.harvard.edu CUDA_VISIBLE_DEVICES=0
+new (plain-ADMM-only, 21464b1 tree; library identical to d18da08): /n/home00/yukuanwei/cuadmm-builds/plato_official/cuadmm_exe exe 621b459aae06ea09 lib 2787f1847b6f4b8e
+ref (09687d2, hybrid campaign official build): /n/home00/yukuanwei/cuadmm-builds/hybrid_official/cuadmm_exe exe 3b6d25b3b6e6c6d4 lib 8fb932e0feb961e1
+A new trto3 fixed exit 0
+B new trto3 fixed exit 0
+A ref trto3 fixed exit 0
+B ref trto3 fixed exit 0
+trto3 fixed | A returned X,y,S: X identical y identical S identical | A history: identical | B iter 3000 X,y,S: X identical y identical S identical | B iter 6000 X,y,S: X identical y identical S identical | B history new vs ref: identical | history A vs B: new identical, ref identical | iterations, final sigma: [(6000, 1), (6000, 1), (6000, 1), (6000, 1)]
+A new trto3 legacy_adaptive exit 0
+B new trto3 legacy_adaptive exit 0
+A ref trto3 legacy_adaptive exit 0
+B ref trto3 legacy_adaptive exit 0
+trto3 legacy_adaptive | A returned X,y,S: X identical y identical S identical | A history: identical | B iter 3000 X,y,S: X identical y identical S identical | B iter 6000 X,y,S: X identical y identical S identical | B history new vs ref: identical | history A vs B: new identical, ref identical | iterations, final sigma: [(6000, 4), (6000, 4), (6000, 4), (6000, 4)]
+A new vibra2 fixed exit 0
+B new vibra2 fixed exit 0
+A ref vibra2 fixed exit 0
+B ref vibra2 fixed exit 0
+vibra2 fixed | A returned X,y,S: X identical y identical S identical | A history: identical | B iter 3000 X,y,S: X identical y identical S identical | B iter 6000 X,y,S: X identical y identical S identical | B history new vs ref: identical | history A vs B: new identical, ref identical | iterations, final sigma: [(6000, 1), (6000, 1), (6000, 1), (6000, 1)]
+A new vibra2 legacy_adaptive exit 0
+B new vibra2 legacy_adaptive exit 0
+A ref vibra2 legacy_adaptive exit 0
+B ref vibra2 legacy_adaptive exit 0
+vibra2 legacy_adaptive | A returned X,y,S: X identical y identical S identical | A history: identical | B iter 3000 X,y,S: X identical y identical S identical | B iter 6000 X,y,S: X identical y identical S identical | B history new vs ref: identical | history A vs B: new identical, ref identical | iterations, final sigma: [(6000, 0.5), (6000, 0.5), (6000, 0.5), (6000, 0.5)]
+A new mater-2 fixed exit 0
+B new mater-2 fixed exit 0
+A ref mater-2 fixed exit 0
+B ref mater-2 fixed exit 0
+mater-2 fixed | A returned X,y,S: X identical y identical S identical | A history: identical | B iter 3000 X,y,S: X identical y identical S identical | B iter 6000 X,y,S: X identical y identical S identical | B history new vs ref: identical | history A vs B: new identical, ref identical | iterations, final sigma: [(6000, 1), (6000, 1), (6000, 1), (6000, 1)]
+A new mater-2 legacy_adaptive exit 0
+B new mater-2 legacy_adaptive exit 0
+A ref mater-2 legacy_adaptive exit 0
+B ref mater-2 legacy_adaptive exit 0
+mater-2 legacy_adaptive | A returned X,y,S: X identical y identical S identical | A history: identical | B iter 3000 X,y,S: X identical y identical S identical | B iter 6000 X,y,S: X identical y identical S identical | B history new vs ref: identical | history A vs B: new identical, ref identical | iterations, final sigma: [(6000, 0.03125), (6000, 0.03125), (6000, 0.03125), (6000, 0.03125)]
+A new shmup2 fixed exit 0
+B new shmup2 fixed exit 0
+A ref shmup2 fixed exit 0
+B ref shmup2 fixed exit 0
+shmup2 fixed | A returned X,y,S: X identical y identical S identical | A history: identical | B iter 3000 X,y,S: X identical y identical S identical | B iter 6000 X,y,S: X identical y identical S identical | B history new vs ref: identical | history A vs B: new identical, ref identical | iterations, final sigma: [(6000, 1), (6000, 1), (6000, 1), (6000, 1)]
+A new shmup2 legacy_adaptive exit 0
+B new shmup2 legacy_adaptive exit 0
+A ref shmup2 legacy_adaptive exit 0
+B ref shmup2 legacy_adaptive exit 0
+shmup2 legacy_adaptive | A returned X,y,S: X identical y identical S identical | A history: identical | B iter 3000 X,y,S: X identical y identical S identical | B iter 6000 X,y,S: X identical y identical S identical | B history new vs ref: identical | history A vs B: new identical, ref identical | iterations, final sigma: [(6000, 4), (6000, 4), (6000, 4), (6000, 4)]
+overall: ALL IDENTICAL
+== stage0 compare done

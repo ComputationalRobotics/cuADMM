@@ -19,7 +19,7 @@ blk{1, 2} = n;
 
 % generate random constraint matrix
 At = cell(nb_blocks, 1);
-At{1, 1} = rand(vec_len, vec_len); % vectorized format
+At{1, 1} = rand(vec_len, con_num); % vectorized format
 At{1, 1} = sparse(At{1, 1});       % has to be sparse
 
 % generate random cost matrix
@@ -27,14 +27,16 @@ C = cell(nb_blocks, 1);
 C{1, 1} = rand(vec_len, 1); % vectorized format
 C{1, 1} = sparse(C{1, 1});  % has to be sparse
 
-b = rand(vec_len, 1); % in this case the vector is dense
+b = rand(con_num, 1); % in this case the vector is dense
 b = sparse(b);        % has to be sparse
 
 At_stack = from_cell_to_array(At);
 C_stack = from_cell_to_array(C);
 blk_vec = [];
+blk_types = char(zeros(size(blk, 1), 1));
 for i = 1: size(blk, 1)
     blk_vec = [blk_vec; blk{i, 2}];
+    blk_types(i) = blk{i, 1};
 end
 X_new = zeros(vec_len, 1);
 y_new = zeros(con_num, 1);
@@ -47,7 +49,7 @@ stop_tol = 1e-5;             % stopping tolerance (KKT residuals)
 
 [X_out, y_out, S_out, sig_out] = cuadmm_MATLAB(eig_stream_num_per_gpu,...
                                                 max_iter, stop_tol,...
-                                                At_stack, b, C_stack, blk_vec,...
+                                                At_stack, b, C_stack, blk_types, blk_vec,...
                                                 X_new, y_new, S_new, sig_new);
 
 disp(X_out); % display the primal solution in svec format

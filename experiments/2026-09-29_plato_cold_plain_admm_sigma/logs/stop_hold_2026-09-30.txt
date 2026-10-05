@@ -1,0 +1,2 @@
+2026-09-30T14:00:44-04:00 stop before Stage 1: initcheck reports outside the excluded sytrd kernels (cuBLAS syr2k called from cusolverDnXsyevd); diagnose first
+released 2026-09-30T14:28:19-04:00: the complete unfiltered initcheck tallies attribute every report to cuSOLVER's sytrd4_gpu under cusolverDnXsyevd (0 elsewhere), workspace fills give bitwise-identical results, synccheck 5/5 clean

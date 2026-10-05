@@ -57,7 +57,7 @@ inline size_t SpMV_get_buffersize_cusparse(
         cusparse_H.cusparse_handle, CUSPARSE_OPERATION_NON_TRANSPOSE,
         &alpha, A.cusparse_descr, x.cusparse_descr,
         &beta, y.cusparse_descr,
-        CUDA_R_64F, CUSPARSE_SPMV_CSR_ALG1, &buffer_size));
+        CUDA_R_64F, CUSPARSE_SPMV_CSR_ALG2, &buffer_size));
     return buffer_size;
 }
 
@@ -73,7 +73,7 @@ inline void SpMV_cusparse(
         cusparse_H.cusparse_handle, CUSPARSE_OPERATION_NON_TRANSPOSE,
         &alpha, A.cusparse_descr, x.cusparse_descr,
         &beta, y.cusparse_descr,
-        CUDA_R_64F, CUSPARSE_SPMV_CSR_ALG1, buffer.vals));
+        CUDA_R_64F, CUSPARSE_SPMV_CSR_ALG2, buffer.vals));
     return;
 }
 

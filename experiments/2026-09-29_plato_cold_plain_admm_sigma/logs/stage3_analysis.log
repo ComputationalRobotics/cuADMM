@@ -1,0 +1,22 @@
+{
+ "datasets": 26,
+ "practical_reached_adaptive": 8,
+ "practical_reached_fixed": 6,
+ "strict_reached_adaptive": 4,
+ "strict_reached_fixed": 4,
+ "practical_both": 4,
+ "practical_only_adaptive": 4,
+ "practical_only_fixed": 2,
+ "practical_neither": 16,
+ "strict_both": 1,
+ "gmean_speedup_practical_adaptive_over_fixed": 41.07750219525129,
+ "gmean_speedup_strict_adaptive_over_fixed": 14.081069415269123,
+ "gmean_end_to_end_ratio_fixed_over_adaptive_on_practical_both": 12.618769616859375,
+ "practical_both_adaptive_faster": 4,
+ "practical_both_fixed_faster": 0,
+ "neither_lower_dimacs_adaptive": 4,
+ "neither_lower_dimacs_fixed": 12,
+ "gmean_dimacs_ratio_fixed_over_adaptive_neither": 0.30183237555043935,
+ "timeouts_adaptive": 18,
+ "timeouts_fixed": 20
+}

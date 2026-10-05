@@ -8,7 +8,7 @@ addpath("../examples/mexfiles");
 sdpt3 = load("/home/jordan/antoine/sdp_problems/sdpt3/vibra4.mat");
 
 %% Convert SDPT3 to cuADMM format
-[At, b, C, blk_sizes, blk_vals] = sdpt3_to_cuadmm(sdpt3);
+[At, b, C, blk_sizes, blk_types] = sdpt3_to_cuadmm(sdpt3);
 b = sparse(b); % don't forget to convert b to sparse format
 
 %% Solve with cuADMM
@@ -38,7 +38,7 @@ optionsADMM.epsy = 1e-16;
 
 [X_out, y_out, S_out, sig_out] = cuadmm_MATLAB(eig_stream_num_per_gpu,...
                                                 max_iter, stop_tol,...
-                                                At, b, C, blk_sizes, blk_vals,...
+                                                At, b, C, blk_types, blk_sizes,...
                                                 X_new, y_new, S_new, sigma);
 
 function [cuda_At, cuda_b, cuda_C, cuda_blk_sizes, cuda_blk_vals] = sdpt3_to_cuadmm(sdpt3)

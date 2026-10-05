@@ -1,0 +1,7 @@
+3853	Uninitialized __global__ memory read	sytrd4_gpu	>cuLaunchKernel>cusolverDnXsyevd>single_eig_cusolver>SDPSolver::cone_measures>SDPSolver::solve>main
+32486	Uninitialized __global__ memory read	sytrd4_gpu	>cuLaunchKernel>cusolverDnXsyevd>single_eig_cusolver>SDPSolver::large_full_eig_project>SDPSolver::solve>main
+1040640	Uninitialized __global__ memory read	geqr2_smem_domino_fast	>cuLaunchKernel>cusolverDnDgeqrf>lobpcg>SDPSolver::large_lobpcg_project>SDPSolver::solve>main
+TOTAL_REPORTS	1076979
+WITH_cusolverDn_FRAME	1076979
+WITHOUT_cusolverDn_FRAME	0
+========= ERROR SUMMARY: 1076979 errors

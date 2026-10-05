@@ -1,0 +1,6 @@
+6373	Uninitialized __global__ memory read	sytrd4_gpu	>cuLaunchKernel>cusolverDnXsyevd>single_eig_cusolver>SDPSolver::cone_measures>SDPSolver::solve>main
+523673	Uninitialized __global__ memory read	sytrd4_gpu	>cuLaunchKernel>cusolverDnXsyevd>single_eig_cusolver>SDPSolver::solve>main
+TOTAL_REPORTS	530046
+WITH_cusolverDn_FRAME	530046
+WITHOUT_cusolverDn_FRAME	0
+========= ERROR SUMMARY: 530046 errors

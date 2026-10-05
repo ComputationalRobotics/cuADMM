@@ -1,0 +1,1 @@
+{"m": 16, "nblock": 3, "vec_len": 1713, "n_psd_blocks": 2, "max_psd_block": 41, "lp_block_sizes": [32], "n_1x1_psd_blocks": 0, "nnz_At": 928, "nnz_C": 19, "nnz_b": 16, "zeros_dropped": 102, "lower_mirrored": 0, "duplicates": 0, "untouched_blocks": []}

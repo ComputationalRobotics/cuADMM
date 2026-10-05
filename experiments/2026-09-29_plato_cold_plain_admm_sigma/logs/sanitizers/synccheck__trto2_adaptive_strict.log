@@ -1,0 +1,100 @@
+========= COMPUTE-SANITIZER
+Loaded problem from /n/home00/yukuanwei/cuadmm-data/plato_kocvara/txt/trto2/
+              vector length: 4897
+      number of constraints: 144
+           number of blocks: 2
+  number of non-zeros in At: 990
+  number of non-zeros in  b: 144
+  number of non-zeros in  C: 2
+
+ factorization of AA^T + 1e-15 I: simplicial LDL^T, nnz(L) = 1.264e+03, 0.0 s
+   pivots in [7.43e-01, 1.00e+00], 0 tiny (< 1e-12 max) and 0 nonpositive
+   y-step solves: CHOLMOD on the CPU
+
+Analysis of the blk vector:
+        1 l. block of size 144
+        1 matrices of size   97 (medium)
+
+ ||C|| = 2.5, ||b|| = 13
+ DIMACS block kinds from dimacs_blocks.txt (2 blocks)
+
+ Algorithm: plain ADMM
+ Build: plain ADMM only (CUADMM_PLAIN_ADMM_ONLY): sGS-ADMM and the sGS -> ADMM hybrid are disabled; one y linear solve per iteration
+ Strict stage: after the practical criteria, continue until max_abs_DIMACS <= 1e-06 or a safety limit
+ Sigma policy: legacy_adaptive, initial sigma 1 (adaptive updates)
+ Maximum iterations: 400, internal KKT tolerance: 0.0001
+ External validation: every 100 iterations and at each crossing of the internal tolerance; stop only when eta_p <= 0.0001, eta_d <= 0.0001, eta_g <= 0.0001, X cone <= 0.0001, dual cone <= 0.0001 (recomputed on the CPU, all finite)
+
+Problem parameters:
+              solver max iter: 400
+       KKT stopping tolerance: 0.0001
+       sigma update threshold: 500
+         sigma update stage 1: 50
+         sigma update stage 2: 100
+                  switch admm: 0
+                    algorithm: plain ADMM
+         switch proj max iter: 0
+              switch proj tol: 0.01
+                     sigscale: 2
+                 sigma policy: legacy_adaptive
+                initial sigma: 1
+    initial projection method: EIG_FP64
+      final projection method: EIG_FP64
+                   use LOBPCG: true
+              LOBPCG max iter: 20
+             LOBPCG tolerance: 1e-05
+             LOBPCG warmstart: true
+                 LOBPCG ratio: 0.03
+            LOBPCG relaxation: 1.2
+        LOBPCG rank threshold: max(1e-08 * max|lambda|, 0.001 * stop_tol)
+           small matrix limit: 32
+          medium matrix limit: 1000
+
+ ------------------------------------------------------------------------------
+                                   cuADMM
+ ------------------------------------------------------------------------------
+  it. | p infeas d infeas | primal obj.   dual obj. rel. gap |  time |   sigma 
+ ------------------------------------------------------------------------------
+ --------------- Starting with projection method EIG_FP64 ---------------------
+    0 | 9.23e-01 6.00e-01 |  0.0000e+00  0.0000e+00 0.00e+00 |   0.1 | 1.0e+00 
+   50 | 5.35e-02 1.41e-01 | -1.5577e+01 -2.9987e+00 6.43e-01 |   1.3 | 5.0e-01 
+ [validation] it     100 interval          | ext KKT 8.66e-01 (p 3.4e-01 d 1.2e-01 g 8.7e-01) | X cone 3.7e-05 | dual cone 1.2e-01 | sigma 4.000e+00 | failed: primal,dual,gap,dual_cone (2 ms)
+  100 | 3.45e-01 1.20e-01 | -5.7522e+01 -3.6702e+00 8.66e-01 |   2.3 | 4.0e+00 
+  150 | 1.35e-01 2.78e-01 | -6.1267e+01 -1.8294e+01 5.33e-01 |   3.3 | 2.5e-01 
+ [validation] it     200 interval          | ext KKT 6.51e-01 (p 1.5e-01 d 1.8e-01 g 6.5e-01) | X cone 5.3e-07 | dual cone 1.1e-01 | sigma 2.500e-01 | failed: primal,dual,gap,dual_cone (2 ms)
+  200 | 1.50e-01 1.85e-01 | -6.1960e+01 -1.2683e+01 6.51e-01 |   4.3 | 2.5e-01 
+ [validation] it     300 interval          | ext KKT 7.44e-01 (p 8.9e-02 d 1.2e-01 g 7.4e-01) | X cone 6.2e-08 | dual cone 1.1e-01 | sigma 5.000e-01 | failed: primal,dual,gap,dual_cone (2 ms)
+  300 | 8.87e-02 1.23e-01 | -7.3503e+01 -1.0357e+01 7.44e-01 |   6.4 | 5.0e-01 
+ [validation] it     400 max_iter          | ext KKT 8.09e-01 (p 1.8e-01 d 1.1e-01 g 8.1e-01) | X cone 4.2e-06 | dual cone 1.1e-01 | sigma 2.000e+00 | failed: primal,dual,gap,dual_cone (2 ms)
+  400 | 1.83e-01 1.09e-01 | -1.1289e+02 -1.1458e+01 8.09e-01 |   8.5 | 2.0e+00 
+ Returning the best externally evaluated iterate: iteration 200, merit 6.5e-01 (final iterate: 8.1e-01)
+ ------------------------------------------------------------------------------
+
+Solver ended: maximum iteration reached (safety cap, not validated)
+
+ primal infeasibility = 1.5e-01 
+ dual   infeasibility = 1.8e-01 
+ relative gap         = 6.5e-01
+ PSD violation X      = 8.5e-06 
+ PSD violation S      = 7.5e-16
+ certificate: <b,y> + R * -3.437190e-01 is a lower bound on the optimal value if every block of an
+              optimal X has trace (or entries) bounded by R, see certified_lower_bound()
+
+ LOBPCG calls = 0, certificate fallbacks to cuSOLVER = 0
+
+ primal objective = -6.19602426e+01 
+ dual   objective = -1.26834364e+01
+
+ algorithm: plain ADMM, plain ADMM iterations = 400
+ sigma policy: legacy_adaptive, initial sigma 1.000000e+00, final sigma 2.000000e+00, 25 change(s)
+ phases: sGS-ADMM 0 iterations (0.000 s, validation 0.000 s) | plain ADMM 400 iterations (8.399 s, validation 0.007 s)
+ switch: switch_admm = 0, first plain-ADMM iteration 1
+ stop reason: max_iter
+ external validations: 4 (0.01 s); first validated iteration: -1; returned the best externally evaluated iterate
+ best external iterate: iteration 200, KKT 6.51e-01, X cone 5.32e-07, dual cone 1.07e-01, merit 6.51e-01
+
+ time per iteration = 0.0210s 
+ total time         = 8.5s (init 0.1s, iterations 8.4s)
+ -------------------------------------------------------------------------------
+
+========= ERROR SUMMARY: 0 errors

@@ -36,7 +36,7 @@ public:
     {
         if (this->param != NULL)
         {
-            CHECK_CUSOLVER(cusolverDnDestroyParams(this->param));
+            CHECK_CUSOLVER_NOTHROW(cusolverDnDestroyParams(this->param));
             this->param = NULL;
         }
     }
@@ -127,7 +127,7 @@ public:
     {
         if (this->syevj_param != NULL)
         {
-            CHECK_CUSOLVER(cusolverDnDestroySyevjInfo(this->syevj_param));
+            CHECK_CUSOLVER_NOTHROW(cusolverDnDestroySyevjInfo(this->syevj_param));
             this->syevj_param = NULL;
         }
     }

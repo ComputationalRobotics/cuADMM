@@ -1,0 +1,6 @@
+2985	Uninitialized __global__ memory read	sytrd4_gpu	>cuLaunchKernel>cusolverDnXsyevd>single_eig_cusolver>SDPSolver::cone_measures>SDPSolver::solve>main
+27884	Uninitialized __global__ memory read	sytrd4_gpu	>cuLaunchKernel>cusolverDnXsyevd>single_eig_cusolver>SDPSolver::large_full_eig_project>SDPSolver::solve>main
+TOTAL_REPORTS	30869
+WITH_cusolverDn_FRAME	30869
+WITHOUT_cusolverDn_FRAME	0
+========= ERROR SUMMARY: 30869 errors

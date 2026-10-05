@@ -1,0 +1,10 @@
+date: 2026-09-29T19:30:08-04:00 host: holygpu8a12103.rc.fas.harvard.edu CUDA_VISIBLE_DEVICES=0
+new: /n/home00/yukuanwei/cuadmm-builds/plato_official/cuadmm_exe 621b459aae06ea09 lib 2787f1847b6f4b8e
+ref: /n/home00/yukuanwei/cuadmm-builds/hybrid_official/cuadmm_exe 3b6d25b3b6e6c6d4 lib 8fb932e0feb961e1
+new trto3 fixed exit 0
+ref trto3 fixed exit 0
+newval trto3 fixed exit 0
+trto3 fixed X: new vs 09687d2 identical; new vs new+validation DIFFERENT
+trto3 fixed y: new vs 09687d2 identical; new vs new+validation DIFFERENT
+trto3 fixed S: new vs 09687d2 identical; new vs new+validation DIFFERENT
+trto3 fixed history (without time): identical; iterations [6000, 6000] [1, 1]

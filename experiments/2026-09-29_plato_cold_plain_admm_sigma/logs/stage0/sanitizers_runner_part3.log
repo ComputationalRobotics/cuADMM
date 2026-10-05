@@ -1,0 +1,8 @@
+initcheck_excl_sytrd buck4_adaptive: exit 99, 349 s | ========= ERROR SUMMARY: 1237088 errors ========= ERROR SUMMARY: 1236988 errors were not printed. Use --print-limit option to adjust the number of printed errors  | Solver ended: maximum iteration reached (safety cap, not validated)
+initcheck_excl_sytrd trto5_fixed_lobpcg: exit 99, 1562 s | ========= ERROR SUMMARY: 3502278 errors ========= ERROR SUMMARY: 3502178 errors were not printed. Use --print-limit option to adjust the number of printed errors  | Solver ended: maximum iteration reached (safety cap, not validated)
+synccheck gtest_plain: exit 0, 194 s | ========= ERROR SUMMARY: 0 errors  | [  PASSED  ] 6 tests.
+synccheck trto2_adaptive_strict: exit 0, 10 s | ========= ERROR SUMMARY: 0 errors  | Solver ended: maximum iteration reached (safety cap, not validated)
+synccheck mater2_fixed: exit 0, 3 s | ========= ERROR SUMMARY: 0 errors  | Solver ended: maximum iteration reached (safety cap, not validated)
+synccheck buck4_adaptive: exit 0, 44 s | ========= ERROR SUMMARY: 0 errors  | Solver ended: maximum iteration reached (safety cap, not validated)
+synccheck trto5_fixed_lobpcg: exit 0, 81 s | ========= ERROR SUMMARY: 0 errors  | Solver ended: maximum iteration reached (safety cap, not validated)
+== sanitizers2 done

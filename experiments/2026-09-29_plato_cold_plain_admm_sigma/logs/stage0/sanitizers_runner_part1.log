@@ -1,0 +1,10 @@
+memcheck gtest_plain: exit 0, 239 s | ========= LEAK SUMMARY: 0 bytes leaked in 0 allocations ========= ERROR SUMMARY: 0 errors  | [  PASSED  ] 6 tests.
+memcheck trto2_adaptive_strict: exit 0, 67 s | ========= LEAK SUMMARY: 0 bytes leaked in 0 allocations ========= ERROR SUMMARY: 0 errors  | Solver ended: maximum iteration reached (safety cap, not validated)
+memcheck mater2_fixed: exit 0, 12 s | ========= LEAK SUMMARY: 0 bytes leaked in 0 allocations ========= ERROR SUMMARY: 0 errors  | Solver ended: maximum iteration reached (safety cap, not validated)
+memcheck buck4_adaptive: exit 0, 97 s | ========= LEAK SUMMARY: 0 bytes leaked in 0 allocations ========= ERROR SUMMARY: 0 errors  | Solver ended: maximum iteration reached (safety cap, not validated)
+memcheck trto5_fixed_lobpcg: exit 0, 330 s | ========= LEAK SUMMARY: 0 bytes leaked in 0 allocations ========= ERROR SUMMARY: 0 errors  | Solver ended: maximum iteration reached (safety cap, not validated)
+initcheck gtest_plain: exit 0, 253 s | ========= ERROR SUMMARY: 0 errors  | [  PASSED  ] 6 tests.
+initcheck trto2_adaptive_strict: exit 0, 41 s | ========= ERROR SUMMARY: 0 errors  | Solver ended: maximum iteration reached (safety cap, not validated)
+initcheck mater2_fixed: exit 0, 8 s | ========= ERROR SUMMARY: 0 errors  | Solver ended: maximum iteration reached (safety cap, not validated)
+initcheck buck4_adaptive: exit 99, 989 s | ========= ERROR SUMMARY: 530046 errors ========= ERROR SUMMARY: 529946 errors were not printed. Use --print-limit option to adjust the number of printed errors  | Solver ended: maximum iteration reached (safety cap, not validated)
+srun: forcing job termination

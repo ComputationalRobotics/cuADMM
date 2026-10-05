@@ -56,6 +56,8 @@ public:
 // Convert COO sparse matrix format to CSC sparse matrix format.
 // Note: the CSC format generated will always be sorted,
 // hence this function can also help to sort the COO format data.
+// Throws std::invalid_argument (before modifying anything) if nnz or col_num is negative,
+// if the triplets hold fewer than nnz entries, or if a column index lies outside [0, col_num).
 void COO_to_CSC(
     std::vector<int> &col_ptrs,                                                      // pointers of col in CSC, of size (col_num+1, 0)
     std::vector<int> &col_ids, std::vector<int> &row_ids, std::vector<double> &vals, // triplets for the COO format

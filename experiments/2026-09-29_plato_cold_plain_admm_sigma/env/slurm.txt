@@ -1,0 +1,12 @@
+date: 2026-09-29T19:21:57-04:00
+host: holygpu8a12103.rc.fas.harvard.edu
+slurm job: 49325698 partition: Partition=gpu_h200
+allocation command: sbatch -p gpu_h200 --gres=gpu:nvidia_h200:1 -c 24 --mem=128G -t 16:00:00 --exclude=holygpu8a12204 -J cuadmm-plato-h200 --wrap <release-file wait>
+srun: srun --jobid=49325698 --overlap -n 1 -c 16 --gres=gpu:nvidia_h200:1
+CUDA_VISIBLE_DEVICES=0
+   RunTime=00:01:03 TimeLimit=16:00:00 TimeMin=N/A
+   StartTime=2026-09-29T19:20:55 EndTime=2026-09-30T11:20:55 Deadline=N/A
+   ReqNodeList=(null) ExcNodeList=holygpu8a12204
+   NodeList=holygpu8a12103
+   ReqTRES=cpu=24,mem=128G,node=1,billing=2672,gres/gpu=1,gres/gpu:nvidia_h200=1
+   AllocTRES=cpu=24,mem=128G,node=1,billing=2672,gres/gpu=1,gres/gpu:nvidia_h200=1

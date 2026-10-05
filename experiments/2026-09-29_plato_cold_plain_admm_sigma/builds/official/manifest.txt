@@ -1,0 +1,52 @@
+label: official
+worktree: /n/home00/yukuanwei/cuadmm-worktrees/plato-cold
+build dir: /n/home00/yukuanwei/cuadmm-builds/plato_official
+date: 2026-09-29T19:22:11-04:00
+host: holygpu8a12103.rc.fas.harvard.edu
+parent commit: d18da083884bda0ba929d3ed444ac09f8d0d3449
+psd_projection commit: b566590add079acf72b333dc7fac0b64d063e43f
+worktree modifications (git status --short, excluding the submodule placeholder):
+?? experiments/2026-09-29_plato_cold_plain_admm_sigma/builds/
+?? experiments/2026-09-29_plato_cold_plain_admm_sigma/env/
+?? experiments/2026-09-29_plato_cold_plain_admm_sigma/logs/slurm_actions.log
+?? experiments/2026-09-29_plato_cold_plain_admm_sigma/logs/stage0/
+?? experiments/2026-09-29_plato_cold_plain_admm_sigma/scripts/analyze.py
+?? experiments/2026-09-29_plato_cold_plain_admm_sigma/scripts/postvalidate.py
+cmake flags:
+  -DCMAKE_BUILD_TYPE=Release
+  -DCMAKE_CUDA_FLAGS=-gencode=arch=compute_90,code=sm_90 -gencode=arch=compute_90,code=compute_90
+  -DCMAKE_CXX_FLAGS=
+  -DCMAKE_DISABLE_FIND_PACKAGE_Matlab=TRUE
+  -DSUITESPARSE_INCLUDE_DIRECTORIES=/n/home00/yukuanwei/cuadmm-env/include/suitesparse
+  -DCMAD_LIB=/n/home00/yukuanwei/cuadmm-env/lib/libcamd.so
+  -DCCOLAMD_LIB=/n/home00/yukuanwei/cuadmm-env/lib/libccolamd.so
+  -DCHOLMOD_LIB=/n/home00/yukuanwei/cuadmm-env/lib/libcholmod.so
+  -DBLAS_LIBRARIES=/n/home00/yukuanwei/cuadmm-env/lib/libblas.so
+  -DLAPACK_LIBRARIES=/n/home00/yukuanwei/cuadmm-env/lib/liblapack.so
+  -DFETCHCONTENT_SOURCE_DIR_GOOGLETEST=/n/home00/yukuanwei/cuADMM/build/_deps/googletest-src
+configure exit code: 0
+build exit code: 0
+CMakeCache:
+  BLAS_LIBRARIES:UNINITIALIZED=/n/home00/yukuanwei/cuadmm-env/lib/libblas.so
+  CHOLMOD_LIB:FILEPATH=/n/home00/yukuanwei/cuadmm-env/lib/libcholmod.so
+  CMAKE_BUILD_TYPE:STRING=Release
+  CMAKE_CUDA_COMPILER:FILEPATH=/n/sw/helmod-rocky8/apps/Core/cuda/12.9.1-fasrc01/cuda/bin/nvcc
+  CMAKE_CUDA_FLAGS:STRING=-gencode=arch=compute_90,code=sm_90 -gencode=arch=compute_90,code=compute_90
+  CMAKE_CUDA_FLAGS_RELEASE:STRING=-O3 -DNDEBUG
+  CMAKE_CXX_COMPILER:FILEPATH=/n/sw/helmod-rocky8/apps/Core/gcc/12.2.0-fasrc01/bin/g++
+  CMAKE_CXX_FLAGS_RELEASE:STRING=-O3 -DNDEBUG
+  SUITESPARSE_INCLUDE_DIRECTORIES:PATH=/n/home00/yukuanwei/cuadmm-env/include/suitesparse
+sample nvcc command:
+  /n/sw/helmod-rocky8/apps/Core/cuda/12.9.1-fasrc01/cuda/bin/nvcc -forward-unknown-to-host-compiler -DCUADMM_PLAIN_ADMM_ONLY -Dcuadmm_lib_EXPORTS --options-file CMakeFiles/cuadmm_lib.dir/includes_CUDA.rsp -gencode=arch=compute_90,code=sm_90 -gencode=arch=compute_90,code=compute_90 -O3 -DNDEBUG -std=c++17 -Xcompiler=-fPIC -Wno-deprecated-gpu-targets -MD -MT CMakeFiles/cuadmm_lib.dir/src/solver.cu.o -MF CMakeFiles/cuadmm_lib.dir/src/solver.cu.o.d -x cu -c /n/home00/yukuanwei/cuadmm-worktrees/plato-cold/src/solver.cu -o CMakeFiles/cuadmm_lib.dir/src/solver.cu.o
+2787f1847b6f4b8e15e152c739479e5befddc329caefb301b868e0d2586c96a1  /n/home00/yukuanwei/cuadmm-builds/plato_official/libcuadmm_lib.so
+  cuobjdump --list-elf:      22 sm_90 
+  cuobjdump --list-ptx:      22 sm_90 
+30725931876deeb6dab5c1a35fb44ccdf67e5dc6f23f33b8acb831582bef0b3f  /n/home00/yukuanwei/cuadmm-builds/plato_official/psd_projection/libpsd_lib.so
+  cuobjdump --list-elf:       8 sm_90 
+  cuobjdump --list-ptx:       8 sm_90 
+621b459aae06ea09a5e6a7ea9d2fa1714c4cc9e1f1fce7fde0e7e97074b1ac6f  /n/home00/yukuanwei/cuadmm-builds/plato_official/cuadmm_exe
+  cuobjdump --list-elf:       1 sm_90 
+  cuobjdump --list-ptx:       1 sm_90 
+be5ade007f97ff24422b509982c99050421f6989e95a0e9e6c11fa9a003903d2  /n/home00/yukuanwei/cuadmm-builds/plato_official/tests
+  cuobjdump --list-elf: 
+  cuobjdump --list-ptx: 

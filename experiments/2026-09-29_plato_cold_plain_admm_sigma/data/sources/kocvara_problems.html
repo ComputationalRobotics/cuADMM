@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta content="text/html; charset=utf-8" http-equiv="content-type">
+    <title>Sparse SDP problems</title>
+  </head>
+  <body style="           background-color: #ffffc0;">
+    <h3> Sparse SDP problems</h3>
+    <p> This is a collection of sparse linear SDP problems arising in structural
+      optimization. While the `trto' problems are `academic' (they can be
+      reformulated as LP and solved much more efficiently), the other problems
+      have important engineering background.</p>
+    <h4> Download the problems in SDPA format:</h4>
+    <table style="width: 335px; height: 185px;" bgcolor="#E0E0E0" border="1" cellpadding="2"
+      cellspacing="1">
+      <tbody>
+        <tr>
+          <td style="background-color: whitesmoke;"> <strong>problem group</strong>&nbsp;&nbsp;
+            </td>
+          <td style="background-color: whitesmoke;"> <strong>size (KB)</strong>
+          </td>
+        </tr>
+        <tr>
+          <td style="background-color: whitesmoke;"> <a href="problems/mater.zip">mater.zip</a>
+          </td>
+          <td style="background-color: whitesmoke; height: 20px;"> 14,236 </td>
+        </tr>
+        <tr>
+          <td style="background-color: whitesmoke;"> <a href="problems/buck.zip">buck.zip</a>
+          </td>
+          <td style="background-color: whitesmoke;"> 311 </td>
+        </tr>
+        <tr>
+          <td style="background-color: whitesmoke;"> <a href="problems/shmup.zip">shmup.zip
+              </a> </td>
+          <td style="background-color: whitesmoke;"> 863 </td>
+        </tr>
+        <tr>
+          <td style="background-color: whitesmoke;"> <a href="problems/trto.zip">trto.zip
+              </a> </td>
+          <td style="background-color: whitesmoke;"> 151 </td>
+        </tr>
+        <tr>
+          <td style="background-color: whitesmoke;"> <a href="problems/vibra.zip">vibra.zip</a>
+          </td>
+          <td style="background-color: whitesmoke;"> 289 </td>
+        </tr>
+      </tbody>
+    </table>
+    <h4> Description of the problems:</h4>
+    <table bgcolor="#E0E0E0" border="1" cellpadding="2" cellspacing="1">
+      <tbody>
+        <tr>
+          <td> <strong>problem</strong> </td>
+          <td> <strong>n</strong> </td>
+          <td> <strong>m</strong> </td>
+          <td> <strong>objective</strong> </td>
+        </tr>
+        <tr>
+          <td> mater-1 </td>
+          <td> 103 </td>
+          <td> 222 </td>
+          <td> -1.434654e+02 </td>
+        </tr>
+        <tr>
+          <td> mater-2 </td>
+          <td> 423&nbsp; </td>
+          <td> 1014 </td>
+          <td> -1.415919e+02 </td>
+        </tr>
+        <tr>
+          <td> mater-3 </td>
+          <td> 1439&nbsp; </td>
+          <td> 3588 </td>
+          <td> -1.339163e+02 </td>
+        </tr>
+        <tr>
+          <td> mater-4&nbsp; </td>
+          <td> 4807 </td>
+          <td> 12498 </td>
+          <td> -1.342627e+02 </td>
+        </tr>
+        <tr>
+          <td> mater-5 </td>
+          <td> 10143&nbsp; </td>
+          <td> 26820 </td>
+          <td> -1.338016e+02 </td>
+        </tr>
+        <tr>
+          <td> mater-6 </td>
+          <td> 20463 </td>
+          <td> 56311 </td>
+          <td> -1.335387e+02 </td>
+        </tr>
+        <tr>
+          <td> trto1 </td>
+          <td> 36 </td>
+          <td> 25+36 </td>
+          <td> 1.1045 (exact value) </td>
+        </tr>
+        <tr>
+          <td> trto2 </td>
+          <td> 144 </td>
+          <td> 91+144 </td>
+          <td> 1.28 (exact value) </td>
+        </tr>
+        <tr>
+          <td> trto3 </td>
+          <td> 544 </td>
+          <td> 312+544 </td>
+          <td> 1.28 (exact value) </td>
+        </tr>
+        <tr>
+          <td> trto4 </td>
+          <td> 1200 </td>
+          <td> 673+1200 </td>
+          <td> 1.276582 </td>
+        </tr>
+        <tr>
+          <td> trto5 </td>
+          <td> 3280 </td>
+          <td> 1761+3280 </td>
+          <td> 1.28 (exact value) </td>
+        </tr>
+        <tr>
+          <td> buck1 </td>
+          <td> 36 </td>
+          <td> 49+36 </td>
+          <td> 14.64192 </td>
+        </tr>
+        <tr>
+          <td> buck2 </td>
+          <td> 144 </td>
+          <td> 193+144 </td>
+          <td> 292.3683 </td>
+        </tr>
+        <tr>
+          <td> buck3 </td>
+          <td> 544 </td>
+          <td> 641+544 </td>
+          <td> 607.6055 </td>
+        </tr>
+        <tr>
+          <td> buck4 </td>
+          <td> 1200 </td>
+          <td> 1345+1200&nbsp; </td>
+          <td> 486.1421 </td>
+        </tr>
+        <tr>
+          <td> buck5 </td>
+          <td> 3280 </td>
+          <td> 3521+3280 </td>
+          <td>436.2390</td>
+        </tr>
+        <tr>
+          <td> vibra1 </td>
+          <td> 36 </td>
+          <td> 49+36 </td>
+          <td> 40.81901 </td>
+        </tr>
+        <tr>
+          <td> vibra2 </td>
+          <td> 144 </td>
+          <td> 193+144 </td>
+          <td> 166.0153 </td>
+        </tr>
+        <tr>
+          <td> vibra3 </td>
+          <td> 544 </td>
+          <td> 641+544 </td>
+          <td> 172.6130 </td>
+        </tr>
+        <tr>
+          <td> vibra4 </td>
+          <td> 1200 </td>
+          <td> 1345+1200 </td>
+          <td> 165.6133 </td>
+        </tr>
+        <tr>
+          <td> vibra5 </td>
+          <td> 3280 </td>
+          <td> 3521+3280 </td>
+          <td> 165.9029 </td>
+        </tr>
+        <tr>
+          <td> shmup1 </td>
+          <td> 16 </td>
+          <td> 81+32 </td>
+          <td> 188.4148 </td>
+        </tr>
+        <tr>
+          <td> shmup2 </td>
+          <td> 200 </td>
+          <td> 881+400 </td>
+          <td> 3462.427&nbsp; </td>
+        </tr>
+        <tr>
+          <td> shmup3 </td>
+          <td> 420 </td>
+          <td> 1801+840 </td>
+          <td> 2098.838 </td>
+        </tr>
+        <tr>
+          <td> shmup4&nbsp; </td>
+          <td> 800 </td>
+          <td> 3361+1600&nbsp;&nbsp; </td>
+          <td> 7992.534 </td>
+        </tr>
+        <tr>
+          <td> shmup5 </td>
+          <td> 1800 </td>
+          <td> 7441+3600 </td>
+          <td>&nbsp;23858.867</td>
+        </tr>
+      </tbody>
+    </table>
+    <strong><br>
+      Comments:</strong><br>
+    <p> <b><i>n</i></b> is the number of variables, <b><i>m</i></b> the size
+      of the matrix constraint 25+36 means: matrix constraint of size 25 and 36
+      linear constraints.<br>
+      In the `mater' problems, the constraint matrix contains many small blocks.
+      In all other problems, the constraint matrix contains two (in `trto' one)
+      sparse diagonal blocks.<br>
+      The optimal objective values were computed by PENSDP and, in most cases,
+      confirmed by SDPT3 and MOSEK. In the large-scale problems, the two/three
+      codes may differ in the 5th-6th digit. In this case, we give the PENSDP
+      value.<br>
+      <strong>`mater'</strong> are problems of multiple-load free material
+      optimization (area of structural optimization) modeled by linear SDP as
+      described in [1]. All six examples solve the same problem (geometry,
+      loads, boundary conditions) and differ only in the finite element
+      discretization.<br>
+      <strong>`trto'</strong> are problems from single-load truss topology
+      design. Normally formulated as LP, here reformulated as SDP for testing
+      purposes. (see, eg, [2],[3])<br>
+      <strong>`vibra'</strong> are single load truss topology problems with a
+      vibration constraint. The constraint guarantees that the minimal
+      self-vibration frequency of the optimal structure is bigger than a given
+      value; see [4].<br>
+      <strong>`buck'</strong> are single load truss topology problems with
+      linearized global buckling constraint. Originally a nonlinear matrix
+      inequality, the constraint should guarantee that the optimal structure is
+      mechanically stable (it doesn't buckle); see [4].<br>
+      <strong>`shmup'</strong> are minimum volume, single load free material
+      optimization problems [5] with a vibration constraint and upper bound on
+      the material density. The vibration constraint guarantees that the minimal
+      self-vibration frequency of the optimal structure is bigger than a given
+      value.<br>
+    </p>
+    <ol>
+      <li> A. Ben-Tal, M. Kocvara, A. Nemirovski and J. Zowe. Free material
+        optimization via semidefinite programming: the multiload case with
+        contact conditions. <em>SIAM J. Optimization</em>, 9(4): 813-832, 1999
+        and <em>SIAM Review</em>, 42(4): 695-715, 2000.</li>
+      <li> A. Ben-Tal and A. Nemirovski. <em>Lectures on Modern Convex
+          Optimization.</em> MPS-SIAM Series on Optimization. SIAM Philadelphia,
+        2001.</li>
+      <li> M. Kocvara and J. Zowe. How mathematics can help in design of
+        mechanical structures. In D.F. Griffiths and G.A. Watson, eds., <em>Numerical
+          Analysis 1995</em>, Longman, Harlow, 1996, pp. 76-93.</li>
+      <li> M. Kocvara. On the modelling and solving of the truss design problem
+        with global stability constraints. <span style="color: rgb(51, 0, 0);"><i>Structural
+            and Multidisciplinary Optimization</i> 23(3):189-203, 2002.</span></li>
+      <li> J. Zowe, M. Kocvara and M. Bendsøe. Free Material Optimization via
+        Mathematical Programming. <em>Mathematical Programming</em>,
+        79:445-466, 1997.</li>
+    </ol>
+    <hr> <i><font size="-1"><a href="http://web.mat.bham.ac.uk/kocvara">Michal
+          Kocvara</a></font></i><br>
+    <i><font size="-1">February 2, 2017</font></i>
+  </body>
+</html>

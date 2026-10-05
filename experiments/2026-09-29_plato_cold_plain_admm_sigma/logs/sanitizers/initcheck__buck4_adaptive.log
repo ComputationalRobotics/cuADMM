@@ -1,0 +1,1797 @@
+========= COMPUTE-SANITIZER
+Loaded problem from /n/home00/yukuanwei/cuadmm-data/plato_kocvara/txt/buck4/
+              vector length: 454129
+      number of constraints: 1200
+           number of blocks: 3
+  number of non-zeros in At: 17509
+  number of non-zeros in  b: 1200
+  number of non-zeros in  C: 2
+
+ factorization of AA^T + 1e-15 I: simplicial LDL^T, nnz(L) = 2.725e+04, 0.0 s
+   pivots in [5.01e-01, 1.00e+00], 0 tiny (< 1e-12 max) and 0 nonpositive
+   y-step solves: CHOLMOD on the CPU
+
+Analysis of the blk vector:
+        1 l. block of size 1200
+        1 matrices of size  672 (medium)
+        1 matrices of size  673 (medium)
+
+ ||C|| = 2.5, ||b|| = 35.641
+ DIMACS block kinds from dimacs_blocks.txt (3 blocks)
+
+ Algorithm: plain ADMM
+ Build: plain ADMM only (CUADMM_PLAIN_ADMM_ONLY): sGS-ADMM and the sGS -> ADMM hybrid are disabled; one y linear solve per iteration
+ Sigma policy: legacy_adaptive, initial sigma 1 (adaptive updates)
+ Maximum iterations: 200, internal KKT tolerance: 0.0001
+ External validation: every 100 iterations and at each crossing of the internal tolerance; stop only when eta_p <= 0.0001, eta_d <= 0.0001, eta_g <= 0.0001, X cone <= 0.0001, dual cone <= 0.0001 (recomputed on the CPU, all finite)
+
+Problem parameters:
+              solver max iter: 200
+       KKT stopping tolerance: 0.0001
+       sigma update threshold: 500
+         sigma update stage 1: 50
+         sigma update stage 2: 100
+                  switch admm: 0
+                    algorithm: plain ADMM
+         switch proj max iter: 0
+              switch proj tol: 0.01
+                     sigscale: 2
+                 sigma policy: legacy_adaptive
+                initial sigma: 1
+    initial projection method: EIG_FP64
+      final projection method: EIG_FP64
+                   use LOBPCG: true
+              LOBPCG max iter: 20
+             LOBPCG tolerance: 1e-05
+             LOBPCG warmstart: true
+                 LOBPCG ratio: 0.03
+            LOBPCG relaxation: 1.2
+        LOBPCG rank threshold: max(1e-08 * max|lambda|, 0.001 * stop_tol)
+           small matrix limit: 32
+          medium matrix limit: 1000
+
+ ------------------------------------------------------------------------------
+                                   cuADMM
+ ------------------------------------------------------------------------------
+  it. | p infeas d infeas | primal obj.   dual obj. rel. gap |  time |   sigma 
+ ------------------------------------------------------------------------------
+ --------------- Starting with projection method EIG_FP64 ---------------------
+    0 | 9.72e-01 6.00e-01 |  0.0000e+00  0.0000e+00 0.00e+00 |   0.4 | 1.0e+00 
+========= Uninitialized __global__ memory read of size 8 bytes
+=========     at void sytrd4_gpu<sytrd_params<double, (int)32, (int)8, (int)1024, (int)32, (int)16, (int)1, (int)2>>(int, T1::data_type *, int, int, T1::pod_type *, T1::data_type *, int, int, int, int, T1::data_type *, unsigned int *, T1::data_type *, T1::data_type *, int, int, int)+0x3930
+=========     by thread (32,0,0) in block (341,0,0)
+=========     Address 0x147fe8ec77a8
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuLaunchKernel [0x3c965a] in libcuda.so.1
+=========         Host Frame:  [0xa24ad5] in libcusolver.so.11
+=========         Host Frame:  [0xa8dc5d] in libcusolver.so.11
+=========         Host Frame:  [0x401797] in libcusolver.so.11
+=========         Host Frame:  [0x63a139] in libcusolver.so.11
+=========         Host Frame:  [0x63fa56] in libcusolver.so.11
+=========         Host Frame:  [0x42abaa] in libcusolver.so.11
+=========         Host Frame: cusolverDnXsyevd [0x6575b0] in libcusolver.so.11
+=========         Host Frame: void single_eig_cusolver<double>(DeviceSolverDnHandle&, SingleEigParameter&, DeviceDenseVector<double>&, DeviceDenseVector<double>&, DeviceDenseVector<double>&, HostDenseVector<double>&, DeviceDenseVector<int>&, int, unsigned long, unsigned long, int, int, unsigned long, unsigned long, int) [0x6588a] in libcuadmm_lib.so
+=========         Host Frame: SDPSolver::solve(int, double, int, int, int, int, int, double, double, bool) [0x5b109] in libcuadmm_lib.so
+=========         Host Frame: main [0x748b] in cuadmm_exe
+========= 
+========= Uninitialized __global__ memory read of size 8 bytes
+=========     at void sytrd4_gpu<sytrd_params<double, (int)32, (int)8, (int)1024, (int)32, (int)16, (int)1, (int)2>>(int, T1::data_type *, int, int, T1::pod_type *, T1::data_type *, int, int, int, int, T1::data_type *, unsigned int *, T1::data_type *, T1::data_type *, int, int, int)+0x3930
+=========     by thread (32,0,0) in block (514,0,0)
+=========     Address 0x147fe8ec77a8
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuLaunchKernel [0x3c965a] in libcuda.so.1
+=========         Host Frame:  [0xa24ad5] in libcusolver.so.11
+=========         Host Frame:  [0xa8dc5d] in libcusolver.so.11
+=========         Host Frame:  [0x401797] in libcusolver.so.11
+=========         Host Frame:  [0x63a139] in libcusolver.so.11
+=========         Host Frame:  [0x63fa56] in libcusolver.so.11
+=========         Host Frame:  [0x42abaa] in libcusolver.so.11
+=========         Host Frame: cusolverDnXsyevd [0x6575b0] in libcusolver.so.11
+=========         Host Frame: void single_eig_cusolver<double>(DeviceSolverDnHandle&, SingleEigParameter&, DeviceDenseVector<double>&, DeviceDenseVector<double>&, DeviceDenseVector<double>&, HostDenseVector<double>&, DeviceDenseVector<int>&, int, unsigned long, unsigned long, int, int, unsigned long, unsigned long, int) [0x6588a] in libcuadmm_lib.so
+=========         Host Frame: SDPSolver::solve(int, double, int, int, int, int, int, double, double, bool) [0x5b109] in libcuadmm_lib.so
+=========         Host Frame: main [0x748b] in cuadmm_exe
+========= 
+========= Uninitialized __global__ memory read of size 8 bytes
+=========     at void sytrd4_gpu<sytrd_params<double, (int)32, (int)8, (int)1024, (int)32, (int)16, (int)1, (int)2>>(int, T1::data_type *, int, int, T1::pod_type *, T1::data_type *, int, int, int, int, T1::data_type *, unsigned int *, T1::data_type *, T1::data_type *, int, int, int)+0x3930
+=========     by thread (33,0,0) in block (514,0,0)
+=========     Address 0x147fe8ec8cb8
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuLaunchKernel [0x3c965a] in libcuda.so.1
+=========         Host Frame:  [0xa24ad5] in libcusolver.so.11
+=========         Host Frame:  [0xa8dc5d] in libcusolver.so.11
+=========         Host Frame:  [0x401797] in libcusolver.so.11
+=========         Host Frame:  [0x63a139] in libcusolver.so.11
+=========         Host Frame:  [0x63fa56] in libcusolver.so.11
+=========         Host Frame:  [0x42abaa] in libcusolver.so.11
+=========         Host Frame: cusolverDnXsyevd [0x6575b0] in libcusolver.so.11
+=========         Host Frame: void single_eig_cusolver<double>(DeviceSolverDnHandle&, SingleEigParameter&, DeviceDenseVector<double>&, DeviceDenseVector<double>&, DeviceDenseVector<double>&, HostDenseVector<double>&, DeviceDenseVector<int>&, int, unsigned long, unsigned long, int, int, unsigned long, unsigned long, int) [0x6588a] in libcuadmm_lib.so
+=========         Host Frame: SDPSolver::solve(int, double, int, int, int, int, int, double, double, bool) [0x5b109] in libcuadmm_lib.so
+=========         Host Frame: main [0x748b] in cuadmm_exe
+========= 
+========= Uninitialized __global__ memory read of size 8 bytes
+=========     at void sytrd4_gpu<sytrd_params<double, (int)32, (int)8, (int)1024, (int)32, (int)16, (int)1, (int)2>>(int, T1::data_type *, int, int, T1::pod_type *, T1::data_type *, int, int, int, int, T1::data_type *, unsigned int *, T1::data_type *, T1::data_type *, int, int, int)+0x3930
+=========     by thread (32,0,0) in block (688,0,0)
+=========     Address 0x147fe8ec77a8
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuLaunchKernel [0x3c965a] in libcuda.so.1
+=========         Host Frame:  [0xa24ad5] in libcusolver.so.11
+=========         Host Frame:  [0xa8dc5d] in libcusolver.so.11
+=========         Host Frame:  [0x401797] in libcusolver.so.11
+=========         Host Frame:  [0x63a139] in libcusolver.so.11
+=========         Host Frame:  [0x63fa56] in libcusolver.so.11
+=========         Host Frame:  [0x42abaa] in libcusolver.so.11
+=========         Host Frame: cusolverDnXsyevd [0x6575b0] in libcusolver.so.11
+=========         Host Frame: void single_eig_cusolver<double>(DeviceSolverDnHandle&, SingleEigParameter&, DeviceDenseVector<double>&, DeviceDenseVector<double>&, DeviceDenseVector<double>&, HostDenseVector<double>&, DeviceDenseVector<int>&, int, unsigned long, unsigned long, int, int, unsigned long, unsigned long, int) [0x6588a] in libcuadmm_lib.so
+=========         Host Frame: SDPSolver::solve(int, double, int, int, int, int, int, double, double, bool) [0x5b109] in libcuadmm_lib.so
+=========         Host Frame: main [0x748b] in cuadmm_exe
+========= 
+========= Uninitialized __global__ memory read of size 8 bytes
+=========     at void sytrd4_gpu<sytrd_params<double, (int)32, (int)8, (int)1024, (int)32, (int)16, (int)1, (int)2>>(int, T1::data_type *, int, int, T1::pod_type *, T1::data_type *, int, int, int, int, T1::data_type *, unsigned int *, T1::data_type *, T1::data_type *, int, int, int)+0x3930
+=========     by thread (33,0,0) in block (688,0,0)
+=========     Address 0x147fe8ec8cb8
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuLaunchKernel [0x3c965a] in libcuda.so.1
+=========         Host Frame:  [0xa24ad5] in libcusolver.so.11
+=========         Host Frame:  [0xa8dc5d] in libcusolver.so.11
+=========         Host Frame:  [0x401797] in libcusolver.so.11
+=========         Host Frame:  [0x63a139] in libcusolver.so.11
+=========         Host Frame:  [0x63fa56] in libcusolver.so.11
+=========         Host Frame:  [0x42abaa] in libcusolver.so.11
+=========         Host Frame: cusolverDnXsyevd [0x6575b0] in libcusolver.so.11
+=========         Host Frame: void single_eig_cusolver<double>(DeviceSolverDnHandle&, SingleEigParameter&, DeviceDenseVector<double>&, DeviceDenseVector<double>&, DeviceDenseVector<double>&, HostDenseVector<double>&, DeviceDenseVector<int>&, int, unsigned long, unsigned long, int, int, unsigned long, unsigned long, int) [0x6588a] in libcuadmm_lib.so
+=========         Host Frame: SDPSolver::solve(int, double, int, int, int, int, int, double, double, bool) [0x5b109] in libcuadmm_lib.so
+=========         Host Frame: main [0x748b] in cuadmm_exe
+========= 
+========= Uninitialized __global__ memory read of size 8 bytes
+=========     at void sytrd4_gpu<sytrd_params<double, (int)32, (int)8, (int)1024, (int)32, (int)16, (int)1, (int)2>>(int, T1::data_type *, int, int, T1::pod_type *, T1::data_type *, int, int, int, int, T1::data_type *, unsigned int *, T1::data_type *, T1::data_type *, int, int, int)+0x3930
+=========     by thread (34,0,0) in block (688,0,0)
+=========     Address 0x147fe8eca1c8
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuLaunchKernel [0x3c965a] in libcuda.so.1
+=========         Host Frame:  [0xa24ad5] in libcusolver.so.11
+=========         Host Frame:  [0xa8dc5d] in libcusolver.so.11
+=========         Host Frame:  [0x401797] in libcusolver.so.11
+=========         Host Frame:  [0x63a139] in libcusolver.so.11
+=========         Host Frame:  [0x63fa56] in libcusolver.so.11
+=========         Host Frame:  [0x42abaa] in libcusolver.so.11
+=========         Host Frame: cusolverDnXsyevd [0x6575b0] in libcusolver.so.11
+=========         Host Frame: void single_eig_cusolver<double>(DeviceSolverDnHandle&, SingleEigParameter&, DeviceDenseVector<double>&, DeviceDenseVector<double>&, DeviceDenseVector<double>&, HostDenseVector<double>&, DeviceDenseVector<int>&, int, unsigned long, unsigned long, int, int, unsigned long, unsigned long, int) [0x6588a] in libcuadmm_lib.so
+=========         Host Frame: SDPSolver::solve(int, double, int, int, int, int, int, double, double, bool) [0x5b109] in libcuadmm_lib.so
+=========         Host Frame: main [0x748b] in cuadmm_exe
+========= 
+========= Uninitialized __global__ memory read of size 8 bytes
+=========     at void sytrd4_gpu<sytrd_params<double, (int)32, (int)8, (int)1024, (int)32, (int)16, (int)1, (int)2>>(int, T1::data_type *, int, int, T1::pod_type *, T1::data_type *, int, int, int, int, T1::data_type *, unsigned int *, T1::data_type *, T1::data_type *, int, int, int)+0x3930
+=========     by thread (32,0,0) in block (863,0,0)
+=========     Address 0x147fe8ec77a8
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuLaunchKernel [0x3c965a] in libcuda.so.1
+=========         Host Frame:  [0xa24ad5] in libcusolver.so.11
+=========         Host Frame:  [0xa8dc5d] in libcusolver.so.11
+=========         Host Frame:  [0x401797] in libcusolver.so.11
+=========         Host Frame:  [0x63a139] in libcusolver.so.11
+=========         Host Frame:  [0x63fa56] in libcusolver.so.11
+=========         Host Frame:  [0x42abaa] in libcusolver.so.11
+=========         Host Frame: cusolverDnXsyevd [0x6575b0] in libcusolver.so.11
+=========         Host Frame: void single_eig_cusolver<double>(DeviceSolverDnHandle&, SingleEigParameter&, DeviceDenseVector<double>&, DeviceDenseVector<double>&, DeviceDenseVector<double>&, HostDenseVector<double>&, DeviceDenseVector<int>&, int, unsigned long, unsigned long, int, int, unsigned long, unsigned long, int) [0x6588a] in libcuadmm_lib.so
+=========         Host Frame: SDPSolver::solve(int, double, int, int, int, int, int, double, double, bool) [0x5b109] in libcuadmm_lib.so
+=========         Host Frame: main [0x748b] in cuadmm_exe
+========= 
+========= Uninitialized __global__ memory read of size 8 bytes
+=========     at void sytrd4_gpu<sytrd_params<double, (int)32, (int)8, (int)1024, (int)32, (int)16, (int)1, (int)2>>(int, T1::data_type *, int, int, T1::pod_type *, T1::data_type *, int, int, int, int, T1::data_type *, unsigned int *, T1::data_type *, T1::data_type *, int, int, int)+0x3930
+=========     by thread (33,0,0) in block (863,0,0)
+=========     Address 0x147fe8ec8cb8
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuLaunchKernel [0x3c965a] in libcuda.so.1
+=========         Host Frame:  [0xa24ad5] in libcusolver.so.11
+=========         Host Frame:  [0xa8dc5d] in libcusolver.so.11
+=========         Host Frame:  [0x401797] in libcusolver.so.11
+=========         Host Frame:  [0x63a139] in libcusolver.so.11
+=========         Host Frame:  [0x63fa56] in libcusolver.so.11
+=========         Host Frame:  [0x42abaa] in libcusolver.so.11
+=========         Host Frame: cusolverDnXsyevd [0x6575b0] in libcusolver.so.11
+=========         Host Frame: void single_eig_cusolver<double>(DeviceSolverDnHandle&, SingleEigParameter&, DeviceDenseVector<double>&, DeviceDenseVector<double>&, DeviceDenseVector<double>&, HostDenseVector<double>&, DeviceDenseVector<int>&, int, unsigned long, unsigned long, int, int, unsigned long, unsigned long, int) [0x6588a] in libcuadmm_lib.so
+=========         Host Frame: SDPSolver::solve(int, double, int, int, int, int, int, double, double, bool) [0x5b109] in libcuadmm_lib.so
+=========         Host Frame: main [0x748b] in cuadmm_exe
+========= 
+========= Uninitialized __global__ memory read of size 8 bytes
+=========     at void sytrd4_gpu<sytrd_params<double, (int)32, (int)8, (int)1024, (int)32, (int)16, (int)1, (int)2>>(int, T1::data_type *, int, int, T1::pod_type *, T1::data_type *, int, int, int, int, T1::data_type *, unsigned int *, T1::data_type *, T1::data_type *, int, int, int)+0x3930
+=========     by thread (34,0,0) in block (863,0,0)
+=========     Address 0x147fe8eca1c8
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuLaunchKernel [0x3c965a] in libcuda.so.1
+=========         Host Frame:  [0xa24ad5] in libcusolver.so.11
+=========         Host Frame:  [0xa8dc5d] in libcusolver.so.11
+=========         Host Frame:  [0x401797] in libcusolver.so.11
+=========         Host Frame:  [0x63a139] in libcusolver.so.11
+=========         Host Frame:  [0x63fa56] in libcusolver.so.11
+=========         Host Frame:  [0x42abaa] in libcusolver.so.11
+=========         Host Frame: cusolverDnXsyevd [0x6575b0] in libcusolver.so.11
+=========         Host Frame: void single_eig_cusolver<double>(DeviceSolverDnHandle&, SingleEigParameter&, DeviceDenseVector<double>&, DeviceDenseVector<double>&, DeviceDenseVector<double>&, HostDenseVector<double>&, DeviceDenseVector<int>&, int, unsigned long, unsigned long, int, int, unsigned long, unsigned long, int) [0x6588a] in libcuadmm_lib.so
+=========         Host Frame: SDPSolver::solve(int, double, int, int, int, int, int, double, double, bool) [0x5b109] in libcuadmm_lib.so
+=========         Host Frame: main [0x748b] in cuadmm_exe
+========= 
+========= Uninitialized __global__ memory read of size 8 bytes
+=========     at void sytrd4_gpu<sytrd_params<double, (int)32, (int)8, (int)1024, (int)32, (int)16, (int)1, (int)2>>(int, T1::data_type *, int, int, T1::pod_type *, T1::data_type *, int, int, int, int, T1::data_type *, unsigned int *, T1::data_type *, T1::data_type *, int, int, int)+0x3930
+=========     by thread (35,0,0) in block (863,0,0)
+=========     Address 0x147fe8ecb6d8
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuLaunchKernel [0x3c965a] in libcuda.so.1
+=========         Host Frame:  [0xa24ad5] in libcusolver.so.11
+=========         Host Frame:  [0xa8dc5d] in libcusolver.so.11
+=========         Host Frame:  [0x401797] in libcusolver.so.11
+=========         Host Frame:  [0x63a139] in libcusolver.so.11
+=========         Host Frame:  [0x63fa56] in libcusolver.so.11
+=========         Host Frame:  [0x42abaa] in libcusolver.so.11
+=========         Host Frame: cusolverDnXsyevd [0x6575b0] in libcusolver.so.11
+=========         Host Frame: void single_eig_cusolver<double>(DeviceSolverDnHandle&, SingleEigParameter&, DeviceDenseVector<double>&, DeviceDenseVector<double>&, DeviceDenseVector<double>&, HostDenseVector<double>&, DeviceDenseVector<int>&, int, unsigned long, unsigned long, int, int, unsigned long, unsigned long, int) [0x6588a] in libcuadmm_lib.so
+=========         Host Frame: SDPSolver::solve(int, double, int, int, int, int, int, double, double, bool) [0x5b109] in libcuadmm_lib.so
+=========         Host Frame: main [0x748b] in cuadmm_exe
+========= 
+========= Uninitialized __global__ memory read of size 8 bytes
+=========     at void sytrd4_gpu<sytrd_params<double, (int)32, (int)8, (int)1024, (int)32, (int)16, (int)1, (int)2>>(int, T1::data_type *, int, int, T1::pod_type *, T1::data_type *, int, int, int, int, T1::data_type *, unsigned int *, T1::data_type *, T1::data_type *, int, int, int)+0x3930
+=========     by thread (32,0,0) in block (1039,0,0)
+=========     Address 0x147fe8ec77a8
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuLaunchKernel [0x3c965a] in libcuda.so.1
+=========         Host Frame:  [0xa24ad5] in libcusolver.so.11
+=========         Host Frame:  [0xa8dc5d] in libcusolver.so.11
+=========         Host Frame:  [0x401797] in libcusolver.so.11
+=========         Host Frame:  [0x63a139] in libcusolver.so.11
+=========         Host Frame:  [0x63fa56] in libcusolver.so.11
+=========         Host Frame:  [0x42abaa] in libcusolver.so.11
+=========         Host Frame: cusolverDnXsyevd [0x6575b0] in libcusolver.so.11
+=========         Host Frame: void single_eig_cusolver<double>(DeviceSolverDnHandle&, SingleEigParameter&, DeviceDenseVector<double>&, DeviceDenseVector<double>&, DeviceDenseVector<double>&, HostDenseVector<double>&, DeviceDenseVector<int>&, int, unsigned long, unsigned long, int, int, unsigned long, unsigned long, int) [0x6588a] in libcuadmm_lib.so
+=========         Host Frame: SDPSolver::solve(int, double, int, int, int, int, int, double, double, bool) [0x5b109] in libcuadmm_lib.so
+=========         Host Frame: main [0x748b] in cuadmm_exe
+========= 
+========= Uninitialized __global__ memory read of size 8 bytes
+=========     at void sytrd4_gpu<sytrd_params<double, (int)32, (int)8, (int)1024, (int)32, (int)16, (int)1, (int)2>>(int, T1::data_type *, int, int, T1::pod_type *, T1::data_type *, int, int, int, int, T1::data_type *, unsigned int *, T1::data_type *, T1::data_type *, int, int, int)+0x3930
+=========     by thread (33,0,0) in block (1039,0,0)
+=========     Address 0x147fe8ec8cb8
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuLaunchKernel [0x3c965a] in libcuda.so.1
+=========         Host Frame:  [0xa24ad5] in libcusolver.so.11
+=========         Host Frame:  [0xa8dc5d] in libcusolver.so.11
+=========         Host Frame:  [0x401797] in libcusolver.so.11
+=========         Host Frame:  [0x63a139] in libcusolver.so.11
+=========         Host Frame:  [0x63fa56] in libcusolver.so.11
+=========         Host Frame:  [0x42abaa] in libcusolver.so.11
+=========         Host Frame: cusolverDnXsyevd [0x6575b0] in libcusolver.so.11
+=========         Host Frame: void single_eig_cusolver<double>(DeviceSolverDnHandle&, SingleEigParameter&, DeviceDenseVector<double>&, DeviceDenseVector<double>&, DeviceDenseVector<double>&, HostDenseVector<double>&, DeviceDenseVector<int>&, int, unsigned long, unsigned long, int, int, unsigned long, unsigned long, int) [0x6588a] in libcuadmm_lib.so
+=========         Host Frame: SDPSolver::solve(int, double, int, int, int, int, int, double, double, bool) [0x5b109] in libcuadmm_lib.so
+=========         Host Frame: main [0x748b] in cuadmm_exe
+========= 
+========= Uninitialized __global__ memory read of size 8 bytes
+=========     at void sytrd4_gpu<sytrd_params<double, (int)32, (int)8, (int)1024, (int)32, (int)16, (int)1, (int)2>>(int, T1::data_type *, int, int, T1::pod_type *, T1::data_type *, int, int, int, int, T1::data_type *, unsigned int *, T1::data_type *, T1::data_type *, int, int, int)+0x3930
+=========     by thread (34,0,0) in block (1039,0,0)
+=========     Address 0x147fe8eca1c8
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuLaunchKernel [0x3c965a] in libcuda.so.1
+=========         Host Frame:  [0xa24ad5] in libcusolver.so.11
+=========         Host Frame:  [0xa8dc5d] in libcusolver.so.11
+=========         Host Frame:  [0x401797] in libcusolver.so.11
+=========         Host Frame:  [0x63a139] in libcusolver.so.11
+=========         Host Frame:  [0x63fa56] in libcusolver.so.11
+=========         Host Frame:  [0x42abaa] in libcusolver.so.11
+=========         Host Frame: cusolverDnXsyevd [0x6575b0] in libcusolver.so.11
+=========         Host Frame: void single_eig_cusolver<double>(DeviceSolverDnHandle&, SingleEigParameter&, DeviceDenseVector<double>&, DeviceDenseVector<double>&, DeviceDenseVector<double>&, HostDenseVector<double>&, DeviceDenseVector<int>&, int, unsigned long, unsigned long, int, int, unsigned long, unsigned long, int) [0x6588a] in libcuadmm_lib.so
+=========         Host Frame: SDPSolver::solve(int, double, int, int, int, int, int, double, double, bool) [0x5b109] in libcuadmm_lib.so
+=========         Host Frame: main [0x748b] in cuadmm_exe
+========= 
+========= Uninitialized __global__ memory read of size 8 bytes
+=========     at void sytrd4_gpu<sytrd_params<double, (int)32, (int)8, (int)1024, (int)32, (int)16, (int)1, (int)2>>(int, T1::data_type *, int, int, T1::pod_type *, T1::data_type *, int, int, int, int, T1::data_type *, unsigned int *, T1::data_type *, T1::data_type *, int, int, int)+0x3930
+=========     by thread (35,0,0) in block (1039,0,0)
+=========     Address 0x147fe8ecb6d8
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuLaunchKernel [0x3c965a] in libcuda.so.1
+=========         Host Frame:  [0xa24ad5] in libcusolver.so.11
+=========         Host Frame:  [0xa8dc5d] in libcusolver.so.11
+=========         Host Frame:  [0x401797] in libcusolver.so.11
+=========         Host Frame:  [0x63a139] in libcusolver.so.11
+=========         Host Frame:  [0x63fa56] in libcusolver.so.11
+=========         Host Frame:  [0x42abaa] in libcusolver.so.11
+=========         Host Frame: cusolverDnXsyevd [0x6575b0] in libcusolver.so.11
+=========         Host Frame: void single_eig_cusolver<double>(DeviceSolverDnHandle&, SingleEigParameter&, DeviceDenseVector<double>&, DeviceDenseVector<double>&, DeviceDenseVector<double>&, HostDenseVector<double>&, DeviceDenseVector<int>&, int, unsigned long, unsigned long, int, int, unsigned long, unsigned long, int) [0x6588a] in libcuadmm_lib.so
+=========         Host Frame: SDPSolver::solve(int, double, int, int, int, int, int, double, double, bool) [0x5b109] in libcuadmm_lib.so
+=========         Host Frame: main [0x748b] in cuadmm_exe
+========= 
+========= Uninitialized __global__ memory read of size 8 bytes
+=========     at void sytrd4_gpu<sytrd_params<double, (int)32, (int)8, (int)1024, (int)32, (int)16, (int)1, (int)2>>(int, T1::data_type *, int, int, T1::pod_type *, T1::data_type *, int, int, int, int, T1::data_type *, unsigned int *, T1::data_type *, T1::data_type *, int, int, int)+0x3930
+=========     by thread (36,0,0) in block (1039,0,0)
+=========     Address 0x147fe8eccbe8
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuLaunchKernel [0x3c965a] in libcuda.so.1
+=========         Host Frame:  [0xa24ad5] in libcusolver.so.11
+=========         Host Frame:  [0xa8dc5d] in libcusolver.so.11
+=========         Host Frame:  [0x401797] in libcusolver.so.11
+=========         Host Frame:  [0x63a139] in libcusolver.so.11
+=========         Host Frame:  [0x63fa56] in libcusolver.so.11
+=========         Host Frame:  [0x42abaa] in libcusolver.so.11
+=========         Host Frame: cusolverDnXsyevd [0x6575b0] in libcusolver.so.11
+=========         Host Frame: void single_eig_cusolver<double>(DeviceSolverDnHandle&, SingleEigParameter&, DeviceDenseVector<double>&, DeviceDenseVector<double>&, DeviceDenseVector<double>&, HostDenseVector<double>&, DeviceDenseVector<int>&, int, unsigned long, unsigned long, int, int, unsigned long, unsigned long, int) [0x6588a] in libcuadmm_lib.so
+=========         Host Frame: SDPSolver::solve(int, double, int, int, int, int, int, double, double, bool) [0x5b109] in libcuadmm_lib.so
+=========         Host Frame: main [0x748b] in cuadmm_exe
+========= 
+========= Uninitialized __global__ memory read of size 8 bytes
+=========     at void sytrd4_gpu<sytrd_params<double, (int)32, (int)8, (int)1024, (int)32, (int)16, (int)1, (int)2>>(int, T1::data_type *, int, int, T1::pod_type *, T1::data_type *, int, int, int, int, T1::data_type *, unsigned int *, T1::data_type *, T1::data_type *, int, int, int)+0x3930
+=========     by thread (32,0,0) in block (1216,0,0)
+=========     Address 0x147fe8ec77a8
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuLaunchKernel [0x3c965a] in libcuda.so.1
+=========         Host Frame:  [0xa24ad5] in libcusolver.so.11
+=========         Host Frame:  [0xa8dc5d] in libcusolver.so.11
+=========         Host Frame:  [0x401797] in libcusolver.so.11
+=========         Host Frame:  [0x63a139] in libcusolver.so.11
+=========         Host Frame:  [0x63fa56] in libcusolver.so.11
+=========         Host Frame:  [0x42abaa] in libcusolver.so.11
+=========         Host Frame: cusolverDnXsyevd [0x6575b0] in libcusolver.so.11
+=========         Host Frame: void single_eig_cusolver<double>(DeviceSolverDnHandle&, SingleEigParameter&, DeviceDenseVector<double>&, DeviceDenseVector<double>&, DeviceDenseVector<double>&, HostDenseVector<double>&, DeviceDenseVector<int>&, int, unsigned long, unsigned long, int, int, unsigned long, unsigned long, int) [0x6588a] in libcuadmm_lib.so
+=========         Host Frame: SDPSolver::solve(int, double, int, int, int, int, int, double, double, bool) [0x5b109] in libcuadmm_lib.so
+=========         Host Frame: main [0x748b] in cuadmm_exe
+========= 
+========= Uninitialized __global__ memory read of size 8 bytes
+=========     at void sytrd4_gpu<sytrd_params<double, (int)32, (int)8, (int)1024, (int)32, (int)16, (int)1, (int)2>>(int, T1::data_type *, int, int, T1::pod_type *, T1::data_type *, int, int, int, int, T1::data_type *, unsigned int *, T1::data_type *, T1::data_type *, int, int, int)+0x3930
+=========     by thread (33,0,0) in block (1216,0,0)
+=========     Address 0x147fe8ec8cb8
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuLaunchKernel [0x3c965a] in libcuda.so.1
+=========         Host Frame:  [0xa24ad5] in libcusolver.so.11
+=========         Host Frame:  [0xa8dc5d] in libcusolver.so.11
+=========         Host Frame:  [0x401797] in libcusolver.so.11
+=========         Host Frame:  [0x63a139] in libcusolver.so.11
+=========         Host Frame:  [0x63fa56] in libcusolver.so.11
+=========         Host Frame:  [0x42abaa] in libcusolver.so.11
+=========         Host Frame: cusolverDnXsyevd [0x6575b0] in libcusolver.so.11
+=========         Host Frame: void single_eig_cusolver<double>(DeviceSolverDnHandle&, SingleEigParameter&, DeviceDenseVector<double>&, DeviceDenseVector<double>&, DeviceDenseVector<double>&, HostDenseVector<double>&, DeviceDenseVector<int>&, int, unsigned long, unsigned long, int, int, unsigned long, unsigned long, int) [0x6588a] in libcuadmm_lib.so
+=========         Host Frame: SDPSolver::solve(int, double, int, int, int, int, int, double, double, bool) [0x5b109] in libcuadmm_lib.so
+=========         Host Frame: main [0x748b] in cuadmm_exe
+========= 
+========= Uninitialized __global__ memory read of size 8 bytes
+=========     at void sytrd4_gpu<sytrd_params<double, (int)32, (int)8, (int)1024, (int)32, (int)16, (int)1, (int)2>>(int, T1::data_type *, int, int, T1::pod_type *, T1::data_type *, int, int, int, int, T1::data_type *, unsigned int *, T1::data_type *, T1::data_type *, int, int, int)+0x3930
+=========     by thread (34,0,0) in block (1216,0,0)
+=========     Address 0x147fe8eca1c8
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuLaunchKernel [0x3c965a] in libcuda.so.1
+=========         Host Frame:  [0xa24ad5] in libcusolver.so.11
+=========         Host Frame:  [0xa8dc5d] in libcusolver.so.11
+=========         Host Frame:  [0x401797] in libcusolver.so.11
+=========         Host Frame:  [0x63a139] in libcusolver.so.11
+=========         Host Frame:  [0x63fa56] in libcusolver.so.11
+=========         Host Frame:  [0x42abaa] in libcusolver.so.11
+=========         Host Frame: cusolverDnXsyevd [0x6575b0] in libcusolver.so.11
+=========         Host Frame: void single_eig_cusolver<double>(DeviceSolverDnHandle&, SingleEigParameter&, DeviceDenseVector<double>&, DeviceDenseVector<double>&, DeviceDenseVector<double>&, HostDenseVector<double>&, DeviceDenseVector<int>&, int, unsigned long, unsigned long, int, int, unsigned long, unsigned long, int) [0x6588a] in libcuadmm_lib.so
+=========         Host Frame: SDPSolver::solve(int, double, int, int, int, int, int, double, double, bool) [0x5b109] in libcuadmm_lib.so
+=========         Host Frame: main [0x748b] in cuadmm_exe
+========= 
+========= Uninitialized __global__ memory read of size 8 bytes
+=========     at void sytrd4_gpu<sytrd_params<double, (int)32, (int)8, (int)1024, (int)32, (int)16, (int)1, (int)2>>(int, T1::data_type *, int, int, T1::pod_type *, T1::data_type *, int, int, int, int, T1::data_type *, unsigned int *, T1::data_type *, T1::data_type *, int, int, int)+0x3930
+=========     by thread (35,0,0) in block (1216,0,0)
+=========     Address 0x147fe8ecb6d8
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuLaunchKernel [0x3c965a] in libcuda.so.1
+=========         Host Frame:  [0xa24ad5] in libcusolver.so.11
+=========         Host Frame:  [0xa8dc5d] in libcusolver.so.11
+=========         Host Frame:  [0x401797] in libcusolver.so.11
+=========         Host Frame:  [0x63a139] in libcusolver.so.11
+=========         Host Frame:  [0x63fa56] in libcusolver.so.11
+=========         Host Frame:  [0x42abaa] in libcusolver.so.11
+=========         Host Frame: cusolverDnXsyevd [0x6575b0] in libcusolver.so.11
+=========         Host Frame: void single_eig_cusolver<double>(DeviceSolverDnHandle&, SingleEigParameter&, DeviceDenseVector<double>&, DeviceDenseVector<double>&, DeviceDenseVector<double>&, HostDenseVector<double>&, DeviceDenseVector<int>&, int, unsigned long, unsigned long, int, int, unsigned long, unsigned long, int) [0x6588a] in libcuadmm_lib.so
+=========         Host Frame: SDPSolver::solve(int, double, int, int, int, int, int, double, double, bool) [0x5b109] in libcuadmm_lib.so
+=========         Host Frame: main [0x748b] in cuadmm_exe
+========= 
+========= Uninitialized __global__ memory read of size 8 bytes
+=========     at void sytrd4_gpu<sytrd_params<double, (int)32, (int)8, (int)1024, (int)32, (int)16, (int)1, (int)2>>(int, T1::data_type *, int, int, T1::pod_type *, T1::data_type *, int, int, int, int, T1::data_type *, unsigned int *, T1::data_type *, T1::data_type *, int, int, int)+0x3930
+=========     by thread (36,0,0) in block (1216,0,0)
+=========     Address 0x147fe8eccbe8
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuLaunchKernel [0x3c965a] in libcuda.so.1
+=========         Host Frame:  [0xa24ad5] in libcusolver.so.11
+=========         Host Frame:  [0xa8dc5d] in libcusolver.so.11
+=========         Host Frame:  [0x401797] in libcusolver.so.11
+=========         Host Frame:  [0x63a139] in libcusolver.so.11
+=========         Host Frame:  [0x63fa56] in libcusolver.so.11
+=========         Host Frame:  [0x42abaa] in libcusolver.so.11
+=========         Host Frame: cusolverDnXsyevd [0x6575b0] in libcusolver.so.11
+=========         Host Frame: void single_eig_cusolver<double>(DeviceSolverDnHandle&, SingleEigParameter&, DeviceDenseVector<double>&, DeviceDenseVector<double>&, DeviceDenseVector<double>&, HostDenseVector<double>&, DeviceDenseVector<int>&, int, unsigned long, unsigned long, int, int, unsigned long, unsigned long, int) [0x6588a] in libcuadmm_lib.so
+=========         Host Frame: SDPSolver::solve(int, double, int, int, int, int, int, double, double, bool) [0x5b109] in libcuadmm_lib.so
+=========         Host Frame: main [0x748b] in cuadmm_exe
+========= 
+========= Uninitialized __global__ memory read of size 8 bytes
+=========     at void sytrd4_gpu<sytrd_params<double, (int)32, (int)8, (int)1024, (int)32, (int)16, (int)1, (int)2>>(int, T1::data_type *, int, int, T1::pod_type *, T1::data_type *, int, int, int, int, T1::data_type *, unsigned int *, T1::data_type *, T1::data_type *, int, int, int)+0x3930
+=========     by thread (37,0,0) in block (1216,0,0)
+=========     Address 0x147fe8ece0f8
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuLaunchKernel [0x3c965a] in libcuda.so.1
+=========         Host Frame:  [0xa24ad5] in libcusolver.so.11
+=========         Host Frame:  [0xa8dc5d] in libcusolver.so.11
+=========         Host Frame:  [0x401797] in libcusolver.so.11
+=========         Host Frame:  [0x63a139] in libcusolver.so.11
+=========         Host Frame:  [0x63fa56] in libcusolver.so.11
+=========         Host Frame:  [0x42abaa] in libcusolver.so.11
+=========         Host Frame: cusolverDnXsyevd [0x6575b0] in libcusolver.so.11
+=========         Host Frame: void single_eig_cusolver<double>(DeviceSolverDnHandle&, SingleEigParameter&, DeviceDenseVector<double>&, DeviceDenseVector<double>&, DeviceDenseVector<double>&, HostDenseVector<double>&, DeviceDenseVector<int>&, int, unsigned long, unsigned long, int, int, unsigned long, unsigned long, int) [0x6588a] in libcuadmm_lib.so
+=========         Host Frame: SDPSolver::solve(int, double, int, int, int, int, int, double, double, bool) [0x5b109] in libcuadmm_lib.so
+=========         Host Frame: main [0x748b] in cuadmm_exe
+========= 
+========= Uninitialized __global__ memory read of size 8 bytes
+=========     at void sytrd4_gpu<sytrd_params<double, (int)32, (int)8, (int)1024, (int)32, (int)16, (int)1, (int)2>>(int, T1::data_type *, int, int, T1::pod_type *, T1::data_type *, int, int, int, int, T1::data_type *, unsigned int *, T1::data_type *, T1::data_type *, int, int, int)+0x3930
+=========     by thread (32,0,0) in block (1394,0,0)
+=========     Address 0x147fe8ec77a8
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuLaunchKernel [0x3c965a] in libcuda.so.1
+=========         Host Frame:  [0xa24ad5] in libcusolver.so.11
+=========         Host Frame:  [0xa8dc5d] in libcusolver.so.11
+=========         Host Frame:  [0x401797] in libcusolver.so.11
+=========         Host Frame:  [0x63a139] in libcusolver.so.11
+=========         Host Frame:  [0x63fa56] in libcusolver.so.11
+=========         Host Frame:  [0x42abaa] in libcusolver.so.11
+=========         Host Frame: cusolverDnXsyevd [0x6575b0] in libcusolver.so.11
+=========         Host Frame: void single_eig_cusolver<double>(DeviceSolverDnHandle&, SingleEigParameter&, DeviceDenseVector<double>&, DeviceDenseVector<double>&, DeviceDenseVector<double>&, HostDenseVector<double>&, DeviceDenseVector<int>&, int, unsigned long, unsigned long, int, int, unsigned long, unsigned long, int) [0x6588a] in libcuadmm_lib.so
+=========         Host Frame: SDPSolver::solve(int, double, int, int, int, int, int, double, double, bool) [0x5b109] in libcuadmm_lib.so
+=========         Host Frame: main [0x748b] in cuadmm_exe
+========= 
+========= Uninitialized __global__ memory read of size 8 bytes
+=========     at void sytrd4_gpu<sytrd_params<double, (int)32, (int)8, (int)1024, (int)32, (int)16, (int)1, (int)2>>(int, T1::data_type *, int, int, T1::pod_type *, T1::data_type *, int, int, int, int, T1::data_type *, unsigned int *, T1::data_type *, T1::data_type *, int, int, int)+0x3930
+=========     by thread (33,0,0) in block (1394,0,0)
+=========     Address 0x147fe8ec8cb8
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuLaunchKernel [0x3c965a] in libcuda.so.1
+=========         Host Frame:  [0xa24ad5] in libcusolver.so.11
+=========         Host Frame:  [0xa8dc5d] in libcusolver.so.11
+=========         Host Frame:  [0x401797] in libcusolver.so.11
+=========         Host Frame:  [0x63a139] in libcusolver.so.11
+=========         Host Frame:  [0x63fa56] in libcusolver.so.11
+=========         Host Frame:  [0x42abaa] in libcusolver.so.11
+=========         Host Frame: cusolverDnXsyevd [0x6575b0] in libcusolver.so.11
+=========         Host Frame: void single_eig_cusolver<double>(DeviceSolverDnHandle&, SingleEigParameter&, DeviceDenseVector<double>&, DeviceDenseVector<double>&, DeviceDenseVector<double>&, HostDenseVector<double>&, DeviceDenseVector<int>&, int, unsigned long, unsigned long, int, int, unsigned long, unsigned long, int) [0x6588a] in libcuadmm_lib.so
+=========         Host Frame: SDPSolver::solve(int, double, int, int, int, int, int, double, double, bool) [0x5b109] in libcuadmm_lib.so
+=========         Host Frame: main [0x748b] in cuadmm_exe
+========= 
+========= Uninitialized __global__ memory read of size 8 bytes
+=========     at void sytrd4_gpu<sytrd_params<double, (int)32, (int)8, (int)1024, (int)32, (int)16, (int)1, (int)2>>(int, T1::data_type *, int, int, T1::pod_type *, T1::data_type *, int, int, int, int, T1::data_type *, unsigned int *, T1::data_type *, T1::data_type *, int, int, int)+0x3930
+=========     by thread (34,0,0) in block (1394,0,0)
+=========     Address 0x147fe8eca1c8
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuLaunchKernel [0x3c965a] in libcuda.so.1
+=========         Host Frame:  [0xa24ad5] in libcusolver.so.11
+=========         Host Frame:  [0xa8dc5d] in libcusolver.so.11
+=========         Host Frame:  [0x401797] in libcusolver.so.11
+=========         Host Frame:  [0x63a139] in libcusolver.so.11
+=========         Host Frame:  [0x63fa56] in libcusolver.so.11
+=========         Host Frame:  [0x42abaa] in libcusolver.so.11
+=========         Host Frame: cusolverDnXsyevd [0x6575b0] in libcusolver.so.11
+=========         Host Frame: void single_eig_cusolver<double>(DeviceSolverDnHandle&, SingleEigParameter&, DeviceDenseVector<double>&, DeviceDenseVector<double>&, DeviceDenseVector<double>&, HostDenseVector<double>&, DeviceDenseVector<int>&, int, unsigned long, unsigned long, int, int, unsigned long, unsigned long, int) [0x6588a] in libcuadmm_lib.so
+=========         Host Frame: SDPSolver::solve(int, double, int, int, int, int, int, double, double, bool) [0x5b109] in libcuadmm_lib.so
+=========         Host Frame: main [0x748b] in cuadmm_exe
+========= 
+========= Uninitialized __global__ memory read of size 8 bytes
+=========     at void sytrd4_gpu<sytrd_params<double, (int)32, (int)8, (int)1024, (int)32, (int)16, (int)1, (int)2>>(int, T1::data_type *, int, int, T1::pod_type *, T1::data_type *, int, int, int, int, T1::data_type *, unsigned int *, T1::data_type *, T1::data_type *, int, int, int)+0x3930
+=========     by thread (35,0,0) in block (1394,0,0)
+=========     Address 0x147fe8ecb6d8
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuLaunchKernel [0x3c965a] in libcuda.so.1
+=========         Host Frame:  [0xa24ad5] in libcusolver.so.11
+=========         Host Frame:  [0xa8dc5d] in libcusolver.so.11
+=========         Host Frame:  [0x401797] in libcusolver.so.11
+=========         Host Frame:  [0x63a139] in libcusolver.so.11
+=========         Host Frame:  [0x63fa56] in libcusolver.so.11
+=========         Host Frame:  [0x42abaa] in libcusolver.so.11
+=========         Host Frame: cusolverDnXsyevd [0x6575b0] in libcusolver.so.11
+=========         Host Frame: void single_eig_cusolver<double>(DeviceSolverDnHandle&, SingleEigParameter&, DeviceDenseVector<double>&, DeviceDenseVector<double>&, DeviceDenseVector<double>&, HostDenseVector<double>&, DeviceDenseVector<int>&, int, unsigned long, unsigned long, int, int, unsigned long, unsigned long, int) [0x6588a] in libcuadmm_lib.so
+=========         Host Frame: SDPSolver::solve(int, double, int, int, int, int, int, double, double, bool) [0x5b109] in libcuadmm_lib.so
+=========         Host Frame: main [0x748b] in cuadmm_exe
+========= 
+========= Uninitialized __global__ memory read of size 8 bytes
+=========     at void sytrd4_gpu<sytrd_params<double, (int)32, (int)8, (int)1024, (int)32, (int)16, (int)1, (int)2>>(int, T1::data_type *, int, int, T1::pod_type *, T1::data_type *, int, int, int, int, T1::data_type *, unsigned int *, T1::data_type *, T1::data_type *, int, int, int)+0x3930
+=========     by thread (36,0,0) in block (1394,0,0)
+=========     Address 0x147fe8eccbe8
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuLaunchKernel [0x3c965a] in libcuda.so.1
+=========         Host Frame:  [0xa24ad5] in libcusolver.so.11
+=========         Host Frame:  [0xa8dc5d] in libcusolver.so.11
+=========         Host Frame:  [0x401797] in libcusolver.so.11
+=========         Host Frame:  [0x63a139] in libcusolver.so.11
+=========         Host Frame:  [0x63fa56] in libcusolver.so.11
+=========         Host Frame:  [0x42abaa] in libcusolver.so.11
+=========         Host Frame: cusolverDnXsyevd [0x6575b0] in libcusolver.so.11
+=========         Host Frame: void single_eig_cusolver<double>(DeviceSolverDnHandle&, SingleEigParameter&, DeviceDenseVector<double>&, DeviceDenseVector<double>&, DeviceDenseVector<double>&, HostDenseVector<double>&, DeviceDenseVector<int>&, int, unsigned long, unsigned long, int, int, unsigned long, unsigned long, int) [0x6588a] in libcuadmm_lib.so
+=========         Host Frame: SDPSolver::solve(int, double, int, int, int, int, int, double, double, bool) [0x5b109] in libcuadmm_lib.so
+=========         Host Frame: main [0x748b] in cuadmm_exe
+========= 
+========= Uninitialized __global__ memory read of size 8 bytes
+=========     at void sytrd4_gpu<sytrd_params<double, (int)32, (int)8, (int)1024, (int)32, (int)16, (int)1, (int)2>>(int, T1::data_type *, int, int, T1::pod_type *, T1::data_type *, int, int, int, int, T1::data_type *, unsigned int *, T1::data_type *, T1::data_type *, int, int, int)+0x3930
+=========     by thread (37,0,0) in block (1394,0,0)
+=========     Address 0x147fe8ece0f8
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuLaunchKernel [0x3c965a] in libcuda.so.1
+=========         Host Frame:  [0xa24ad5] in libcusolver.so.11
+=========         Host Frame:  [0xa8dc5d] in libcusolver.so.11
+=========         Host Frame:  [0x401797] in libcusolver.so.11
+=========         Host Frame:  [0x63a139] in libcusolver.so.11
+=========         Host Frame:  [0x63fa56] in libcusolver.so.11
+=========         Host Frame:  [0x42abaa] in libcusolver.so.11
+=========         Host Frame: cusolverDnXsyevd [0x6575b0] in libcusolver.so.11
+=========         Host Frame: void single_eig_cusolver<double>(DeviceSolverDnHandle&, SingleEigParameter&, DeviceDenseVector<double>&, DeviceDenseVector<double>&, DeviceDenseVector<double>&, HostDenseVector<double>&, DeviceDenseVector<int>&, int, unsigned long, unsigned long, int, int, unsigned long, unsigned long, int) [0x6588a] in libcuadmm_lib.so
+=========         Host Frame: SDPSolver::solve(int, double, int, int, int, int, int, double, double, bool) [0x5b109] in libcuadmm_lib.so
+=========         Host Frame: main [0x748b] in cuadmm_exe
+========= 
+========= Uninitialized __global__ memory read of size 8 bytes
+=========     at void sytrd4_gpu<sytrd_params<double, (int)32, (int)8, (int)1024, (int)32, (int)16, (int)1, (int)2>>(int, T1::data_type *, int, int, T1::pod_type *, T1::data_type *, int, int, int, int, T1::data_type *, unsigned int *, T1::data_type *, T1::data_type *, int, int, int)+0x3930
+=========     by thread (38,0,0) in block (1394,0,0)
+=========     Address 0x147fe8ecf608
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuLaunchKernel [0x3c965a] in libcuda.so.1
+=========         Host Frame:  [0xa24ad5] in libcusolver.so.11
+=========         Host Frame:  [0xa8dc5d] in libcusolver.so.11
+=========         Host Frame:  [0x401797] in libcusolver.so.11
+=========         Host Frame:  [0x63a139] in libcusolver.so.11
+=========         Host Frame:  [0x63fa56] in libcusolver.so.11
+=========         Host Frame:  [0x42abaa] in libcusolver.so.11
+=========         Host Frame: cusolverDnXsyevd [0x6575b0] in libcusolver.so.11
+=========         Host Frame: void single_eig_cusolver<double>(DeviceSolverDnHandle&, SingleEigParameter&, DeviceDenseVector<double>&, DeviceDenseVector<double>&, DeviceDenseVector<double>&, HostDenseVector<double>&, DeviceDenseVector<int>&, int, unsigned long, unsigned long, int, int, unsigned long, unsigned long, int) [0x6588a] in libcuadmm_lib.so
+=========         Host Frame: SDPSolver::solve(int, double, int, int, int, int, int, double, double, bool) [0x5b109] in libcuadmm_lib.so
+=========         Host Frame: main [0x748b] in cuadmm_exe
+========= 
+========= Uninitialized __global__ memory read of size 8 bytes
+=========     at void sytrd4_gpu<sytrd_params<double, (int)32, (int)8, (int)1024, (int)32, (int)16, (int)1, (int)2>>(int, T1::data_type *, int, int, T1::pod_type *, T1::data_type *, int, int, int, int, T1::data_type *, unsigned int *, T1::data_type *, T1::data_type *, int, int, int)+0x3930
+=========     by thread (32,0,0) in block (1573,0,0)
+=========     Address 0x147fe8ec77a8
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuLaunchKernel [0x3c965a] in libcuda.so.1
+=========         Host Frame:  [0xa24ad5] in libcusolver.so.11
+=========         Host Frame:  [0xa8dc5d] in libcusolver.so.11
+=========         Host Frame:  [0x401797] in libcusolver.so.11
+=========         Host Frame:  [0x63a139] in libcusolver.so.11
+=========         Host Frame:  [0x63fa56] in libcusolver.so.11
+=========         Host Frame:  [0x42abaa] in libcusolver.so.11
+=========         Host Frame: cusolverDnXsyevd [0x6575b0] in libcusolver.so.11
+=========         Host Frame: void single_eig_cusolver<double>(DeviceSolverDnHandle&, SingleEigParameter&, DeviceDenseVector<double>&, DeviceDenseVector<double>&, DeviceDenseVector<double>&, HostDenseVector<double>&, DeviceDenseVector<int>&, int, unsigned long, unsigned long, int, int, unsigned long, unsigned long, int) [0x6588a] in libcuadmm_lib.so
+=========         Host Frame: SDPSolver::solve(int, double, int, int, int, int, int, double, double, bool) [0x5b109] in libcuadmm_lib.so
+=========         Host Frame: main [0x748b] in cuadmm_exe
+========= 
+========= Uninitialized __global__ memory read of size 8 bytes
+=========     at void sytrd4_gpu<sytrd_params<double, (int)32, (int)8, (int)1024, (int)32, (int)16, (int)1, (int)2>>(int, T1::data_type *, int, int, T1::pod_type *, T1::data_type *, int, int, int, int, T1::data_type *, unsigned int *, T1::data_type *, T1::data_type *, int, int, int)+0x3930
+=========     by thread (33,0,0) in block (1573,0,0)
+=========     Address 0x147fe8ec8cb8
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuLaunchKernel [0x3c965a] in libcuda.so.1
+=========         Host Frame:  [0xa24ad5] in libcusolver.so.11
+=========         Host Frame:  [0xa8dc5d] in libcusolver.so.11
+=========         Host Frame:  [0x401797] in libcusolver.so.11
+=========         Host Frame:  [0x63a139] in libcusolver.so.11
+=========         Host Frame:  [0x63fa56] in libcusolver.so.11
+=========         Host Frame:  [0x42abaa] in libcusolver.so.11
+=========         Host Frame: cusolverDnXsyevd [0x6575b0] in libcusolver.so.11
+=========         Host Frame: void single_eig_cusolver<double>(DeviceSolverDnHandle&, SingleEigParameter&, DeviceDenseVector<double>&, DeviceDenseVector<double>&, DeviceDenseVector<double>&, HostDenseVector<double>&, DeviceDenseVector<int>&, int, unsigned long, unsigned long, int, int, unsigned long, unsigned long, int) [0x6588a] in libcuadmm_lib.so
+=========         Host Frame: SDPSolver::solve(int, double, int, int, int, int, int, double, double, bool) [0x5b109] in libcuadmm_lib.so
+=========         Host Frame: main [0x748b] in cuadmm_exe
+========= 
+========= Uninitialized __global__ memory read of size 8 bytes
+=========     at void sytrd4_gpu<sytrd_params<double, (int)32, (int)8, (int)1024, (int)32, (int)16, (int)1, (int)2>>(int, T1::data_type *, int, int, T1::pod_type *, T1::data_type *, int, int, int, int, T1::data_type *, unsigned int *, T1::data_type *, T1::data_type *, int, int, int)+0x3930
+=========     by thread (34,0,0) in block (1573,0,0)
+=========     Address 0x147fe8eca1c8
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuLaunchKernel [0x3c965a] in libcuda.so.1
+=========         Host Frame:  [0xa24ad5] in libcusolver.so.11
+=========         Host Frame:  [0xa8dc5d] in libcusolver.so.11
+=========         Host Frame:  [0x401797] in libcusolver.so.11
+=========         Host Frame:  [0x63a139] in libcusolver.so.11
+=========         Host Frame:  [0x63fa56] in libcusolver.so.11
+=========         Host Frame:  [0x42abaa] in libcusolver.so.11
+=========         Host Frame: cusolverDnXsyevd [0x6575b0] in libcusolver.so.11
+=========         Host Frame: void single_eig_cusolver<double>(DeviceSolverDnHandle&, SingleEigParameter&, DeviceDenseVector<double>&, DeviceDenseVector<double>&, DeviceDenseVector<double>&, HostDenseVector<double>&, DeviceDenseVector<int>&, int, unsigned long, unsigned long, int, int, unsigned long, unsigned long, int) [0x6588a] in libcuadmm_lib.so
+=========         Host Frame: SDPSolver::solve(int, double, int, int, int, int, int, double, double, bool) [0x5b109] in libcuadmm_lib.so
+=========         Host Frame: main [0x748b] in cuadmm_exe
+========= 
+========= Uninitialized __global__ memory read of size 8 bytes
+=========     at void sytrd4_gpu<sytrd_params<double, (int)32, (int)8, (int)1024, (int)32, (int)16, (int)1, (int)2>>(int, T1::data_type *, int, int, T1::pod_type *, T1::data_type *, int, int, int, int, T1::data_type *, unsigned int *, T1::data_type *, T1::data_type *, int, int, int)+0x3930
+=========     by thread (35,0,0) in block (1573,0,0)
+=========     Address 0x147fe8ecb6d8
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuLaunchKernel [0x3c965a] in libcuda.so.1
+=========         Host Frame:  [0xa24ad5] in libcusolver.so.11
+=========         Host Frame:  [0xa8dc5d] in libcusolver.so.11
+=========         Host Frame:  [0x401797] in libcusolver.so.11
+=========         Host Frame:  [0x63a139] in libcusolver.so.11
+=========         Host Frame:  [0x63fa56] in libcusolver.so.11
+=========         Host Frame:  [0x42abaa] in libcusolver.so.11
+=========         Host Frame: cusolverDnXsyevd [0x6575b0] in libcusolver.so.11
+=========         Host Frame: void single_eig_cusolver<double>(DeviceSolverDnHandle&, SingleEigParameter&, DeviceDenseVector<double>&, DeviceDenseVector<double>&, DeviceDenseVector<double>&, HostDenseVector<double>&, DeviceDenseVector<int>&, int, unsigned long, unsigned long, int, int, unsigned long, unsigned long, int) [0x6588a] in libcuadmm_lib.so
+=========         Host Frame: SDPSolver::solve(int, double, int, int, int, int, int, double, double, bool) [0x5b109] in libcuadmm_lib.so
+=========         Host Frame: main [0x748b] in cuadmm_exe
+========= 
+========= Uninitialized __global__ memory read of size 8 bytes
+=========     at void sytrd4_gpu<sytrd_params<double, (int)32, (int)8, (int)1024, (int)32, (int)16, (int)1, (int)2>>(int, T1::data_type *, int, int, T1::pod_type *, T1::data_type *, int, int, int, int, T1::data_type *, unsigned int *, T1::data_type *, T1::data_type *, int, int, int)+0x3930
+=========     by thread (36,0,0) in block (1573,0,0)
+=========     Address 0x147fe8eccbe8
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuLaunchKernel [0x3c965a] in libcuda.so.1
+=========         Host Frame:  [0xa24ad5] in libcusolver.so.11
+=========         Host Frame:  [0xa8dc5d] in libcusolver.so.11
+=========         Host Frame:  [0x401797] in libcusolver.so.11
+=========         Host Frame:  [0x63a139] in libcusolver.so.11
+=========         Host Frame:  [0x63fa56] in libcusolver.so.11
+=========         Host Frame:  [0x42abaa] in libcusolver.so.11
+=========         Host Frame: cusolverDnXsyevd [0x6575b0] in libcusolver.so.11
+=========         Host Frame: void single_eig_cusolver<double>(DeviceSolverDnHandle&, SingleEigParameter&, DeviceDenseVector<double>&, DeviceDenseVector<double>&, DeviceDenseVector<double>&, HostDenseVector<double>&, DeviceDenseVector<int>&, int, unsigned long, unsigned long, int, int, unsigned long, unsigned long, int) [0x6588a] in libcuadmm_lib.so
+=========         Host Frame: SDPSolver::solve(int, double, int, int, int, int, int, double, double, bool) [0x5b109] in libcuadmm_lib.so
+=========         Host Frame: main [0x748b] in cuadmm_exe
+========= 
+========= Uninitialized __global__ memory read of size 8 bytes
+=========     at void sytrd4_gpu<sytrd_params<double, (int)32, (int)8, (int)1024, (int)32, (int)16, (int)1, (int)2>>(int, T1::data_type *, int, int, T1::pod_type *, T1::data_type *, int, int, int, int, T1::data_type *, unsigned int *, T1::data_type *, T1::data_type *, int, int, int)+0x3930
+=========     by thread (37,0,0) in block (1573,0,0)
+=========     Address 0x147fe8ece0f8
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuLaunchKernel [0x3c965a] in libcuda.so.1
+=========         Host Frame:  [0xa24ad5] in libcusolver.so.11
+=========         Host Frame:  [0xa8dc5d] in libcusolver.so.11
+=========         Host Frame:  [0x401797] in libcusolver.so.11
+=========         Host Frame:  [0x63a139] in libcusolver.so.11
+=========         Host Frame:  [0x63fa56] in libcusolver.so.11
+=========         Host Frame:  [0x42abaa] in libcusolver.so.11
+=========         Host Frame: cusolverDnXsyevd [0x6575b0] in libcusolver.so.11
+=========         Host Frame: void single_eig_cusolver<double>(DeviceSolverDnHandle&, SingleEigParameter&, DeviceDenseVector<double>&, DeviceDenseVector<double>&, DeviceDenseVector<double>&, HostDenseVector<double>&, DeviceDenseVector<int>&, int, unsigned long, unsigned long, int, int, unsigned long, unsigned long, int) [0x6588a] in libcuadmm_lib.so
+=========         Host Frame: SDPSolver::solve(int, double, int, int, int, int, int, double, double, bool) [0x5b109] in libcuadmm_lib.so
+=========         Host Frame: main [0x748b] in cuadmm_exe
+========= 
+========= Uninitialized __global__ memory read of size 8 bytes
+=========     at void sytrd4_gpu<sytrd_params<double, (int)32, (int)8, (int)1024, (int)32, (int)16, (int)1, (int)2>>(int, T1::data_type *, int, int, T1::pod_type *, T1::data_type *, int, int, int, int, T1::data_type *, unsigned int *, T1::data_type *, T1::data_type *, int, int, int)+0x3930
+=========     by thread (38,0,0) in block (1573,0,0)
+=========     Address 0x147fe8ecf608
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuLaunchKernel [0x3c965a] in libcuda.so.1
+=========         Host Frame:  [0xa24ad5] in libcusolver.so.11
+=========         Host Frame:  [0xa8dc5d] in libcusolver.so.11
+=========         Host Frame:  [0x401797] in libcusolver.so.11
+=========         Host Frame:  [0x63a139] in libcusolver.so.11
+=========         Host Frame:  [0x63fa56] in libcusolver.so.11
+=========         Host Frame:  [0x42abaa] in libcusolver.so.11
+=========         Host Frame: cusolverDnXsyevd [0x6575b0] in libcusolver.so.11
+=========         Host Frame: void single_eig_cusolver<double>(DeviceSolverDnHandle&, SingleEigParameter&, DeviceDenseVector<double>&, DeviceDenseVector<double>&, DeviceDenseVector<double>&, HostDenseVector<double>&, DeviceDenseVector<int>&, int, unsigned long, unsigned long, int, int, unsigned long, unsigned long, int) [0x6588a] in libcuadmm_lib.so
+=========         Host Frame: SDPSolver::solve(int, double, int, int, int, int, int, double, double, bool) [0x5b109] in libcuadmm_lib.so
+=========         Host Frame: main [0x748b] in cuadmm_exe
+========= 
+========= Uninitialized __global__ memory read of size 8 bytes
+=========     at void sytrd4_gpu<sytrd_params<double, (int)32, (int)8, (int)1024, (int)32, (int)16, (int)1, (int)2>>(int, T1::data_type *, int, int, T1::pod_type *, T1::data_type *, int, int, int, int, T1::data_type *, unsigned int *, T1::data_type *, T1::data_type *, int, int, int)+0x3930
+=========     by thread (39,0,0) in block (1573,0,0)
+=========     Address 0x147fe8ed0b18
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuLaunchKernel [0x3c965a] in libcuda.so.1
+=========         Host Frame:  [0xa24ad5] in libcusolver.so.11
+=========         Host Frame:  [0xa8dc5d] in libcusolver.so.11
+=========         Host Frame:  [0x401797] in libcusolver.so.11
+=========         Host Frame:  [0x63a139] in libcusolver.so.11
+=========         Host Frame:  [0x63fa56] in libcusolver.so.11
+=========         Host Frame:  [0x42abaa] in libcusolver.so.11
+=========         Host Frame: cusolverDnXsyevd [0x6575b0] in libcusolver.so.11
+=========         Host Frame: void single_eig_cusolver<double>(DeviceSolverDnHandle&, SingleEigParameter&, DeviceDenseVector<double>&, DeviceDenseVector<double>&, DeviceDenseVector<double>&, HostDenseVector<double>&, DeviceDenseVector<int>&, int, unsigned long, unsigned long, int, int, unsigned long, unsigned long, int) [0x6588a] in libcuadmm_lib.so
+=========         Host Frame: SDPSolver::solve(int, double, int, int, int, int, int, double, double, bool) [0x5b109] in libcuadmm_lib.so
+=========         Host Frame: main [0x748b] in cuadmm_exe
+========= 
+========= Uninitialized __global__ memory read of size 8 bytes
+=========     at void sytrd4_gpu<sytrd_params<double, (int)32, (int)8, (int)1024, (int)32, (int)16, (int)1, (int)2>>(int, T1::data_type *, int, int, T1::pod_type *, T1::data_type *, int, int, int, int, T1::data_type *, unsigned int *, T1::data_type *, T1::data_type *, int, int, int)+0x3930
+=========     by thread (32,0,0) in block (1753,0,0)
+=========     Address 0x147fe8ec77a8
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuLaunchKernel [0x3c965a] in libcuda.so.1
+=========         Host Frame:  [0xa24ad5] in libcusolver.so.11
+=========         Host Frame:  [0xa8dc5d] in libcusolver.so.11
+=========         Host Frame:  [0x401797] in libcusolver.so.11
+=========         Host Frame:  [0x63a139] in libcusolver.so.11
+=========         Host Frame:  [0x63fa56] in libcusolver.so.11
+=========         Host Frame:  [0x42abaa] in libcusolver.so.11
+=========         Host Frame: cusolverDnXsyevd [0x6575b0] in libcusolver.so.11
+=========         Host Frame: void single_eig_cusolver<double>(DeviceSolverDnHandle&, SingleEigParameter&, DeviceDenseVector<double>&, DeviceDenseVector<double>&, DeviceDenseVector<double>&, HostDenseVector<double>&, DeviceDenseVector<int>&, int, unsigned long, unsigned long, int, int, unsigned long, unsigned long, int) [0x6588a] in libcuadmm_lib.so
+=========         Host Frame: SDPSolver::solve(int, double, int, int, int, int, int, double, double, bool) [0x5b109] in libcuadmm_lib.so
+=========         Host Frame: main [0x748b] in cuadmm_exe
+========= 
+========= Uninitialized __global__ memory read of size 8 bytes
+=========     at void sytrd4_gpu<sytrd_params<double, (int)32, (int)8, (int)1024, (int)32, (int)16, (int)1, (int)2>>(int, T1::data_type *, int, int, T1::pod_type *, T1::data_type *, int, int, int, int, T1::data_type *, unsigned int *, T1::data_type *, T1::data_type *, int, int, int)+0x3930
+=========     by thread (33,0,0) in block (1753,0,0)
+=========     Address 0x147fe8ec8cb8
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuLaunchKernel [0x3c965a] in libcuda.so.1
+=========         Host Frame:  [0xa24ad5] in libcusolver.so.11
+=========         Host Frame:  [0xa8dc5d] in libcusolver.so.11
+=========         Host Frame:  [0x401797] in libcusolver.so.11
+=========         Host Frame:  [0x63a139] in libcusolver.so.11
+=========         Host Frame:  [0x63fa56] in libcusolver.so.11
+=========         Host Frame:  [0x42abaa] in libcusolver.so.11
+=========         Host Frame: cusolverDnXsyevd [0x6575b0] in libcusolver.so.11
+=========         Host Frame: void single_eig_cusolver<double>(DeviceSolverDnHandle&, SingleEigParameter&, DeviceDenseVector<double>&, DeviceDenseVector<double>&, DeviceDenseVector<double>&, HostDenseVector<double>&, DeviceDenseVector<int>&, int, unsigned long, unsigned long, int, int, unsigned long, unsigned long, int) [0x6588a] in libcuadmm_lib.so
+=========         Host Frame: SDPSolver::solve(int, double, int, int, int, int, int, double, double, bool) [0x5b109] in libcuadmm_lib.so
+=========         Host Frame: main [0x748b] in cuadmm_exe
+========= 
+========= Uninitialized __global__ memory read of size 8 bytes
+=========     at void sytrd4_gpu<sytrd_params<double, (int)32, (int)8, (int)1024, (int)32, (int)16, (int)1, (int)2>>(int, T1::data_type *, int, int, T1::pod_type *, T1::data_type *, int, int, int, int, T1::data_type *, unsigned int *, T1::data_type *, T1::data_type *, int, int, int)+0x3930
+=========     by thread (34,0,0) in block (1753,0,0)
+=========     Address 0x147fe8eca1c8
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuLaunchKernel [0x3c965a] in libcuda.so.1
+=========         Host Frame:  [0xa24ad5] in libcusolver.so.11
+=========         Host Frame:  [0xa8dc5d] in libcusolver.so.11
+=========         Host Frame:  [0x401797] in libcusolver.so.11
+=========         Host Frame:  [0x63a139] in libcusolver.so.11
+=========         Host Frame:  [0x63fa56] in libcusolver.so.11
+=========         Host Frame:  [0x42abaa] in libcusolver.so.11
+=========         Host Frame: cusolverDnXsyevd [0x6575b0] in libcusolver.so.11
+=========         Host Frame: void single_eig_cusolver<double>(DeviceSolverDnHandle&, SingleEigParameter&, DeviceDenseVector<double>&, DeviceDenseVector<double>&, DeviceDenseVector<double>&, HostDenseVector<double>&, DeviceDenseVector<int>&, int, unsigned long, unsigned long, int, int, unsigned long, unsigned long, int) [0x6588a] in libcuadmm_lib.so
+=========         Host Frame: SDPSolver::solve(int, double, int, int, int, int, int, double, double, bool) [0x5b109] in libcuadmm_lib.so
+=========         Host Frame: main [0x748b] in cuadmm_exe
+========= 
+========= Uninitialized __global__ memory read of size 8 bytes
+=========     at void sytrd4_gpu<sytrd_params<double, (int)32, (int)8, (int)1024, (int)32, (int)16, (int)1, (int)2>>(int, T1::data_type *, int, int, T1::pod_type *, T1::data_type *, int, int, int, int, T1::data_type *, unsigned int *, T1::data_type *, T1::data_type *, int, int, int)+0x3930
+=========     by thread (35,0,0) in block (1753,0,0)
+=========     Address 0x147fe8ecb6d8
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuLaunchKernel [0x3c965a] in libcuda.so.1
+=========         Host Frame:  [0xa24ad5] in libcusolver.so.11
+=========         Host Frame:  [0xa8dc5d] in libcusolver.so.11
+=========         Host Frame:  [0x401797] in libcusolver.so.11
+=========         Host Frame:  [0x63a139] in libcusolver.so.11
+=========         Host Frame:  [0x63fa56] in libcusolver.so.11
+=========         Host Frame:  [0x42abaa] in libcusolver.so.11
+=========         Host Frame: cusolverDnXsyevd [0x6575b0] in libcusolver.so.11
+=========         Host Frame: void single_eig_cusolver<double>(DeviceSolverDnHandle&, SingleEigParameter&, DeviceDenseVector<double>&, DeviceDenseVector<double>&, DeviceDenseVector<double>&, HostDenseVector<double>&, DeviceDenseVector<int>&, int, unsigned long, unsigned long, int, int, unsigned long, unsigned long, int) [0x6588a] in libcuadmm_lib.so
+=========         Host Frame: SDPSolver::solve(int, double, int, int, int, int, int, double, double, bool) [0x5b109] in libcuadmm_lib.so
+=========         Host Frame: main [0x748b] in cuadmm_exe
+========= 
+========= Uninitialized __global__ memory read of size 8 bytes
+=========     at void sytrd4_gpu<sytrd_params<double, (int)32, (int)8, (int)1024, (int)32, (int)16, (int)1, (int)2>>(int, T1::data_type *, int, int, T1::pod_type *, T1::data_type *, int, int, int, int, T1::data_type *, unsigned int *, T1::data_type *, T1::data_type *, int, int, int)+0x3930
+=========     by thread (36,0,0) in block (1753,0,0)
+=========     Address 0x147fe8eccbe8
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuLaunchKernel [0x3c965a] in libcuda.so.1
+=========         Host Frame:  [0xa24ad5] in libcusolver.so.11
+=========         Host Frame:  [0xa8dc5d] in libcusolver.so.11
+=========         Host Frame:  [0x401797] in libcusolver.so.11
+=========         Host Frame:  [0x63a139] in libcusolver.so.11
+=========         Host Frame:  [0x63fa56] in libcusolver.so.11
+=========         Host Frame:  [0x42abaa] in libcusolver.so.11
+=========         Host Frame: cusolverDnXsyevd [0x6575b0] in libcusolver.so.11
+=========         Host Frame: void single_eig_cusolver<double>(DeviceSolverDnHandle&, SingleEigParameter&, DeviceDenseVector<double>&, DeviceDenseVector<double>&, DeviceDenseVector<double>&, HostDenseVector<double>&, DeviceDenseVector<int>&, int, unsigned long, unsigned long, int, int, unsigned long, unsigned long, int) [0x6588a] in libcuadmm_lib.so
+=========         Host Frame: SDPSolver::solve(int, double, int, int, int, int, int, double, double, bool) [0x5b109] in libcuadmm_lib.so
+=========         Host Frame: main [0x748b] in cuadmm_exe
+========= 
+========= Uninitialized __global__ memory read of size 8 bytes
+=========     at void sytrd4_gpu<sytrd_params<double, (int)32, (int)8, (int)1024, (int)32, (int)16, (int)1, (int)2>>(int, T1::data_type *, int, int, T1::pod_type *, T1::data_type *, int, int, int, int, T1::data_type *, unsigned int *, T1::data_type *, T1::data_type *, int, int, int)+0x3930
+=========     by thread (37,0,0) in block (1753,0,0)
+=========     Address 0x147fe8ece0f8
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuLaunchKernel [0x3c965a] in libcuda.so.1
+=========         Host Frame:  [0xa24ad5] in libcusolver.so.11
+=========         Host Frame:  [0xa8dc5d] in libcusolver.so.11
+=========         Host Frame:  [0x401797] in libcusolver.so.11
+=========         Host Frame:  [0x63a139] in libcusolver.so.11
+=========         Host Frame:  [0x63fa56] in libcusolver.so.11
+=========         Host Frame:  [0x42abaa] in libcusolver.so.11
+=========         Host Frame: cusolverDnXsyevd [0x6575b0] in libcusolver.so.11
+=========         Host Frame: void single_eig_cusolver<double>(DeviceSolverDnHandle&, SingleEigParameter&, DeviceDenseVector<double>&, DeviceDenseVector<double>&, DeviceDenseVector<double>&, HostDenseVector<double>&, DeviceDenseVector<int>&, int, unsigned long, unsigned long, int, int, unsigned long, unsigned long, int) [0x6588a] in libcuadmm_lib.so
+=========         Host Frame: SDPSolver::solve(int, double, int, int, int, int, int, double, double, bool) [0x5b109] in libcuadmm_lib.so
+=========         Host Frame: main [0x748b] in cuadmm_exe
+========= 
+========= Uninitialized __global__ memory read of size 8 bytes
+=========     at void sytrd4_gpu<sytrd_params<double, (int)32, (int)8, (int)1024, (int)32, (int)16, (int)1, (int)2>>(int, T1::data_type *, int, int, T1::pod_type *, T1::data_type *, int, int, int, int, T1::data_type *, unsigned int *, T1::data_type *, T1::data_type *, int, int, int)+0x3930
+=========     by thread (38,0,0) in block (1753,0,0)
+=========     Address 0x147fe8ecf608
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuLaunchKernel [0x3c965a] in libcuda.so.1
+=========         Host Frame:  [0xa24ad5] in libcusolver.so.11
+=========         Host Frame:  [0xa8dc5d] in libcusolver.so.11
+=========         Host Frame:  [0x401797] in libcusolver.so.11
+=========         Host Frame:  [0x63a139] in libcusolver.so.11
+=========         Host Frame:  [0x63fa56] in libcusolver.so.11
+=========         Host Frame:  [0x42abaa] in libcusolver.so.11
+=========         Host Frame: cusolverDnXsyevd [0x6575b0] in libcusolver.so.11
+=========         Host Frame: void single_eig_cusolver<double>(DeviceSolverDnHandle&, SingleEigParameter&, DeviceDenseVector<double>&, DeviceDenseVector<double>&, DeviceDenseVector<double>&, HostDenseVector<double>&, DeviceDenseVector<int>&, int, unsigned long, unsigned long, int, int, unsigned long, unsigned long, int) [0x6588a] in libcuadmm_lib.so
+=========         Host Frame: SDPSolver::solve(int, double, int, int, int, int, int, double, double, bool) [0x5b109] in libcuadmm_lib.so
+=========         Host Frame: main [0x748b] in cuadmm_exe
+========= 
+========= Uninitialized __global__ memory read of size 8 bytes
+=========     at void sytrd4_gpu<sytrd_params<double, (int)32, (int)8, (int)1024, (int)32, (int)16, (int)1, (int)2>>(int, T1::data_type *, int, int, T1::pod_type *, T1::data_type *, int, int, int, int, T1::data_type *, unsigned int *, T1::data_type *, T1::data_type *, int, int, int)+0x3930
+=========     by thread (39,0,0) in block (1753,0,0)
+=========     Address 0x147fe8ed0b18
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuLaunchKernel [0x3c965a] in libcuda.so.1
+=========         Host Frame:  [0xa24ad5] in libcusolver.so.11
+=========         Host Frame:  [0xa8dc5d] in libcusolver.so.11
+=========         Host Frame:  [0x401797] in libcusolver.so.11
+=========         Host Frame:  [0x63a139] in libcusolver.so.11
+=========         Host Frame:  [0x63fa56] in libcusolver.so.11
+=========         Host Frame:  [0x42abaa] in libcusolver.so.11
+=========         Host Frame: cusolverDnXsyevd [0x6575b0] in libcusolver.so.11
+=========         Host Frame: void single_eig_cusolver<double>(DeviceSolverDnHandle&, SingleEigParameter&, DeviceDenseVector<double>&, DeviceDenseVector<double>&, DeviceDenseVector<double>&, HostDenseVector<double>&, DeviceDenseVector<int>&, int, unsigned long, unsigned long, int, int, unsigned long, unsigned long, int) [0x6588a] in libcuadmm_lib.so
+=========         Host Frame: SDPSolver::solve(int, double, int, int, int, int, int, double, double, bool) [0x5b109] in libcuadmm_lib.so
+=========         Host Frame: main [0x748b] in cuadmm_exe
+========= 
+========= Uninitialized __global__ memory read of size 8 bytes
+=========     at void sytrd4_gpu<sytrd_params<double, (int)32, (int)8, (int)1024, (int)32, (int)16, (int)1, (int)2>>(int, T1::data_type *, int, int, T1::pod_type *, T1::data_type *, int, int, int, int, T1::data_type *, unsigned int *, T1::data_type *, T1::data_type *, int, int, int)+0x3930
+=========     by thread (40,0,0) in block (1753,0,0)
+=========     Address 0x147fe8ed2028
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuLaunchKernel [0x3c965a] in libcuda.so.1
+=========         Host Frame:  [0xa24ad5] in libcusolver.so.11
+=========         Host Frame:  [0xa8dc5d] in libcusolver.so.11
+=========         Host Frame:  [0x401797] in libcusolver.so.11
+=========         Host Frame:  [0x63a139] in libcusolver.so.11
+=========         Host Frame:  [0x63fa56] in libcusolver.so.11
+=========         Host Frame:  [0x42abaa] in libcusolver.so.11
+=========         Host Frame: cusolverDnXsyevd [0x6575b0] in libcusolver.so.11
+=========         Host Frame: void single_eig_cusolver<double>(DeviceSolverDnHandle&, SingleEigParameter&, DeviceDenseVector<double>&, DeviceDenseVector<double>&, DeviceDenseVector<double>&, HostDenseVector<double>&, DeviceDenseVector<int>&, int, unsigned long, unsigned long, int, int, unsigned long, unsigned long, int) [0x6588a] in libcuadmm_lib.so
+=========         Host Frame: SDPSolver::solve(int, double, int, int, int, int, int, double, double, bool) [0x5b109] in libcuadmm_lib.so
+=========         Host Frame: main [0x748b] in cuadmm_exe
+========= 
+========= Uninitialized __global__ memory read of size 8 bytes
+=========     at void sytrd4_gpu<sytrd_params<double, (int)32, (int)8, (int)1024, (int)32, (int)16, (int)1, (int)2>>(int, T1::data_type *, int, int, T1::pod_type *, T1::data_type *, int, int, int, int, T1::data_type *, unsigned int *, T1::data_type *, T1::data_type *, int, int, int)+0x3930
+=========     by thread (32,0,0) in block (1934,0,0)
+=========     Address 0x147fe8ec77a8
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuLaunchKernel [0x3c965a] in libcuda.so.1
+=========         Host Frame:  [0xa24ad5] in libcusolver.so.11
+=========         Host Frame:  [0xa8dc5d] in libcusolver.so.11
+=========         Host Frame:  [0x401797] in libcusolver.so.11
+=========         Host Frame:  [0x63a139] in libcusolver.so.11
+=========         Host Frame:  [0x63fa56] in libcusolver.so.11
+=========         Host Frame:  [0x42abaa] in libcusolver.so.11
+=========         Host Frame: cusolverDnXsyevd [0x6575b0] in libcusolver.so.11
+=========         Host Frame: void single_eig_cusolver<double>(DeviceSolverDnHandle&, SingleEigParameter&, DeviceDenseVector<double>&, DeviceDenseVector<double>&, DeviceDenseVector<double>&, HostDenseVector<double>&, DeviceDenseVector<int>&, int, unsigned long, unsigned long, int, int, unsigned long, unsigned long, int) [0x6588a] in libcuadmm_lib.so
+=========         Host Frame: SDPSolver::solve(int, double, int, int, int, int, int, double, double, bool) [0x5b109] in libcuadmm_lib.so
+=========         Host Frame: main [0x748b] in cuadmm_exe
+========= 
+========= Uninitialized __global__ memory read of size 8 bytes
+=========     at void sytrd4_gpu<sytrd_params<double, (int)32, (int)8, (int)1024, (int)32, (int)16, (int)1, (int)2>>(int, T1::data_type *, int, int, T1::pod_type *, T1::data_type *, int, int, int, int, T1::data_type *, unsigned int *, T1::data_type *, T1::data_type *, int, int, int)+0x3930
+=========     by thread (33,0,0) in block (1934,0,0)
+=========     Address 0x147fe8ec8cb8
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuLaunchKernel [0x3c965a] in libcuda.so.1
+=========         Host Frame:  [0xa24ad5] in libcusolver.so.11
+=========         Host Frame:  [0xa8dc5d] in libcusolver.so.11
+=========         Host Frame:  [0x401797] in libcusolver.so.11
+=========         Host Frame:  [0x63a139] in libcusolver.so.11
+=========         Host Frame:  [0x63fa56] in libcusolver.so.11
+=========         Host Frame:  [0x42abaa] in libcusolver.so.11
+=========         Host Frame: cusolverDnXsyevd [0x6575b0] in libcusolver.so.11
+=========         Host Frame: void single_eig_cusolver<double>(DeviceSolverDnHandle&, SingleEigParameter&, DeviceDenseVector<double>&, DeviceDenseVector<double>&, DeviceDenseVector<double>&, HostDenseVector<double>&, DeviceDenseVector<int>&, int, unsigned long, unsigned long, int, int, unsigned long, unsigned long, int) [0x6588a] in libcuadmm_lib.so
+=========         Host Frame: SDPSolver::solve(int, double, int, int, int, int, int, double, double, bool) [0x5b109] in libcuadmm_lib.so
+=========         Host Frame: main [0x748b] in cuadmm_exe
+========= 
+========= Uninitialized __global__ memory read of size 8 bytes
+=========     at void sytrd4_gpu<sytrd_params<double, (int)32, (int)8, (int)1024, (int)32, (int)16, (int)1, (int)2>>(int, T1::data_type *, int, int, T1::pod_type *, T1::data_type *, int, int, int, int, T1::data_type *, unsigned int *, T1::data_type *, T1::data_type *, int, int, int)+0x3930
+=========     by thread (34,0,0) in block (1934,0,0)
+=========     Address 0x147fe8eca1c8
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuLaunchKernel [0x3c965a] in libcuda.so.1
+=========         Host Frame:  [0xa24ad5] in libcusolver.so.11
+=========         Host Frame:  [0xa8dc5d] in libcusolver.so.11
+=========         Host Frame:  [0x401797] in libcusolver.so.11
+=========         Host Frame:  [0x63a139] in libcusolver.so.11
+=========         Host Frame:  [0x63fa56] in libcusolver.so.11
+=========         Host Frame:  [0x42abaa] in libcusolver.so.11
+=========         Host Frame: cusolverDnXsyevd [0x6575b0] in libcusolver.so.11
+=========         Host Frame: void single_eig_cusolver<double>(DeviceSolverDnHandle&, SingleEigParameter&, DeviceDenseVector<double>&, DeviceDenseVector<double>&, DeviceDenseVector<double>&, HostDenseVector<double>&, DeviceDenseVector<int>&, int, unsigned long, unsigned long, int, int, unsigned long, unsigned long, int) [0x6588a] in libcuadmm_lib.so
+=========         Host Frame: SDPSolver::solve(int, double, int, int, int, int, int, double, double, bool) [0x5b109] in libcuadmm_lib.so
+=========         Host Frame: main [0x748b] in cuadmm_exe
+========= 
+========= Uninitialized __global__ memory read of size 8 bytes
+=========     at void sytrd4_gpu<sytrd_params<double, (int)32, (int)8, (int)1024, (int)32, (int)16, (int)1, (int)2>>(int, T1::data_type *, int, int, T1::pod_type *, T1::data_type *, int, int, int, int, T1::data_type *, unsigned int *, T1::data_type *, T1::data_type *, int, int, int)+0x3930
+=========     by thread (35,0,0) in block (1934,0,0)
+=========     Address 0x147fe8ecb6d8
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuLaunchKernel [0x3c965a] in libcuda.so.1
+=========         Host Frame:  [0xa24ad5] in libcusolver.so.11
+=========         Host Frame:  [0xa8dc5d] in libcusolver.so.11
+=========         Host Frame:  [0x401797] in libcusolver.so.11
+=========         Host Frame:  [0x63a139] in libcusolver.so.11
+=========         Host Frame:  [0x63fa56] in libcusolver.so.11
+=========         Host Frame:  [0x42abaa] in libcusolver.so.11
+=========         Host Frame: cusolverDnXsyevd [0x6575b0] in libcusolver.so.11
+=========         Host Frame: void single_eig_cusolver<double>(DeviceSolverDnHandle&, SingleEigParameter&, DeviceDenseVector<double>&, DeviceDenseVector<double>&, DeviceDenseVector<double>&, HostDenseVector<double>&, DeviceDenseVector<int>&, int, unsigned long, unsigned long, int, int, unsigned long, unsigned long, int) [0x6588a] in libcuadmm_lib.so
+=========         Host Frame: SDPSolver::solve(int, double, int, int, int, int, int, double, double, bool) [0x5b109] in libcuadmm_lib.so
+=========         Host Frame: main [0x748b] in cuadmm_exe
+========= 
+========= Uninitialized __global__ memory read of size 8 bytes
+=========     at void sytrd4_gpu<sytrd_params<double, (int)32, (int)8, (int)1024, (int)32, (int)16, (int)1, (int)2>>(int, T1::data_type *, int, int, T1::pod_type *, T1::data_type *, int, int, int, int, T1::data_type *, unsigned int *, T1::data_type *, T1::data_type *, int, int, int)+0x3930
+=========     by thread (36,0,0) in block (1934,0,0)
+=========     Address 0x147fe8eccbe8
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuLaunchKernel [0x3c965a] in libcuda.so.1
+=========         Host Frame:  [0xa24ad5] in libcusolver.so.11
+=========         Host Frame:  [0xa8dc5d] in libcusolver.so.11
+=========         Host Frame:  [0x401797] in libcusolver.so.11
+=========         Host Frame:  [0x63a139] in libcusolver.so.11
+=========         Host Frame:  [0x63fa56] in libcusolver.so.11
+=========         Host Frame:  [0x42abaa] in libcusolver.so.11
+=========         Host Frame: cusolverDnXsyevd [0x6575b0] in libcusolver.so.11
+=========         Host Frame: void single_eig_cusolver<double>(DeviceSolverDnHandle&, SingleEigParameter&, DeviceDenseVector<double>&, DeviceDenseVector<double>&, DeviceDenseVector<double>&, HostDenseVector<double>&, DeviceDenseVector<int>&, int, unsigned long, unsigned long, int, int, unsigned long, unsigned long, int) [0x6588a] in libcuadmm_lib.so
+=========         Host Frame: SDPSolver::solve(int, double, int, int, int, int, int, double, double, bool) [0x5b109] in libcuadmm_lib.so
+=========         Host Frame: main [0x748b] in cuadmm_exe
+========= 
+========= Uninitialized __global__ memory read of size 8 bytes
+=========     at void sytrd4_gpu<sytrd_params<double, (int)32, (int)8, (int)1024, (int)32, (int)16, (int)1, (int)2>>(int, T1::data_type *, int, int, T1::pod_type *, T1::data_type *, int, int, int, int, T1::data_type *, unsigned int *, T1::data_type *, T1::data_type *, int, int, int)+0x3930
+=========     by thread (37,0,0) in block (1934,0,0)
+=========     Address 0x147fe8ece0f8
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuLaunchKernel [0x3c965a] in libcuda.so.1
+=========         Host Frame:  [0xa24ad5] in libcusolver.so.11
+=========         Host Frame:  [0xa8dc5d] in libcusolver.so.11
+=========         Host Frame:  [0x401797] in libcusolver.so.11
+=========         Host Frame:  [0x63a139] in libcusolver.so.11
+=========         Host Frame:  [0x63fa56] in libcusolver.so.11
+=========         Host Frame:  [0x42abaa] in libcusolver.so.11
+=========         Host Frame: cusolverDnXsyevd [0x6575b0] in libcusolver.so.11
+=========         Host Frame: void single_eig_cusolver<double>(DeviceSolverDnHandle&, SingleEigParameter&, DeviceDenseVector<double>&, DeviceDenseVector<double>&, DeviceDenseVector<double>&, HostDenseVector<double>&, DeviceDenseVector<int>&, int, unsigned long, unsigned long, int, int, unsigned long, unsigned long, int) [0x6588a] in libcuadmm_lib.so
+=========         Host Frame: SDPSolver::solve(int, double, int, int, int, int, int, double, double, bool) [0x5b109] in libcuadmm_lib.so
+=========         Host Frame: main [0x748b] in cuadmm_exe
+========= 
+========= Uninitialized __global__ memory read of size 8 bytes
+=========     at void sytrd4_gpu<sytrd_params<double, (int)32, (int)8, (int)1024, (int)32, (int)16, (int)1, (int)2>>(int, T1::data_type *, int, int, T1::pod_type *, T1::data_type *, int, int, int, int, T1::data_type *, unsigned int *, T1::data_type *, T1::data_type *, int, int, int)+0x3930
+=========     by thread (38,0,0) in block (1934,0,0)
+=========     Address 0x147fe8ecf608
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuLaunchKernel [0x3c965a] in libcuda.so.1
+=========         Host Frame:  [0xa24ad5] in libcusolver.so.11
+=========         Host Frame:  [0xa8dc5d] in libcusolver.so.11
+=========         Host Frame:  [0x401797] in libcusolver.so.11
+=========         Host Frame:  [0x63a139] in libcusolver.so.11
+=========         Host Frame:  [0x63fa56] in libcusolver.so.11
+=========         Host Frame:  [0x42abaa] in libcusolver.so.11
+=========         Host Frame: cusolverDnXsyevd [0x6575b0] in libcusolver.so.11
+=========         Host Frame: void single_eig_cusolver<double>(DeviceSolverDnHandle&, SingleEigParameter&, DeviceDenseVector<double>&, DeviceDenseVector<double>&, DeviceDenseVector<double>&, HostDenseVector<double>&, DeviceDenseVector<int>&, int, unsigned long, unsigned long, int, int, unsigned long, unsigned long, int) [0x6588a] in libcuadmm_lib.so
+=========         Host Frame: SDPSolver::solve(int, double, int, int, int, int, int, double, double, bool) [0x5b109] in libcuadmm_lib.so
+=========         Host Frame: main [0x748b] in cuadmm_exe
+========= 
+========= Uninitialized __global__ memory read of size 8 bytes
+=========     at void sytrd4_gpu<sytrd_params<double, (int)32, (int)8, (int)1024, (int)32, (int)16, (int)1, (int)2>>(int, T1::data_type *, int, int, T1::pod_type *, T1::data_type *, int, int, int, int, T1::data_type *, unsigned int *, T1::data_type *, T1::data_type *, int, int, int)+0x3930
+=========     by thread (39,0,0) in block (1934,0,0)
+=========     Address 0x147fe8ed0b18
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuLaunchKernel [0x3c965a] in libcuda.so.1
+=========         Host Frame:  [0xa24ad5] in libcusolver.so.11
+=========         Host Frame:  [0xa8dc5d] in libcusolver.so.11
+=========         Host Frame:  [0x401797] in libcusolver.so.11
+=========         Host Frame:  [0x63a139] in libcusolver.so.11
+=========         Host Frame:  [0x63fa56] in libcusolver.so.11
+=========         Host Frame:  [0x42abaa] in libcusolver.so.11
+=========         Host Frame: cusolverDnXsyevd [0x6575b0] in libcusolver.so.11
+=========         Host Frame: void single_eig_cusolver<double>(DeviceSolverDnHandle&, SingleEigParameter&, DeviceDenseVector<double>&, DeviceDenseVector<double>&, DeviceDenseVector<double>&, HostDenseVector<double>&, DeviceDenseVector<int>&, int, unsigned long, unsigned long, int, int, unsigned long, unsigned long, int) [0x6588a] in libcuadmm_lib.so
+=========         Host Frame: SDPSolver::solve(int, double, int, int, int, int, int, double, double, bool) [0x5b109] in libcuadmm_lib.so
+=========         Host Frame: main [0x748b] in cuadmm_exe
+========= 
+========= Uninitialized __global__ memory read of size 8 bytes
+=========     at void sytrd4_gpu<sytrd_params<double, (int)32, (int)8, (int)1024, (int)32, (int)16, (int)1, (int)2>>(int, T1::data_type *, int, int, T1::pod_type *, T1::data_type *, int, int, int, int, T1::data_type *, unsigned int *, T1::data_type *, T1::data_type *, int, int, int)+0x3930
+=========     by thread (40,0,0) in block (1934,0,0)
+=========     Address 0x147fe8ed2028
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuLaunchKernel [0x3c965a] in libcuda.so.1
+=========         Host Frame:  [0xa24ad5] in libcusolver.so.11
+=========         Host Frame:  [0xa8dc5d] in libcusolver.so.11
+=========         Host Frame:  [0x401797] in libcusolver.so.11
+=========         Host Frame:  [0x63a139] in libcusolver.so.11
+=========         Host Frame:  [0x63fa56] in libcusolver.so.11
+=========         Host Frame:  [0x42abaa] in libcusolver.so.11
+=========         Host Frame: cusolverDnXsyevd [0x6575b0] in libcusolver.so.11
+=========         Host Frame: void single_eig_cusolver<double>(DeviceSolverDnHandle&, SingleEigParameter&, DeviceDenseVector<double>&, DeviceDenseVector<double>&, DeviceDenseVector<double>&, HostDenseVector<double>&, DeviceDenseVector<int>&, int, unsigned long, unsigned long, int, int, unsigned long, unsigned long, int) [0x6588a] in libcuadmm_lib.so
+=========         Host Frame: SDPSolver::solve(int, double, int, int, int, int, int, double, double, bool) [0x5b109] in libcuadmm_lib.so
+=========         Host Frame: main [0x748b] in cuadmm_exe
+========= 
+========= Uninitialized __global__ memory read of size 8 bytes
+=========     at void sytrd4_gpu<sytrd_params<double, (int)32, (int)8, (int)1024, (int)32, (int)16, (int)1, (int)2>>(int, T1::data_type *, int, int, T1::pod_type *, T1::data_type *, int, int, int, int, T1::data_type *, unsigned int *, T1::data_type *, T1::data_type *, int, int, int)+0x3930
+=========     by thread (41,0,0) in block (1934,0,0)
+=========     Address 0x147fe8ed3538
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuLaunchKernel [0x3c965a] in libcuda.so.1
+=========         Host Frame:  [0xa24ad5] in libcusolver.so.11
+=========         Host Frame:  [0xa8dc5d] in libcusolver.so.11
+=========         Host Frame:  [0x401797] in libcusolver.so.11
+=========         Host Frame:  [0x63a139] in libcusolver.so.11
+=========         Host Frame:  [0x63fa56] in libcusolver.so.11
+=========         Host Frame:  [0x42abaa] in libcusolver.so.11
+=========         Host Frame: cusolverDnXsyevd [0x6575b0] in libcusolver.so.11
+=========         Host Frame: void single_eig_cusolver<double>(DeviceSolverDnHandle&, SingleEigParameter&, DeviceDenseVector<double>&, DeviceDenseVector<double>&, DeviceDenseVector<double>&, HostDenseVector<double>&, DeviceDenseVector<int>&, int, unsigned long, unsigned long, int, int, unsigned long, unsigned long, int) [0x6588a] in libcuadmm_lib.so
+=========         Host Frame: SDPSolver::solve(int, double, int, int, int, int, int, double, double, bool) [0x5b109] in libcuadmm_lib.so
+=========         Host Frame: main [0x748b] in cuadmm_exe
+========= 
+========= Uninitialized __global__ memory read of size 8 bytes
+=========     at void sytrd4_gpu<sytrd_params<double, (int)32, (int)8, (int)1024, (int)32, (int)16, (int)1, (int)2>>(int, T1::data_type *, int, int, T1::pod_type *, T1::data_type *, int, int, int, int, T1::data_type *, unsigned int *, T1::data_type *, T1::data_type *, int, int, int)+0x3930
+=========     by thread (32,0,0) in block (2116,0,0)
+=========     Address 0x147fe8ec77a8
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuLaunchKernel [0x3c965a] in libcuda.so.1
+=========         Host Frame:  [0xa24ad5] in libcusolver.so.11
+=========         Host Frame:  [0xa8dc5d] in libcusolver.so.11
+=========         Host Frame:  [0x401797] in libcusolver.so.11
+=========         Host Frame:  [0x63a139] in libcusolver.so.11
+=========         Host Frame:  [0x63fa56] in libcusolver.so.11
+=========         Host Frame:  [0x42abaa] in libcusolver.so.11
+=========         Host Frame: cusolverDnXsyevd [0x6575b0] in libcusolver.so.11
+=========         Host Frame: void single_eig_cusolver<double>(DeviceSolverDnHandle&, SingleEigParameter&, DeviceDenseVector<double>&, DeviceDenseVector<double>&, DeviceDenseVector<double>&, HostDenseVector<double>&, DeviceDenseVector<int>&, int, unsigned long, unsigned long, int, int, unsigned long, unsigned long, int) [0x6588a] in libcuadmm_lib.so
+=========         Host Frame: SDPSolver::solve(int, double, int, int, int, int, int, double, double, bool) [0x5b109] in libcuadmm_lib.so
+=========         Host Frame: main [0x748b] in cuadmm_exe
+========= 
+========= Uninitialized __global__ memory read of size 8 bytes
+=========     at void sytrd4_gpu<sytrd_params<double, (int)32, (int)8, (int)1024, (int)32, (int)16, (int)1, (int)2>>(int, T1::data_type *, int, int, T1::pod_type *, T1::data_type *, int, int, int, int, T1::data_type *, unsigned int *, T1::data_type *, T1::data_type *, int, int, int)+0x3930
+=========     by thread (33,0,0) in block (2116,0,0)
+=========     Address 0x147fe8ec8cb8
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuLaunchKernel [0x3c965a] in libcuda.so.1
+=========         Host Frame:  [0xa24ad5] in libcusolver.so.11
+=========         Host Frame:  [0xa8dc5d] in libcusolver.so.11
+=========         Host Frame:  [0x401797] in libcusolver.so.11
+=========         Host Frame:  [0x63a139] in libcusolver.so.11
+=========         Host Frame:  [0x63fa56] in libcusolver.so.11
+=========         Host Frame:  [0x42abaa] in libcusolver.so.11
+=========         Host Frame: cusolverDnXsyevd [0x6575b0] in libcusolver.so.11
+=========         Host Frame: void single_eig_cusolver<double>(DeviceSolverDnHandle&, SingleEigParameter&, DeviceDenseVector<double>&, DeviceDenseVector<double>&, DeviceDenseVector<double>&, HostDenseVector<double>&, DeviceDenseVector<int>&, int, unsigned long, unsigned long, int, int, unsigned long, unsigned long, int) [0x6588a] in libcuadmm_lib.so
+=========         Host Frame: SDPSolver::solve(int, double, int, int, int, int, int, double, double, bool) [0x5b109] in libcuadmm_lib.so
+=========         Host Frame: main [0x748b] in cuadmm_exe
+========= 
+========= Uninitialized __global__ memory read of size 8 bytes
+=========     at void sytrd4_gpu<sytrd_params<double, (int)32, (int)8, (int)1024, (int)32, (int)16, (int)1, (int)2>>(int, T1::data_type *, int, int, T1::pod_type *, T1::data_type *, int, int, int, int, T1::data_type *, unsigned int *, T1::data_type *, T1::data_type *, int, int, int)+0x3930
+=========     by thread (34,0,0) in block (2116,0,0)
+=========     Address 0x147fe8eca1c8
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuLaunchKernel [0x3c965a] in libcuda.so.1
+=========         Host Frame:  [0xa24ad5] in libcusolver.so.11
+=========         Host Frame:  [0xa8dc5d] in libcusolver.so.11
+=========         Host Frame:  [0x401797] in libcusolver.so.11
+=========         Host Frame:  [0x63a139] in libcusolver.so.11
+=========         Host Frame:  [0x63fa56] in libcusolver.so.11
+=========         Host Frame:  [0x42abaa] in libcusolver.so.11
+=========         Host Frame: cusolverDnXsyevd [0x6575b0] in libcusolver.so.11
+=========         Host Frame: void single_eig_cusolver<double>(DeviceSolverDnHandle&, SingleEigParameter&, DeviceDenseVector<double>&, DeviceDenseVector<double>&, DeviceDenseVector<double>&, HostDenseVector<double>&, DeviceDenseVector<int>&, int, unsigned long, unsigned long, int, int, unsigned long, unsigned long, int) [0x6588a] in libcuadmm_lib.so
+=========         Host Frame: SDPSolver::solve(int, double, int, int, int, int, int, double, double, bool) [0x5b109] in libcuadmm_lib.so
+=========         Host Frame: main [0x748b] in cuadmm_exe
+========= 
+========= Uninitialized __global__ memory read of size 8 bytes
+=========     at void sytrd4_gpu<sytrd_params<double, (int)32, (int)8, (int)1024, (int)32, (int)16, (int)1, (int)2>>(int, T1::data_type *, int, int, T1::pod_type *, T1::data_type *, int, int, int, int, T1::data_type *, unsigned int *, T1::data_type *, T1::data_type *, int, int, int)+0x3930
+=========     by thread (35,0,0) in block (2116,0,0)
+=========     Address 0x147fe8ecb6d8
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuLaunchKernel [0x3c965a] in libcuda.so.1
+=========         Host Frame:  [0xa24ad5] in libcusolver.so.11
+=========         Host Frame:  [0xa8dc5d] in libcusolver.so.11
+=========         Host Frame:  [0x401797] in libcusolver.so.11
+=========         Host Frame:  [0x63a139] in libcusolver.so.11
+=========         Host Frame:  [0x63fa56] in libcusolver.so.11
+=========         Host Frame:  [0x42abaa] in libcusolver.so.11
+=========         Host Frame: cusolverDnXsyevd [0x6575b0] in libcusolver.so.11
+=========         Host Frame: void single_eig_cusolver<double>(DeviceSolverDnHandle&, SingleEigParameter&, DeviceDenseVector<double>&, DeviceDenseVector<double>&, DeviceDenseVector<double>&, HostDenseVector<double>&, DeviceDenseVector<int>&, int, unsigned long, unsigned long, int, int, unsigned long, unsigned long, int) [0x6588a] in libcuadmm_lib.so
+=========         Host Frame: SDPSolver::solve(int, double, int, int, int, int, int, double, double, bool) [0x5b109] in libcuadmm_lib.so
+=========         Host Frame: main [0x748b] in cuadmm_exe
+========= 
+========= Uninitialized __global__ memory read of size 8 bytes
+=========     at void sytrd4_gpu<sytrd_params<double, (int)32, (int)8, (int)1024, (int)32, (int)16, (int)1, (int)2>>(int, T1::data_type *, int, int, T1::pod_type *, T1::data_type *, int, int, int, int, T1::data_type *, unsigned int *, T1::data_type *, T1::data_type *, int, int, int)+0x3930
+=========     by thread (36,0,0) in block (2116,0,0)
+=========     Address 0x147fe8eccbe8
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuLaunchKernel [0x3c965a] in libcuda.so.1
+=========         Host Frame:  [0xa24ad5] in libcusolver.so.11
+=========         Host Frame:  [0xa8dc5d] in libcusolver.so.11
+=========         Host Frame:  [0x401797] in libcusolver.so.11
+=========         Host Frame:  [0x63a139] in libcusolver.so.11
+=========         Host Frame:  [0x63fa56] in libcusolver.so.11
+=========         Host Frame:  [0x42abaa] in libcusolver.so.11
+=========         Host Frame: cusolverDnXsyevd [0x6575b0] in libcusolver.so.11
+=========         Host Frame: void single_eig_cusolver<double>(DeviceSolverDnHandle&, SingleEigParameter&, DeviceDenseVector<double>&, DeviceDenseVector<double>&, DeviceDenseVector<double>&, HostDenseVector<double>&, DeviceDenseVector<int>&, int, unsigned long, unsigned long, int, int, unsigned long, unsigned long, int) [0x6588a] in libcuadmm_lib.so
+=========         Host Frame: SDPSolver::solve(int, double, int, int, int, int, int, double, double, bool) [0x5b109] in libcuadmm_lib.so
+=========         Host Frame: main [0x748b] in cuadmm_exe
+========= 
+========= Uninitialized __global__ memory read of size 8 bytes
+=========     at void sytrd4_gpu<sytrd_params<double, (int)32, (int)8, (int)1024, (int)32, (int)16, (int)1, (int)2>>(int, T1::data_type *, int, int, T1::pod_type *, T1::data_type *, int, int, int, int, T1::data_type *, unsigned int *, T1::data_type *, T1::data_type *, int, int, int)+0x3930
+=========     by thread (37,0,0) in block (2116,0,0)
+=========     Address 0x147fe8ece0f8
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuLaunchKernel [0x3c965a] in libcuda.so.1
+=========         Host Frame:  [0xa24ad5] in libcusolver.so.11
+=========         Host Frame:  [0xa8dc5d] in libcusolver.so.11
+=========         Host Frame:  [0x401797] in libcusolver.so.11
+=========         Host Frame:  [0x63a139] in libcusolver.so.11
+=========         Host Frame:  [0x63fa56] in libcusolver.so.11
+=========         Host Frame:  [0x42abaa] in libcusolver.so.11
+=========         Host Frame: cusolverDnXsyevd [0x6575b0] in libcusolver.so.11
+=========         Host Frame: void single_eig_cusolver<double>(DeviceSolverDnHandle&, SingleEigParameter&, DeviceDenseVector<double>&, DeviceDenseVector<double>&, DeviceDenseVector<double>&, HostDenseVector<double>&, DeviceDenseVector<int>&, int, unsigned long, unsigned long, int, int, unsigned long, unsigned long, int) [0x6588a] in libcuadmm_lib.so
+=========         Host Frame: SDPSolver::solve(int, double, int, int, int, int, int, double, double, bool) [0x5b109] in libcuadmm_lib.so
+=========         Host Frame: main [0x748b] in cuadmm_exe
+========= 
+========= Uninitialized __global__ memory read of size 8 bytes
+=========     at void sytrd4_gpu<sytrd_params<double, (int)32, (int)8, (int)1024, (int)32, (int)16, (int)1, (int)2>>(int, T1::data_type *, int, int, T1::pod_type *, T1::data_type *, int, int, int, int, T1::data_type *, unsigned int *, T1::data_type *, T1::data_type *, int, int, int)+0x3930
+=========     by thread (38,0,0) in block (2116,0,0)
+=========     Address 0x147fe8ecf608
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuLaunchKernel [0x3c965a] in libcuda.so.1
+=========         Host Frame:  [0xa24ad5] in libcusolver.so.11
+=========         Host Frame:  [0xa8dc5d] in libcusolver.so.11
+=========         Host Frame:  [0x401797] in libcusolver.so.11
+=========         Host Frame:  [0x63a139] in libcusolver.so.11
+=========         Host Frame:  [0x63fa56] in libcusolver.so.11
+=========         Host Frame:  [0x42abaa] in libcusolver.so.11
+=========         Host Frame: cusolverDnXsyevd [0x6575b0] in libcusolver.so.11
+=========         Host Frame: void single_eig_cusolver<double>(DeviceSolverDnHandle&, SingleEigParameter&, DeviceDenseVector<double>&, DeviceDenseVector<double>&, DeviceDenseVector<double>&, HostDenseVector<double>&, DeviceDenseVector<int>&, int, unsigned long, unsigned long, int, int, unsigned long, unsigned long, int) [0x6588a] in libcuadmm_lib.so
+=========         Host Frame: SDPSolver::solve(int, double, int, int, int, int, int, double, double, bool) [0x5b109] in libcuadmm_lib.so
+=========         Host Frame: main [0x748b] in cuadmm_exe
+========= 
+========= Uninitialized __global__ memory read of size 8 bytes
+=========     at void sytrd4_gpu<sytrd_params<double, (int)32, (int)8, (int)1024, (int)32, (int)16, (int)1, (int)2>>(int, T1::data_type *, int, int, T1::pod_type *, T1::data_type *, int, int, int, int, T1::data_type *, unsigned int *, T1::data_type *, T1::data_type *, int, int, int)+0x3930
+=========     by thread (39,0,0) in block (2116,0,0)
+=========     Address 0x147fe8ed0b18
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuLaunchKernel [0x3c965a] in libcuda.so.1
+=========         Host Frame:  [0xa24ad5] in libcusolver.so.11
+=========         Host Frame:  [0xa8dc5d] in libcusolver.so.11
+=========         Host Frame:  [0x401797] in libcusolver.so.11
+=========         Host Frame:  [0x63a139] in libcusolver.so.11
+=========         Host Frame:  [0x63fa56] in libcusolver.so.11
+=========         Host Frame:  [0x42abaa] in libcusolver.so.11
+=========         Host Frame: cusolverDnXsyevd [0x6575b0] in libcusolver.so.11
+=========         Host Frame: void single_eig_cusolver<double>(DeviceSolverDnHandle&, SingleEigParameter&, DeviceDenseVector<double>&, DeviceDenseVector<double>&, DeviceDenseVector<double>&, HostDenseVector<double>&, DeviceDenseVector<int>&, int, unsigned long, unsigned long, int, int, unsigned long, unsigned long, int) [0x6588a] in libcuadmm_lib.so
+=========         Host Frame: SDPSolver::solve(int, double, int, int, int, int, int, double, double, bool) [0x5b109] in libcuadmm_lib.so
+=========         Host Frame: main [0x748b] in cuadmm_exe
+========= 
+========= Uninitialized __global__ memory read of size 8 bytes
+=========     at void sytrd4_gpu<sytrd_params<double, (int)32, (int)8, (int)1024, (int)32, (int)16, (int)1, (int)2>>(int, T1::data_type *, int, int, T1::pod_type *, T1::data_type *, int, int, int, int, T1::data_type *, unsigned int *, T1::data_type *, T1::data_type *, int, int, int)+0x3930
+=========     by thread (40,0,0) in block (2116,0,0)
+=========     Address 0x147fe8ed2028
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuLaunchKernel [0x3c965a] in libcuda.so.1
+=========         Host Frame:  [0xa24ad5] in libcusolver.so.11
+=========         Host Frame:  [0xa8dc5d] in libcusolver.so.11
+=========         Host Frame:  [0x401797] in libcusolver.so.11
+=========         Host Frame:  [0x63a139] in libcusolver.so.11
+=========         Host Frame:  [0x63fa56] in libcusolver.so.11
+=========         Host Frame:  [0x42abaa] in libcusolver.so.11
+=========         Host Frame: cusolverDnXsyevd [0x6575b0] in libcusolver.so.11
+=========         Host Frame: void single_eig_cusolver<double>(DeviceSolverDnHandle&, SingleEigParameter&, DeviceDenseVector<double>&, DeviceDenseVector<double>&, DeviceDenseVector<double>&, HostDenseVector<double>&, DeviceDenseVector<int>&, int, unsigned long, unsigned long, int, int, unsigned long, unsigned long, int) [0x6588a] in libcuadmm_lib.so
+=========         Host Frame: SDPSolver::solve(int, double, int, int, int, int, int, double, double, bool) [0x5b109] in libcuadmm_lib.so
+=========         Host Frame: main [0x748b] in cuadmm_exe
+========= 
+========= Uninitialized __global__ memory read of size 8 bytes
+=========     at void sytrd4_gpu<sytrd_params<double, (int)32, (int)8, (int)1024, (int)32, (int)16, (int)1, (int)2>>(int, T1::data_type *, int, int, T1::pod_type *, T1::data_type *, int, int, int, int, T1::data_type *, unsigned int *, T1::data_type *, T1::data_type *, int, int, int)+0x3930
+=========     by thread (41,0,0) in block (2116,0,0)
+=========     Address 0x147fe8ed3538
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuLaunchKernel [0x3c965a] in libcuda.so.1
+=========         Host Frame:  [0xa24ad5] in libcusolver.so.11
+=========         Host Frame:  [0xa8dc5d] in libcusolver.so.11
+=========         Host Frame:  [0x401797] in libcusolver.so.11
+=========         Host Frame:  [0x63a139] in libcusolver.so.11
+=========         Host Frame:  [0x63fa56] in libcusolver.so.11
+=========         Host Frame:  [0x42abaa] in libcusolver.so.11
+=========         Host Frame: cusolverDnXsyevd [0x6575b0] in libcusolver.so.11
+=========         Host Frame: void single_eig_cusolver<double>(DeviceSolverDnHandle&, SingleEigParameter&, DeviceDenseVector<double>&, DeviceDenseVector<double>&, DeviceDenseVector<double>&, HostDenseVector<double>&, DeviceDenseVector<int>&, int, unsigned long, unsigned long, int, int, unsigned long, unsigned long, int) [0x6588a] in libcuadmm_lib.so
+=========         Host Frame: SDPSolver::solve(int, double, int, int, int, int, int, double, double, bool) [0x5b109] in libcuadmm_lib.so
+=========         Host Frame: main [0x748b] in cuadmm_exe
+========= 
+========= Uninitialized __global__ memory read of size 8 bytes
+=========     at void sytrd4_gpu<sytrd_params<double, (int)32, (int)8, (int)1024, (int)32, (int)16, (int)1, (int)2>>(int, T1::data_type *, int, int, T1::pod_type *, T1::data_type *, int, int, int, int, T1::data_type *, unsigned int *, T1::data_type *, T1::data_type *, int, int, int)+0x3930
+=========     by thread (42,0,0) in block (2116,0,0)
+=========     Address 0x147fe8ed4a48
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuLaunchKernel [0x3c965a] in libcuda.so.1
+=========         Host Frame:  [0xa24ad5] in libcusolver.so.11
+=========         Host Frame:  [0xa8dc5d] in libcusolver.so.11
+=========         Host Frame:  [0x401797] in libcusolver.so.11
+=========         Host Frame:  [0x63a139] in libcusolver.so.11
+=========         Host Frame:  [0x63fa56] in libcusolver.so.11
+=========         Host Frame:  [0x42abaa] in libcusolver.so.11
+=========         Host Frame: cusolverDnXsyevd [0x6575b0] in libcusolver.so.11
+=========         Host Frame: void single_eig_cusolver<double>(DeviceSolverDnHandle&, SingleEigParameter&, DeviceDenseVector<double>&, DeviceDenseVector<double>&, DeviceDenseVector<double>&, HostDenseVector<double>&, DeviceDenseVector<int>&, int, unsigned long, unsigned long, int, int, unsigned long, unsigned long, int) [0x6588a] in libcuadmm_lib.so
+=========         Host Frame: SDPSolver::solve(int, double, int, int, int, int, int, double, double, bool) [0x5b109] in libcuadmm_lib.so
+=========         Host Frame: main [0x748b] in cuadmm_exe
+========= 
+========= Uninitialized __global__ memory read of size 8 bytes
+=========     at void sytrd4_gpu<sytrd_params<double, (int)32, (int)8, (int)1024, (int)32, (int)16, (int)1, (int)2>>(int, T1::data_type *, int, int, T1::pod_type *, T1::data_type *, int, int, int, int, T1::data_type *, unsigned int *, T1::data_type *, T1::data_type *, int, int, int)+0x3930
+=========     by thread (32,0,0) in block (2299,0,0)
+=========     Address 0x147fe8ec77a8
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuLaunchKernel [0x3c965a] in libcuda.so.1
+=========         Host Frame:  [0xa24ad5] in libcusolver.so.11
+=========         Host Frame:  [0xa8dc5d] in libcusolver.so.11
+=========         Host Frame:  [0x401797] in libcusolver.so.11
+=========         Host Frame:  [0x63a139] in libcusolver.so.11
+=========         Host Frame:  [0x63fa56] in libcusolver.so.11
+=========         Host Frame:  [0x42abaa] in libcusolver.so.11
+=========         Host Frame: cusolverDnXsyevd [0x6575b0] in libcusolver.so.11
+=========         Host Frame: void single_eig_cusolver<double>(DeviceSolverDnHandle&, SingleEigParameter&, DeviceDenseVector<double>&, DeviceDenseVector<double>&, DeviceDenseVector<double>&, HostDenseVector<double>&, DeviceDenseVector<int>&, int, unsigned long, unsigned long, int, int, unsigned long, unsigned long, int) [0x6588a] in libcuadmm_lib.so
+=========         Host Frame: SDPSolver::solve(int, double, int, int, int, int, int, double, double, bool) [0x5b109] in libcuadmm_lib.so
+=========         Host Frame: main [0x748b] in cuadmm_exe
+========= 
+========= Uninitialized __global__ memory read of size 8 bytes
+=========     at void sytrd4_gpu<sytrd_params<double, (int)32, (int)8, (int)1024, (int)32, (int)16, (int)1, (int)2>>(int, T1::data_type *, int, int, T1::pod_type *, T1::data_type *, int, int, int, int, T1::data_type *, unsigned int *, T1::data_type *, T1::data_type *, int, int, int)+0x3930
+=========     by thread (33,0,0) in block (2299,0,0)
+=========     Address 0x147fe8ec8cb8
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuLaunchKernel [0x3c965a] in libcuda.so.1
+=========         Host Frame:  [0xa24ad5] in libcusolver.so.11
+=========         Host Frame:  [0xa8dc5d] in libcusolver.so.11
+=========         Host Frame:  [0x401797] in libcusolver.so.11
+=========         Host Frame:  [0x63a139] in libcusolver.so.11
+=========         Host Frame:  [0x63fa56] in libcusolver.so.11
+=========         Host Frame:  [0x42abaa] in libcusolver.so.11
+=========         Host Frame: cusolverDnXsyevd [0x6575b0] in libcusolver.so.11
+=========         Host Frame: void single_eig_cusolver<double>(DeviceSolverDnHandle&, SingleEigParameter&, DeviceDenseVector<double>&, DeviceDenseVector<double>&, DeviceDenseVector<double>&, HostDenseVector<double>&, DeviceDenseVector<int>&, int, unsigned long, unsigned long, int, int, unsigned long, unsigned long, int) [0x6588a] in libcuadmm_lib.so
+=========         Host Frame: SDPSolver::solve(int, double, int, int, int, int, int, double, double, bool) [0x5b109] in libcuadmm_lib.so
+=========         Host Frame: main [0x748b] in cuadmm_exe
+========= 
+========= Uninitialized __global__ memory read of size 8 bytes
+=========     at void sytrd4_gpu<sytrd_params<double, (int)32, (int)8, (int)1024, (int)32, (int)16, (int)1, (int)2>>(int, T1::data_type *, int, int, T1::pod_type *, T1::data_type *, int, int, int, int, T1::data_type *, unsigned int *, T1::data_type *, T1::data_type *, int, int, int)+0x3930
+=========     by thread (34,0,0) in block (2299,0,0)
+=========     Address 0x147fe8eca1c8
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuLaunchKernel [0x3c965a] in libcuda.so.1
+=========         Host Frame:  [0xa24ad5] in libcusolver.so.11
+=========         Host Frame:  [0xa8dc5d] in libcusolver.so.11
+=========         Host Frame:  [0x401797] in libcusolver.so.11
+=========         Host Frame:  [0x63a139] in libcusolver.so.11
+=========         Host Frame:  [0x63fa56] in libcusolver.so.11
+=========         Host Frame:  [0x42abaa] in libcusolver.so.11
+=========         Host Frame: cusolverDnXsyevd [0x6575b0] in libcusolver.so.11
+=========         Host Frame: void single_eig_cusolver<double>(DeviceSolverDnHandle&, SingleEigParameter&, DeviceDenseVector<double>&, DeviceDenseVector<double>&, DeviceDenseVector<double>&, HostDenseVector<double>&, DeviceDenseVector<int>&, int, unsigned long, unsigned long, int, int, unsigned long, unsigned long, int) [0x6588a] in libcuadmm_lib.so
+=========         Host Frame: SDPSolver::solve(int, double, int, int, int, int, int, double, double, bool) [0x5b109] in libcuadmm_lib.so
+=========         Host Frame: main [0x748b] in cuadmm_exe
+========= 
+========= Uninitialized __global__ memory read of size 8 bytes
+=========     at void sytrd4_gpu<sytrd_params<double, (int)32, (int)8, (int)1024, (int)32, (int)16, (int)1, (int)2>>(int, T1::data_type *, int, int, T1::pod_type *, T1::data_type *, int, int, int, int, T1::data_type *, unsigned int *, T1::data_type *, T1::data_type *, int, int, int)+0x3930
+=========     by thread (35,0,0) in block (2299,0,0)
+=========     Address 0x147fe8ecb6d8
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuLaunchKernel [0x3c965a] in libcuda.so.1
+=========         Host Frame:  [0xa24ad5] in libcusolver.so.11
+=========         Host Frame:  [0xa8dc5d] in libcusolver.so.11
+=========         Host Frame:  [0x401797] in libcusolver.so.11
+=========         Host Frame:  [0x63a139] in libcusolver.so.11
+=========         Host Frame:  [0x63fa56] in libcusolver.so.11
+=========         Host Frame:  [0x42abaa] in libcusolver.so.11
+=========         Host Frame: cusolverDnXsyevd [0x6575b0] in libcusolver.so.11
+=========         Host Frame: void single_eig_cusolver<double>(DeviceSolverDnHandle&, SingleEigParameter&, DeviceDenseVector<double>&, DeviceDenseVector<double>&, DeviceDenseVector<double>&, HostDenseVector<double>&, DeviceDenseVector<int>&, int, unsigned long, unsigned long, int, int, unsigned long, unsigned long, int) [0x6588a] in libcuadmm_lib.so
+=========         Host Frame: SDPSolver::solve(int, double, int, int, int, int, int, double, double, bool) [0x5b109] in libcuadmm_lib.so
+=========         Host Frame: main [0x748b] in cuadmm_exe
+========= 
+========= Uninitialized __global__ memory read of size 8 bytes
+=========     at void sytrd4_gpu<sytrd_params<double, (int)32, (int)8, (int)1024, (int)32, (int)16, (int)1, (int)2>>(int, T1::data_type *, int, int, T1::pod_type *, T1::data_type *, int, int, int, int, T1::data_type *, unsigned int *, T1::data_type *, T1::data_type *, int, int, int)+0x3930
+=========     by thread (36,0,0) in block (2299,0,0)
+=========     Address 0x147fe8eccbe8
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuLaunchKernel [0x3c965a] in libcuda.so.1
+=========         Host Frame:  [0xa24ad5] in libcusolver.so.11
+=========         Host Frame:  [0xa8dc5d] in libcusolver.so.11
+=========         Host Frame:  [0x401797] in libcusolver.so.11
+=========         Host Frame:  [0x63a139] in libcusolver.so.11
+=========         Host Frame:  [0x63fa56] in libcusolver.so.11
+=========         Host Frame:  [0x42abaa] in libcusolver.so.11
+=========         Host Frame: cusolverDnXsyevd [0x6575b0] in libcusolver.so.11
+=========         Host Frame: void single_eig_cusolver<double>(DeviceSolverDnHandle&, SingleEigParameter&, DeviceDenseVector<double>&, DeviceDenseVector<double>&, DeviceDenseVector<double>&, HostDenseVector<double>&, DeviceDenseVector<int>&, int, unsigned long, unsigned long, int, int, unsigned long, unsigned long, int) [0x6588a] in libcuadmm_lib.so
+=========         Host Frame: SDPSolver::solve(int, double, int, int, int, int, int, double, double, bool) [0x5b109] in libcuadmm_lib.so
+=========         Host Frame: main [0x748b] in cuadmm_exe
+========= 
+========= Uninitialized __global__ memory read of size 8 bytes
+=========     at void sytrd4_gpu<sytrd_params<double, (int)32, (int)8, (int)1024, (int)32, (int)16, (int)1, (int)2>>(int, T1::data_type *, int, int, T1::pod_type *, T1::data_type *, int, int, int, int, T1::data_type *, unsigned int *, T1::data_type *, T1::data_type *, int, int, int)+0x3930
+=========     by thread (37,0,0) in block (2299,0,0)
+=========     Address 0x147fe8ece0f8
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuLaunchKernel [0x3c965a] in libcuda.so.1
+=========         Host Frame:  [0xa24ad5] in libcusolver.so.11
+=========         Host Frame:  [0xa8dc5d] in libcusolver.so.11
+=========         Host Frame:  [0x401797] in libcusolver.so.11
+=========         Host Frame:  [0x63a139] in libcusolver.so.11
+=========         Host Frame:  [0x63fa56] in libcusolver.so.11
+=========         Host Frame:  [0x42abaa] in libcusolver.so.11
+=========         Host Frame: cusolverDnXsyevd [0x6575b0] in libcusolver.so.11
+=========         Host Frame: void single_eig_cusolver<double>(DeviceSolverDnHandle&, SingleEigParameter&, DeviceDenseVector<double>&, DeviceDenseVector<double>&, DeviceDenseVector<double>&, HostDenseVector<double>&, DeviceDenseVector<int>&, int, unsigned long, unsigned long, int, int, unsigned long, unsigned long, int) [0x6588a] in libcuadmm_lib.so
+=========         Host Frame: SDPSolver::solve(int, double, int, int, int, int, int, double, double, bool) [0x5b109] in libcuadmm_lib.so
+=========         Host Frame: main [0x748b] in cuadmm_exe
+========= 
+========= Uninitialized __global__ memory read of size 8 bytes
+=========     at void sytrd4_gpu<sytrd_params<double, (int)32, (int)8, (int)1024, (int)32, (int)16, (int)1, (int)2>>(int, T1::data_type *, int, int, T1::pod_type *, T1::data_type *, int, int, int, int, T1::data_type *, unsigned int *, T1::data_type *, T1::data_type *, int, int, int)+0x3930
+=========     by thread (38,0,0) in block (2299,0,0)
+=========     Address 0x147fe8ecf608
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuLaunchKernel [0x3c965a] in libcuda.so.1
+=========         Host Frame:  [0xa24ad5] in libcusolver.so.11
+=========         Host Frame:  [0xa8dc5d] in libcusolver.so.11
+=========         Host Frame:  [0x401797] in libcusolver.so.11
+=========         Host Frame:  [0x63a139] in libcusolver.so.11
+=========         Host Frame:  [0x63fa56] in libcusolver.so.11
+=========         Host Frame:  [0x42abaa] in libcusolver.so.11
+=========         Host Frame: cusolverDnXsyevd [0x6575b0] in libcusolver.so.11
+=========         Host Frame: void single_eig_cusolver<double>(DeviceSolverDnHandle&, SingleEigParameter&, DeviceDenseVector<double>&, DeviceDenseVector<double>&, DeviceDenseVector<double>&, HostDenseVector<double>&, DeviceDenseVector<int>&, int, unsigned long, unsigned long, int, int, unsigned long, unsigned long, int) [0x6588a] in libcuadmm_lib.so
+=========         Host Frame: SDPSolver::solve(int, double, int, int, int, int, int, double, double, bool) [0x5b109] in libcuadmm_lib.so
+=========         Host Frame: main [0x748b] in cuadmm_exe
+========= 
+========= Uninitialized __global__ memory read of size 8 bytes
+=========     at void sytrd4_gpu<sytrd_params<double, (int)32, (int)8, (int)1024, (int)32, (int)16, (int)1, (int)2>>(int, T1::data_type *, int, int, T1::pod_type *, T1::data_type *, int, int, int, int, T1::data_type *, unsigned int *, T1::data_type *, T1::data_type *, int, int, int)+0x3930
+=========     by thread (39,0,0) in block (2299,0,0)
+=========     Address 0x147fe8ed0b18
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuLaunchKernel [0x3c965a] in libcuda.so.1
+=========         Host Frame:  [0xa24ad5] in libcusolver.so.11
+=========         Host Frame:  [0xa8dc5d] in libcusolver.so.11
+=========         Host Frame:  [0x401797] in libcusolver.so.11
+=========         Host Frame:  [0x63a139] in libcusolver.so.11
+=========         Host Frame:  [0x63fa56] in libcusolver.so.11
+=========         Host Frame:  [0x42abaa] in libcusolver.so.11
+=========         Host Frame: cusolverDnXsyevd [0x6575b0] in libcusolver.so.11
+=========         Host Frame: void single_eig_cusolver<double>(DeviceSolverDnHandle&, SingleEigParameter&, DeviceDenseVector<double>&, DeviceDenseVector<double>&, DeviceDenseVector<double>&, HostDenseVector<double>&, DeviceDenseVector<int>&, int, unsigned long, unsigned long, int, int, unsigned long, unsigned long, int) [0x6588a] in libcuadmm_lib.so
+=========         Host Frame: SDPSolver::solve(int, double, int, int, int, int, int, double, double, bool) [0x5b109] in libcuadmm_lib.so
+=========         Host Frame: main [0x748b] in cuadmm_exe
+========= 
+========= Uninitialized __global__ memory read of size 8 bytes
+=========     at void sytrd4_gpu<sytrd_params<double, (int)32, (int)8, (int)1024, (int)32, (int)16, (int)1, (int)2>>(int, T1::data_type *, int, int, T1::pod_type *, T1::data_type *, int, int, int, int, T1::data_type *, unsigned int *, T1::data_type *, T1::data_type *, int, int, int)+0x3930
+=========     by thread (40,0,0) in block (2299,0,0)
+=========     Address 0x147fe8ed2028
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuLaunchKernel [0x3c965a] in libcuda.so.1
+=========         Host Frame:  [0xa24ad5] in libcusolver.so.11
+=========         Host Frame:  [0xa8dc5d] in libcusolver.so.11
+=========         Host Frame:  [0x401797] in libcusolver.so.11
+=========         Host Frame:  [0x63a139] in libcusolver.so.11
+=========         Host Frame:  [0x63fa56] in libcusolver.so.11
+=========         Host Frame:  [0x42abaa] in libcusolver.so.11
+=========         Host Frame: cusolverDnXsyevd [0x6575b0] in libcusolver.so.11
+=========         Host Frame: void single_eig_cusolver<double>(DeviceSolverDnHandle&, SingleEigParameter&, DeviceDenseVector<double>&, DeviceDenseVector<double>&, DeviceDenseVector<double>&, HostDenseVector<double>&, DeviceDenseVector<int>&, int, unsigned long, unsigned long, int, int, unsigned long, unsigned long, int) [0x6588a] in libcuadmm_lib.so
+=========         Host Frame: SDPSolver::solve(int, double, int, int, int, int, int, double, double, bool) [0x5b109] in libcuadmm_lib.so
+=========         Host Frame: main [0x748b] in cuadmm_exe
+========= 
+========= Uninitialized __global__ memory read of size 8 bytes
+=========     at void sytrd4_gpu<sytrd_params<double, (int)32, (int)8, (int)1024, (int)32, (int)16, (int)1, (int)2>>(int, T1::data_type *, int, int, T1::pod_type *, T1::data_type *, int, int, int, int, T1::data_type *, unsigned int *, T1::data_type *, T1::data_type *, int, int, int)+0x3930
+=========     by thread (41,0,0) in block (2299,0,0)
+=========     Address 0x147fe8ed3538
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuLaunchKernel [0x3c965a] in libcuda.so.1
+=========         Host Frame:  [0xa24ad5] in libcusolver.so.11
+=========         Host Frame:  [0xa8dc5d] in libcusolver.so.11
+=========         Host Frame:  [0x401797] in libcusolver.so.11
+=========         Host Frame:  [0x63a139] in libcusolver.so.11
+=========         Host Frame:  [0x63fa56] in libcusolver.so.11
+=========         Host Frame:  [0x42abaa] in libcusolver.so.11
+=========         Host Frame: cusolverDnXsyevd [0x6575b0] in libcusolver.so.11
+=========         Host Frame: void single_eig_cusolver<double>(DeviceSolverDnHandle&, SingleEigParameter&, DeviceDenseVector<double>&, DeviceDenseVector<double>&, DeviceDenseVector<double>&, HostDenseVector<double>&, DeviceDenseVector<int>&, int, unsigned long, unsigned long, int, int, unsigned long, unsigned long, int) [0x6588a] in libcuadmm_lib.so
+=========         Host Frame: SDPSolver::solve(int, double, int, int, int, int, int, double, double, bool) [0x5b109] in libcuadmm_lib.so
+=========         Host Frame: main [0x748b] in cuadmm_exe
+========= 
+========= Uninitialized __global__ memory read of size 8 bytes
+=========     at void sytrd4_gpu<sytrd_params<double, (int)32, (int)8, (int)1024, (int)32, (int)16, (int)1, (int)2>>(int, T1::data_type *, int, int, T1::pod_type *, T1::data_type *, int, int, int, int, T1::data_type *, unsigned int *, T1::data_type *, T1::data_type *, int, int, int)+0x3930
+=========     by thread (42,0,0) in block (2299,0,0)
+=========     Address 0x147fe8ed4a48
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuLaunchKernel [0x3c965a] in libcuda.so.1
+=========         Host Frame:  [0xa24ad5] in libcusolver.so.11
+=========         Host Frame:  [0xa8dc5d] in libcusolver.so.11
+=========         Host Frame:  [0x401797] in libcusolver.so.11
+=========         Host Frame:  [0x63a139] in libcusolver.so.11
+=========         Host Frame:  [0x63fa56] in libcusolver.so.11
+=========         Host Frame:  [0x42abaa] in libcusolver.so.11
+=========         Host Frame: cusolverDnXsyevd [0x6575b0] in libcusolver.so.11
+=========         Host Frame: void single_eig_cusolver<double>(DeviceSolverDnHandle&, SingleEigParameter&, DeviceDenseVector<double>&, DeviceDenseVector<double>&, DeviceDenseVector<double>&, HostDenseVector<double>&, DeviceDenseVector<int>&, int, unsigned long, unsigned long, int, int, unsigned long, unsigned long, int) [0x6588a] in libcuadmm_lib.so
+=========         Host Frame: SDPSolver::solve(int, double, int, int, int, int, int, double, double, bool) [0x5b109] in libcuadmm_lib.so
+=========         Host Frame: main [0x748b] in cuadmm_exe
+========= 
+========= Uninitialized __global__ memory read of size 8 bytes
+=========     at void sytrd4_gpu<sytrd_params<double, (int)32, (int)8, (int)1024, (int)32, (int)16, (int)1, (int)2>>(int, T1::data_type *, int, int, T1::pod_type *, T1::data_type *, int, int, int, int, T1::data_type *, unsigned int *, T1::data_type *, T1::data_type *, int, int, int)+0x3930
+=========     by thread (43,0,0) in block (2299,0,0)
+=========     Address 0x147fe8ed5f58
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuLaunchKernel [0x3c965a] in libcuda.so.1
+=========         Host Frame:  [0xa24ad5] in libcusolver.so.11
+=========         Host Frame:  [0xa8dc5d] in libcusolver.so.11
+=========         Host Frame:  [0x401797] in libcusolver.so.11
+=========         Host Frame:  [0x63a139] in libcusolver.so.11
+=========         Host Frame:  [0x63fa56] in libcusolver.so.11
+=========         Host Frame:  [0x42abaa] in libcusolver.so.11
+=========         Host Frame: cusolverDnXsyevd [0x6575b0] in libcusolver.so.11
+=========         Host Frame: void single_eig_cusolver<double>(DeviceSolverDnHandle&, SingleEigParameter&, DeviceDenseVector<double>&, DeviceDenseVector<double>&, DeviceDenseVector<double>&, HostDenseVector<double>&, DeviceDenseVector<int>&, int, unsigned long, unsigned long, int, int, unsigned long, unsigned long, int) [0x6588a] in libcuadmm_lib.so
+=========         Host Frame: SDPSolver::solve(int, double, int, int, int, int, int, double, double, bool) [0x5b109] in libcuadmm_lib.so
+=========         Host Frame: main [0x748b] in cuadmm_exe
+========= 
+========= Uninitialized __global__ memory read of size 8 bytes
+=========     at void sytrd4_gpu<sytrd_params<double, (int)32, (int)8, (int)1024, (int)32, (int)16, (int)1, (int)2>>(int, T1::data_type *, int, int, T1::pod_type *, T1::data_type *, int, int, int, int, T1::data_type *, unsigned int *, T1::data_type *, T1::data_type *, int, int, int)+0x3930
+=========     by thread (32,0,0) in block (2483,0,0)
+=========     Address 0x147fe8ec77a8
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuLaunchKernel [0x3c965a] in libcuda.so.1
+=========         Host Frame:  [0xa24ad5] in libcusolver.so.11
+=========         Host Frame:  [0xa8dc5d] in libcusolver.so.11
+=========         Host Frame:  [0x401797] in libcusolver.so.11
+=========         Host Frame:  [0x63a139] in libcusolver.so.11
+=========         Host Frame:  [0x63fa56] in libcusolver.so.11
+=========         Host Frame:  [0x42abaa] in libcusolver.so.11
+=========         Host Frame: cusolverDnXsyevd [0x6575b0] in libcusolver.so.11
+=========         Host Frame: void single_eig_cusolver<double>(DeviceSolverDnHandle&, SingleEigParameter&, DeviceDenseVector<double>&, DeviceDenseVector<double>&, DeviceDenseVector<double>&, HostDenseVector<double>&, DeviceDenseVector<int>&, int, unsigned long, unsigned long, int, int, unsigned long, unsigned long, int) [0x6588a] in libcuadmm_lib.so
+=========         Host Frame: SDPSolver::solve(int, double, int, int, int, int, int, double, double, bool) [0x5b109] in libcuadmm_lib.so
+=========         Host Frame: main [0x748b] in cuadmm_exe
+========= 
+========= Uninitialized __global__ memory read of size 8 bytes
+=========     at void sytrd4_gpu<sytrd_params<double, (int)32, (int)8, (int)1024, (int)32, (int)16, (int)1, (int)2>>(int, T1::data_type *, int, int, T1::pod_type *, T1::data_type *, int, int, int, int, T1::data_type *, unsigned int *, T1::data_type *, T1::data_type *, int, int, int)+0x3930
+=========     by thread (33,0,0) in block (2483,0,0)
+=========     Address 0x147fe8ec8cb8
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuLaunchKernel [0x3c965a] in libcuda.so.1
+=========         Host Frame:  [0xa24ad5] in libcusolver.so.11
+=========         Host Frame:  [0xa8dc5d] in libcusolver.so.11
+=========         Host Frame:  [0x401797] in libcusolver.so.11
+=========         Host Frame:  [0x63a139] in libcusolver.so.11
+=========         Host Frame:  [0x63fa56] in libcusolver.so.11
+=========         Host Frame:  [0x42abaa] in libcusolver.so.11
+=========         Host Frame: cusolverDnXsyevd [0x6575b0] in libcusolver.so.11
+=========         Host Frame: void single_eig_cusolver<double>(DeviceSolverDnHandle&, SingleEigParameter&, DeviceDenseVector<double>&, DeviceDenseVector<double>&, DeviceDenseVector<double>&, HostDenseVector<double>&, DeviceDenseVector<int>&, int, unsigned long, unsigned long, int, int, unsigned long, unsigned long, int) [0x6588a] in libcuadmm_lib.so
+=========         Host Frame: SDPSolver::solve(int, double, int, int, int, int, int, double, double, bool) [0x5b109] in libcuadmm_lib.so
+=========         Host Frame: main [0x748b] in cuadmm_exe
+========= 
+========= Uninitialized __global__ memory read of size 8 bytes
+=========     at void sytrd4_gpu<sytrd_params<double, (int)32, (int)8, (int)1024, (int)32, (int)16, (int)1, (int)2>>(int, T1::data_type *, int, int, T1::pod_type *, T1::data_type *, int, int, int, int, T1::data_type *, unsigned int *, T1::data_type *, T1::data_type *, int, int, int)+0x3930
+=========     by thread (34,0,0) in block (2483,0,0)
+=========     Address 0x147fe8eca1c8
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuLaunchKernel [0x3c965a] in libcuda.so.1
+=========         Host Frame:  [0xa24ad5] in libcusolver.so.11
+=========         Host Frame:  [0xa8dc5d] in libcusolver.so.11
+=========         Host Frame:  [0x401797] in libcusolver.so.11
+=========         Host Frame:  [0x63a139] in libcusolver.so.11
+=========         Host Frame:  [0x63fa56] in libcusolver.so.11
+=========         Host Frame:  [0x42abaa] in libcusolver.so.11
+=========         Host Frame: cusolverDnXsyevd [0x6575b0] in libcusolver.so.11
+=========         Host Frame: void single_eig_cusolver<double>(DeviceSolverDnHandle&, SingleEigParameter&, DeviceDenseVector<double>&, DeviceDenseVector<double>&, DeviceDenseVector<double>&, HostDenseVector<double>&, DeviceDenseVector<int>&, int, unsigned long, unsigned long, int, int, unsigned long, unsigned long, int) [0x6588a] in libcuadmm_lib.so
+=========         Host Frame: SDPSolver::solve(int, double, int, int, int, int, int, double, double, bool) [0x5b109] in libcuadmm_lib.so
+=========         Host Frame: main [0x748b] in cuadmm_exe
+========= 
+========= Uninitialized __global__ memory read of size 8 bytes
+=========     at void sytrd4_gpu<sytrd_params<double, (int)32, (int)8, (int)1024, (int)32, (int)16, (int)1, (int)2>>(int, T1::data_type *, int, int, T1::pod_type *, T1::data_type *, int, int, int, int, T1::data_type *, unsigned int *, T1::data_type *, T1::data_type *, int, int, int)+0x3930
+=========     by thread (35,0,0) in block (2483,0,0)
+=========     Address 0x147fe8ecb6d8
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuLaunchKernel [0x3c965a] in libcuda.so.1
+=========         Host Frame:  [0xa24ad5] in libcusolver.so.11
+=========         Host Frame:  [0xa8dc5d] in libcusolver.so.11
+=========         Host Frame:  [0x401797] in libcusolver.so.11
+=========         Host Frame:  [0x63a139] in libcusolver.so.11
+=========         Host Frame:  [0x63fa56] in libcusolver.so.11
+=========         Host Frame:  [0x42abaa] in libcusolver.so.11
+=========         Host Frame: cusolverDnXsyevd [0x6575b0] in libcusolver.so.11
+=========         Host Frame: void single_eig_cusolver<double>(DeviceSolverDnHandle&, SingleEigParameter&, DeviceDenseVector<double>&, DeviceDenseVector<double>&, DeviceDenseVector<double>&, HostDenseVector<double>&, DeviceDenseVector<int>&, int, unsigned long, unsigned long, int, int, unsigned long, unsigned long, int) [0x6588a] in libcuadmm_lib.so
+=========         Host Frame: SDPSolver::solve(int, double, int, int, int, int, int, double, double, bool) [0x5b109] in libcuadmm_lib.so
+=========         Host Frame: main [0x748b] in cuadmm_exe
+========= 
+========= Uninitialized __global__ memory read of size 8 bytes
+=========     at void sytrd4_gpu<sytrd_params<double, (int)32, (int)8, (int)1024, (int)32, (int)16, (int)1, (int)2>>(int, T1::data_type *, int, int, T1::pod_type *, T1::data_type *, int, int, int, int, T1::data_type *, unsigned int *, T1::data_type *, T1::data_type *, int, int, int)+0x3930
+=========     by thread (36,0,0) in block (2483,0,0)
+=========     Address 0x147fe8eccbe8
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuLaunchKernel [0x3c965a] in libcuda.so.1
+=========         Host Frame:  [0xa24ad5] in libcusolver.so.11
+=========         Host Frame:  [0xa8dc5d] in libcusolver.so.11
+=========         Host Frame:  [0x401797] in libcusolver.so.11
+=========         Host Frame:  [0x63a139] in libcusolver.so.11
+=========         Host Frame:  [0x63fa56] in libcusolver.so.11
+=========         Host Frame:  [0x42abaa] in libcusolver.so.11
+=========         Host Frame: cusolverDnXsyevd [0x6575b0] in libcusolver.so.11
+=========         Host Frame: void single_eig_cusolver<double>(DeviceSolverDnHandle&, SingleEigParameter&, DeviceDenseVector<double>&, DeviceDenseVector<double>&, DeviceDenseVector<double>&, HostDenseVector<double>&, DeviceDenseVector<int>&, int, unsigned long, unsigned long, int, int, unsigned long, unsigned long, int) [0x6588a] in libcuadmm_lib.so
+=========         Host Frame: SDPSolver::solve(int, double, int, int, int, int, int, double, double, bool) [0x5b109] in libcuadmm_lib.so
+=========         Host Frame: main [0x748b] in cuadmm_exe
+========= 
+========= Uninitialized __global__ memory read of size 8 bytes
+=========     at void sytrd4_gpu<sytrd_params<double, (int)32, (int)8, (int)1024, (int)32, (int)16, (int)1, (int)2>>(int, T1::data_type *, int, int, T1::pod_type *, T1::data_type *, int, int, int, int, T1::data_type *, unsigned int *, T1::data_type *, T1::data_type *, int, int, int)+0x3930
+=========     by thread (37,0,0) in block (2483,0,0)
+=========     Address 0x147fe8ece0f8
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuLaunchKernel [0x3c965a] in libcuda.so.1
+=========         Host Frame:  [0xa24ad5] in libcusolver.so.11
+=========         Host Frame:  [0xa8dc5d] in libcusolver.so.11
+=========         Host Frame:  [0x401797] in libcusolver.so.11
+=========         Host Frame:  [0x63a139] in libcusolver.so.11
+=========         Host Frame:  [0x63fa56] in libcusolver.so.11
+=========         Host Frame:  [0x42abaa] in libcusolver.so.11
+=========         Host Frame: cusolverDnXsyevd [0x6575b0] in libcusolver.so.11
+=========         Host Frame: void single_eig_cusolver<double>(DeviceSolverDnHandle&, SingleEigParameter&, DeviceDenseVector<double>&, DeviceDenseVector<double>&, DeviceDenseVector<double>&, HostDenseVector<double>&, DeviceDenseVector<int>&, int, unsigned long, unsigned long, int, int, unsigned long, unsigned long, int) [0x6588a] in libcuadmm_lib.so
+=========         Host Frame: SDPSolver::solve(int, double, int, int, int, int, int, double, double, bool) [0x5b109] in libcuadmm_lib.so
+=========         Host Frame: main [0x748b] in cuadmm_exe
+========= 
+========= Uninitialized __global__ memory read of size 8 bytes
+=========     at void sytrd4_gpu<sytrd_params<double, (int)32, (int)8, (int)1024, (int)32, (int)16, (int)1, (int)2>>(int, T1::data_type *, int, int, T1::pod_type *, T1::data_type *, int, int, int, int, T1::data_type *, unsigned int *, T1::data_type *, T1::data_type *, int, int, int)+0x3930
+=========     by thread (38,0,0) in block (2483,0,0)
+=========     Address 0x147fe8ecf608
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuLaunchKernel [0x3c965a] in libcuda.so.1
+=========         Host Frame:  [0xa24ad5] in libcusolver.so.11
+=========         Host Frame:  [0xa8dc5d] in libcusolver.so.11
+=========         Host Frame:  [0x401797] in libcusolver.so.11
+=========         Host Frame:  [0x63a139] in libcusolver.so.11
+=========         Host Frame:  [0x63fa56] in libcusolver.so.11
+=========         Host Frame:  [0x42abaa] in libcusolver.so.11
+=========         Host Frame: cusolverDnXsyevd [0x6575b0] in libcusolver.so.11
+=========         Host Frame: void single_eig_cusolver<double>(DeviceSolverDnHandle&, SingleEigParameter&, DeviceDenseVector<double>&, DeviceDenseVector<double>&, DeviceDenseVector<double>&, HostDenseVector<double>&, DeviceDenseVector<int>&, int, unsigned long, unsigned long, int, int, unsigned long, unsigned long, int) [0x6588a] in libcuadmm_lib.so
+=========         Host Frame: SDPSolver::solve(int, double, int, int, int, int, int, double, double, bool) [0x5b109] in libcuadmm_lib.so
+=========         Host Frame: main [0x748b] in cuadmm_exe
+========= 
+========= Uninitialized __global__ memory read of size 8 bytes
+=========     at void sytrd4_gpu<sytrd_params<double, (int)32, (int)8, (int)1024, (int)32, (int)16, (int)1, (int)2>>(int, T1::data_type *, int, int, T1::pod_type *, T1::data_type *, int, int, int, int, T1::data_type *, unsigned int *, T1::data_type *, T1::data_type *, int, int, int)+0x3930
+=========     by thread (39,0,0) in block (2483,0,0)
+=========     Address 0x147fe8ed0b18
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuLaunchKernel [0x3c965a] in libcuda.so.1
+=========         Host Frame:  [0xa24ad5] in libcusolver.so.11
+=========         Host Frame:  [0xa8dc5d] in libcusolver.so.11
+=========         Host Frame:  [0x401797] in libcusolver.so.11
+=========         Host Frame:  [0x63a139] in libcusolver.so.11
+=========         Host Frame:  [0x63fa56] in libcusolver.so.11
+=========         Host Frame:  [0x42abaa] in libcusolver.so.11
+=========         Host Frame: cusolverDnXsyevd [0x6575b0] in libcusolver.so.11
+=========         Host Frame: void single_eig_cusolver<double>(DeviceSolverDnHandle&, SingleEigParameter&, DeviceDenseVector<double>&, DeviceDenseVector<double>&, DeviceDenseVector<double>&, HostDenseVector<double>&, DeviceDenseVector<int>&, int, unsigned long, unsigned long, int, int, unsigned long, unsigned long, int) [0x6588a] in libcuadmm_lib.so
+=========         Host Frame: SDPSolver::solve(int, double, int, int, int, int, int, double, double, bool) [0x5b109] in libcuadmm_lib.so
+=========         Host Frame: main [0x748b] in cuadmm_exe
+========= 
+========= Uninitialized __global__ memory read of size 8 bytes
+=========     at void sytrd4_gpu<sytrd_params<double, (int)32, (int)8, (int)1024, (int)32, (int)16, (int)1, (int)2>>(int, T1::data_type *, int, int, T1::pod_type *, T1::data_type *, int, int, int, int, T1::data_type *, unsigned int *, T1::data_type *, T1::data_type *, int, int, int)+0x3930
+=========     by thread (40,0,0) in block (2483,0,0)
+=========     Address 0x147fe8ed2028
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuLaunchKernel [0x3c965a] in libcuda.so.1
+=========         Host Frame:  [0xa24ad5] in libcusolver.so.11
+=========         Host Frame:  [0xa8dc5d] in libcusolver.so.11
+=========         Host Frame:  [0x401797] in libcusolver.so.11
+=========         Host Frame:  [0x63a139] in libcusolver.so.11
+=========         Host Frame:  [0x63fa56] in libcusolver.so.11
+=========         Host Frame:  [0x42abaa] in libcusolver.so.11
+=========         Host Frame: cusolverDnXsyevd [0x6575b0] in libcusolver.so.11
+=========         Host Frame: void single_eig_cusolver<double>(DeviceSolverDnHandle&, SingleEigParameter&, DeviceDenseVector<double>&, DeviceDenseVector<double>&, DeviceDenseVector<double>&, HostDenseVector<double>&, DeviceDenseVector<int>&, int, unsigned long, unsigned long, int, int, unsigned long, unsigned long, int) [0x6588a] in libcuadmm_lib.so
+=========         Host Frame: SDPSolver::solve(int, double, int, int, int, int, int, double, double, bool) [0x5b109] in libcuadmm_lib.so
+=========         Host Frame: main [0x748b] in cuadmm_exe
+========= 
+========= Uninitialized __global__ memory read of size 8 bytes
+=========     at void sytrd4_gpu<sytrd_params<double, (int)32, (int)8, (int)1024, (int)32, (int)16, (int)1, (int)2>>(int, T1::data_type *, int, int, T1::pod_type *, T1::data_type *, int, int, int, int, T1::data_type *, unsigned int *, T1::data_type *, T1::data_type *, int, int, int)+0x3930
+=========     by thread (41,0,0) in block (2483,0,0)
+=========     Address 0x147fe8ed3538
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuLaunchKernel [0x3c965a] in libcuda.so.1
+=========         Host Frame:  [0xa24ad5] in libcusolver.so.11
+=========         Host Frame:  [0xa8dc5d] in libcusolver.so.11
+=========         Host Frame:  [0x401797] in libcusolver.so.11
+=========         Host Frame:  [0x63a139] in libcusolver.so.11
+=========         Host Frame:  [0x63fa56] in libcusolver.so.11
+=========         Host Frame:  [0x42abaa] in libcusolver.so.11
+=========         Host Frame: cusolverDnXsyevd [0x6575b0] in libcusolver.so.11
+=========         Host Frame: void single_eig_cusolver<double>(DeviceSolverDnHandle&, SingleEigParameter&, DeviceDenseVector<double>&, DeviceDenseVector<double>&, DeviceDenseVector<double>&, HostDenseVector<double>&, DeviceDenseVector<int>&, int, unsigned long, unsigned long, int, int, unsigned long, unsigned long, int) [0x6588a] in libcuadmm_lib.so
+=========         Host Frame: SDPSolver::solve(int, double, int, int, int, int, int, double, double, bool) [0x5b109] in libcuadmm_lib.so
+=========         Host Frame: main [0x748b] in cuadmm_exe
+========= 
+========= Uninitialized __global__ memory read of size 8 bytes
+=========     at void sytrd4_gpu<sytrd_params<double, (int)32, (int)8, (int)1024, (int)32, (int)16, (int)1, (int)2>>(int, T1::data_type *, int, int, T1::pod_type *, T1::data_type *, int, int, int, int, T1::data_type *, unsigned int *, T1::data_type *, T1::data_type *, int, int, int)+0x3930
+=========     by thread (42,0,0) in block (2483,0,0)
+=========     Address 0x147fe8ed4a48
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuLaunchKernel [0x3c965a] in libcuda.so.1
+=========         Host Frame:  [0xa24ad5] in libcusolver.so.11
+=========         Host Frame:  [0xa8dc5d] in libcusolver.so.11
+=========         Host Frame:  [0x401797] in libcusolver.so.11
+=========         Host Frame:  [0x63a139] in libcusolver.so.11
+=========         Host Frame:  [0x63fa56] in libcusolver.so.11
+=========         Host Frame:  [0x42abaa] in libcusolver.so.11
+=========         Host Frame: cusolverDnXsyevd [0x6575b0] in libcusolver.so.11
+=========         Host Frame: void single_eig_cusolver<double>(DeviceSolverDnHandle&, SingleEigParameter&, DeviceDenseVector<double>&, DeviceDenseVector<double>&, DeviceDenseVector<double>&, HostDenseVector<double>&, DeviceDenseVector<int>&, int, unsigned long, unsigned long, int, int, unsigned long, unsigned long, int) [0x6588a] in libcuadmm_lib.so
+=========         Host Frame: SDPSolver::solve(int, double, int, int, int, int, int, double, double, bool) [0x5b109] in libcuadmm_lib.so
+=========         Host Frame: main [0x748b] in cuadmm_exe
+========= 
+========= Uninitialized __global__ memory read of size 8 bytes
+=========     at void sytrd4_gpu<sytrd_params<double, (int)32, (int)8, (int)1024, (int)32, (int)16, (int)1, (int)2>>(int, T1::data_type *, int, int, T1::pod_type *, T1::data_type *, int, int, int, int, T1::data_type *, unsigned int *, T1::data_type *, T1::data_type *, int, int, int)+0x3930
+=========     by thread (43,0,0) in block (2483,0,0)
+=========     Address 0x147fe8ed5f58
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuLaunchKernel [0x3c965a] in libcuda.so.1
+=========         Host Frame:  [0xa24ad5] in libcusolver.so.11
+=========         Host Frame:  [0xa8dc5d] in libcusolver.so.11
+=========         Host Frame:  [0x401797] in libcusolver.so.11
+=========         Host Frame:  [0x63a139] in libcusolver.so.11
+=========         Host Frame:  [0x63fa56] in libcusolver.so.11
+=========         Host Frame:  [0x42abaa] in libcusolver.so.11
+=========         Host Frame: cusolverDnXsyevd [0x6575b0] in libcusolver.so.11
+=========         Host Frame: void single_eig_cusolver<double>(DeviceSolverDnHandle&, SingleEigParameter&, DeviceDenseVector<double>&, DeviceDenseVector<double>&, DeviceDenseVector<double>&, HostDenseVector<double>&, DeviceDenseVector<int>&, int, unsigned long, unsigned long, int, int, unsigned long, unsigned long, int) [0x6588a] in libcuadmm_lib.so
+=========         Host Frame: SDPSolver::solve(int, double, int, int, int, int, int, double, double, bool) [0x5b109] in libcuadmm_lib.so
+=========         Host Frame: main [0x748b] in cuadmm_exe
+========= 
+========= Uninitialized __global__ memory read of size 8 bytes
+=========     at void sytrd4_gpu<sytrd_params<double, (int)32, (int)8, (int)1024, (int)32, (int)16, (int)1, (int)2>>(int, T1::data_type *, int, int, T1::pod_type *, T1::data_type *, int, int, int, int, T1::data_type *, unsigned int *, T1::data_type *, T1::data_type *, int, int, int)+0x3930
+=========     by thread (44,0,0) in block (2483,0,0)
+=========     Address 0x147fe8ed7468
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuLaunchKernel [0x3c965a] in libcuda.so.1
+=========         Host Frame:  [0xa24ad5] in libcusolver.so.11
+=========         Host Frame:  [0xa8dc5d] in libcusolver.so.11
+=========         Host Frame:  [0x401797] in libcusolver.so.11
+=========         Host Frame:  [0x63a139] in libcusolver.so.11
+=========         Host Frame:  [0x63fa56] in libcusolver.so.11
+=========         Host Frame:  [0x42abaa] in libcusolver.so.11
+=========         Host Frame: cusolverDnXsyevd [0x6575b0] in libcusolver.so.11
+=========         Host Frame: void single_eig_cusolver<double>(DeviceSolverDnHandle&, SingleEigParameter&, DeviceDenseVector<double>&, DeviceDenseVector<double>&, DeviceDenseVector<double>&, HostDenseVector<double>&, DeviceDenseVector<int>&, int, unsigned long, unsigned long, int, int, unsigned long, unsigned long, int) [0x6588a] in libcuadmm_lib.so
+=========         Host Frame: SDPSolver::solve(int, double, int, int, int, int, int, double, double, bool) [0x5b109] in libcuadmm_lib.so
+=========         Host Frame: main [0x748b] in cuadmm_exe
+========= 
+========= Uninitialized __global__ memory read of size 8 bytes
+=========     at void sytrd4_gpu<sytrd_params<double, (int)32, (int)8, (int)1024, (int)32, (int)16, (int)1, (int)2>>(int, T1::data_type *, int, int, T1::pod_type *, T1::data_type *, int, int, int, int, T1::data_type *, unsigned int *, T1::data_type *, T1::data_type *, int, int, int)+0x3930
+=========     by thread (32,0,0) in block (2668,0,0)
+=========     Address 0x147fe8ec77a8
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuLaunchKernel [0x3c965a] in libcuda.so.1
+=========         Host Frame:  [0xa24ad5] in libcusolver.so.11
+=========         Host Frame:  [0xa8dc5d] in libcusolver.so.11
+=========         Host Frame:  [0x401797] in libcusolver.so.11
+=========         Host Frame:  [0x63a139] in libcusolver.so.11
+=========         Host Frame:  [0x63fa56] in libcusolver.so.11
+=========         Host Frame:  [0x42abaa] in libcusolver.so.11
+=========         Host Frame: cusolverDnXsyevd [0x6575b0] in libcusolver.so.11
+=========         Host Frame: void single_eig_cusolver<double>(DeviceSolverDnHandle&, SingleEigParameter&, DeviceDenseVector<double>&, DeviceDenseVector<double>&, DeviceDenseVector<double>&, HostDenseVector<double>&, DeviceDenseVector<int>&, int, unsigned long, unsigned long, int, int, unsigned long, unsigned long, int) [0x6588a] in libcuadmm_lib.so
+=========         Host Frame: SDPSolver::solve(int, double, int, int, int, int, int, double, double, bool) [0x5b109] in libcuadmm_lib.so
+=========         Host Frame: main [0x748b] in cuadmm_exe
+========= 
+========= Uninitialized __global__ memory read of size 8 bytes
+=========     at void sytrd4_gpu<sytrd_params<double, (int)32, (int)8, (int)1024, (int)32, (int)16, (int)1, (int)2>>(int, T1::data_type *, int, int, T1::pod_type *, T1::data_type *, int, int, int, int, T1::data_type *, unsigned int *, T1::data_type *, T1::data_type *, int, int, int)+0x3930
+=========     by thread (33,0,0) in block (2668,0,0)
+=========     Address 0x147fe8ec8cb8
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuLaunchKernel [0x3c965a] in libcuda.so.1
+=========         Host Frame:  [0xa24ad5] in libcusolver.so.11
+=========         Host Frame:  [0xa8dc5d] in libcusolver.so.11
+=========         Host Frame:  [0x401797] in libcusolver.so.11
+=========         Host Frame:  [0x63a139] in libcusolver.so.11
+=========         Host Frame:  [0x63fa56] in libcusolver.so.11
+=========         Host Frame:  [0x42abaa] in libcusolver.so.11
+=========         Host Frame: cusolverDnXsyevd [0x6575b0] in libcusolver.so.11
+=========         Host Frame: void single_eig_cusolver<double>(DeviceSolverDnHandle&, SingleEigParameter&, DeviceDenseVector<double>&, DeviceDenseVector<double>&, DeviceDenseVector<double>&, HostDenseVector<double>&, DeviceDenseVector<int>&, int, unsigned long, unsigned long, int, int, unsigned long, unsigned long, int) [0x6588a] in libcuadmm_lib.so
+=========         Host Frame: SDPSolver::solve(int, double, int, int, int, int, int, double, double, bool) [0x5b109] in libcuadmm_lib.so
+=========         Host Frame: main [0x748b] in cuadmm_exe
+========= 
+========= Uninitialized __global__ memory read of size 8 bytes
+=========     at void sytrd4_gpu<sytrd_params<double, (int)32, (int)8, (int)1024, (int)32, (int)16, (int)1, (int)2>>(int, T1::data_type *, int, int, T1::pod_type *, T1::data_type *, int, int, int, int, T1::data_type *, unsigned int *, T1::data_type *, T1::data_type *, int, int, int)+0x3930
+=========     by thread (34,0,0) in block (2668,0,0)
+=========     Address 0x147fe8eca1c8
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuLaunchKernel [0x3c965a] in libcuda.so.1
+=========         Host Frame:  [0xa24ad5] in libcusolver.so.11
+=========         Host Frame:  [0xa8dc5d] in libcusolver.so.11
+=========         Host Frame:  [0x401797] in libcusolver.so.11
+=========         Host Frame:  [0x63a139] in libcusolver.so.11
+=========         Host Frame:  [0x63fa56] in libcusolver.so.11
+=========         Host Frame:  [0x42abaa] in libcusolver.so.11
+=========         Host Frame: cusolverDnXsyevd [0x6575b0] in libcusolver.so.11
+=========         Host Frame: void single_eig_cusolver<double>(DeviceSolverDnHandle&, SingleEigParameter&, DeviceDenseVector<double>&, DeviceDenseVector<double>&, DeviceDenseVector<double>&, HostDenseVector<double>&, DeviceDenseVector<int>&, int, unsigned long, unsigned long, int, int, unsigned long, unsigned long, int) [0x6588a] in libcuadmm_lib.so
+=========         Host Frame: SDPSolver::solve(int, double, int, int, int, int, int, double, double, bool) [0x5b109] in libcuadmm_lib.so
+=========         Host Frame: main [0x748b] in cuadmm_exe
+========= 
+========= Uninitialized __global__ memory read of size 8 bytes
+=========     at void sytrd4_gpu<sytrd_params<double, (int)32, (int)8, (int)1024, (int)32, (int)16, (int)1, (int)2>>(int, T1::data_type *, int, int, T1::pod_type *, T1::data_type *, int, int, int, int, T1::data_type *, unsigned int *, T1::data_type *, T1::data_type *, int, int, int)+0x3930
+=========     by thread (35,0,0) in block (2668,0,0)
+=========     Address 0x147fe8ecb6d8
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuLaunchKernel [0x3c965a] in libcuda.so.1
+=========         Host Frame:  [0xa24ad5] in libcusolver.so.11
+=========         Host Frame:  [0xa8dc5d] in libcusolver.so.11
+=========         Host Frame:  [0x401797] in libcusolver.so.11
+=========         Host Frame:  [0x63a139] in libcusolver.so.11
+=========         Host Frame:  [0x63fa56] in libcusolver.so.11
+=========         Host Frame:  [0x42abaa] in libcusolver.so.11
+=========         Host Frame: cusolverDnXsyevd [0x6575b0] in libcusolver.so.11
+=========         Host Frame: void single_eig_cusolver<double>(DeviceSolverDnHandle&, SingleEigParameter&, DeviceDenseVector<double>&, DeviceDenseVector<double>&, DeviceDenseVector<double>&, HostDenseVector<double>&, DeviceDenseVector<int>&, int, unsigned long, unsigned long, int, int, unsigned long, unsigned long, int) [0x6588a] in libcuadmm_lib.so
+=========         Host Frame: SDPSolver::solve(int, double, int, int, int, int, int, double, double, bool) [0x5b109] in libcuadmm_lib.so
+=========         Host Frame: main [0x748b] in cuadmm_exe
+========= 
+========= Uninitialized __global__ memory read of size 8 bytes
+=========     at void sytrd4_gpu<sytrd_params<double, (int)32, (int)8, (int)1024, (int)32, (int)16, (int)1, (int)2>>(int, T1::data_type *, int, int, T1::pod_type *, T1::data_type *, int, int, int, int, T1::data_type *, unsigned int *, T1::data_type *, T1::data_type *, int, int, int)+0x3930
+=========     by thread (36,0,0) in block (2668,0,0)
+=========     Address 0x147fe8eccbe8
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuLaunchKernel [0x3c965a] in libcuda.so.1
+=========         Host Frame:  [0xa24ad5] in libcusolver.so.11
+=========         Host Frame:  [0xa8dc5d] in libcusolver.so.11
+=========         Host Frame:  [0x401797] in libcusolver.so.11
+=========         Host Frame:  [0x63a139] in libcusolver.so.11
+=========         Host Frame:  [0x63fa56] in libcusolver.so.11
+=========         Host Frame:  [0x42abaa] in libcusolver.so.11
+=========         Host Frame: cusolverDnXsyevd [0x6575b0] in libcusolver.so.11
+=========         Host Frame: void single_eig_cusolver<double>(DeviceSolverDnHandle&, SingleEigParameter&, DeviceDenseVector<double>&, DeviceDenseVector<double>&, DeviceDenseVector<double>&, HostDenseVector<double>&, DeviceDenseVector<int>&, int, unsigned long, unsigned long, int, int, unsigned long, unsigned long, int) [0x6588a] in libcuadmm_lib.so
+=========         Host Frame: SDPSolver::solve(int, double, int, int, int, int, int, double, double, bool) [0x5b109] in libcuadmm_lib.so
+=========         Host Frame: main [0x748b] in cuadmm_exe
+========= 
+========= Uninitialized __global__ memory read of size 8 bytes
+=========     at void sytrd4_gpu<sytrd_params<double, (int)32, (int)8, (int)1024, (int)32, (int)16, (int)1, (int)2>>(int, T1::data_type *, int, int, T1::pod_type *, T1::data_type *, int, int, int, int, T1::data_type *, unsigned int *, T1::data_type *, T1::data_type *, int, int, int)+0x3930
+=========     by thread (37,0,0) in block (2668,0,0)
+=========     Address 0x147fe8ece0f8
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuLaunchKernel [0x3c965a] in libcuda.so.1
+=========         Host Frame:  [0xa24ad5] in libcusolver.so.11
+=========         Host Frame:  [0xa8dc5d] in libcusolver.so.11
+=========         Host Frame:  [0x401797] in libcusolver.so.11
+=========         Host Frame:  [0x63a139] in libcusolver.so.11
+=========         Host Frame:  [0x63fa56] in libcusolver.so.11
+=========         Host Frame:  [0x42abaa] in libcusolver.so.11
+=========         Host Frame: cusolverDnXsyevd [0x6575b0] in libcusolver.so.11
+=========         Host Frame: void single_eig_cusolver<double>(DeviceSolverDnHandle&, SingleEigParameter&, DeviceDenseVector<double>&, DeviceDenseVector<double>&, DeviceDenseVector<double>&, HostDenseVector<double>&, DeviceDenseVector<int>&, int, unsigned long, unsigned long, int, int, unsigned long, unsigned long, int) [0x6588a] in libcuadmm_lib.so
+=========         Host Frame: SDPSolver::solve(int, double, int, int, int, int, int, double, double, bool) [0x5b109] in libcuadmm_lib.so
+=========         Host Frame: main [0x748b] in cuadmm_exe
+========= 
+========= Uninitialized __global__ memory read of size 8 bytes
+=========     at void sytrd4_gpu<sytrd_params<double, (int)32, (int)8, (int)1024, (int)32, (int)16, (int)1, (int)2>>(int, T1::data_type *, int, int, T1::pod_type *, T1::data_type *, int, int, int, int, T1::data_type *, unsigned int *, T1::data_type *, T1::data_type *, int, int, int)+0x3930
+=========     by thread (38,0,0) in block (2668,0,0)
+=========     Address 0x147fe8ecf608
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuLaunchKernel [0x3c965a] in libcuda.so.1
+=========         Host Frame:  [0xa24ad5] in libcusolver.so.11
+=========         Host Frame:  [0xa8dc5d] in libcusolver.so.11
+=========         Host Frame:  [0x401797] in libcusolver.so.11
+=========         Host Frame:  [0x63a139] in libcusolver.so.11
+=========         Host Frame:  [0x63fa56] in libcusolver.so.11
+=========         Host Frame:  [0x42abaa] in libcusolver.so.11
+=========         Host Frame: cusolverDnXsyevd [0x6575b0] in libcusolver.so.11
+=========         Host Frame: void single_eig_cusolver<double>(DeviceSolverDnHandle&, SingleEigParameter&, DeviceDenseVector<double>&, DeviceDenseVector<double>&, DeviceDenseVector<double>&, HostDenseVector<double>&, DeviceDenseVector<int>&, int, unsigned long, unsigned long, int, int, unsigned long, unsigned long, int) [0x6588a] in libcuadmm_lib.so
+=========         Host Frame: SDPSolver::solve(int, double, int, int, int, int, int, double, double, bool) [0x5b109] in libcuadmm_lib.so
+=========         Host Frame: main [0x748b] in cuadmm_exe
+========= 
+========= Uninitialized __global__ memory read of size 8 bytes
+=========     at void sytrd4_gpu<sytrd_params<double, (int)32, (int)8, (int)1024, (int)32, (int)16, (int)1, (int)2>>(int, T1::data_type *, int, int, T1::pod_type *, T1::data_type *, int, int, int, int, T1::data_type *, unsigned int *, T1::data_type *, T1::data_type *, int, int, int)+0x3930
+=========     by thread (39,0,0) in block (2668,0,0)
+=========     Address 0x147fe8ed0b18
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuLaunchKernel [0x3c965a] in libcuda.so.1
+=========         Host Frame:  [0xa24ad5] in libcusolver.so.11
+=========         Host Frame:  [0xa8dc5d] in libcusolver.so.11
+=========         Host Frame:  [0x401797] in libcusolver.so.11
+=========         Host Frame:  [0x63a139] in libcusolver.so.11
+=========         Host Frame:  [0x63fa56] in libcusolver.so.11
+=========         Host Frame:  [0x42abaa] in libcusolver.so.11
+=========         Host Frame: cusolverDnXsyevd [0x6575b0] in libcusolver.so.11
+=========         Host Frame: void single_eig_cusolver<double>(DeviceSolverDnHandle&, SingleEigParameter&, DeviceDenseVector<double>&, DeviceDenseVector<double>&, DeviceDenseVector<double>&, HostDenseVector<double>&, DeviceDenseVector<int>&, int, unsigned long, unsigned long, int, int, unsigned long, unsigned long, int) [0x6588a] in libcuadmm_lib.so
+=========         Host Frame: SDPSolver::solve(int, double, int, int, int, int, int, double, double, bool) [0x5b109] in libcuadmm_lib.so
+=========         Host Frame: main [0x748b] in cuadmm_exe
+========= 
+========= Uninitialized __global__ memory read of size 8 bytes
+=========     at void sytrd4_gpu<sytrd_params<double, (int)32, (int)8, (int)1024, (int)32, (int)16, (int)1, (int)2>>(int, T1::data_type *, int, int, T1::pod_type *, T1::data_type *, int, int, int, int, T1::data_type *, unsigned int *, T1::data_type *, T1::data_type *, int, int, int)+0x3930
+=========     by thread (40,0,0) in block (2668,0,0)
+=========     Address 0x147fe8ed2028
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: cuLaunchKernel [0x3c965a] in libcuda.so.1
+=========         Host Frame:  [0xa24ad5] in libcusolver.so.11
+=========         Host Frame:  [0xa8dc5d] in libcusolver.so.11
+=========         Host Frame:  [0x401797] in libcusolver.so.11
+=========         Host Frame:  [0x63a139] in libcusolver.so.11
+=========         Host Frame:  [0x63fa56] in libcusolver.so.11
+=========         Host Frame:  [0x42abaa] in libcusolver.so.11
+=========         Host Frame: cusolverDnXsyevd [0x6575b0] in libcusolver.so.11
+=========         Host Frame: void single_eig_cusolver<double>(DeviceSolverDnHandle&, SingleEigParameter&, DeviceDenseVector<double>&, DeviceDenseVector<double>&, DeviceDenseVector<double>&, HostDenseVector<double>&, DeviceDenseVector<int>&, int, unsigned long, unsigned long, int, int, unsigned long, unsigned long, int) [0x6588a] in libcuadmm_lib.so
+=========         Host Frame: SDPSolver::solve(int, double, int, int, int, int, int, double, double, bool) [0x5b109] in libcuadmm_lib.so
+=========         Host Frame: main [0x748b] in cuadmm_exe
+========= 
+   50 | 7.40e-02 1.09e-01 | -1.9529e+00 -7.0452e-01 3.41e-01 | 254.5 | 5.0e-01 
+ [validation] it     100 interval          | ext KKT 4.32e-01 (p 1.0e-01 d 1.1e-01 g 4.3e-01) | X cone 9.9e-07 | dual cone 7.1e-02 | sigma 1.250e-01 | failed: primal,dual,gap,dual_cone (88 ms)
+  100 | 1.02e-01 1.12e-01 | -4.0595e+00 -1.3092e+00 4.32e-01 | 501.7 | 1.2e-01 
+  150 | 1.02e-01 7.90e-02 | -5.8906e+00 -1.4539e+00 5.32e-01 | 738.6 | 1.0e+00 
+ [validation] it     200 max_iter          | ext KKT 4.52e-01 (p 7.1e-02 d 1.1e-01 g 4.5e-01) | X cone 1.1e-06 | dual cone 6.0e-02 | sigma 1.250e-01 | failed: primal,dual,gap,dual_cone (85 ms)
+  200 | 7.09e-02 1.06e-01 | -6.2829e+00 -2.0586e+00 4.52e-01 | 978.5 | 1.2e-01 
+ Returning the best externally evaluated iterate: iteration 100, merit 4.3e-01 (final iterate: 4.5e-01)
+ ------------------------------------------------------------------------------
+
+Solver ended: maximum iteration reached (safety cap, not validated)
+
+ primal infeasibility = 1.0e-01 
+ dual   infeasibility = 1.1e-01 
+ relative gap         = 4.3e-01
+ PSD violation X      = 1.8e-07 
+ PSD violation S      = 7.3e-16
+ certificate: <b,y> + R * -2.810979e-01 is a lower bound on the optimal value if every block of an
+              optimal X has trace (or entries) bounded by R, see certified_lower_bound()
+
+ LOBPCG calls = 0, certificate fallbacks to cuSOLVER = 0
+
+ primal objective = -4.05952963e+00 
+ dual   objective = -1.30916712e+00
+
+ algorithm: plain ADMM, plain ADMM iterations = 200
+ sigma policy: legacy_adaptive, initial sigma 1.000000e+00, final sigma 1.250000e-01, 19 change(s)
+ phases: sGS-ADMM 0 iterations (0.000 s, validation 0.000 s) | plain ADMM 200 iterations (978.099 s, validation 0.173 s)
+ switch: switch_admm = 0, first plain-ADMM iteration 1
+ stop reason: max_iter
+ external validations: 2 (0.17 s); first validated iteration: -1; returned the best externally evaluated iterate
+ best external iterate: iteration 100, KKT 4.32e-01, X cone 9.87e-07, dual cone 7.14e-02, merit 4.32e-01
+
+ time per iteration = 4.8905s 
+ total time         = 978.5s (init 0.4s, iterations 978.1s)
+ -------------------------------------------------------------------------------
+
+========= ERROR SUMMARY: 530046 errors
+========= ERROR SUMMARY: 529946 errors were not printed. Use --print-limit option to adjust the number of printed errors

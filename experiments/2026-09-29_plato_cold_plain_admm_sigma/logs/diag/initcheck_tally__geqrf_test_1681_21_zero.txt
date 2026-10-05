@@ -1,0 +1,4 @@
+TOTAL_REPORTS	0
+WITH_cusolverDn_FRAME	0
+WITHOUT_cusolverDn_FRAME	0
+========= ERROR SUMMARY: 0 errors

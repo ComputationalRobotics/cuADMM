@@ -1,0 +1,302 @@
+/n/sw/helmod-rocky8/apps/Core/cmake/3.31.6-fasrc01/bin/cmake -S/n/home00/yukuanwei/cuadmm-worktrees/plato-cold -B/n/home00/yukuanwei/cuadmm-builds/plato_official --check-build-system CMakeFiles/Makefile.cmake 0
+/n/sw/helmod-rocky8/apps/Core/cmake/3.31.6-fasrc01/bin/cmake -E cmake_progress_start /n/home00/yukuanwei/cuadmm-builds/plato_official/CMakeFiles /n/home00/yukuanwei/cuadmm-builds/plato_official//CMakeFiles/progress.marks
+/usr/bin/gmake  -f CMakeFiles/Makefile2 all
+gmake[1]: Entering directory '/n/home00/yukuanwei/cuadmm-builds/plato_official'
+/usr/bin/gmake  -f psd_projection/CMakeFiles/psd_lib.dir/build.make psd_projection/CMakeFiles/psd_lib.dir/depend
+/usr/bin/gmake  -f _deps/googletest-build/googletest/CMakeFiles/gtest.dir/build.make _deps/googletest-build/googletest/CMakeFiles/gtest.dir/depend
+gmake[2]: Entering directory '/n/home00/yukuanwei/cuadmm-builds/plato_official'
+cd /n/home00/yukuanwei/cuadmm-builds/plato_official && /n/sw/helmod-rocky8/apps/Core/cmake/3.31.6-fasrc01/bin/cmake -E cmake_depends "Unix Makefiles" /n/home00/yukuanwei/cuadmm-worktrees/plato-cold /n/home00/yukuanwei/cuADMM/build/_deps/googletest-src/googletest /n/home00/yukuanwei/cuadmm-builds/plato_official /n/home00/yukuanwei/cuadmm-builds/plato_official/_deps/googletest-build/googletest /n/home00/yukuanwei/cuadmm-builds/plato_official/_deps/googletest-build/googletest/CMakeFiles/gtest.dir/DependInfo.cmake "--color="
+gmake[2]: Entering directory '/n/home00/yukuanwei/cuadmm-builds/plato_official'
+cd /n/home00/yukuanwei/cuadmm-builds/plato_official && /n/sw/helmod-rocky8/apps/Core/cmake/3.31.6-fasrc01/bin/cmake -E cmake_depends "Unix Makefiles" /n/home00/yukuanwei/cuadmm-worktrees/plato-cold /n/home00/yukuanwei/cuadmm-worktrees/plato-cold/psd_projection /n/home00/yukuanwei/cuadmm-builds/plato_official /n/home00/yukuanwei/cuadmm-builds/plato_official/psd_projection /n/home00/yukuanwei/cuadmm-builds/plato_official/psd_projection/CMakeFiles/psd_lib.dir/DependInfo.cmake "--color="
+gmake[2]: Leaving directory '/n/home00/yukuanwei/cuadmm-builds/plato_official'
+/usr/bin/gmake  -f _deps/googletest-build/googletest/CMakeFiles/gtest.dir/build.make _deps/googletest-build/googletest/CMakeFiles/gtest.dir/build
+gmake[2]: Entering directory '/n/home00/yukuanwei/cuadmm-builds/plato_official'
+gmake[2]: Leaving directory '/n/home00/yukuanwei/cuadmm-builds/plato_official'
+/usr/bin/gmake  -f psd_projection/CMakeFiles/psd_lib.dir/build.make psd_projection/CMakeFiles/psd_lib.dir/build
+[  2%] Building CXX object _deps/googletest-build/googletest/CMakeFiles/gtest.dir/src/gtest-all.cc.o
+cd /n/home00/yukuanwei/cuadmm-builds/plato_official/_deps/googletest-build/googletest && /n/sw/helmod-rocky8/apps/Core/gcc/12.2.0-fasrc01/bin/g++  -I/n/home00/yukuanwei/cuADMM/build/_deps/googletest-src/googletest/include -I/n/home00/yukuanwei/cuADMM/build/_deps/googletest-src/googletest -O3 -DNDEBUG -std=c++17 -Wall -Wshadow -Wno-error=dangling-else -DGTEST_HAS_PTHREAD=1 -fexceptions -Wextra -Wno-unused-parameter -Wno-missing-field-initializers -MD -MT _deps/googletest-build/googletest/CMakeFiles/gtest.dir/src/gtest-all.cc.o -MF CMakeFiles/gtest.dir/src/gtest-all.cc.o.d -o CMakeFiles/gtest.dir/src/gtest-all.cc.o -c /n/home00/yukuanwei/cuADMM/build/_deps/googletest-src/googletest/src/gtest-all.cc
+gmake[2]: Entering directory '/n/home00/yukuanwei/cuadmm-builds/plato_official'
+[ 13%] Building CUDA object psd_projection/CMakeFiles/psd_lib.dir/src/composite_FP32.cu.o
+cd /n/home00/yukuanwei/cuadmm-builds/plato_official/psd_projection && /n/sw/helmod-rocky8/apps/Core/cuda/12.9.1-fasrc01/cuda/bin/nvcc -forward-unknown-to-host-compiler -Dpsd_lib_EXPORTS --options-file CMakeFiles/psd_lib.dir/includes_CUDA.rsp -gencode=arch=compute_90,code=sm_90 -gencode=arch=compute_90,code=compute_90 -O3 -DNDEBUG -std=c++14 -Xcompiler=-fPIC -Wno-deprecated-gpu-targets -MD -MT psd_projection/CMakeFiles/psd_lib.dir/src/composite_FP32.cu.o -MF CMakeFiles/psd_lib.dir/src/composite_FP32.cu.o.d -x cu -c /n/home00/yukuanwei/cuadmm-worktrees/plato-cold/psd_projection/src/composite_FP32.cu -o CMakeFiles/psd_lib.dir/src/composite_FP32.cu.o
+[ 20%] Building CUDA object psd_projection/CMakeFiles/psd_lib.dir/src/eig_FP32_psd.cu.o
+[ 13%] Building CUDA object psd_projection/CMakeFiles/psd_lib.dir/src/composite_FP16.cu.o
+[ 20%] Building CUDA object psd_projection/CMakeFiles/psd_lib.dir/src/eig_FP64_psd.cu.o
+[ 20%] Building CUDA object psd_projection/CMakeFiles/psd_lib.dir/src/lobpcg.cu.o
+[ 13%] Building CUDA object psd_projection/CMakeFiles/psd_lib.dir/src/composite_FP32_emulated.cu.o
+[ 20%] Building CUDA object psd_projection/CMakeFiles/psd_lib.dir/src/lanczos.cu.o
+[ 20%] Building CUDA object psd_projection/CMakeFiles/psd_lib.dir/src/utils.cu.o
+cd /n/home00/yukuanwei/cuadmm-builds/plato_official/psd_projection && /n/sw/helmod-rocky8/apps/Core/cuda/12.9.1-fasrc01/cuda/bin/nvcc -forward-unknown-to-host-compiler -Dpsd_lib_EXPORTS --options-file CMakeFiles/psd_lib.dir/includes_CUDA.rsp -gencode=arch=compute_90,code=sm_90 -gencode=arch=compute_90,code=compute_90 -O3 -DNDEBUG -std=c++14 -Xcompiler=-fPIC -Wno-deprecated-gpu-targets -MD -MT psd_projection/CMakeFiles/psd_lib.dir/src/composite_FP16.cu.o -MF CMakeFiles/psd_lib.dir/src/composite_FP16.cu.o.d -x cu -c /n/home00/yukuanwei/cuadmm-worktrees/plato-cold/psd_projection/src/composite_FP16.cu -o CMakeFiles/psd_lib.dir/src/composite_FP16.cu.o
+cd /n/home00/yukuanwei/cuadmm-builds/plato_official/psd_projection && /n/sw/helmod-rocky8/apps/Core/cuda/12.9.1-fasrc01/cuda/bin/nvcc -forward-unknown-to-host-compiler -Dpsd_lib_EXPORTS --options-file CMakeFiles/psd_lib.dir/includes_CUDA.rsp -gencode=arch=compute_90,code=sm_90 -gencode=arch=compute_90,code=compute_90 -O3 -DNDEBUG -std=c++14 -Xcompiler=-fPIC -Wno-deprecated-gpu-targets -MD -MT psd_projection/CMakeFiles/psd_lib.dir/src/composite_FP32_emulated.cu.o -MF CMakeFiles/psd_lib.dir/src/composite_FP32_emulated.cu.o.d -x cu -c /n/home00/yukuanwei/cuadmm-worktrees/plato-cold/psd_projection/src/composite_FP32_emulated.cu -o CMakeFiles/psd_lib.dir/src/composite_FP32_emulated.cu.o
+cd /n/home00/yukuanwei/cuadmm-builds/plato_official/psd_projection && /n/sw/helmod-rocky8/apps/Core/cuda/12.9.1-fasrc01/cuda/bin/nvcc -forward-unknown-to-host-compiler -Dpsd_lib_EXPORTS --options-file CMakeFiles/psd_lib.dir/includes_CUDA.rsp -gencode=arch=compute_90,code=sm_90 -gencode=arch=compute_90,code=compute_90 -O3 -DNDEBUG -std=c++14 -Xcompiler=-fPIC -Wno-deprecated-gpu-targets -MD -MT psd_projection/CMakeFiles/psd_lib.dir/src/eig_FP32_psd.cu.o -MF CMakeFiles/psd_lib.dir/src/eig_FP32_psd.cu.o.d -x cu -c /n/home00/yukuanwei/cuadmm-worktrees/plato-cold/psd_projection/src/eig_FP32_psd.cu -o CMakeFiles/psd_lib.dir/src/eig_FP32_psd.cu.o
+cd /n/home00/yukuanwei/cuadmm-builds/plato_official/psd_projection && /n/sw/helmod-rocky8/apps/Core/cuda/12.9.1-fasrc01/cuda/bin/nvcc -forward-unknown-to-host-compiler -Dpsd_lib_EXPORTS --options-file CMakeFiles/psd_lib.dir/includes_CUDA.rsp -gencode=arch=compute_90,code=sm_90 -gencode=arch=compute_90,code=compute_90 -O3 -DNDEBUG -std=c++14 -Xcompiler=-fPIC -Wno-deprecated-gpu-targets -MD -MT psd_projection/CMakeFiles/psd_lib.dir/src/eig_FP64_psd.cu.o -MF CMakeFiles/psd_lib.dir/src/eig_FP64_psd.cu.o.d -x cu -c /n/home00/yukuanwei/cuadmm-worktrees/plato-cold/psd_projection/src/eig_FP64_psd.cu -o CMakeFiles/psd_lib.dir/src/eig_FP64_psd.cu.o
+cd /n/home00/yukuanwei/cuadmm-builds/plato_official/psd_projection && /n/sw/helmod-rocky8/apps/Core/cuda/12.9.1-fasrc01/cuda/bin/nvcc -forward-unknown-to-host-compiler -Dpsd_lib_EXPORTS --options-file CMakeFiles/psd_lib.dir/includes_CUDA.rsp -gencode=arch=compute_90,code=sm_90 -gencode=arch=compute_90,code=compute_90 -O3 -DNDEBUG -std=c++14 -Xcompiler=-fPIC -Wno-deprecated-gpu-targets -MD -MT psd_projection/CMakeFiles/psd_lib.dir/src/lanczos.cu.o -MF CMakeFiles/psd_lib.dir/src/lanczos.cu.o.d -x cu -c /n/home00/yukuanwei/cuadmm-worktrees/plato-cold/psd_projection/src/lanczos.cu -o CMakeFiles/psd_lib.dir/src/lanczos.cu.o
+cd /n/home00/yukuanwei/cuadmm-builds/plato_official/psd_projection && /n/sw/helmod-rocky8/apps/Core/cuda/12.9.1-fasrc01/cuda/bin/nvcc -forward-unknown-to-host-compiler -Dpsd_lib_EXPORTS --options-file CMakeFiles/psd_lib.dir/includes_CUDA.rsp -gencode=arch=compute_90,code=sm_90 -gencode=arch=compute_90,code=compute_90 -O3 -DNDEBUG -std=c++14 -Xcompiler=-fPIC -Wno-deprecated-gpu-targets -MD -MT psd_projection/CMakeFiles/psd_lib.dir/src/lobpcg.cu.o -MF CMakeFiles/psd_lib.dir/src/lobpcg.cu.o.d -x cu -c /n/home00/yukuanwei/cuadmm-worktrees/plato-cold/psd_projection/src/lobpcg.cu -o CMakeFiles/psd_lib.dir/src/lobpcg.cu.o
+cd /n/home00/yukuanwei/cuadmm-builds/plato_official/psd_projection && /n/sw/helmod-rocky8/apps/Core/cuda/12.9.1-fasrc01/cuda/bin/nvcc -forward-unknown-to-host-compiler -Dpsd_lib_EXPORTS --options-file CMakeFiles/psd_lib.dir/includes_CUDA.rsp -gencode=arch=compute_90,code=sm_90 -gencode=arch=compute_90,code=compute_90 -O3 -DNDEBUG -std=c++14 -Xcompiler=-fPIC -Wno-deprecated-gpu-targets -MD -MT psd_projection/CMakeFiles/psd_lib.dir/src/utils.cu.o -MF CMakeFiles/psd_lib.dir/src/utils.cu.o.d -x cu -c /n/home00/yukuanwei/cuadmm-worktrees/plato-cold/psd_projection/src/utils.cu -o CMakeFiles/psd_lib.dir/src/utils.cu.o
+[ 22%] Linking CUDA shared library libpsd_lib.so
+cd /n/home00/yukuanwei/cuadmm-builds/plato_official/psd_projection && /n/sw/helmod-rocky8/apps/Core/cmake/3.31.6-fasrc01/bin/cmake -E cmake_link_script CMakeFiles/psd_lib.dir/link.txt --verbose=1
+/n/sw/helmod-rocky8/apps/Core/gcc/12.2.0-fasrc01/bin/g++ -fPIC -shared -Wl,-soname,libpsd_lib.so -o libpsd_lib.so @CMakeFiles/psd_lib.dir/objects1.rsp @CMakeFiles/psd_lib.dir/linkLibs.rsp -L"/n/sw/helmod-rocky8/apps/Core/cuda/12.9.1-fasrc01/cuda/targets/x86_64-linux/lib/stubs" -L"/n/sw/helmod-rocky8/apps/Core/cuda/12.9.1-fasrc01/cuda/targets/x86_64-linux/lib"
+gmake[2]: Leaving directory '/n/home00/yukuanwei/cuadmm-builds/plato_official'
+[ 22%] Built target psd_lib
+/usr/bin/gmake  -f CMakeFiles/cuadmm_lib.dir/build.make CMakeFiles/cuadmm_lib.dir/depend
+gmake[2]: Entering directory '/n/home00/yukuanwei/cuadmm-builds/plato_official'
+cd /n/home00/yukuanwei/cuadmm-builds/plato_official && /n/sw/helmod-rocky8/apps/Core/cmake/3.31.6-fasrc01/bin/cmake -E cmake_depends "Unix Makefiles" /n/home00/yukuanwei/cuadmm-worktrees/plato-cold /n/home00/yukuanwei/cuadmm-worktrees/plato-cold /n/home00/yukuanwei/cuadmm-builds/plato_official /n/home00/yukuanwei/cuadmm-builds/plato_official /n/home00/yukuanwei/cuadmm-builds/plato_official/CMakeFiles/cuadmm_lib.dir/DependInfo.cmake "--color="
+gmake[2]: Leaving directory '/n/home00/yukuanwei/cuadmm-builds/plato_official'
+/usr/bin/gmake  -f CMakeFiles/cuadmm_lib.dir/build.make CMakeFiles/cuadmm_lib.dir/build
+gmake[2]: Entering directory '/n/home00/yukuanwei/cuadmm-builds/plato_official'
+[ 34%] Building CUDA object CMakeFiles/cuadmm_lib.dir/src/kernels/dense_dense.cu.o
+/n/sw/helmod-rocky8/apps/Core/cuda/12.9.1-fasrc01/cuda/bin/nvcc -forward-unknown-to-host-compiler -DCUADMM_PLAIN_ADMM_ONLY -Dcuadmm_lib_EXPORTS --options-file CMakeFiles/cuadmm_lib.dir/includes_CUDA.rsp -gencode=arch=compute_90,code=sm_90 -gencode=arch=compute_90,code=compute_90 -O3 -DNDEBUG -std=c++17 -Xcompiler=-fPIC -Wno-deprecated-gpu-targets -MD -MT CMakeFiles/cuadmm_lib.dir/src/kernels/dense_dense.cu.o -MF CMakeFiles/cuadmm_lib.dir/src/kernels/dense_dense.cu.o.d -x cu -c /n/home00/yukuanwei/cuadmm-worktrees/plato-cold/src/kernels/dense_dense.cu -o CMakeFiles/cuadmm_lib.dir/src/kernels/dense_dense.cu.o
+[ 34%] Building CUDA object CMakeFiles/cuadmm_lib.dir/src/kernels/dense_scalar.cu.o
+[ 34%] Building CUDA object CMakeFiles/cuadmm_lib.dir/src/external_validation.cu.o
+[ 50%] Building CUDA object CMakeFiles/cuadmm_lib.dir/src/kernels/permutation.cu.o
+/n/sw/helmod-rocky8/apps/Core/cuda/12.9.1-fasrc01/cuda/bin/nvcc -forward-unknown-to-host-compiler -DCUADMM_PLAIN_ADMM_ONLY -Dcuadmm_lib_EXPORTS --options-file CMakeFiles/cuadmm_lib.dir/includes_CUDA.rsp -gencode=arch=compute_90,code=sm_90 -gencode=arch=compute_90,code=compute_90 -O3 -DNDEBUG -std=c++17 -Xcompiler=-fPIC -Wno-deprecated-gpu-targets -MD -MT CMakeFiles/cuadmm_lib.dir/src/external_validation.cu.o -MF CMakeFiles/cuadmm_lib.dir/src/external_validation.cu.o.d -x cu -c /n/home00/yukuanwei/cuadmm-worktrees/plato-cold/src/external_validation.cu -o CMakeFiles/cuadmm_lib.dir/src/external_validation.cu.o
+/n/sw/helmod-rocky8/apps/Core/cuda/12.9.1-fasrc01/cuda/bin/nvcc -forward-unknown-to-host-compiler -DCUADMM_PLAIN_ADMM_ONLY -Dcuadmm_lib_EXPORTS --options-file CMakeFiles/cuadmm_lib.dir/includes_CUDA.rsp -gencode=arch=compute_90,code=sm_90 -gencode=arch=compute_90,code=compute_90 -O3 -DNDEBUG -std=c++17 -Xcompiler=-fPIC -Wno-deprecated-gpu-targets -MD -MT CMakeFiles/cuadmm_lib.dir/src/kernels/dense_scalar.cu.o -MF CMakeFiles/cuadmm_lib.dir/src/kernels/dense_scalar.cu.o.d -x cu -c /n/home00/yukuanwei/cuadmm-worktrees/plato-cold/src/kernels/dense_scalar.cu -o CMakeFiles/cuadmm_lib.dir/src/kernels/dense_scalar.cu.o
+/n/sw/helmod-rocky8/apps/Core/cuda/12.9.1-fasrc01/cuda/bin/nvcc -forward-unknown-to-host-compiler -DCUADMM_PLAIN_ADMM_ONLY -Dcuadmm_lib_EXPORTS --options-file CMakeFiles/cuadmm_lib.dir/includes_CUDA.rsp -gencode=arch=compute_90,code=sm_90 -gencode=arch=compute_90,code=compute_90 -O3 -DNDEBUG -std=c++17 -Xcompiler=-fPIC -Wno-deprecated-gpu-targets -MD -MT CMakeFiles/cuadmm_lib.dir/src/kernels/permutation.cu.o -MF CMakeFiles/cuadmm_lib.dir/src/kernels/permutation.cu.o.d -x cu -c /n/home00/yukuanwei/cuadmm-worktrees/plato-cold/src/kernels/permutation.cu -o CMakeFiles/cuadmm_lib.dir/src/kernels/permutation.cu.o
+[ 50%] Building CUDA object CMakeFiles/cuadmm_lib.dir/src/kernels/vec_mat_conversion.cu.o
+[ 56%] Building CUDA object CMakeFiles/cuadmm_lib.dir/src/main.cu.o
+[ 50%] Building CUDA object CMakeFiles/cuadmm_lib.dir/src/kernels/sparse_matrix_norm.cu.o
+[ 50%] Building CUDA object CMakeFiles/cuadmm_lib.dir/src/kernels/type_conversion.cu.o
+[ 50%] Building CUDA object CMakeFiles/cuadmm_lib.dir/src/kernels/sparse_dense.cu.o
+[ 50%] Building CUDA object CMakeFiles/cuadmm_lib.dir/src/kernels/diagonal_batch.cu.o
+[ 56%] Building CUDA object CMakeFiles/cuadmm_lib.dir/src/matrix_sizes.cu.o
+[ 56%] Building CUDA object CMakeFiles/cuadmm_lib.dir/src/problem.cu.o
+[ 50%] Building CUDA object CMakeFiles/cuadmm_lib.dir/src/kernels/sparse_scalar.cu.o
+[ 56%] Building CUDA object CMakeFiles/cuadmm_lib.dir/src/rank.cu.o
+[ 56%] Building CUDA object CMakeFiles/cuadmm_lib.dir/src/solver.cu.o
+/n/sw/helmod-rocky8/apps/Core/cuda/12.9.1-fasrc01/cuda/bin/nvcc -forward-unknown-to-host-compiler -DCUADMM_PLAIN_ADMM_ONLY -Dcuadmm_lib_EXPORTS --options-file CMakeFiles/cuadmm_lib.dir/includes_CUDA.rsp -gencode=arch=compute_90,code=sm_90 -gencode=arch=compute_90,code=compute_90 -O3 -DNDEBUG -std=c++17 -Xcompiler=-fPIC -Wno-deprecated-gpu-targets -MD -MT CMakeFiles/cuadmm_lib.dir/src/kernels/diagonal_batch.cu.o -MF CMakeFiles/cuadmm_lib.dir/src/kernels/diagonal_batch.cu.o.d -x cu -c /n/home00/yukuanwei/cuadmm-worktrees/plato-cold/src/kernels/diagonal_batch.cu -o CMakeFiles/cuadmm_lib.dir/src/kernels/diagonal_batch.cu.o
+/n/sw/helmod-rocky8/apps/Core/cuda/12.9.1-fasrc01/cuda/bin/nvcc -forward-unknown-to-host-compiler -DCUADMM_PLAIN_ADMM_ONLY -Dcuadmm_lib_EXPORTS --options-file CMakeFiles/cuadmm_lib.dir/includes_CUDA.rsp -gencode=arch=compute_90,code=sm_90 -gencode=arch=compute_90,code=compute_90 -O3 -DNDEBUG -std=c++17 -Xcompiler=-fPIC -Wno-deprecated-gpu-targets -MD -MT CMakeFiles/cuadmm_lib.dir/src/kernels/sparse_dense.cu.o -MF CMakeFiles/cuadmm_lib.dir/src/kernels/sparse_dense.cu.o.d -x cu -c /n/home00/yukuanwei/cuadmm-worktrees/plato-cold/src/kernels/sparse_dense.cu -o CMakeFiles/cuadmm_lib.dir/src/kernels/sparse_dense.cu.o
+/n/sw/helmod-rocky8/apps/Core/cuda/12.9.1-fasrc01/cuda/bin/nvcc -forward-unknown-to-host-compiler -DCUADMM_PLAIN_ADMM_ONLY -Dcuadmm_lib_EXPORTS --options-file CMakeFiles/cuadmm_lib.dir/includes_CUDA.rsp -gencode=arch=compute_90,code=sm_90 -gencode=arch=compute_90,code=compute_90 -O3 -DNDEBUG -std=c++17 -Xcompiler=-fPIC -Wno-deprecated-gpu-targets -MD -MT CMakeFiles/cuadmm_lib.dir/src/kernels/sparse_matrix_norm.cu.o -MF CMakeFiles/cuadmm_lib.dir/src/kernels/sparse_matrix_norm.cu.o.d -x cu -c /n/home00/yukuanwei/cuadmm-worktrees/plato-cold/src/kernels/sparse_matrix_norm.cu -o CMakeFiles/cuadmm_lib.dir/src/kernels/sparse_matrix_norm.cu.o
+/n/sw/helmod-rocky8/apps/Core/cuda/12.9.1-fasrc01/cuda/bin/nvcc -forward-unknown-to-host-compiler -DCUADMM_PLAIN_ADMM_ONLY -Dcuadmm_lib_EXPORTS --options-file CMakeFiles/cuadmm_lib.dir/includes_CUDA.rsp -gencode=arch=compute_90,code=sm_90 -gencode=arch=compute_90,code=compute_90 -O3 -DNDEBUG -std=c++17 -Xcompiler=-fPIC -Wno-deprecated-gpu-targets -MD -MT CMakeFiles/cuadmm_lib.dir/src/kernels/sparse_scalar.cu.o -MF CMakeFiles/cuadmm_lib.dir/src/kernels/sparse_scalar.cu.o.d -x cu -c /n/home00/yukuanwei/cuadmm-worktrees/plato-cold/src/kernels/sparse_scalar.cu -o CMakeFiles/cuadmm_lib.dir/src/kernels/sparse_scalar.cu.o
+/n/sw/helmod-rocky8/apps/Core/cuda/12.9.1-fasrc01/cuda/bin/nvcc -forward-unknown-to-host-compiler -DCUADMM_PLAIN_ADMM_ONLY -Dcuadmm_lib_EXPORTS --options-file CMakeFiles/cuadmm_lib.dir/includes_CUDA.rsp -gencode=arch=compute_90,code=sm_90 -gencode=arch=compute_90,code=compute_90 -O3 -DNDEBUG -std=c++17 -Xcompiler=-fPIC -Wno-deprecated-gpu-targets -MD -MT CMakeFiles/cuadmm_lib.dir/src/kernels/type_conversion.cu.o -MF CMakeFiles/cuadmm_lib.dir/src/kernels/type_conversion.cu.o.d -x cu -c /n/home00/yukuanwei/cuadmm-worktrees/plato-cold/src/kernels/type_conversion.cu -o CMakeFiles/cuadmm_lib.dir/src/kernels/type_conversion.cu.o
+/n/sw/helmod-rocky8/apps/Core/cuda/12.9.1-fasrc01/cuda/bin/nvcc -forward-unknown-to-host-compiler -DCUADMM_PLAIN_ADMM_ONLY -Dcuadmm_lib_EXPORTS --options-file CMakeFiles/cuadmm_lib.dir/includes_CUDA.rsp -gencode=arch=compute_90,code=sm_90 -gencode=arch=compute_90,code=compute_90 -O3 -DNDEBUG -std=c++17 -Xcompiler=-fPIC -Wno-deprecated-gpu-targets -MD -MT CMakeFiles/cuadmm_lib.dir/src/kernels/vec_mat_conversion.cu.o -MF CMakeFiles/cuadmm_lib.dir/src/kernels/vec_mat_conversion.cu.o.d -x cu -c /n/home00/yukuanwei/cuadmm-worktrees/plato-cold/src/kernels/vec_mat_conversion.cu -o CMakeFiles/cuadmm_lib.dir/src/kernels/vec_mat_conversion.cu.o
+/n/sw/helmod-rocky8/apps/Core/cuda/12.9.1-fasrc01/cuda/bin/nvcc -forward-unknown-to-host-compiler -DCUADMM_PLAIN_ADMM_ONLY -Dcuadmm_lib_EXPORTS --options-file CMakeFiles/cuadmm_lib.dir/includes_CUDA.rsp -gencode=arch=compute_90,code=sm_90 -gencode=arch=compute_90,code=compute_90 -O3 -DNDEBUG -std=c++17 -Xcompiler=-fPIC -Wno-deprecated-gpu-targets -MD -MT CMakeFiles/cuadmm_lib.dir/src/main.cu.o -MF CMakeFiles/cuadmm_lib.dir/src/main.cu.o.d -x cu -c /n/home00/yukuanwei/cuadmm-worktrees/plato-cold/src/main.cu -o CMakeFiles/cuadmm_lib.dir/src/main.cu.o
+/n/sw/helmod-rocky8/apps/Core/cuda/12.9.1-fasrc01/cuda/bin/nvcc -forward-unknown-to-host-compiler -DCUADMM_PLAIN_ADMM_ONLY -Dcuadmm_lib_EXPORTS --options-file CMakeFiles/cuadmm_lib.dir/includes_CUDA.rsp -gencode=arch=compute_90,code=sm_90 -gencode=arch=compute_90,code=compute_90 -O3 -DNDEBUG -std=c++17 -Xcompiler=-fPIC -Wno-deprecated-gpu-targets -MD -MT CMakeFiles/cuadmm_lib.dir/src/matrix_sizes.cu.o -MF CMakeFiles/cuadmm_lib.dir/src/matrix_sizes.cu.o.d -x cu -c /n/home00/yukuanwei/cuadmm-worktrees/plato-cold/src/matrix_sizes.cu -o CMakeFiles/cuadmm_lib.dir/src/matrix_sizes.cu.o
+/n/sw/helmod-rocky8/apps/Core/cuda/12.9.1-fasrc01/cuda/bin/nvcc -forward-unknown-to-host-compiler -DCUADMM_PLAIN_ADMM_ONLY -Dcuadmm_lib_EXPORTS --options-file CMakeFiles/cuadmm_lib.dir/includes_CUDA.rsp -gencode=arch=compute_90,code=sm_90 -gencode=arch=compute_90,code=compute_90 -O3 -DNDEBUG -std=c++17 -Xcompiler=-fPIC -Wno-deprecated-gpu-targets -MD -MT CMakeFiles/cuadmm_lib.dir/src/problem.cu.o -MF CMakeFiles/cuadmm_lib.dir/src/problem.cu.o.d -x cu -c /n/home00/yukuanwei/cuadmm-worktrees/plato-cold/src/problem.cu -o CMakeFiles/cuadmm_lib.dir/src/problem.cu.o
+/n/sw/helmod-rocky8/apps/Core/cuda/12.9.1-fasrc01/cuda/bin/nvcc -forward-unknown-to-host-compiler -DCUADMM_PLAIN_ADMM_ONLY -Dcuadmm_lib_EXPORTS --options-file CMakeFiles/cuadmm_lib.dir/includes_CUDA.rsp -gencode=arch=compute_90,code=sm_90 -gencode=arch=compute_90,code=compute_90 -O3 -DNDEBUG -std=c++17 -Xcompiler=-fPIC -Wno-deprecated-gpu-targets -MD -MT CMakeFiles/cuadmm_lib.dir/src/rank.cu.o -MF CMakeFiles/cuadmm_lib.dir/src/rank.cu.o.d -x cu -c /n/home00/yukuanwei/cuadmm-worktrees/plato-cold/src/rank.cu -o CMakeFiles/cuadmm_lib.dir/src/rank.cu.o
+/n/sw/helmod-rocky8/apps/Core/cuda/12.9.1-fasrc01/cuda/bin/nvcc -forward-unknown-to-host-compiler -DCUADMM_PLAIN_ADMM_ONLY -Dcuadmm_lib_EXPORTS --options-file CMakeFiles/cuadmm_lib.dir/includes_CUDA.rsp -gencode=arch=compute_90,code=sm_90 -gencode=arch=compute_90,code=compute_90 -O3 -DNDEBUG -std=c++17 -Xcompiler=-fPIC -Wno-deprecated-gpu-targets -MD -MT CMakeFiles/cuadmm_lib.dir/src/solver.cu.o -MF CMakeFiles/cuadmm_lib.dir/src/solver.cu.o.d -x cu -c /n/home00/yukuanwei/cuadmm-worktrees/plato-cold/src/solver.cu -o CMakeFiles/cuadmm_lib.dir/src/solver.cu.o
+[ 59%] Building CUDA object CMakeFiles/cuadmm_lib.dir/src/utils/analyze_blk.cu.o
+/n/sw/helmod-rocky8/apps/Core/cuda/12.9.1-fasrc01/cuda/bin/nvcc -forward-unknown-to-host-compiler -DCUADMM_PLAIN_ADMM_ONLY -Dcuadmm_lib_EXPORTS --options-file CMakeFiles/cuadmm_lib.dir/includes_CUDA.rsp -gencode=arch=compute_90,code=sm_90 -gencode=arch=compute_90,code=compute_90 -O3 -DNDEBUG -std=c++17 -Xcompiler=-fPIC -Wno-deprecated-gpu-targets -MD -MT CMakeFiles/cuadmm_lib.dir/src/utils/analyze_blk.cu.o -MF CMakeFiles/cuadmm_lib.dir/src/utils/analyze_blk.cu.o.d -x cu -c /n/home00/yukuanwei/cuadmm-worktrees/plato-cold/src/utils/analyze_blk.cu -o CMakeFiles/cuadmm_lib.dir/src/utils/analyze_blk.cu.o
+[ 61%] Building CUDA object CMakeFiles/cuadmm_lib.dir/src/utils/block_structure.cu.o
+/n/sw/helmod-rocky8/apps/Core/cuda/12.9.1-fasrc01/cuda/bin/nvcc -forward-unknown-to-host-compiler -DCUADMM_PLAIN_ADMM_ONLY -Dcuadmm_lib_EXPORTS --options-file CMakeFiles/cuadmm_lib.dir/includes_CUDA.rsp -gencode=arch=compute_90,code=sm_90 -gencode=arch=compute_90,code=compute_90 -O3 -DNDEBUG -std=c++17 -Xcompiler=-fPIC -Wno-deprecated-gpu-targets -MD -MT CMakeFiles/cuadmm_lib.dir/src/utils/block_structure.cu.o -MF CMakeFiles/cuadmm_lib.dir/src/utils/block_structure.cu.o.d -x cu -c /n/home00/yukuanwei/cuadmm-worktrees/plato-cold/src/utils/block_structure.cu -o CMakeFiles/cuadmm_lib.dir/src/utils/block_structure.cu.o
+[ 63%] Building CUDA object CMakeFiles/cuadmm_lib.dir/src/utils/check_gpus.cu.o
+/n/sw/helmod-rocky8/apps/Core/cuda/12.9.1-fasrc01/cuda/bin/nvcc -forward-unknown-to-host-compiler -DCUADMM_PLAIN_ADMM_ONLY -Dcuadmm_lib_EXPORTS --options-file CMakeFiles/cuadmm_lib.dir/includes_CUDA.rsp -gencode=arch=compute_90,code=sm_90 -gencode=arch=compute_90,code=compute_90 -O3 -DNDEBUG -std=c++17 -Xcompiler=-fPIC -Wno-deprecated-gpu-targets -MD -MT CMakeFiles/cuadmm_lib.dir/src/utils/check_gpus.cu.o -MF CMakeFiles/cuadmm_lib.dir/src/utils/check_gpus.cu.o.d -x cu -c /n/home00/yukuanwei/cuadmm-worktrees/plato-cold/src/utils/check_gpus.cu -o CMakeFiles/cuadmm_lib.dir/src/utils/check_gpus.cu.o
+[ 68%] Building CUDA object CMakeFiles/cuadmm_lib.dir/src/utils/get_eig_rank_mask.cu.o
+[ 70%] Building CUDA object CMakeFiles/cuadmm_lib.dir/src/utils/get_maps.cu.o
+[ 72%] Building CUDA object CMakeFiles/cuadmm_lib.dir/src/utils/inverse_permutation.cu.o
+[ 72%] Building CUDA object CMakeFiles/cuadmm_lib.dir/src/utils/io.cu.o
+/n/sw/helmod-rocky8/apps/Core/cuda/12.9.1-fasrc01/cuda/bin/nvcc -forward-unknown-to-host-compiler -DCUADMM_PLAIN_ADMM_ONLY -Dcuadmm_lib_EXPORTS --options-file CMakeFiles/cuadmm_lib.dir/includes_CUDA.rsp -gencode=arch=compute_90,code=sm_90 -gencode=arch=compute_90,code=compute_90 -O3 -DNDEBUG -std=c++17 -Xcompiler=-fPIC -Wno-deprecated-gpu-targets -MD -MT CMakeFiles/cuadmm_lib.dir/src/utils/get_eig_rank_mask.cu.o -MF CMakeFiles/cuadmm_lib.dir/src/utils/get_eig_rank_mask.cu.o.d -x cu -c /n/home00/yukuanwei/cuadmm-worktrees/plato-cold/src/utils/get_eig_rank_mask.cu -o CMakeFiles/cuadmm_lib.dir/src/utils/get_eig_rank_mask.cu.o
+/n/sw/helmod-rocky8/apps/Core/cuda/12.9.1-fasrc01/cuda/bin/nvcc -forward-unknown-to-host-compiler -DCUADMM_PLAIN_ADMM_ONLY -Dcuadmm_lib_EXPORTS --options-file CMakeFiles/cuadmm_lib.dir/includes_CUDA.rsp -gencode=arch=compute_90,code=sm_90 -gencode=arch=compute_90,code=compute_90 -O3 -DNDEBUG -std=c++17 -Xcompiler=-fPIC -Wno-deprecated-gpu-targets -MD -MT CMakeFiles/cuadmm_lib.dir/src/utils/get_maps.cu.o -MF CMakeFiles/cuadmm_lib.dir/src/utils/get_maps.cu.o.d -x cu -c /n/home00/yukuanwei/cuadmm-worktrees/plato-cold/src/utils/get_maps.cu -o CMakeFiles/cuadmm_lib.dir/src/utils/get_maps.cu.o
+/n/sw/helmod-rocky8/apps/Core/cuda/12.9.1-fasrc01/cuda/bin/nvcc -forward-unknown-to-host-compiler -DCUADMM_PLAIN_ADMM_ONLY -Dcuadmm_lib_EXPORTS --options-file CMakeFiles/cuadmm_lib.dir/includes_CUDA.rsp -gencode=arch=compute_90,code=sm_90 -gencode=arch=compute_90,code=compute_90 -O3 -DNDEBUG -std=c++17 -Xcompiler=-fPIC -Wno-deprecated-gpu-targets -MD -MT CMakeFiles/cuadmm_lib.dir/src/utils/inverse_permutation.cu.o -MF CMakeFiles/cuadmm_lib.dir/src/utils/inverse_permutation.cu.o.d -x cu -c /n/home00/yukuanwei/cuadmm-worktrees/plato-cold/src/utils/inverse_permutation.cu -o CMakeFiles/cuadmm_lib.dir/src/utils/inverse_permutation.cu.o
+/n/sw/helmod-rocky8/apps/Core/cuda/12.9.1-fasrc01/cuda/bin/nvcc -forward-unknown-to-host-compiler -DCUADMM_PLAIN_ADMM_ONLY -Dcuadmm_lib_EXPORTS --options-file CMakeFiles/cuadmm_lib.dir/includes_CUDA.rsp -gencode=arch=compute_90,code=sm_90 -gencode=arch=compute_90,code=compute_90 -O3 -DNDEBUG -std=c++17 -Xcompiler=-fPIC -Wno-deprecated-gpu-targets -MD -MT CMakeFiles/cuadmm_lib.dir/src/utils/io.cu.o -MF CMakeFiles/cuadmm_lib.dir/src/utils/io.cu.o.d -x cu -c /n/home00/yukuanwei/cuadmm-worktrees/plato-cold/src/utils/io.cu -o CMakeFiles/cuadmm_lib.dir/src/utils/io.cu.o
+/n/home00/yukuanwei/cuadmm-worktrees/plato-cold/src/solver.cu(1144): warning #177-D: variable "one" was declared but never referenced
+      double one = 1.0;
+             ^
+
+Remark: The warnings can be suppressed with "-diag-suppress <warning-number>"
+
+/n/home00/yukuanwei/cuadmm-worktrees/plato-cold/src/solver.cu(1145): warning #177-D: variable "zero" was declared but never referenced
+      double zero = 0.0;
+             ^
+
+/n/home00/yukuanwei/cuadmm-worktrees/plato-cold/src/solver.cu(1146): warning #177-D: variable "minus_one" was declared but never referenced
+      double minus_one = -1.0;
+             ^
+
+/n/home00/yukuanwei/cuadmm-worktrees/plato-cold/include/cuadmm/cusparse.h: In function ‘void axpby_cusparse(DeviceSparseHandle&, const DeviceSparseVector<double>&, const DeviceDenseVector<double>&, double, double)’:
+/n/home00/yukuanwei/cuadmm-worktrees/plato-cold/include/cuadmm/cusparse.h:88:45: warning: ‘cusparseStatus_t cusparseAxpby(cusparseHandle_t, const void*, cusparseConstSpVecDescr_t, const void*, cusparseDnVecDescr_t)’ is deprecated: The routine will be removed in the next major release [-Wdeprecated-declarations]
+   88 |     CHECK_CUSPARSE(cusparseAxpby(
+      |                                ~~           ^                                                                              
+/n/sw/helmod-rocky8/apps/Core/cuda/12.9.1-fasrc01/cuda/targets/x86_64-linux/include/cusparse.h:5570:1: note: declared here
+ 5570 | cusparseAxpby(cusparseHandle_t          handle,
+      | ^~~~~~~~~~~~~
+/n/home00/yukuanwei/cuadmm-worktrees/plato-cold/include/cuadmm/cusparse.h: In function ‘size_t SparseVV_get_buffersize_cusparse(DeviceSparseHandle&, const DeviceSparseVector<double>&, const DeviceDenseVector<double>&)’:
+/n/home00/yukuanwei/cuadmm-worktrees/plato-cold/include/cuadmm/cusparse.h:101:55: warning: ‘cusparseStatus_t cusparseSpVV_bufferSize(cusparseHandle_t, cusparseOperation_t, cusparseConstSpVecDescr_t, cusparseConstDnVecDescr_t, const void*, cudaDataType, size_t*)’ is deprecated: The routine will be removed in the next major release [-Wdeprecated-declarations]
+  101 |     CHECK_CUSPARSE(cusparseSpVV_bufferSize(
+      |                                ~~~~~~~~~~~~           ^                                                                                                                                    
+/n/sw/helmod-rocky8/apps/Core/cuda/12.9.1-fasrc01/cuda/targets/x86_64-linux/include/cusparse.h:5596:1: note: declared here
+ 5596 | cusparseSpVV_bufferSize(cusparseHandle_t          handle,
+      | ^~~~~~~~~~~~~~~~~~~~~~~
+/n/home00/yukuanwei/cuadmm-worktrees/plato-cold/include/cuadmm/cusparse.h: In function ‘double SparseVV_cusparse(DeviceSparseHandle&, const DeviceSparseVector<double>&, const DeviceDenseVector<double>&, DeviceDenseVector<double>&)’:
+/n/home00/yukuanwei/cuadmm-worktrees/plato-cold/include/cuadmm/cusparse.h:118:44: warning: ‘cusparseStatus_t cusparseSpVV(cusparseHandle_t, cusparseOperation_t, cusparseConstSpVecDescr_t, cusparseConstDnVecDescr_t, void*, cudaDataType, void*)’ is deprecated: The routine will be removed in the next major release [-Wdeprecated-declarations]
+  118 |     CHECK_CUSPARSE(cusparseSpVV(
+      |                                ~           ^                                                                                                                                   
+/n/sw/helmod-rocky8/apps/Core/cuda/12.9.1-fasrc01/cuda/targets/x86_64-linux/include/cusparse.h:5606:1: note: declared here
+ 5606 | cusparseSpVV(cusparseHandle_t          handle,
+      | ^~~~~~~~~~~~
+/n/home00/yukuanwei/cuadmm-worktrees/plato-cold/include/cuadmm/cusparse.h: In function ‘void axpby_cusparse(DeviceSparseHandle&, const DeviceSparseVector<double>&, const DeviceDenseVector<double>&, double, double)’:
+/n/home00/yukuanwei/cuadmm-worktrees/plato-cold/include/cuadmm/cusparse.h:88:45: warning: ‘cusparseStatus_t cusparseAxpby(cusparseHandle_t, const void*, cusparseConstSpVecDescr_t, const void*, cusparseDnVecDescr_t)’ is deprecated: The routine will be removed in the next major release [-Wdeprecated-declarations]
+   88 |     CHECK_CUSPARSE(cusparseAxpby(
+      |                                ~~           ^                                                                              
+/n/sw/helmod-rocky8/apps/Core/cuda/12.9.1-fasrc01/cuda/targets/x86_64-linux/include/cusparse.h:5570:1: note: declared here
+ 5570 | cusparseAxpby(cusparseHandle_t          handle,
+      | ^~~~~~~~~~~~~
+/n/home00/yukuanwei/cuadmm-worktrees/plato-cold/include/cuadmm/cusparse.h: In function ‘size_t SparseVV_get_buffersize_cusparse(DeviceSparseHandle&, const DeviceSparseVector<double>&, const DeviceDenseVector<double>&)’:
+/n/home00/yukuanwei/cuadmm-worktrees/plato-cold/include/cuadmm/cusparse.h:101:55: warning: ‘cusparseStatus_t cusparseSpVV_bufferSize(cusparseHandle_t, cusparseOperation_t, cusparseConstSpVecDescr_t, cusparseConstDnVecDescr_t, const void*, cudaDataType, size_t*)’ is deprecated: The routine will be removed in the next major release [-Wdeprecated-declarations]
+  101 |     CHECK_CUSPARSE(cusparseSpVV_bufferSize(
+      |                                ~~~~~~~~~~~~           ^                                                                                                                                    
+/n/sw/helmod-rocky8/apps/Core/cuda/12.9.1-fasrc01/cuda/targets/x86_64-linux/include/cusparse.h:5596:1: note: declared here
+ 5596 | cusparseSpVV_bufferSize(cusparseHandle_t          handle,
+      | ^~~~~~~~~~~~~~~~~~~~~~~
+/n/home00/yukuanwei/cuadmm-worktrees/plato-cold/include/cuadmm/cusparse.h: In function ‘double SparseVV_cusparse(DeviceSparseHandle&, const DeviceSparseVector<double>&, const DeviceDenseVector<double>&, DeviceDenseVector<double>&)’:
+/n/home00/yukuanwei/cuadmm-worktrees/plato-cold/include/cuadmm/cusparse.h:118:44: warning: ‘cusparseStatus_t cusparseSpVV(cusparseHandle_t, cusparseOperation_t, cusparseConstSpVecDescr_t, cusparseConstDnVecDescr_t, void*, cudaDataType, void*)’ is deprecated: The routine will be removed in the next major release [-Wdeprecated-declarations]
+  118 |     CHECK_CUSPARSE(cusparseSpVV(
+      |                                ~           ^                                                                                                                                   
+/n/sw/helmod-rocky8/apps/Core/cuda/12.9.1-fasrc01/cuda/targets/x86_64-linux/include/cusparse.h:5606:1: note: declared here
+ 5606 | cusparseSpVV(cusparseHandle_t          handle,
+      | ^~~~~~~~~~~~
+[ 75%] Linking CXX static library ../../../lib/libgtest.a
+cd /n/home00/yukuanwei/cuadmm-builds/plato_official/_deps/googletest-build/googletest && /n/sw/helmod-rocky8/apps/Core/cmake/3.31.6-fasrc01/bin/cmake -P CMakeFiles/gtest.dir/cmake_clean_target.cmake
+cd /n/home00/yukuanwei/cuadmm-builds/plato_official/_deps/googletest-build/googletest && /n/sw/helmod-rocky8/apps/Core/cmake/3.31.6-fasrc01/bin/cmake -E cmake_link_script CMakeFiles/gtest.dir/link.txt --verbose=1
+/usr/bin/ar qc ../../../lib/libgtest.a "CMakeFiles/gtest.dir/src/gtest-all.cc.o"
+/usr/bin/ranlib ../../../lib/libgtest.a
+gmake[2]: Leaving directory '/n/home00/yukuanwei/cuadmm-builds/plato_official'
+[ 75%] Built target gtest
+/usr/bin/gmake  -f _deps/googletest-build/googletest/CMakeFiles/gtest_main.dir/build.make _deps/googletest-build/googletest/CMakeFiles/gtest_main.dir/depend
+/usr/bin/gmake  -f _deps/googletest-build/googlemock/CMakeFiles/gmock.dir/build.make _deps/googletest-build/googlemock/CMakeFiles/gmock.dir/depend
+gmake[2]: Entering directory '/n/home00/yukuanwei/cuadmm-builds/plato_official'
+gmake[2]: Entering directory '/n/home00/yukuanwei/cuadmm-builds/plato_official'
+cd /n/home00/yukuanwei/cuadmm-builds/plato_official && /n/sw/helmod-rocky8/apps/Core/cmake/3.31.6-fasrc01/bin/cmake -E cmake_depends "Unix Makefiles" /n/home00/yukuanwei/cuadmm-worktrees/plato-cold /n/home00/yukuanwei/cuADMM/build/_deps/googletest-src/googletest /n/home00/yukuanwei/cuadmm-builds/plato_official /n/home00/yukuanwei/cuadmm-builds/plato_official/_deps/googletest-build/googletest /n/home00/yukuanwei/cuadmm-builds/plato_official/_deps/googletest-build/googletest/CMakeFiles/gtest_main.dir/DependInfo.cmake "--color="
+cd /n/home00/yukuanwei/cuadmm-builds/plato_official && /n/sw/helmod-rocky8/apps/Core/cmake/3.31.6-fasrc01/bin/cmake -E cmake_depends "Unix Makefiles" /n/home00/yukuanwei/cuadmm-worktrees/plato-cold /n/home00/yukuanwei/cuADMM/build/_deps/googletest-src/googlemock /n/home00/yukuanwei/cuadmm-builds/plato_official /n/home00/yukuanwei/cuadmm-builds/plato_official/_deps/googletest-build/googlemock /n/home00/yukuanwei/cuadmm-builds/plato_official/_deps/googletest-build/googlemock/CMakeFiles/gmock.dir/DependInfo.cmake "--color="
+gmake[2]: Leaving directory '/n/home00/yukuanwei/cuadmm-builds/plato_official'
+gmake[2]: Leaving directory '/n/home00/yukuanwei/cuadmm-builds/plato_official'
+/usr/bin/gmake  -f _deps/googletest-build/googletest/CMakeFiles/gtest_main.dir/build.make _deps/googletest-build/googletest/CMakeFiles/gtest_main.dir/build
+/usr/bin/gmake  -f _deps/googletest-build/googlemock/CMakeFiles/gmock.dir/build.make _deps/googletest-build/googlemock/CMakeFiles/gmock.dir/build
+gmake[2]: Entering directory '/n/home00/yukuanwei/cuadmm-builds/plato_official'
+gmake[2]: Entering directory '/n/home00/yukuanwei/cuadmm-builds/plato_official'
+[ 79%] Building CXX object _deps/googletest-build/googlemock/CMakeFiles/gmock.dir/src/gmock-all.cc.o
+[ 79%] Building CXX object _deps/googletest-build/googletest/CMakeFiles/gtest_main.dir/src/gtest_main.cc.o
+cd /n/home00/yukuanwei/cuadmm-builds/plato_official/_deps/googletest-build/googlemock && /n/sw/helmod-rocky8/apps/Core/gcc/12.2.0-fasrc01/bin/g++  -I/n/home00/yukuanwei/cuADMM/build/_deps/googletest-src/googlemock/include -I/n/home00/yukuanwei/cuADMM/build/_deps/googletest-src/googlemock -isystem /n/home00/yukuanwei/cuADMM/build/_deps/googletest-src/googletest/include -isystem /n/home00/yukuanwei/cuADMM/build/_deps/googletest-src/googletest -O3 -DNDEBUG -std=c++17 -Wall -Wshadow -Wno-error=dangling-else -DGTEST_HAS_PTHREAD=1 -fexceptions -Wextra -Wno-unused-parameter -Wno-missing-field-initializers -MD -MT _deps/googletest-build/googlemock/CMakeFiles/gmock.dir/src/gmock-all.cc.o -MF CMakeFiles/gmock.dir/src/gmock-all.cc.o.d -o CMakeFiles/gmock.dir/src/gmock-all.cc.o -c /n/home00/yukuanwei/cuADMM/build/_deps/googletest-src/googlemock/src/gmock-all.cc
+cd /n/home00/yukuanwei/cuadmm-builds/plato_official/_deps/googletest-build/googletest && /n/sw/helmod-rocky8/apps/Core/gcc/12.2.0-fasrc01/bin/g++  -isystem /n/home00/yukuanwei/cuADMM/build/_deps/googletest-src/googletest/include -isystem /n/home00/yukuanwei/cuADMM/build/_deps/googletest-src/googletest -O3 -DNDEBUG -std=c++17 -Wall -Wshadow -Wno-error=dangling-else -DGTEST_HAS_PTHREAD=1 -fexceptions -Wextra -Wno-unused-parameter -Wno-missing-field-initializers -MD -MT _deps/googletest-build/googletest/CMakeFiles/gtest_main.dir/src/gtest_main.cc.o -MF CMakeFiles/gtest_main.dir/src/gtest_main.cc.o.d -o CMakeFiles/gtest_main.dir/src/gtest_main.cc.o -c /n/home00/yukuanwei/cuADMM/build/_deps/googletest-src/googletest/src/gtest_main.cc
+[ 81%] Linking CXX static library ../../../lib/libgtest_main.a
+cd /n/home00/yukuanwei/cuadmm-builds/plato_official/_deps/googletest-build/googletest && /n/sw/helmod-rocky8/apps/Core/cmake/3.31.6-fasrc01/bin/cmake -P CMakeFiles/gtest_main.dir/cmake_clean_target.cmake
+cd /n/home00/yukuanwei/cuadmm-builds/plato_official/_deps/googletest-build/googletest && /n/sw/helmod-rocky8/apps/Core/cmake/3.31.6-fasrc01/bin/cmake -E cmake_link_script CMakeFiles/gtest_main.dir/link.txt --verbose=1
+/usr/bin/ar qc ../../../lib/libgtest_main.a CMakeFiles/gtest_main.dir/src/gtest_main.cc.o
+/usr/bin/ranlib ../../../lib/libgtest_main.a
+gmake[2]: Leaving directory '/n/home00/yukuanwei/cuadmm-builds/plato_official'
+[ 81%] Built target gtest_main
+[ 84%] Linking CXX static library ../../../lib/libgmock.a
+cd /n/home00/yukuanwei/cuadmm-builds/plato_official/_deps/googletest-build/googlemock && /n/sw/helmod-rocky8/apps/Core/cmake/3.31.6-fasrc01/bin/cmake -P CMakeFiles/gmock.dir/cmake_clean_target.cmake
+cd /n/home00/yukuanwei/cuadmm-builds/plato_official/_deps/googletest-build/googlemock && /n/sw/helmod-rocky8/apps/Core/cmake/3.31.6-fasrc01/bin/cmake -E cmake_link_script CMakeFiles/gmock.dir/link.txt --verbose=1
+/usr/bin/ar qc ../../../lib/libgmock.a "CMakeFiles/gmock.dir/src/gmock-all.cc.o"
+/usr/bin/ranlib ../../../lib/libgmock.a
+gmake[2]: Leaving directory '/n/home00/yukuanwei/cuadmm-builds/plato_official'
+[ 84%] Built target gmock
+/usr/bin/gmake  -f _deps/googletest-build/googlemock/CMakeFiles/gmock_main.dir/build.make _deps/googletest-build/googlemock/CMakeFiles/gmock_main.dir/depend
+gmake[2]: Entering directory '/n/home00/yukuanwei/cuadmm-builds/plato_official'
+cd /n/home00/yukuanwei/cuadmm-builds/plato_official && /n/sw/helmod-rocky8/apps/Core/cmake/3.31.6-fasrc01/bin/cmake -E cmake_depends "Unix Makefiles" /n/home00/yukuanwei/cuadmm-worktrees/plato-cold /n/home00/yukuanwei/cuADMM/build/_deps/googletest-src/googlemock /n/home00/yukuanwei/cuadmm-builds/plato_official /n/home00/yukuanwei/cuadmm-builds/plato_official/_deps/googletest-build/googlemock /n/home00/yukuanwei/cuadmm-builds/plato_official/_deps/googletest-build/googlemock/CMakeFiles/gmock_main.dir/DependInfo.cmake "--color="
+gmake[2]: Leaving directory '/n/home00/yukuanwei/cuadmm-builds/plato_official'
+/usr/bin/gmake  -f _deps/googletest-build/googlemock/CMakeFiles/gmock_main.dir/build.make _deps/googletest-build/googlemock/CMakeFiles/gmock_main.dir/build
+gmake[2]: Entering directory '/n/home00/yukuanwei/cuadmm-builds/plato_official'
+[ 86%] Building CXX object _deps/googletest-build/googlemock/CMakeFiles/gmock_main.dir/src/gmock_main.cc.o
+cd /n/home00/yukuanwei/cuadmm-builds/plato_official/_deps/googletest-build/googlemock && /n/sw/helmod-rocky8/apps/Core/gcc/12.2.0-fasrc01/bin/g++  -isystem /n/home00/yukuanwei/cuADMM/build/_deps/googletest-src/googlemock/include -isystem /n/home00/yukuanwei/cuADMM/build/_deps/googletest-src/googlemock -isystem /n/home00/yukuanwei/cuADMM/build/_deps/googletest-src/googletest/include -isystem /n/home00/yukuanwei/cuADMM/build/_deps/googletest-src/googletest -O3 -DNDEBUG -std=c++17 -Wall -Wshadow -Wno-error=dangling-else -DGTEST_HAS_PTHREAD=1 -fexceptions -Wextra -Wno-unused-parameter -Wno-missing-field-initializers -MD -MT _deps/googletest-build/googlemock/CMakeFiles/gmock_main.dir/src/gmock_main.cc.o -MF CMakeFiles/gmock_main.dir/src/gmock_main.cc.o.d -o CMakeFiles/gmock_main.dir/src/gmock_main.cc.o -c /n/home00/yukuanwei/cuADMM/build/_deps/googletest-src/googlemock/src/gmock_main.cc
+[ 88%] Linking CUDA shared library libcuadmm_lib.so
+/n/sw/helmod-rocky8/apps/Core/cmake/3.31.6-fasrc01/bin/cmake -E cmake_link_script CMakeFiles/cuadmm_lib.dir/link.txt --verbose=1
+[ 90%] Linking CXX static library ../../../lib/libgmock_main.a
+cd /n/home00/yukuanwei/cuadmm-builds/plato_official/_deps/googletest-build/googlemock && /n/sw/helmod-rocky8/apps/Core/cmake/3.31.6-fasrc01/bin/cmake -P CMakeFiles/gmock_main.dir/cmake_clean_target.cmake
+cd /n/home00/yukuanwei/cuadmm-builds/plato_official/_deps/googletest-build/googlemock && /n/sw/helmod-rocky8/apps/Core/cmake/3.31.6-fasrc01/bin/cmake -E cmake_link_script CMakeFiles/gmock_main.dir/link.txt --verbose=1
+/usr/bin/ar qc ../../../lib/libgmock_main.a CMakeFiles/gmock_main.dir/src/gmock_main.cc.o
+/usr/bin/ranlib ../../../lib/libgmock_main.a
+gmake[2]: Leaving directory '/n/home00/yukuanwei/cuadmm-builds/plato_official'
+[ 90%] Built target gmock_main
+/n/sw/helmod-rocky8/apps/Core/gcc/12.2.0-fasrc01/bin/g++ -fPIC -shared -Wl,-soname,libcuadmm_lib.so -o libcuadmm_lib.so @CMakeFiles/cuadmm_lib.dir/objects1.rsp @CMakeFiles/cuadmm_lib.dir/linkLibs.rsp -L"/n/sw/helmod-rocky8/apps/Core/cuda/12.9.1-fasrc01/cuda/targets/x86_64-linux/lib/stubs" -L"/n/sw/helmod-rocky8/apps/Core/cuda/12.9.1-fasrc01/cuda/targets/x86_64-linux/lib"
+gmake[2]: Leaving directory '/n/home00/yukuanwei/cuadmm-builds/plato_official'
+[ 90%] Built target cuadmm_lib
+/usr/bin/gmake  -f CMakeFiles/cuadmm_exe.dir/build.make CMakeFiles/cuadmm_exe.dir/depend
+/usr/bin/gmake  -f CMakeFiles/tests.dir/build.make CMakeFiles/tests.dir/depend
+gmake[2]: Entering directory '/n/home00/yukuanwei/cuadmm-builds/plato_official'
+gmake[2]: Entering directory '/n/home00/yukuanwei/cuadmm-builds/plato_official'
+cd /n/home00/yukuanwei/cuadmm-builds/plato_official && /n/sw/helmod-rocky8/apps/Core/cmake/3.31.6-fasrc01/bin/cmake -E cmake_depends "Unix Makefiles" /n/home00/yukuanwei/cuadmm-worktrees/plato-cold /n/home00/yukuanwei/cuadmm-worktrees/plato-cold /n/home00/yukuanwei/cuadmm-builds/plato_official /n/home00/yukuanwei/cuadmm-builds/plato_official /n/home00/yukuanwei/cuadmm-builds/plato_official/CMakeFiles/tests.dir/DependInfo.cmake "--color="
+cd /n/home00/yukuanwei/cuadmm-builds/plato_official && /n/sw/helmod-rocky8/apps/Core/cmake/3.31.6-fasrc01/bin/cmake -E cmake_depends "Unix Makefiles" /n/home00/yukuanwei/cuadmm-worktrees/plato-cold /n/home00/yukuanwei/cuadmm-worktrees/plato-cold /n/home00/yukuanwei/cuadmm-builds/plato_official /n/home00/yukuanwei/cuadmm-builds/plato_official /n/home00/yukuanwei/cuadmm-builds/plato_official/CMakeFiles/cuadmm_exe.dir/DependInfo.cmake "--color="
+gmake[2]: Leaving directory '/n/home00/yukuanwei/cuadmm-builds/plato_official'
+gmake[2]: Leaving directory '/n/home00/yukuanwei/cuadmm-builds/plato_official'
+/usr/bin/gmake  -f CMakeFiles/cuadmm_exe.dir/build.make CMakeFiles/cuadmm_exe.dir/build
+/usr/bin/gmake  -f CMakeFiles/tests.dir/build.make CMakeFiles/tests.dir/build
+gmake[2]: Entering directory '/n/home00/yukuanwei/cuadmm-builds/plato_official'
+gmake[2]: Entering directory '/n/home00/yukuanwei/cuadmm-builds/plato_official'
+[ 95%] Building CUDA object CMakeFiles/cuadmm_exe.dir/src/main.cu.o
+[ 95%] Building CXX object CMakeFiles/tests.dir/test/tests.cpp.o
+/n/sw/helmod-rocky8/apps/Core/cuda/12.9.1-fasrc01/cuda/bin/nvcc -forward-unknown-to-host-compiler -DCUADMM_PLAIN_ADMM_ONLY --options-file CMakeFiles/cuadmm_exe.dir/includes_CUDA.rsp -gencode=arch=compute_90,code=sm_90 -gencode=arch=compute_90,code=compute_90 -O3 -DNDEBUG -std=c++17 -Wno-deprecated-gpu-targets -MD -MT CMakeFiles/cuadmm_exe.dir/src/main.cu.o -MF CMakeFiles/cuadmm_exe.dir/src/main.cu.o.d -x cu -c /n/home00/yukuanwei/cuadmm-worktrees/plato-cold/src/main.cu -o CMakeFiles/cuadmm_exe.dir/src/main.cu.o
+/n/sw/helmod-rocky8/apps/Core/gcc/12.2.0-fasrc01/bin/g++ -DCUADMM_PLAIN_ADMM_ONLY -DCUADMM_TEST_DATA_DIR=\"/n/home00/yukuanwei/cuadmm-worktrees/plato-cold/test/data\" -I/n/home00/yukuanwei/cuadmm-env/include/suitesparse -I/n/home00/yukuanwei/cuadmm-worktrees/plato-cold/include -I/n/home00/yukuanwei/cuadmm-worktrees/plato-cold/psd_projection/include -isystem /n/home00/yukuanwei/cuADMM/build/_deps/googletest-src/googletest/include -isystem /n/home00/yukuanwei/cuADMM/build/_deps/googletest-src/googletest -isystem /n/sw/helmod-rocky8/apps/Core/cuda/12.9.1-fasrc01/cuda/targets/x86_64-linux/include -O3 -DNDEBUG -std=gnu++17 -MD -MT CMakeFiles/tests.dir/test/tests.cpp.o -MF CMakeFiles/tests.dir/test/tests.cpp.o.d -o CMakeFiles/tests.dir/test/tests.cpp.o -c /n/home00/yukuanwei/cuadmm-worktrees/plato-cold/test/tests.cpp
+In file included from /n/home00/yukuanwei/cuadmm-worktrees/plato-cold/include/cuadmm/memory.h:21,
+                 from /n/home00/yukuanwei/cuadmm-worktrees/plato-cold/include/cuadmm/utils.h:12,
+                 from /n/home00/yukuanwei/cuadmm-worktrees/plato-cold/test/tests.cpp:3:
+/n/home00/yukuanwei/cuadmm-worktrees/plato-cold/include/cuadmm/cusparse.h: In function ‘void axpby_cusparse(DeviceSparseHandle&, const DeviceSparseVector<double>&, const DeviceDenseVector<double>&, double, double)’:
+/n/home00/yukuanwei/cuadmm-worktrees/plato-cold/include/cuadmm/cusparse.h:88:33: warning: ‘cusparseStatus_t cusparseAxpby(cusparseHandle_t, const void*, cusparseConstSpVecDescr_t, const void*, cusparseDnVecDescr_t)’ is deprecated: The routine will be removed in the next major release [-Wdeprecated-declarations]
+   88 |     CHECK_CUSPARSE(cusparseAxpby(
+      |                    ~~~~~~~~~~~~~^
+   89 |         cusparse_H.cusparse_handle,
+      |         ~~~~~~~~~~~~~~~~~~~~~~~~~~~
+   90 |         &alpha, x.cusparse_descr, &beta, y.cusparse_descr));
+      |         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/n/home00/yukuanwei/cuadmm-worktrees/plato-cold/include/cuadmm/check.h:70:36: note: in definition of macro ‘CHECK_CUSPARSE’
+   70 |         cusparseStatus_t status = (func);                                                                    \
+      |                                    ^~~~
+In file included from /n/home00/yukuanwei/cuadmm-worktrees/plato-cold/include/cuadmm/check.h:16:
+/n/sw/helmod-rocky8/apps/Core/cuda/12.9.1-fasrc01/cuda/targets/x86_64-linux/include/cusparse.h:5570:1: note: declared here
+ 5570 | cusparseAxpby(cusparseHandle_t          handle,
+      | ^~~~~~~~~~~~~
+/n/home00/yukuanwei/cuadmm-worktrees/plato-cold/include/cuadmm/cusparse.h: In function ‘size_t SparseVV_get_buffersize_cusparse(DeviceSparseHandle&, const DeviceSparseVector<double>&, const DeviceDenseVector<double>&)’:
+/n/home00/yukuanwei/cuadmm-worktrees/plato-cold/include/cuadmm/cusparse.h:101:43: warning: ‘cusparseStatus_t cusparseSpVV_bufferSize(cusparseHandle_t, cusparseOperation_t, cusparseConstSpVecDescr_t, cusparseConstDnVecDescr_t, const void*, cudaDataType, size_t*)’ is deprecated: The routine will be removed in the next major release [-Wdeprecated-declarations]
+  101 |     CHECK_CUSPARSE(cusparseSpVV_bufferSize(
+      |                    ~~~~~~~~~~~~~~~~~~~~~~~^
+  102 |         cusparse_H.cusparse_handle, CUSPARSE_OPERATION_NON_TRANSPOSE,
+      |         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  103 |         x.cusparse_descr, y.cusparse_descr, &inprod,
+      |         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  104 |         CUDA_R_64F, &buffer_size));
+      |         ~~~~~~~~~~~~~~~~~~~~~~~~~          
+/n/home00/yukuanwei/cuadmm-worktrees/plato-cold/include/cuadmm/check.h:70:36: note: in definition of macro ‘CHECK_CUSPARSE’
+   70 |         cusparseStatus_t status = (func);                                                                    \
+      |                                    ^~~~
+/n/sw/helmod-rocky8/apps/Core/cuda/12.9.1-fasrc01/cuda/targets/x86_64-linux/include/cusparse.h:5596:1: note: declared here
+ 5596 | cusparseSpVV_bufferSize(cusparseHandle_t          handle,
+      | ^~~~~~~~~~~~~~~~~~~~~~~
+/n/home00/yukuanwei/cuadmm-worktrees/plato-cold/include/cuadmm/cusparse.h: In function ‘double SparseVV_cusparse(DeviceSparseHandle&, const DeviceSparseVector<double>&, const DeviceDenseVector<double>&, DeviceDenseVector<double>&)’:
+/n/home00/yukuanwei/cuadmm-worktrees/plato-cold/include/cuadmm/cusparse.h:118:32: warning: ‘cusparseStatus_t cusparseSpVV(cusparseHandle_t, cusparseOperation_t, cusparseConstSpVecDescr_t, cusparseConstDnVecDescr_t, void*, cudaDataType, void*)’ is deprecated: The routine will be removed in the next major release [-Wdeprecated-declarations]
+  118 |     CHECK_CUSPARSE(cusparseSpVV(
+      |                    ~~~~~~~~~~~~^
+  119 |         cusparse_H.cusparse_handle, CUSPARSE_OPERATION_NON_TRANSPOSE,
+      |         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  120 |         x.cusparse_descr, y.cusparse_descr, &inprod,
+      |         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  121 |         CUDA_R_64F, buffer.vals));
+      |         ~~~~~~~~~~~~~~~~~~~~~~~~
+/n/home00/yukuanwei/cuadmm-worktrees/plato-cold/include/cuadmm/check.h:70:36: note: in definition of macro ‘CHECK_CUSPARSE’
+   70 |         cusparseStatus_t status = (func);                                                                    \
+      |                                    ^~~~
+/n/sw/helmod-rocky8/apps/Core/cuda/12.9.1-fasrc01/cuda/targets/x86_64-linux/include/cusparse.h:5606:1: note: declared here
+ 5606 | cusparseSpVV(cusparseHandle_t          handle,
+      | ^~~~~~~~~~~~
+/n/home00/yukuanwei/cuadmm-worktrees/plato-cold/include/cuadmm/cusparse.h: In function ‘void axpby_cusparse(DeviceSparseHandle&, const DeviceSparseVector<double>&, const DeviceDenseVector<double>&, double, double)’:
+/n/home00/yukuanwei/cuadmm-worktrees/plato-cold/include/cuadmm/cusparse.h:88:45: warning: ‘cusparseStatus_t cusparseAxpby(cusparseHandle_t, const void*, cusparseConstSpVecDescr_t, const void*, cusparseDnVecDescr_t)’ is deprecated: The routine will be removed in the next major release [-Wdeprecated-declarations]
+   88 |     CHECK_CUSPARSE(cusparseAxpby(
+      |                                ~~           ^                                                                              
+/n/sw/helmod-rocky8/apps/Core/cuda/12.9.1-fasrc01/cuda/targets/x86_64-linux/include/cusparse.h:5570:1: note: declared here
+ 5570 | cusparseAxpby(cusparseHandle_t          handle,
+      | ^~~~~~~~~~~~~
+/n/home00/yukuanwei/cuadmm-worktrees/plato-cold/include/cuadmm/cusparse.h: In function ‘size_t SparseVV_get_buffersize_cusparse(DeviceSparseHandle&, const DeviceSparseVector<double>&, const DeviceDenseVector<double>&)’:
+/n/home00/yukuanwei/cuadmm-worktrees/plato-cold/include/cuadmm/cusparse.h:101:55: warning: ‘cusparseStatus_t cusparseSpVV_bufferSize(cusparseHandle_t, cusparseOperation_t, cusparseConstSpVecDescr_t, cusparseConstDnVecDescr_t, const void*, cudaDataType, size_t*)’ is deprecated: The routine will be removed in the next major release [-Wdeprecated-declarations]
+  101 |     CHECK_CUSPARSE(cusparseSpVV_bufferSize(
+      |                                ~~~~~~~~~~~~           ^                                                                                                                                    
+/n/sw/helmod-rocky8/apps/Core/cuda/12.9.1-fasrc01/cuda/targets/x86_64-linux/include/cusparse.h:5596:1: note: declared here
+ 5596 | cusparseSpVV_bufferSize(cusparseHandle_t          handle,
+      | ^~~~~~~~~~~~~~~~~~~~~~~
+/n/home00/yukuanwei/cuadmm-worktrees/plato-cold/include/cuadmm/cusparse.h: In function ‘double SparseVV_cusparse(DeviceSparseHandle&, const DeviceSparseVector<double>&, const DeviceDenseVector<double>&, DeviceDenseVector<double>&)’:
+/n/home00/yukuanwei/cuadmm-worktrees/plato-cold/include/cuadmm/cusparse.h:118:44: warning: ‘cusparseStatus_t cusparseSpVV(cusparseHandle_t, cusparseOperation_t, cusparseConstSpVecDescr_t, cusparseConstDnVecDescr_t, void*, cudaDataType, void*)’ is deprecated: The routine will be removed in the next major release [-Wdeprecated-declarations]
+  118 |     CHECK_CUSPARSE(cusparseSpVV(
+      |                                ~           ^                                                                                                                                   
+/n/sw/helmod-rocky8/apps/Core/cuda/12.9.1-fasrc01/cuda/targets/x86_64-linux/include/cusparse.h:5606:1: note: declared here
+ 5606 | cusparseSpVV(cusparseHandle_t          handle,
+      | ^~~~~~~~~~~~
+[ 97%] Linking CUDA executable cuadmm_exe
+/n/sw/helmod-rocky8/apps/Core/cmake/3.31.6-fasrc01/bin/cmake -E cmake_link_script CMakeFiles/cuadmm_exe.dir/link.txt --verbose=1
+/n/sw/helmod-rocky8/apps/Core/gcc/12.2.0-fasrc01/bin/g++ @CMakeFiles/cuadmm_exe.dir/objects1.rsp -o cuadmm_exe @CMakeFiles/cuadmm_exe.dir/linkLibs.rsp -L"/n/sw/helmod-rocky8/apps/Core/cuda/12.9.1-fasrc01/cuda/targets/x86_64-linux/lib/stubs" -L"/n/sw/helmod-rocky8/apps/Core/cuda/12.9.1-fasrc01/cuda/targets/x86_64-linux/lib"
+gmake[2]: Leaving directory '/n/home00/yukuanwei/cuadmm-builds/plato_official'
+[ 97%] Built target cuadmm_exe
+[100%] Linking CXX executable tests
+/n/sw/helmod-rocky8/apps/Core/cmake/3.31.6-fasrc01/bin/cmake -E cmake_link_script CMakeFiles/tests.dir/link.txt --verbose=1
+/n/sw/helmod-rocky8/apps/Core/gcc/12.2.0-fasrc01/bin/g++ -O3 -DNDEBUG CMakeFiles/tests.dir/test/tests.cpp.o -o tests   -L/usr/local/cuda/lib64  -Wl,-rpath,/usr/local/cuda/lib64:/n/home00/yukuanwei/cuadmm-builds/plato_official:/n/home00/yukuanwei/cuadmm-env/lib:/n/home00/yukuanwei/cuadmm-builds/plato_official/psd_projection lib/libgtest_main.a libcuadmm_lib.so -lnvJitLink lib/libgtest.a -lcudart -lcusparse -lcublas -lcusolver /n/home00/yukuanwei/cuadmm-env/lib/libcamd.so /n/home00/yukuanwei/cuadmm-env/lib/libccolamd.so /n/home00/yukuanwei/cuadmm-env/lib/libcholmod.so /n/home00/yukuanwei/cuadmm-env/lib/liblapack.so /n/home00/yukuanwei/cuadmm-env/lib/libblas.so psd_projection/libpsd_lib.so /n/sw/helmod-rocky8/apps/Core/cuda/12.9.1-fasrc01/cuda/targets/x86_64-linux/lib/libcudart.so -lpthread -ldl /usr/lib64/librt.so /n/sw/helmod-rocky8/apps/Core/cuda/12.9.1-fasrc01/cuda/targets/x86_64-linux/lib/libcusolver.so /n/sw/helmod-rocky8/apps/Core/cuda/12.9.1-fasrc01/cuda/targets/x86_64-linux/lib/libcublas.so /n/sw/helmod-rocky8/apps/Core/cuda/12.9.1-fasrc01/cuda/targets/x86_64-linux/lib/libculibos.a /n/sw/helmod-rocky8/apps/Core/cuda/12.9.1-fasrc01/cuda/targets/x86_64-linux/lib/libcublasLt.so /n/sw/helmod-rocky8/apps/Core/cuda/12.9.1-fasrc01/cuda/targets/x86_64-linux/lib/libcusparse.so /n/sw/helmod-rocky8/apps/Core/cuda/12.9.1-fasrc01/cuda/targets/x86_64-linux/lib/libnvJitLink.so
+/n/sw/helmod-rocky8/apps/Core/cmake/3.31.6-fasrc01/bin/cmake -D TEST_TARGET=tests -D TEST_EXECUTABLE=/n/home00/yukuanwei/cuadmm-builds/plato_official/tests -D TEST_EXECUTOR= -D TEST_WORKING_DIR=/n/home00/yukuanwei/cuadmm-builds/plato_official -D TEST_EXTRA_ARGS= -D "TEST_PROPERTIES=ENVIRONMENT;CUADMM_REGRESSION_DATA_DIR=/n/home00/yukuanwei/cuadmm-builds/plato_official/regression_data;TIMEOUT;1800" -D TEST_PREFIX= -D TEST_SUFFIX= -D TEST_FILTER= -D NO_PRETTY_TYPES=FALSE -D NO_PRETTY_VALUES=FALSE -D TEST_LIST=tests_TESTS -D CTEST_FILE=/n/home00/yukuanwei/cuadmm-builds/plato_official/tests[1]_tests.cmake -D TEST_DISCOVERY_TIMEOUT=5 -D TEST_DISCOVERY_EXTRA_ARGS= -D TEST_XML_OUTPUT_DIR= -P /n/sw/helmod-rocky8/apps/Core/cmake/3.31.6-fasrc01/share/cmake-3.31/Modules/GoogleTestAddTests.cmake
+gmake[2]: Leaving directory '/n/home00/yukuanwei/cuadmm-builds/plato_official'
+[100%] Built target tests
+gmake[1]: Leaving directory '/n/home00/yukuanwei/cuadmm-builds/plato_official'
+/n/sw/helmod-rocky8/apps/Core/cmake/3.31.6-fasrc01/bin/cmake -E cmake_progress_start /n/home00/yukuanwei/cuadmm-builds/plato_official/CMakeFiles 0
