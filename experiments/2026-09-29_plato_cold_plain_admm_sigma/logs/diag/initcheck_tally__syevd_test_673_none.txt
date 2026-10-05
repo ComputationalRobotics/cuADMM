@@ -1,0 +1,5 @@
+10416	Uninitialized __global__ memory read	sytrd4_gpu	>cuLaunchKernel>cusolverDnXsyevd>main
+TOTAL_REPORTS	10416
+WITH_cusolverDn_FRAME	10416
+WITHOUT_cusolverDn_FRAME	0
+========= ERROR SUMMARY: 10416 errors

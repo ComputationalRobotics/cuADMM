@@ -1,0 +1,2 @@
+Solver ended: maximum iteration reached (safety cap, not validated)
+ LOBPCG calls = 216, certificate fallbacks to cuSOLVER = 2

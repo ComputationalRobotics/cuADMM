@@ -1,0 +1,19 @@
+gcc: gcc (GCC) 12.2.0
+cmake: cmake version 3.31.6
+nvcc: Cuda compilation tools, release 12.9, V12.9.86 Build cuda_12.9.r12.9/compiler.36037853_0 
+cuda toolkit root: /n/sw/helmod-rocky8/apps/Core/cuda/12.9.1-fasrc01/cuda
+#define CUBLAS_VER_MAJOR 12 #define CUBLAS_VER_MINOR 9 #define CUBLAS_VER_PATCH 1 
+  #define CUSOLVER_VER_MAJOR 11   #define CUSOLVER_VER_MINOR 7   #define CUSOLVER_VER_PATCH 5 
+#define CUSPARSE_VER_MAJOR 12 #define CUSPARSE_VER_MINOR 5 #define CUSPARSE_VER_PATCH 10 
+#define CUDART_VERSION  12090
+#define CHOLMOD_DATE "Feb 20, 2025" #define CHOLMOD_MAIN_VERSION   5 #define CHOLMOD_SUB_VERSION    3 #define CHOLMOD_SUBSUB_VERSION 1 
+#define SUITESPARSE_MAIN_VERSION    7 #define SUITESPARSE_SUB_VERSION     10 #define SUITESPARSE_SUBSUB_VERSION  1 
+BLAS: /n/home00/yukuanwei/cuadmm-env/lib/libopenblasp-r0.3.34.so ; libopenblas.so.0 libopenblasp-r0.3.34.so 
+libblas-3.11.0-11_h4a7cf45_openblas.json
+libcblas-3.11.0-11_h0358290_openblas.json
+libcholmod-5.3.1-h59ddab4_7100102.json
+liblapack-3.11.0-11_h47877c9_openblas.json
+libopenblas-0.3.34-pthreads_hf13c14d_2.json
+libsuitesparseconfig-7.10.1-h92d6892_7100102.json
+suitesparse-7.10.1-ha0f6916_7100102.json
+modules: cuda/12.9.1-fasrc01 gmp/6.2.1-fasrc01 mpfr/4.2.0-fasrc01 mpc/1.3.1-fasrc01 gcc/12.2.0-fasrc01 cmake/3.31.6-fasrc01 

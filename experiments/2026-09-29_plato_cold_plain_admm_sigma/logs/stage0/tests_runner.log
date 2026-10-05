@@ -1,0 +1,5 @@
+official test suite exit code 1: [  FAILED  ] PlainAdmmOnlyCli.RejectsSgsOptionsAndWritesTheNewOutputs (2481 ms) [  PASSED  ] 86 tests. [  FAILED  ] 1 test, listed below: [  FAILED  ] PlainAdmmOnlyCli.RejectsSgsOptionsAndWritesTheNewOutputs 
+[  FAILED  ] PlainAdmmOnlyCli.RejectsSgsOptionsAndWritesTheNewOutputs (2481 ms)
+[  FAILED  ] 1 test, listed below:
+[  FAILED  ] PlainAdmmOnlyCli.RejectsSgsOptionsAndWritesTheNewOutputs
+== stage0 tests done

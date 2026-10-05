@@ -1,0 +1,4 @@
+2787f1847b6f4b8e15e152c739479e5befddc329caefb301b868e0d2586c96a1  /n/home00/yukuanwei/cuadmm-builds/plato_official/libcuadmm_lib.so
+621b459aae06ea09a5e6a7ea9d2fa1714c4cc9e1f1fce7fde0e7e97074b1ac6f  /n/home00/yukuanwei/cuadmm-builds/plato_official/cuadmm_exe
+30725931876deeb6dab5c1a35fb44ccdf67e5dc6f23f33b8acb831582bef0b3f  /n/home00/yukuanwei/cuadmm-builds/plato_official/psd_projection/libpsd_lib.so
+be5ade007f97ff24422b509982c99050421f6989e95a0e9e6c11fa9a003903d2  /n/home00/yukuanwei/cuadmm-builds/plato_official/tests

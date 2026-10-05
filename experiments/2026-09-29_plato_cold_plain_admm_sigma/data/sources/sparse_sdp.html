@@ -1,0 +1,215 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML>
+<HEAD>
+<TITLE></TITLE>
+<META NAME="generator" CONTENT="HTML::TextToHTML v2.25">
+</HEAD>
+<BODY>
+<PRE>
+<P>25 Apr 2026 =================================================================
+             Several SDP-codes on sparse and other SDP problems (also on GPUs) 
+             =================================================================
+                   Hans D. Mittelmann (<A HREF="mailto:mittelmann@asu.edu">mittelmann@asu.edu</A>)
+</PRE>
+<p>Logfiles for these runs are at: <A HREF="https://plato.asu.edu/ftp/sparse_logs/">plato.asu.edu/ftp/sparse_logs/</A>
+
+<PRE>
+  COPT-8.0.3:     <A HREF="https://www.shanshu.ai/copt/">COPT</A>
+  CSDP-6.2.0:     <A HREF="https://github.com/coin-or/Csdp">github.com/coin-or/Csdp</A>
+  MOSEK-11.1.2:   <a href="https://mosek.com">mosek.com</a>
+  SDPA-7.4.4:     <A HREF="https://github.com/sdpaninf/SDPA">github.com/sdpaninf/SDPA</A>
+  SDPT3-4.0:      <A HREF="https://blog.nus.edu.sg/mattohkc/softwares/sdpt3/">blog.nus.edu.sg/mattohkc/softwares/sdpt3/</A>
+  SeDuMi-1.3.5:   <A HREF="https://github.com/sqlp/sedumi/">github.com/sqlp/sedumi/</A>
+  cuLoRADS-1.0.0: <a href="https://github.com/COPT-Public/cuLoRADS">github.com/COPT-Public/cuLoRADS/</a>
+</PRE>
+<P>These codes were used to solve SDP problems from
+
+<PRE>
+        <A HREF="https://plato.asu.edu/ftp/sdp/">plato.asu.edu/ftp/sdp/</A>   ../qap/  (see also README)
+        <A HREF="http://dimacs.rutgers.edu/archive/Challenges/Seventh/Instances/">dimacs.rutgers.edu/archive/Challenges/Seventh/Instances/</A>
+        <A HREF="http://web.mat.bham.ac.uk/kocvara/pennon/problems.html">web.mat.bham.ac.uk/kocvara/pennon/problems.html</A>
+</PRE>
+
+<P>The codes were run on an AMD Ryzen 9 5900X (12 cores, 128GB) under Linux.
+Given are total CPU seconds; maxtime = 40000s. For all codes error measures are given
+as defined in the 7th DIMACS Challenge benchmark paper Math Prog 95,
+407-430 (2003), <A HREF="http://plato.asu.edu/dimacs/node3.html">plato.asu.edu/dimacs/node3.html</A>.
+For recent benchmarks of interest see <a href="https://www.arxiv.org/pdf/2407.15049">SDP-GPU</a> and <a href="https://arxiv.org/abs/2505.13719">cuHALLaR</a>. (cu)HALLaR is not applicable to general SDP problems since it requires prior knowledge of a tracebound.
+
+<PRE>
+Scaled shifted geometric means of runtimes ("1" is fastest solver)
+
+                 1    5.40    3.67     7.99    5.32     29.9    3.01 
+-----------------------------------------------------------------------
+count of "a"     5       5       1       18      13        2      14 
+solved of 75    75      70      73       61      69       62      71 
+=======================================================================
+problem       COPT    CSDP    MOSEK    SDPA   SDPT3   SeDuMi cuLoRAD& 
+=======================================================================
+1dc.1024       213     369     625        f     364    16005a     34  
+1et.2048       279     350     472      490     376        m      46  
+1tc.2048       228     254     324      198     253        m      33 
+1zc.1024        72     112     111       95     107     6025      19
+Alh_1.r20     1768    1564     250    10681    9823     2862      16
+BH2.r14         41      35      13      177     168      100      12 
+Bex2_1_5         5      24       4       29a    316a     114      56   
+Bst_jcbpaf2      6      28       7       35     363      105    1858a  
+CH2_1.r14       36      32      12      155     158       86      11   
+G40_mb          13      60     152       13      24      404       3   
+G48_mb          16     746     215       43      56     1556       4   
+G48mc            6      25      79       29      25      605       2   
+G55mc           39     109     757      166     195     5606       2   
+G59mc           50     133     717      217     263     5939       3   
+G60_mb         169    4867    7129      506     527    33150      16  
+G60mc          171    5153    7064      506     532    37267      15  
+H30_.r16       115     117      31      883     710      250       4   
+NH2-.r14        25      32      12       62a    211       80       5  
+NH3.r16        123     116      30      764     712      271       5  
+NH4*.r18       665     607     130     1224a   3263     1049       7   
+biggs            2       3       1        f       9       16     869a  
+biomedP        161       f    4367a     565     475a       f       8   
+broyden25       14     113      11       46     592      214    2786a  
+buck5          154a    197     469       30a     96     2785    3499   
+cancer          37      49      85       17a     44a    2776      46  
+checker         38      93     544       92      75     3542       4  
+chs_5000        42   21820       6       22      27       30    1700  
+cnhil10          3       7       7       33       9a     153      10a 
+cphil12         15      15      23      861a     35     1238       3  
+dia_patch     3034a      f    3272        f       f        f    2204  
+e*quad*2         8      27      13        8      52      336     841a 
+e*stable*2       6      18      10        f      59      283     191  
+fap09           65    2671a   1353     1073       f        f     156  
+foot            20a    108     420       30      35        f      20  
+hamming_8        1      66      63       71      62     4487       2  
+hamming_9        8    2896    1915        f       m        f       2  
+hand             6      12     143        6       8      126       3  
+ice_2.0        269     707    6301      812     476        f       8  
+inc_1200        66       f     126       11a     30a     707     831  
+mater-6          8     324      13       11      20      122       f  
+neosfbr25       91     170     182      199     447     6801      49  
+neosfbr30e8    445     740     916     1069    1668        f      83  
+neu1             3      23       8        f      83       52     106  
+neu1g            3      20       6       18a     63       42      91a
+neu2             5       f      13        f      84       55       f  
+neu2c            7      54      20       28a      f      104       f  
+neu2g            4       9      10        f      54a      55     584a 
+neu3            19     126      51        f     112      607      33a
+neu3g           24     166      57      257a    102      984     174   
+p_auss2        290     997    8577     1107     632        f       6   
+prob_2_4_0      15      58       f       34a     17      150       2    
+prob_2_4_1      16      80      43       92      13      135       2    
+rabmo            6      14       7       39a     68      171     220    
+reimer5         17     211      15      101a    910a     458    2211     
+r1_2000         11      26     434       19      20      368       7     
+ros_2000         2     193       3        2       3       12     635     
+rose15           3      17a      5        f      30a      79     142a   
+sensor_1000     71      97      34       29      32      423    8681a     
+shmup4         143     136     636       26     107     1835      13     
+shmup5        1166     843    3720      211     783    24295      47    
+spar060         12      28      25       16      39     1201     566a   
+swissroll       34a      f       f        f       f        f       f     
+taha1a           5      24       5        f     114       64    1325    
+taha1b          22      52      35      175     136     1102    1424   
+taha1c          40     240      21        f       f      648    7565   
+theta12          7     110     106      136     122    10836      30    
+theta102         8     753    1133      973     452a       f      13   
+theta123         7    9091    5798        f       m        m      49  
+t_texture       32       f     133       10a     19a     864a    136    
+torusg3-15      15      40     235       77      63     1261      14   
+trto4            6       6a     23        1a      5a      52     255a  
+trto5           61      55a    218       11a     38a     999     343  
+vibra4          18      12      25        3a     13      112      19a 
+vibra5         251a    171a    601       34a    157a    2526    3938a 
+yalsdp          10      16       6       28      41      209     133  
+=======================================================================
+for accuracy see logfiles; "a" at least one DIMACS error > 1e-4
+"f" fail (at least one DIMACS error > 1e-2; counted as 40,000s)
+"m" memory exceeded (counted as 40,000s)
+"&": cuLoRADS was run on Intel Xeon Platinum 8468 240GB, 20 CPUs, 80GB H100 GPU
+===============================================================================
+
+ Problem Statistics (blocks by SeDuMi)
+
+==========================================================
+ problem    variables   constraints   nonzeros    blocks 
+==========================================================
+1dc.1024      1,025       24,064        25,087         2
+1et.2048      2,049       22,529        24,576         2
+1tc.2048      2,049       18,945        20,992         2
+1zc.1024      1,025       16,641        17,664         2
+Alh_1.r20     5,991        7,230       855,800        22      
+BH2.r14       2,167        1,743       142,919        23      
+Bex2_1_5      8,097        3,002       322,135        33      
+Bst_jcbpaf2   8,229        3,002       335,399        35      
+CH2_1.r14     2,167        1,743       142,919        23      
+ G40_mb       2,001        2,001     2,003,000         2
+ G48_mb       3,001        3,001     9,000,000         2
+ G48mc        3,001        3,000         3,000         2
+ G55mc        5,001        5,000         5,000         2      
+ G59mc        5,001        5,000         5,000         2
+ G60_mb       7,001        7,001    24,510,500         2
+ G60mc        7,001        7,000         7,000         2
+H30_.r16      3,163        2,964       279,048        23     
+NH2-.r14      2,047        1,743       141,932        23      
+NH3.r16       3,163        2,964       279,048        23      
+NH4+.r18      4,427        4,743       504,027        22      
+ biggs          703        1,819        14,431        49
+ biomedP      6,515        6,515    21,225,869         2    
+ broyden25    2,281       15,971       137,921        20
+ buck5        3,280        6,802        48,385         4      
+ cancer         570       10,470        10,569         2
+ checker      3,971        3,971         3,970         2
+ chs_500     49,981       99,974       269,892      4999     
+ cnhil10        221        5,005        24,310         2
+ cphil12        364       12,376        66,429         2
+ dia_patch    5,478        5,478        30,120         2
+ e*quad*      6,004        5,984        29,410         3      
+ e*stable*      820        5,984        23,766        19      
+ fap09       28,050       30,276   458,000,000         2    
+ foot         2,209        2,209     2,440,944         2
+ hamm_8         257       16,129        65,537         2
+ hamm_9         513       53,761       262,145         2
+ hand         1,297        1,297       841,752         2
+ ice_2.0      8,114        8,113         8,113         2
+ inc_1200     6,375        5,175       741,296         2      
+ mater-6     20,463       56,311       690,149      4969      
+ neosfbr25      578       14,376       763,344         2
+ neosfbr30e8    843       25,201     1,591,839         2
+ neu1           255        3,003        31,880         2      
+ neu1g          253        3,002        31,877         2
+ neu2           255        3,003        31,880         2      
+ neu2c        1,256        3,002       158,098        15      
+ neu2g          253        3,002        31,877         2
+ neu3           421        7,364        87,573         3      
+ neu3g          463        8,007       106,952         2
+ p_auss2      9.116        9,115         9,115         2
+ prob_2_4_0     401          200    16,040,000         2
+ prob_2_4_1     401          200    16,040,000         2
+ rabmo        6,827        5,004        60,287         2      
+ reimer5    102,607        6,187       719,806         2      
+ r1_2000      2,001        2,001     2,003,000         2
+ ros_2000    11,993       19,988        39,969      2000      
+ rose15         138        3,860         9,182         2      
+ sensor_1000  6,529        5,549        23,482         2      
+ shmup4         800        4,962        36,477         4      
+ shmup5       1,800       11,042        82,317         4      
+ spar060-020  7,322        7,261        23,551         2      
+ swissroll      801        3.380       330,537         2
+ taha1a       1,681        3,002       177,420        15
+ taha1b       1,610        8,007       107,373        25      
+ taha1c       3,361        6,187       713,130        15
+ theta12        601       17,979        18,578         2
+ theta102       501       37,467        37,966         2
+ theta123       601       90,020        90,619         2
+ t_texture    1,802        1,802         9,002         2
+ torusg3-15   3,376        3,375     1,139,060         2
+ trto4        1,200        1,874         8,734         3      
+ trto5        3,280        5,042        24,158         3      
+ vibra4       1,200        2,546        17,509         4      
+ vibra5       3,280        6,802        48,385         4      
+ yalsdp         301        5,051     1,005,250         4
+-----------------------------------------------------------
+</PRE>
+
+</BODY>
+</HTML>

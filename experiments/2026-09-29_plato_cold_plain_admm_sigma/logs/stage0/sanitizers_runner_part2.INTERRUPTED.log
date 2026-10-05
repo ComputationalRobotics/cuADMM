@@ -1,0 +1,6 @@
+srun: got SIGCONT
+srun: forcing job termination
+srun: forcing job termination
+srun: Job step aborted: Waiting up to 32 seconds for job step to finish.
+[2026-09-29T20:15:33.003] error: *** STEP 49325698.10 ON holygpu8a12103 CANCELLED AT 2026-09-29T20:15:33 DUE to SIGNAL Killed ***
+srun: error: holygpu8a12103: task 0: Killed

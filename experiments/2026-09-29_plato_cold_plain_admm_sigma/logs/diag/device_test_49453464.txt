@@ -1,0 +1,3 @@
+count 1 (no error)
+dev 0 malloc: no error
+  NVIDIA H200 cc 9.0 computeMode 0

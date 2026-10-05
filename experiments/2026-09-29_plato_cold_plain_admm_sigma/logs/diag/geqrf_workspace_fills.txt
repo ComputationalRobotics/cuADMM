@@ -1,0 +1,64 @@
+n 1681 m 21 kind first mode none rep 0 info 0 0 finite 1 hashR 2d34aa4ae46c1632 hashQ 58303921834ea6f8 lwork 786432
+n 1681 m 21 kind first mode none rep 1 info 0 0 finite 1 hashR 2d34aa4ae46c1632 hashQ 58303921834ea6f8 lwork 786432
+n 1681 m 21 kind first mode none rep 2 info 0 0 finite 1 hashR 2d34aa4ae46c1632 hashQ 58303921834ea6f8 lwork 786432
+RESULT n 1681 m 21 kind first mode none hashR 2d34aa4ae46c1632 hashQ 58303921834ea6f8 stable_across_reps 1
+n 1681 m 21 kind first mode zero rep 0 info 0 0 finite 1 hashR 2d34aa4ae46c1632 hashQ 58303921834ea6f8 lwork 786432
+n 1681 m 21 kind first mode zero rep 1 info 0 0 finite 1 hashR 2d34aa4ae46c1632 hashQ 58303921834ea6f8 lwork 786432
+n 1681 m 21 kind first mode zero rep 2 info 0 0 finite 1 hashR 2d34aa4ae46c1632 hashQ 58303921834ea6f8 lwork 786432
+RESULT n 1681 m 21 kind first mode zero hashR 2d34aa4ae46c1632 hashQ 58303921834ea6f8 stable_across_reps 1
+n 1681 m 21 kind first mode nan rep 0 info 0 0 finite 1 hashR 2d34aa4ae46c1632 hashQ 58303921834ea6f8 lwork 786432
+n 1681 m 21 kind first mode nan rep 1 info 0 0 finite 1 hashR 2d34aa4ae46c1632 hashQ 58303921834ea6f8 lwork 786432
+n 1681 m 21 kind first mode nan rep 2 info 0 0 finite 1 hashR 2d34aa4ae46c1632 hashQ 58303921834ea6f8 lwork 786432
+RESULT n 1681 m 21 kind first mode nan hashR 2d34aa4ae46c1632 hashQ 58303921834ea6f8 stable_across_reps 1
+n 1681 m 21 kind first mode garbage rep 0 info 0 0 finite 1 hashR 2d34aa4ae46c1632 hashQ 58303921834ea6f8 lwork 786432
+n 1681 m 21 kind first mode garbage rep 1 info 0 0 finite 1 hashR 2d34aa4ae46c1632 hashQ 58303921834ea6f8 lwork 786432
+n 1681 m 21 kind first mode garbage rep 2 info 0 0 finite 1 hashR 2d34aa4ae46c1632 hashQ 58303921834ea6f8 lwork 786432
+RESULT n 1681 m 21 kind first mode garbage hashR 2d34aa4ae46c1632 hashQ 58303921834ea6f8 stable_across_reps 1
+n 1681 m 21 kind generic mode none rep 0 info 0 0 finite 1 hashR f9ee3cbaea02b3fa hashQ 7613231fa1a76dbd lwork 786432
+n 1681 m 21 kind generic mode none rep 1 info 0 0 finite 1 hashR f9ee3cbaea02b3fa hashQ 7613231fa1a76dbd lwork 786432
+n 1681 m 21 kind generic mode none rep 2 info 0 0 finite 1 hashR f9ee3cbaea02b3fa hashQ 7613231fa1a76dbd lwork 786432
+RESULT n 1681 m 21 kind generic mode none hashR f9ee3cbaea02b3fa hashQ 7613231fa1a76dbd stable_across_reps 1
+n 1681 m 21 kind generic mode zero rep 0 info 0 0 finite 1 hashR f9ee3cbaea02b3fa hashQ 7613231fa1a76dbd lwork 786432
+n 1681 m 21 kind generic mode zero rep 1 info 0 0 finite 1 hashR f9ee3cbaea02b3fa hashQ 7613231fa1a76dbd lwork 786432
+n 1681 m 21 kind generic mode zero rep 2 info 0 0 finite 1 hashR f9ee3cbaea02b3fa hashQ 7613231fa1a76dbd lwork 786432
+RESULT n 1681 m 21 kind generic mode zero hashR f9ee3cbaea02b3fa hashQ 7613231fa1a76dbd stable_across_reps 1
+n 1681 m 21 kind generic mode nan rep 0 info 0 0 finite 1 hashR f9ee3cbaea02b3fa hashQ 7613231fa1a76dbd lwork 786432
+n 1681 m 21 kind generic mode nan rep 1 info 0 0 finite 1 hashR f9ee3cbaea02b3fa hashQ 7613231fa1a76dbd lwork 786432
+n 1681 m 21 kind generic mode nan rep 2 info 0 0 finite 1 hashR f9ee3cbaea02b3fa hashQ 7613231fa1a76dbd lwork 786432
+RESULT n 1681 m 21 kind generic mode nan hashR f9ee3cbaea02b3fa hashQ 7613231fa1a76dbd stable_across_reps 1
+n 1681 m 21 kind generic mode garbage rep 0 info 0 0 finite 1 hashR f9ee3cbaea02b3fa hashQ 7613231fa1a76dbd lwork 786432
+n 1681 m 21 kind generic mode garbage rep 1 info 0 0 finite 1 hashR f9ee3cbaea02b3fa hashQ 7613231fa1a76dbd lwork 786432
+n 1681 m 21 kind generic mode garbage rep 2 info 0 0 finite 1 hashR f9ee3cbaea02b3fa hashQ 7613231fa1a76dbd lwork 786432
+RESULT n 1681 m 21 kind generic mode garbage hashR f9ee3cbaea02b3fa hashQ 7613231fa1a76dbd stable_across_reps 1
+n 1680 m 20 kind first mode none rep 0 info 0 0 finite 1 hashR 01c6a7d2f3492fa9 hashQ fbad7c361752a3ab lwork 786432
+n 1680 m 20 kind first mode none rep 1 info 0 0 finite 1 hashR 01c6a7d2f3492fa9 hashQ fbad7c361752a3ab lwork 786432
+n 1680 m 20 kind first mode none rep 2 info 0 0 finite 1 hashR 01c6a7d2f3492fa9 hashQ fbad7c361752a3ab lwork 786432
+RESULT n 1680 m 20 kind first mode none hashR 01c6a7d2f3492fa9 hashQ fbad7c361752a3ab stable_across_reps 1
+n 1680 m 20 kind first mode zero rep 0 info 0 0 finite 1 hashR 01c6a7d2f3492fa9 hashQ fbad7c361752a3ab lwork 786432
+n 1680 m 20 kind first mode zero rep 1 info 0 0 finite 1 hashR 01c6a7d2f3492fa9 hashQ fbad7c361752a3ab lwork 786432
+n 1680 m 20 kind first mode zero rep 2 info 0 0 finite 1 hashR 01c6a7d2f3492fa9 hashQ fbad7c361752a3ab lwork 786432
+RESULT n 1680 m 20 kind first mode zero hashR 01c6a7d2f3492fa9 hashQ fbad7c361752a3ab stable_across_reps 1
+n 1680 m 20 kind first mode nan rep 0 info 0 0 finite 1 hashR 01c6a7d2f3492fa9 hashQ fbad7c361752a3ab lwork 786432
+n 1680 m 20 kind first mode nan rep 1 info 0 0 finite 1 hashR 01c6a7d2f3492fa9 hashQ fbad7c361752a3ab lwork 786432
+n 1680 m 20 kind first mode nan rep 2 info 0 0 finite 1 hashR 01c6a7d2f3492fa9 hashQ fbad7c361752a3ab lwork 786432
+RESULT n 1680 m 20 kind first mode nan hashR 01c6a7d2f3492fa9 hashQ fbad7c361752a3ab stable_across_reps 1
+n 1680 m 20 kind first mode garbage rep 0 info 0 0 finite 1 hashR 01c6a7d2f3492fa9 hashQ fbad7c361752a3ab lwork 786432
+n 1680 m 20 kind first mode garbage rep 1 info 0 0 finite 1 hashR 01c6a7d2f3492fa9 hashQ fbad7c361752a3ab lwork 786432
+n 1680 m 20 kind first mode garbage rep 2 info 0 0 finite 1 hashR 01c6a7d2f3492fa9 hashQ fbad7c361752a3ab lwork 786432
+RESULT n 1680 m 20 kind first mode garbage hashR 01c6a7d2f3492fa9 hashQ fbad7c361752a3ab stable_across_reps 1
+n 1680 m 20 kind generic mode none rep 0 info 0 0 finite 1 hashR a032514a0c0d154d hashQ e6941d02aa1fbd28 lwork 786432
+n 1680 m 20 kind generic mode none rep 1 info 0 0 finite 1 hashR a032514a0c0d154d hashQ e6941d02aa1fbd28 lwork 786432
+n 1680 m 20 kind generic mode none rep 2 info 0 0 finite 1 hashR a032514a0c0d154d hashQ e6941d02aa1fbd28 lwork 786432
+RESULT n 1680 m 20 kind generic mode none hashR a032514a0c0d154d hashQ e6941d02aa1fbd28 stable_across_reps 1
+n 1680 m 20 kind generic mode zero rep 0 info 0 0 finite 1 hashR a032514a0c0d154d hashQ e6941d02aa1fbd28 lwork 786432
+n 1680 m 20 kind generic mode zero rep 1 info 0 0 finite 1 hashR a032514a0c0d154d hashQ e6941d02aa1fbd28 lwork 786432
+n 1680 m 20 kind generic mode zero rep 2 info 0 0 finite 1 hashR a032514a0c0d154d hashQ e6941d02aa1fbd28 lwork 786432
+RESULT n 1680 m 20 kind generic mode zero hashR a032514a0c0d154d hashQ e6941d02aa1fbd28 stable_across_reps 1
+n 1680 m 20 kind generic mode nan rep 0 info 0 0 finite 1 hashR a032514a0c0d154d hashQ e6941d02aa1fbd28 lwork 786432
+n 1680 m 20 kind generic mode nan rep 1 info 0 0 finite 1 hashR a032514a0c0d154d hashQ e6941d02aa1fbd28 lwork 786432
+n 1680 m 20 kind generic mode nan rep 2 info 0 0 finite 1 hashR a032514a0c0d154d hashQ e6941d02aa1fbd28 lwork 786432
+RESULT n 1680 m 20 kind generic mode nan hashR a032514a0c0d154d hashQ e6941d02aa1fbd28 stable_across_reps 1
+n 1680 m 20 kind generic mode garbage rep 0 info 0 0 finite 1 hashR a032514a0c0d154d hashQ e6941d02aa1fbd28 lwork 786432
+n 1680 m 20 kind generic mode garbage rep 1 info 0 0 finite 1 hashR a032514a0c0d154d hashQ e6941d02aa1fbd28 lwork 786432
+n 1680 m 20 kind generic mode garbage rep 2 info 0 0 finite 1 hashR a032514a0c0d154d hashQ e6941d02aa1fbd28 lwork 786432
+RESULT n 1680 m 20 kind generic mode garbage hashR a032514a0c0d154d hashQ e6941d02aa1fbd28 stable_across_reps 1

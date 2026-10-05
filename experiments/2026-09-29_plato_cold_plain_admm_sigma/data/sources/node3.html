@@ -1,0 +1,482 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+
+<!--Converted with LaTeX2HTML 2002-1 (1.68)
+original version by:  Nikos Drakos, CBLU, University of Leeds
+* revised and updated by:  Marcus Hennecke, Ross Moore, Herb Swan
+* with significant contributions from:
+  Jens Lippmann, Marek Rouchal, Martin Wilck and others -->
+<HTML>
+<HEAD>
+<TITLE>Computing Errors</TITLE>
+<META NAME="description" CONTENT="Computing Errors">
+<META NAME="keywords" CONTENT="paper93">
+<META NAME="resource-type" CONTENT="document">
+<META NAME="distribution" CONTENT="global">
+
+<META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=iso-8859-1">
+<META NAME="Generator" CONTENT="LaTeX2HTML v2002-1">
+<META HTTP-EQUIV="Content-Style-Type" CONTENT="text/css">
+
+<LINK REL="STYLESHEET" HREF="paper93.css">
+
+<LINK REL="previous" HREF="node2.html">
+<LINK REL="up" HREF="node1.html">
+<LINK REL="next" HREF="node4.html">
+</HEAD>
+
+<BODY >
+<!--Navigation Panel-->
+<A NAME="tex2html60"
+  HREF="node4.html">
+<IMG WIDTH="37" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="next" SRC="next.gif"></A> 
+<A NAME="tex2html58"
+  HREF="node1.html">
+<IMG WIDTH="26" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="up" SRC="up.gif"></A> 
+<A NAME="tex2html54"
+  HREF="node2.html">
+<IMG WIDTH="63" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="previous" SRC="prev.gif"></A>   
+<BR>
+<B> Next:</B> <A NAME="tex2html61"
+  HREF="node4.html">The Codes</A>
+<B> Up:</B> <A NAME="tex2html59"
+  HREF="node1.html">Introduction</A>
+<B> Previous:</B> <A NAME="tex2html55"
+  HREF="node2.html">The Problems Solved</A>
+<BR>
+<BR>
+<!--End of Navigation Panel-->
+
+<H2><A NAME="SECTION00012000000000000000">
+Computing Errors</A>
+</H2>
+
+<P>
+Suppose that we are given <EM>approximate</EM> optimal solutions of (<A HREF="node2.html#sqlp-p">$SQLP-P$</A>) and (<A HREF="node2.html#sqlp-d">$SQLP-D$</A>), respectively. 
+To compute how far they are from an exact solution pair, we define a norm on <IMG
+ WIDTH="17" HEIGHT="14" ALIGN="BOTTOM" BORDER="0"
+ SRC="img3.gif"
+ ALT="$ X$">, and a minimum eigenvalue
+w.r.t. the cone <IMG
+ WIDTH="18" HEIGHT="14" ALIGN="BOTTOM" BORDER="0"
+ SRC="img2.gif"
+ ALT="$ K$">. Precisely, if <IMG
+ WIDTH="46" HEIGHT="30" ALIGN="MIDDLE" BORDER="0"
+ SRC="img35.gif"
+ ALT="$ x \in X$">, then 
+<!-- MATH
+ \begin{displaymath}
+|\!| x |\!| = \sum_{j=1}^{n_s} |\!| x^s_j |\!|_F \,  + \, \sum_{k=1}^{n_q} |\!| x^q_k |\!|_2 \, + \, |\!| x^\ell |\!|_2,
+\end{displaymath}
+ -->
+<P></P>
+<DIV ALIGN="CENTER">
+<IMG
+ WIDTH="261" HEIGHT="64" ALIGN="MIDDLE" BORDER="0"
+ SRC="img36.gif"
+ ALT="$\displaystyle \vert\!\vert x \vert\!\vert = \sum_{j=1}^{n_s} \vert\!\vert x^s_j...
+...vert\!\vert x^q_k \vert\!\vert _2 \, + \, \vert\!\vert x^\ell \vert\!\vert _2, $">
+</DIV><P></P>
+where 
+for a matrix <IMG
+ WIDTH="11" HEIGHT="13" ALIGN="BOTTOM" BORDER="0"
+ SRC="img24.gif"
+ ALT="$ a$">,  <!-- MATH
+ $|\!| a |\!|_F$
+ -->
+<IMG
+ WIDTH="34" HEIGHT="32" ALIGN="MIDDLE" BORDER="0"
+ SRC="img37.gif"
+ ALT="$ \vert\!\vert a \vert\!\vert _F$"> is the Frobenius norm of <IMG
+ WIDTH="11" HEIGHT="13" ALIGN="BOTTOM" BORDER="0"
+ SRC="img24.gif"
+ ALT="$ a$">. 
+Also,
+<!-- MATH
+ \begin{displaymath}
+\lambda_{\min, K}(x) = \min \, \biggl\{ \min_{j=1, \dots, n_s} \lambda_{\min}(x^s_j), \,
+			              \min_{k=1, \dots, n_q} \lambda_{\min,q}(x^q_k), \, 
+				      \min_{h} x^\ell_h 
+				\biggr\}
+\end{displaymath}
+ -->
+<P></P>
+<DIV ALIGN="CENTER">
+<IMG
+ WIDTH="457" HEIGHT="54" ALIGN="MIDDLE" BORDER="0"
+ SRC="img38.gif"
+ ALT="$\displaystyle \lambda_{\min, K}(x) = \min \, \biggl\{ \min_{j=1, \dots, n_s} \l...
+...min_{k=1, \dots, n_q} \lambda_{\min,q}(x^q_k), \,
+\min_{h} x^\ell_h
+\biggr\}
+$">
+</DIV><P></P>
+where 
+
+<UL>
+<LI>for a symmetric matrix <IMG
+ WIDTH="11" HEIGHT="13" ALIGN="BOTTOM" BORDER="0"
+ SRC="img24.gif"
+ ALT="$ a$">, <!-- MATH
+ $\lambda_{\min}(a)$
+ -->
+<IMG
+ WIDTH="55" HEIGHT="32" ALIGN="MIDDLE" BORDER="0"
+ SRC="img39.gif"
+ ALT="$ \lambda_{\min}(a)$"> is the usual smallest eigenvalue of <IMG
+ WIDTH="11" HEIGHT="13" ALIGN="BOTTOM" BORDER="0"
+ SRC="img24.gif"
+ ALT="$ a$">.
+</LI>
+<LI>for a vector <IMG
+ WIDTH="11" HEIGHT="13" ALIGN="BOTTOM" BORDER="0"
+ SRC="img24.gif"
+ ALT="$ a$">, <!-- MATH
+ $\lambda_{\min,q}(a) = a_1 - |\!| a_{2:k} |\!|_2$
+ -->
+<IMG
+ WIDTH="167" HEIGHT="32" ALIGN="MIDDLE" BORDER="0"
+ SRC="img40.gif"
+ ALT="$ \lambda_{\min,q}(a) = a_1 - \vert\!\vert a_{2:k} \vert\!\vert _2$">. 
+</LI>
+</UL>
+Also, we denote by <!-- MATH
+ $|\!| a |\!|_1$
+ -->
+<IMG
+ WIDTH="31" HEIGHT="32" ALIGN="MIDDLE" BORDER="0"
+ SRC="img41.gif"
+ ALT="$ \vert\!\vert a \vert\!\vert _1$"> the absolute value of the largest component of <IMG
+ WIDTH="11" HEIGHT="13" ALIGN="BOTTOM" BORDER="0"
+ SRC="img24.gif"
+ ALT="$ a$">, 
+for an arbitrary <IMG
+ WIDTH="45" HEIGHT="30" ALIGN="MIDDLE" BORDER="0"
+ SRC="img42.gif"
+ ALT="$ a \in X$">. 
+<P>
+Then, for approximate optimal solutions <IMG
+ WIDTH="12" HEIGHT="13" ALIGN="BOTTOM" BORDER="0"
+ SRC="img43.gif"
+ ALT="$ x$"> of (<A HREF="node2.html#sqlp-p">$SQLP-P$</A>) and <IMG
+ WIDTH="39" HEIGHT="32" ALIGN="MIDDLE" BORDER="0"
+ SRC="img44.gif"
+ ALT="$ (y,z)$"> of (<A HREF="node2.html#sqlp-d">$SQLP-D$</A>), we define 
+<BR>
+<DIV ALIGN="CENTER">
+<!-- MATH
+ \begin{eqnarray*}
+{\rm err }_1(x,y,z) & = & \frac{|\!| \mathcal{A}x - b |\!|}{1+ |\!| b |\!|_1} \\
+{\rm err }_2(x,y,z) & = & \max \biggl\{ 0,  \frac{-\lambda_{\min,K}(x)}{1+ |\!| b |\!|_1} \biggr\} \\
+{\rm err }_3(x,y,z) & = & \frac{|\!| \mathcal{A}^* y + z - c |\!|}{1 + |\!| c |\!|_1} \\
+{\rm err }_4(x,y,z) & = & \max \biggl\{ 0, \frac{-\lambda_{\min,K}(z)}{1+ |\!| c |\!|_1} \biggr\} \\
+{\rm err }_5(x,y,z) & = & \frac{\langle c, x \rangle - b^T y }{1+ | \langle c, x \rangle | + | b^T y |}
+\end{eqnarray*}
+ -->
+<TABLE CELLPADDING="0" ALIGN="CENTER" WIDTH="100%">
+<TR VALIGN="MIDDLE"><TD NOWRAP ALIGN="RIGHT"><IMG
+ WIDTH="82" HEIGHT="32" ALIGN="MIDDLE" BORDER="0"
+ SRC="img45.gif"
+ ALT="$\displaystyle {\rm err }_1(x,y,z)$"></TD>
+<TD WIDTH="10" ALIGN="CENTER" NOWRAP><IMG
+ WIDTH="15" HEIGHT="29" ALIGN="MIDDLE" BORDER="0"
+ SRC="img46.gif"
+ ALT="$\displaystyle =$"></TD>
+<TD ALIGN="LEFT" NOWRAP><IMG
+ WIDTH="67" HEIGHT="54" ALIGN="MIDDLE" BORDER="0"
+ SRC="img47.gif"
+ ALT="$\displaystyle \frac{\vert\!\vert \mathcal{A}x - b \vert\!\vert}{1+ \vert\!\vert b \vert\!\vert _1}$"></TD>
+<TD WIDTH=10 ALIGN="RIGHT">
+&nbsp;</TD></TR>
+<TR VALIGN="MIDDLE"><TD NOWRAP ALIGN="RIGHT"><IMG
+ WIDTH="82" HEIGHT="32" ALIGN="MIDDLE" BORDER="0"
+ SRC="img48.gif"
+ ALT="$\displaystyle {\rm err }_2(x,y,z)$"></TD>
+<TD WIDTH="10" ALIGN="CENTER" NOWRAP><IMG
+ WIDTH="15" HEIGHT="29" ALIGN="MIDDLE" BORDER="0"
+ SRC="img46.gif"
+ ALT="$\displaystyle =$"></TD>
+<TD ALIGN="LEFT" NOWRAP><IMG
+ WIDTH="156" HEIGHT="54" ALIGN="MIDDLE" BORDER="0"
+ SRC="img49.gif"
+ ALT="$\displaystyle \max \biggl\{ 0, \frac{-\lambda_{\min,K}(x)}{1+ \vert\!\vert b \vert\!\vert _1} \biggr\}$"></TD>
+<TD WIDTH=10 ALIGN="RIGHT">
+&nbsp;</TD></TR>
+<TR VALIGN="MIDDLE"><TD NOWRAP ALIGN="RIGHT"><IMG
+ WIDTH="82" HEIGHT="32" ALIGN="MIDDLE" BORDER="0"
+ SRC="img50.gif"
+ ALT="$\displaystyle {\rm err }_3(x,y,z)$"></TD>
+<TD WIDTH="10" ALIGN="CENTER" NOWRAP><IMG
+ WIDTH="15" HEIGHT="29" ALIGN="MIDDLE" BORDER="0"
+ SRC="img46.gif"
+ ALT="$\displaystyle =$"></TD>
+<TD ALIGN="LEFT" NOWRAP><IMG
+ WIDTH="102" HEIGHT="54" ALIGN="MIDDLE" BORDER="0"
+ SRC="img51.gif"
+ ALT="$\displaystyle \frac{\vert\!\vert \mathcal{A}^* y + z - c \vert\!\vert}{1 + \vert\!\vert c \vert\!\vert _1}$"></TD>
+<TD WIDTH=10 ALIGN="RIGHT">
+&nbsp;</TD></TR>
+<TR VALIGN="MIDDLE"><TD NOWRAP ALIGN="RIGHT"><IMG
+ WIDTH="82" HEIGHT="32" ALIGN="MIDDLE" BORDER="0"
+ SRC="img52.gif"
+ ALT="$\displaystyle {\rm err }_4(x,y,z)$"></TD>
+<TD WIDTH="10" ALIGN="CENTER" NOWRAP><IMG
+ WIDTH="15" HEIGHT="29" ALIGN="MIDDLE" BORDER="0"
+ SRC="img46.gif"
+ ALT="$\displaystyle =$"></TD>
+<TD ALIGN="LEFT" NOWRAP><IMG
+ WIDTH="155" HEIGHT="54" ALIGN="MIDDLE" BORDER="0"
+ SRC="img53.gif"
+ ALT="$\displaystyle \max \biggl\{ 0, \frac{-\lambda_{\min,K}(z)}{1+ \vert\!\vert c \vert\!\vert _1} \biggr\}$"></TD>
+<TD WIDTH=10 ALIGN="RIGHT">
+&nbsp;</TD></TR>
+<TR VALIGN="MIDDLE"><TD NOWRAP ALIGN="RIGHT"><IMG
+ WIDTH="82" HEIGHT="32" ALIGN="MIDDLE" BORDER="0"
+ SRC="img54.gif"
+ ALT="$\displaystyle {\rm err }_5(x,y,z)$"></TD>
+<TD WIDTH="10" ALIGN="CENTER" NOWRAP><IMG
+ WIDTH="15" HEIGHT="29" ALIGN="MIDDLE" BORDER="0"
+ SRC="img46.gif"
+ ALT="$\displaystyle =$"></TD>
+<TD ALIGN="LEFT" NOWRAP><IMG
+ WIDTH="132" HEIGHT="57" ALIGN="MIDDLE" BORDER="0"
+ SRC="img55.gif"
+ ALT="$\displaystyle \frac{\langle c, x \rangle - b^T y }{1+ \vert \langle c, x \rangle \vert + \vert b^T y \vert}$"></TD>
+<TD WIDTH=10 ALIGN="RIGHT">
+&nbsp;</TD></TR>
+</TABLE></DIV>
+<BR CLEAR="ALL">
+ 
+Furthermore, when <IMG
+ WIDTH="12" HEIGHT="13" ALIGN="BOTTOM" BORDER="0"
+ SRC="img43.gif"
+ ALT="$ x$"> and <IMG
+ WIDTH="11" HEIGHT="13" ALIGN="BOTTOM" BORDER="0"
+ SRC="img56.gif"
+ ALT="$ z$"> are both in <IMG
+ WIDTH="18" HEIGHT="14" ALIGN="BOTTOM" BORDER="0"
+ SRC="img2.gif"
+ ALT="$ K$">, that is <!-- MATH
+ ${\rm err }_2(x,y,z) = {\rm err }_4(x,y,z) = 0$
+ -->
+<IMG
+ WIDTH="211" HEIGHT="32" ALIGN="MIDDLE" BORDER="0"
+ SRC="img57.gif"
+ ALT="$ {\rm err }_2(x,y,z) = {\rm err }_4(x,y,z) = 0$">, we also
+define 
+<BR>
+<DIV ALIGN="CENTER">
+<!-- MATH
+ \begin{eqnarray*}
+{\rm err }_6(x,y,z) & = & \frac{\langle x, z \rangle }{1+ | \langle c, x \rangle | + | b^T y |}
+\end{eqnarray*}
+ -->
+<TABLE CELLPADDING="0" ALIGN="CENTER" WIDTH="100%">
+<TR VALIGN="MIDDLE"><TD NOWRAP ALIGN="RIGHT"><IMG
+ WIDTH="82" HEIGHT="32" ALIGN="MIDDLE" BORDER="0"
+ SRC="img58.gif"
+ ALT="$\displaystyle {\rm err }_6(x,y,z)$"></TD>
+<TD WIDTH="10" ALIGN="CENTER" NOWRAP><IMG
+ WIDTH="15" HEIGHT="29" ALIGN="MIDDLE" BORDER="0"
+ SRC="img46.gif"
+ ALT="$\displaystyle =$"></TD>
+<TD ALIGN="LEFT" NOWRAP><IMG
+ WIDTH="132" HEIGHT="54" ALIGN="MIDDLE" BORDER="0"
+ SRC="img59.gif"
+ ALT="$\displaystyle \frac{\langle x, z \rangle }{1+ \vert \langle c, x \rangle \vert + \vert b^T y \vert}$"></TD>
+<TD WIDTH=10 ALIGN="RIGHT">
+&nbsp;</TD></TR>
+</TABLE></DIV>
+<BR CLEAR="ALL">
+  
+A few remarks are in order.
+
+<UL>
+<LI>If <IMG
+ WIDTH="12" HEIGHT="13" ALIGN="BOTTOM" BORDER="0"
+ SRC="img43.gif"
+ ALT="$ x$"> and <IMG
+ WIDTH="11" HEIGHT="13" ALIGN="BOTTOM" BORDER="0"
+ SRC="img56.gif"
+ ALT="$ z$"> are both feasible, then in exact arithmetic <!-- MATH
+ ${\rm err }_5(x,y,z) = {\rm err }_6(x,y,z)$
+ -->
+<IMG
+ WIDTH="182" HEIGHT="32" ALIGN="MIDDLE" BORDER="0"
+ SRC="img60.gif"
+ ALT="$ {\rm err }_5(x,y,z) = {\rm err }_6(x,y,z)$">.
+</LI>
+<LI>As <IMG
+ WIDTH="12" HEIGHT="13" ALIGN="BOTTOM" BORDER="0"
+ SRC="img43.gif"
+ ALT="$ x$"> and <IMG
+ WIDTH="11" HEIGHT="13" ALIGN="BOTTOM" BORDER="0"
+ SRC="img56.gif"
+ ALT="$ z$"> are <EM>approximate</EM> optimal solutions only, we may have 
+<!-- MATH
+ ${\rm err }_5(x,y,z) < 0$
+ -->
+<IMG
+ WIDTH="111" HEIGHT="32" ALIGN="MIDDLE" BORDER="0"
+ SRC="img61.gif"
+ ALT="$ {\rm err }_5(x,y,z) &lt; 0$">. 
+It is possible that all other error measures being the same, if
+<!-- MATH
+ ${\rm err }_5(x,y,z) = - \delta$
+ -->
+<IMG
+ WIDTH="123" HEIGHT="32" ALIGN="MIDDLE" BORDER="0"
+ SRC="img62.gif"
+ ALT="$ {\rm err }_5(x,y,z) = - \delta$"> with <IMG
+ WIDTH="40" HEIGHT="30" ALIGN="MIDDLE" BORDER="0"
+ SRC="img63.gif"
+ ALT="$ \delta &gt;0$"> corresponds to a solution that is ``worse'', than 
+as if <!-- MATH
+ ${\rm err }_5(x,y,z)$
+ -->
+<IMG
+ WIDTH="82" HEIGHT="32" ALIGN="MIDDLE" BORDER="0"
+ SRC="img64.gif"
+ ALT="$ {\rm err }_5(x,y,z)$"> was <IMG
+ WIDTH="11" HEIGHT="14" ALIGN="BOTTOM" BORDER="0"
+ SRC="img65.gif"
+ ALT="$ \delta$">. Thus, we decided to report <!-- MATH
+ ${\rm err }_5(x,y,z)$
+ -->
+<IMG
+ WIDTH="82" HEIGHT="32" ALIGN="MIDDLE" BORDER="0"
+ SRC="img64.gif"
+ ALT="$ {\rm err }_5(x,y,z)$">, not 
+merely the maximum of 
+<!-- MATH
+ ${\rm err }_5(x,y,z)$
+ -->
+<IMG
+ WIDTH="82" HEIGHT="32" ALIGN="MIDDLE" BORDER="0"
+ SRC="img64.gif"
+ ALT="$ {\rm err }_5(x,y,z)$"> and 0 (as it is done in several papers), so as not to suppress any information. 
+</LI>
+<LI>Several codes do not explicitly maintain <IMG
+ WIDTH="11" HEIGHT="13" ALIGN="BOTTOM" BORDER="0"
+ SRC="img56.gif"
+ ALT="$ z$">; in this case, one should set 
+<!-- MATH
+ \begin{displaymath}
+z = c - \mathcal{A}^* y
+\end{displaymath}
+ -->
+<P></P>
+<DIV ALIGN="CENTER">
+<IMG
+ WIDTH="87" HEIGHT="32" ALIGN="MIDDLE" BORDER="0"
+ SRC="img66.gif"
+ ALT="$\displaystyle z = c - \mathcal{A}^* y
+$">
+</DIV><P></P>
+Of course, then <!-- MATH
+ ${\rm err }_3(x,y,z)$
+ -->
+<IMG
+ WIDTH="82" HEIGHT="32" ALIGN="MIDDLE" BORDER="0"
+ SRC="img67.gif"
+ ALT="$ {\rm err }_3(x,y,z)$"> will be zero (depending on the accuracy achieved by the computer). 
+</LI>
+</UL>
+
+<P>
+In the error tables below <!-- MATH
+ ${\rm err }_1$
+ -->
+<IMG
+ WIDTH="30" HEIGHT="29" ALIGN="MIDDLE" BORDER="0"
+ SRC="img68.gif"
+ ALT="$ {\rm err }_1$"> and <!-- MATH
+ ${\rm err }_5$
+ -->
+<IMG
+ WIDTH="30" HEIGHT="29" ALIGN="MIDDLE" BORDER="0"
+ SRC="img69.gif"
+ ALT="$ {\rm err }_5$"> are always listed. 
+<!-- MATH
+ ${\rm err }_2$
+ -->
+<IMG
+ WIDTH="30" HEIGHT="29" ALIGN="MIDDLE" BORDER="0"
+ SRC="img70.gif"
+ ALT="$ {\rm err }_2$"> is only given when nonzero and <!-- MATH
+ ${\rm err }_6$
+ -->
+<IMG
+ WIDTH="30" HEIGHT="29" ALIGN="MIDDLE" BORDER="0"
+ SRC="img71.gif"
+ ALT="$ {\rm err }_6$">
+only when in the digits shown different from <!-- MATH
+ ${\rm err }_5$
+ -->
+<IMG
+ WIDTH="30" HEIGHT="29" ALIGN="MIDDLE" BORDER="0"
+ SRC="img69.gif"
+ ALT="$ {\rm err }_5$">. <!-- MATH
+ ${\rm err }_6$
+ -->
+<IMG
+ WIDTH="30" HEIGHT="29" ALIGN="MIDDLE" BORDER="0"
+ SRC="img71.gif"
+ ALT="$ {\rm err }_6$"> is not
+available for SDPA.
+
+<P>
+From the time the benchmark problems for the Challenge were published until
+the time the papers for this volume were due we have performed an evaluation
+of the codes on all the benchmark problems each code could solve. In most
+cases we had the latest version of the codes which the authors themselves
+used and on which their contributions to the volume are based. 
+An exception is the code
+SDPA. Its authors are reporting about work done
+after release of their software and which is not yet available in coded form.
+The codes BMPR and BMZ were released once and not updated. All remaining
+codes were updated at least once, several at the time of the workshop or
+thereafter. Substantial changes were done with DSDP which evolved
+from a special code for discrete graph problems to a general purpose SDP
+solver accepting also standard sparse SDPA input format. Further quite
+remarkable improvements were applied to SDPT3, BUNDLE, and CSDP. 
+
+<P>
+<BR>
+
+<P>
+These benchmark results are meant to yield a rough overview of how the
+tested codes performed on the same, standard platform, a Sun Ultra 60 with
+Solaris 8, 2 GB of memory, and a 450 MHz processor. Paging was avoided.
+In the following section first basic information is given on each 
+participating code. Then, as provided by the authors, a short description
+follows of the code itself, the stopping criteria used, and the perceived
+strengths and weaknesses. In the third section the test problems are
+listed followed by some remarks regarding the performance of the codes.
+Appended are tables with problem statistics and the benchmark results.
+
+<P>
+<HR>
+<!--Navigation Panel-->
+<A NAME="tex2html60"
+  HREF="node4.html">
+<IMG WIDTH="37" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="next" SRC="next.gif"></A> 
+<A NAME="tex2html58"
+  HREF="node1.html">
+<IMG WIDTH="26" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="up" SRC="up.gif"></A> 
+<A NAME="tex2html54"
+  HREF="node2.html">
+<IMG WIDTH="63" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="previous" SRC="prev.gif"></A>   
+<BR>
+<B> Next:</B> <A NAME="tex2html61"
+  HREF="node4.html">The Codes</A>
+<B> Up:</B> <A NAME="tex2html59"
+  HREF="node1.html">Introduction</A>
+<B> Previous:</B> <A NAME="tex2html55"
+  HREF="node2.html">The Problems Solved</A>
+<!--End of Navigation Panel-->
+<ADDRESS>
+Hans D. Mittelmann
+2002-08-17
+</ADDRESS>
+</BODY>
+</HTML>

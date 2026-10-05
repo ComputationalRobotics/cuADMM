@@ -1,0 +1,4 @@
+n,m=1681 21 first: fills 4; distinct (hashR,hashQ): 1; stable across reps: 1 
+n,m=1681 21 generic: fills 4; distinct (hashR,hashQ): 1; stable across reps: 1 
+n,m=1680 20 first: fills 4; distinct (hashR,hashQ): 1; stable across reps: 1 
+n,m=1680 20 generic: fills 4; distinct (hashR,hashQ): 1; stable across reps: 1 

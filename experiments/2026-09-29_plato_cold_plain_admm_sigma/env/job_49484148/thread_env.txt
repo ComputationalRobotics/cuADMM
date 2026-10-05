@@ -1,0 +1,15 @@
+CUDA_HOME=/n/sw/helmod-rocky8/apps/Core/cuda/12.9.1-fasrc01/cuda/
+CUDA_INCLUDE=/n/sw/helmod-rocky8/apps/Core/cuda/12.9.1-fasrc01/cuda//include
+CUDA_LIB=/n/sw/helmod-rocky8/apps/Core/cuda/12.9.1-fasrc01/cuda//lib64
+CUDA_VISIBLE_DEVICES=0
+FASRCSW_COMP_NAME=gcc
+FASRCSW_COMP_RELEASE=fasrc01
+FASRCSW_COMP_VERSION=12.2.0
+LD_LIBRARY_PATH=/n/sw/helmod-rocky8/apps/Core/gcc/12.2.0-fasrc01/lib64:/n/sw/helmod-rocky8/apps/Core/gcc/12.2.0-fasrc01/lib:/n/sw/helmod-rocky8/apps/Core/mpc/1.3.1-fasrc01/lib64:/n/sw/helmod-rocky8/apps/Core/mpfr/4.2.0-fasrc01/lib64:/n/sw/helmod-rocky8/apps/Core/gmp/6.2.1-fasrc01/lib64:/n/sw/helmod-rocky8/apps/Core/cuda/12.9.1-fasrc01/cuda/extras/CUPTI/lib64:/n/sw/helmod-rocky8/apps/Core/cuda/12.9.1-fasrc01/cuda/lib64:/n/sw/helmod-rocky8/apps/Core/cuda/12.9.1-fasrc01/cuda/lib:/n/home00/yukuanwei/cuadmm-env/lib
+LMOD_FAMILY_COMP_VERSION=12.2.0-fasrc01
+OMP_NUM_THREADS=16
+OPENBLAS_NUM_THREADS=16
+SLURM_CPUS_ON_NODE=24
+SLURM_CPUS_PER_TASK=24
+SLURM_JOB_GPUS=2
+__LMOD_REF_COUNT_LD_LIBRARY_PATH=/n/sw/helmod-rocky8/apps/Core/gcc/12.2.0-fasrc01/lib64:1;/n/sw/helmod-rocky8/apps/Core/gcc/12.2.0-fasrc01/lib:1;/n/sw/helmod-rocky8/apps/Core/mpc/1.3.1-fasrc01/lib64:1;/n/sw/helmod-rocky8/apps/Core/mpfr/4.2.0-fasrc01/lib64:1;/n/sw/helmod-rocky8/apps/Core/gmp/6.2.1-fasrc01/lib64:1;/n/sw/helmod-rocky8/apps/Core/cuda/12.9.1-fasrc01/cuda/extras/CUPTI/lib64:1;/n/sw/helmod-rocky8/apps/Core/cuda/12.9.1-fasrc01/cuda/lib64:1;/n/sw/helmod-rocky8/apps/Core/cuda/12.9.1-fasrc01/cuda/lib:1

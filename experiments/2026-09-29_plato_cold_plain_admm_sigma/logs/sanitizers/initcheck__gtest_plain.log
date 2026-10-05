@@ -1,0 +1,880 @@
+========= COMPUTE-SANITIZER
+Note: Google Test filter = PlainAdmmOnly*:DimacsValidator.*:StrictStage.*
+[==========] Running 6 tests from 4 test suites.
+[----------] Global test environment set-up.
+[----------] 3 tests from PlainAdmmOnly
+[ RUN      ] PlainAdmmOnly.SolveRejectsSgsAndHybrid
+
+ factorization of AA^T + 1e-15 I: supernodal LL^T -> simplicial LDL^T, nnz(L) = 6.148e+03, 0.0 s
+   pivots in [3.66e-01, 1.00e+00], 0 tiny (< 1e-12 max) and 0 nonpositive
+   y-step solves: CHOLMOD on the CPU
+
+Analysis of the blk vector:
+        1 u. block of size  10
+        1 matrices of size   20 (small)
+
+ ||C|| = 23.5025, ||b|| = 14.8909
+
+ factorization of AA^T + 1e-15 I: supernodal LL^T -> simplicial LDL^T, nnz(L) = 6.148e+03, 0.0 s
+   pivots in [3.66e-01, 1.00e+00], 0 tiny (< 1e-12 max) and 0 nonpositive
+   y-step solves: CHOLMOD on the CPU
+
+Analysis of the blk vector:
+        1 u. block of size  10
+        1 matrices of size   20 (small)
+
+ ||C|| = 23.5025, ||b|| = 14.8909
+
+ factorization of AA^T + 1e-15 I: supernodal LL^T -> simplicial LDL^T, nnz(L) = 6.148e+03, 0.0 s
+   pivots in [3.66e-01, 1.00e+00], 0 tiny (< 1e-12 max) and 0 nonpositive
+   y-step solves: CHOLMOD on the CPU
+
+Analysis of the blk vector:
+        1 u. block of size  10
+        1 matrices of size   20 (small)
+
+ ||C|| = 23.5025, ||b|| = 14.8909
+
+ factorization of AA^T + 1e-15 I: supernodal LL^T -> simplicial LDL^T, nnz(L) = 6.148e+03, 0.0 s
+   pivots in [3.66e-01, 1.00e+00], 0 tiny (< 1e-12 max) and 0 nonpositive
+   y-step solves: CHOLMOD on the CPU
+
+Analysis of the blk vector:
+        1 u. block of size  10
+        1 matrices of size   20 (small)
+
+ ||C|| = 23.5025, ||b|| = 14.8909
+
+ factorization of AA^T + 1e-15 I: supernodal LL^T -> simplicial LDL^T, nnz(L) = 6.148e+03, 0.0 s
+   pivots in [3.66e-01, 1.00e+00], 0 tiny (< 1e-12 max) and 0 nonpositive
+   y-step solves: CHOLMOD on the CPU
+
+Analysis of the blk vector:
+        1 u. block of size  10
+        1 matrices of size   20 (small)
+
+ ||C|| = 23.5025, ||b|| = 14.8909
+
+ Algorithm: plain ADMM
+ Build: plain ADMM only (CUADMM_PLAIN_ADMM_ONLY): sGS-ADMM and the sGS -> ADMM hybrid are disabled; one y linear solve per iteration
+ Sigma policy: legacy_adaptive, initial sigma 1 (adaptive updates)
+ Maximum iterations: 50, internal KKT tolerance: 1e-12
+ External validation: off (stopping on the internal KKT residual)
+
+Problem parameters:
+              solver max iter: 50
+       KKT stopping tolerance: 1e-12
+       sigma update threshold: 500
+         sigma update stage 1: 50
+         sigma update stage 2: 100
+                  switch admm: 0
+                    algorithm: plain ADMM
+         switch proj max iter: 0
+              switch proj tol: 0.01
+                     sigscale: 2
+                 sigma policy: legacy_adaptive
+                initial sigma: 1
+    initial projection method: EIG_FP64
+      final projection method: EIG_FP64
+                   use LOBPCG: true
+              LOBPCG max iter: 20
+             LOBPCG tolerance: 1e-05
+             LOBPCG warmstart: true
+                 LOBPCG ratio: 0.03
+            LOBPCG relaxation: 1.2
+        LOBPCG rank threshold: max(1e-08 * max|lambda|, 0.001 * stop_tol)
+           small matrix limit: 32
+          medium matrix limit: 1000
+
+ ------------------------------------------------------------------------------
+                                   cuADMM
+ ------------------------------------------------------------------------------
+  it. | p infeas d infeas | primal obj.   dual obj. rel. gap |  time |   sigma 
+ ------------------------------------------------------------------------------
+ --------------- Starting with projection method EIG_FP64 ---------------------
+    0 | 9.33e-01 9.57e-01 |  0.0000e+00  0.0000e+00 0.00e+00 |   0.3 | 1.0e+00 
+   50 | 2.25e-04 2.28e-04 | -1.1294e+01 -1.1287e+01 2.96e-04 |   0.5 | 2.0e+00 
+ ------------------------------------------------------------------------------
+
+Solver ended: maximum iteration reached
+
+ primal infeasibility = 2.3e-04 
+ dual   infeasibility = 2.3e-04 
+ relative gap         = 3.0e-04
+ PSD violation X      = 3.2e-09 
+ PSD violation S      = 4.7e-18
+ certificate: <b,y> + R * -7.125242e-03 is a lower bound on the optimal value if every block of an
+              optimal X has trace (or entries) bounded by R, see certified_lower_bound()
+
+ LOBPCG calls = 0, certificate fallbacks to cuSOLVER = 0
+
+ primal objective = -1.12941378e+01 
+ dual   objective = -1.12871692e+01
+
+ algorithm: plain ADMM, plain ADMM iterations = 50
+ sigma policy: legacy_adaptive, initial sigma 1.000000e+00, final sigma 2.000000e+00, 5 change(s)
+ phases: sGS-ADMM 0 iterations (0.000 s, validation 0.000 s) | plain ADMM 50 iterations (0.205 s, validation 0.000 s)
+ switch: switch_admm = 0, first plain-ADMM iteration 1
+ stop reason: max_iter
+
+ time per iteration = 0.0041s 
+ total time         = 0.5s (init 0.3s, iterations 0.2s)
+ -------------------------------------------------------------------------------
+
+
+ factorization of AA^T + 1e-15 I: supernodal LL^T -> simplicial LDL^T, nnz(L) = 6.148e+03, 0.0 s
+   pivots in [3.66e-01, 1.00e+00], 0 tiny (< 1e-12 max) and 0 nonpositive
+   y-step solves: CHOLMOD on the CPU
+
+Analysis of the blk vector:
+        1 u. block of size  10
+        1 matrices of size   20 (small)
+
+ ||C|| = 23.5025, ||b|| = 14.8909
+
+ Algorithm: plain ADMM
+ Build: plain ADMM only (CUADMM_PLAIN_ADMM_ONLY): sGS-ADMM and the sGS -> ADMM hybrid are disabled; one y linear solve per iteration
+ Sigma policy: legacy_adaptive, initial sigma 1 (adaptive updates)
+ Maximum iterations: 50, internal KKT tolerance: 1e-12
+ External validation: off (stopping on the internal KKT residual)
+
+Problem parameters:
+              solver max iter: 50
+       KKT stopping tolerance: 1e-12
+       sigma update threshold: 500
+         sigma update stage 1: 50
+         sigma update stage 2: 100
+                  switch admm: 1
+                    algorithm: plain ADMM
+         switch proj max iter: 0
+              switch proj tol: 0.01
+                     sigscale: 2
+                 sigma policy: legacy_adaptive
+                initial sigma: 1
+    initial projection method: EIG_FP64
+      final projection method: EIG_FP64
+                   use LOBPCG: true
+              LOBPCG max iter: 20
+             LOBPCG tolerance: 1e-05
+             LOBPCG warmstart: true
+                 LOBPCG ratio: 0.03
+            LOBPCG relaxation: 1.2
+        LOBPCG rank threshold: max(1e-08 * max|lambda|, 0.001 * stop_tol)
+           small matrix limit: 32
+          medium matrix limit: 1000
+
+ ------------------------------------------------------------------------------
+                                   cuADMM
+ ------------------------------------------------------------------------------
+  it. | p infeas d infeas | primal obj.   dual obj. rel. gap |  time |   sigma 
+ ------------------------------------------------------------------------------
+ --------------- Starting with projection method EIG_FP64 ---------------------
+    0 | 9.33e-01 9.57e-01 |  0.0000e+00  0.0000e+00 0.00e+00 |   0.1 | 1.0e+00 
+   50 | 2.25e-04 2.28e-04 | -1.1294e+01 -1.1287e+01 2.96e-04 |   0.3 | 2.0e+00 
+ ------------------------------------------------------------------------------
+
+Solver ended: maximum iteration reached
+
+ primal infeasibility = 2.3e-04 
+ dual   infeasibility = 2.3e-04 
+ relative gap         = 3.0e-04
+ PSD violation X      = 3.2e-09 
+ PSD violation S      = 4.7e-18
+ certificate: <b,y> + R * -7.125242e-03 is a lower bound on the optimal value if every block of an
+              optimal X has trace (or entries) bounded by R, see certified_lower_bound()
+
+ LOBPCG calls = 0, certificate fallbacks to cuSOLVER = 0
+
+ primal objective = -1.12941378e+01 
+ dual   objective = -1.12871692e+01
+
+ algorithm: plain ADMM, plain ADMM iterations = 50
+ sigma policy: legacy_adaptive, initial sigma 1.000000e+00, final sigma 2.000000e+00, 5 change(s)
+ phases: sGS-ADMM 0 iterations (0.000 s, validation 0.000 s) | plain ADMM 50 iterations (0.145 s, validation 0.000 s)
+ switch: switch_admm = 1, first plain-ADMM iteration 1
+ stop reason: max_iter
+
+ time per iteration = 0.0029s 
+ total time         = 0.3s (init 0.1s, iterations 0.1s)
+ -------------------------------------------------------------------------------
+
+[       OK ] PlainAdmmOnly.SolveRejectsSgsAndHybrid (1941 ms)
+[ RUN      ] PlainAdmmOnly.OneYSolvePerIterationNoSgsStep
+
+ factorization of AA^T + 1e-15 I: supernodal LL^T -> simplicial LDL^T, nnz(L) = 6.148e+03, 0.0 s
+   pivots in [3.66e-01, 1.00e+00], 0 tiny (< 1e-12 max) and 0 nonpositive
+   y-step solves: CHOLMOD on the CPU
+
+Analysis of the blk vector:
+        1 u. block of size  10
+        1 matrices of size   20 (small)
+
+ ||C|| = 23.5025, ||b|| = 14.8909
+
+ Algorithm: plain ADMM
+ Build: plain ADMM only (CUADMM_PLAIN_ADMM_ONLY): sGS-ADMM and the sGS -> ADMM hybrid are disabled; one y linear solve per iteration
+ Sigma policy: legacy_adaptive, initial sigma 1 (adaptive updates)
+ Maximum iterations: 700, internal KKT tolerance: 0
+ External validation: off (stopping on the internal KKT residual)
+
+Problem parameters:
+              solver max iter: 700
+       KKT stopping tolerance: 0
+       sigma update threshold: 500
+         sigma update stage 1: 50
+         sigma update stage 2: 100
+                  switch admm: 0
+                    algorithm: plain ADMM
+         switch proj max iter: 0
+              switch proj tol: 0.01
+                     sigscale: 2
+                 sigma policy: legacy_adaptive
+                initial sigma: 1
+    initial projection method: EIG_FP64
+      final projection method: EIG_FP64
+                   use LOBPCG: true
+              LOBPCG max iter: 20
+             LOBPCG tolerance: 1e-05
+             LOBPCG warmstart: true
+                 LOBPCG ratio: 0.03
+            LOBPCG relaxation: 1.2
+        LOBPCG rank threshold: max(1e-08 * max|lambda|, 0.001 * stop_tol)
+           small matrix limit: 32
+          medium matrix limit: 1000
+
+ ------------------------------------------------------------------------------
+                                   cuADMM
+ ------------------------------------------------------------------------------
+  it. | p infeas d infeas | primal obj.   dual obj. rel. gap |  time |   sigma 
+ ------------------------------------------------------------------------------
+ --------------- Starting with projection method EIG_FP64 ---------------------
+    0 | 9.33e-01 9.57e-01 |  0.0000e+00  0.0000e+00 0.00e+00 |   0.2 | 1.0e+00 
+   50 | 2.25e-04 2.28e-04 | -1.1294e+01 -1.1287e+01 2.96e-04 |   0.3 | 2.0e+00 
+  100 | 1.43e-06 3.15e-07 | -1.1293e+01 -1.1293e+01 3.64e-07 |   0.4 | 4.0e+00 
+  150 | 1.17e-09 7.65e-10 | -1.1293e+01 -1.1293e+01 2.36e-10 |   0.6 | 2.0e+00 
+  200 | 1.66e-12 2.65e-12 | -1.1293e+01 -1.1293e+01 7.86e-13 |   0.7 | 1.0e+00 
+  300 | 1.81e-15 1.54e-15 | -1.1293e+01 -1.1293e+01 2.64e-15 |   0.9 | 1.0e+00 
+  400 | 2.11e-15 1.59e-15 | -1.1293e+01 -1.1293e+01 4.07e-15 |   1.2 | 1.0e+00 
+  500 | 1.70e-15 1.40e-15 | -1.1293e+01 -1.1293e+01 3.31e-15 |   1.4 | 1.0e+00 
+  600 | 1.76e-15 1.60e-15 | -1.1293e+01 -1.1293e+01 1.58e-15 |   1.7 | 1.0e+00 
+  700 | 1.88e-15 1.94e-15 | -1.1293e+01 -1.1293e+01 2.86e-15 |   2.0 | 1.0e+00 
+ Returning the best iterate: max KKT residual = 1.4e-15 (last iterate: 2.9e-15)
+ ------------------------------------------------------------------------------
+
+Solver ended: maximum iteration reached
+
+ primal infeasibility = 9.6e-16 
+ dual   infeasibility = 1.4e-15 
+ relative gap         = 4.5e-16
+ PSD violation X      = 1.9e-17 
+ PSD violation S      = 1.1e-17
+ certificate: <b,y> + R * -2.600046e-14 is a lower bound on the optimal value if every block of an
+              optimal X has trace (or entries) bounded by R, see certified_lower_bound()
+
+ LOBPCG calls = 0, certificate fallbacks to cuSOLVER = 0
+
+ primal objective = -1.12927569e+01 
+ dual   objective = -1.12927569e+01
+
+ algorithm: plain ADMM, plain ADMM iterations = 700
+ sigma policy: legacy_adaptive, initial sigma 1.000000e+00, final sigma 1.000000e+00, 40 change(s)
+ phases: sGS-ADMM 0 iterations (0.000 s, validation 0.000 s) | plain ADMM 700 iterations (1.798 s, validation 0.000 s)
+ switch: switch_admm = 0, first plain-ADMM iteration 1
+ stop reason: max_iter
+
+ time per iteration = 0.0026s 
+ total time         = 2.0s (init 0.2s, iterations 1.8s)
+ -------------------------------------------------------------------------------
+
+
+ factorization of AA^T + 1e-15 I: supernodal LL^T -> simplicial LDL^T, nnz(L) = 6.148e+03, 0.0 s
+   pivots in [3.66e-01, 1.00e+00], 0 tiny (< 1e-12 max) and 0 nonpositive
+   y-step solves: CHOLMOD on the CPU
+
+Analysis of the blk vector:
+        1 u. block of size  10
+        1 matrices of size   20 (small)
+
+ ||C|| = 23.5025, ||b|| = 14.8909
+
+ Algorithm: plain ADMM
+ Build: plain ADMM only (CUADMM_PLAIN_ADMM_ONLY): sGS-ADMM and the sGS -> ADMM hybrid are disabled; one y linear solve per iteration
+ Sigma policy: fixed, initial sigma 1 (kept for every iteration)
+ Maximum iterations: 700, internal KKT tolerance: 0
+ External validation: off (stopping on the internal KKT residual)
+
+Problem parameters:
+              solver max iter: 700
+       KKT stopping tolerance: 0
+       sigma update threshold: 500
+         sigma update stage 1: 50
+         sigma update stage 2: 100
+                  switch admm: 0
+                    algorithm: plain ADMM
+         switch proj max iter: 0
+              switch proj tol: 0.01
+                     sigscale: 2
+                 sigma policy: fixed
+                initial sigma: 1
+    initial projection method: EIG_FP64
+      final projection method: EIG_FP64
+                   use LOBPCG: true
+              LOBPCG max iter: 20
+             LOBPCG tolerance: 1e-05
+             LOBPCG warmstart: true
+                 LOBPCG ratio: 0.03
+            LOBPCG relaxation: 1.2
+        LOBPCG rank threshold: max(1e-08 * max|lambda|, 0.001 * stop_tol)
+           small matrix limit: 32
+          medium matrix limit: 1000
+
+ ------------------------------------------------------------------------------
+                                   cuADMM
+ ------------------------------------------------------------------------------
+  it. | p infeas d infeas | primal obj.   dual obj. rel. gap |  time |   sigma 
+ ------------------------------------------------------------------------------
+ --------------- Starting with projection method EIG_FP64 ---------------------
+    0 | 9.33e-01 9.57e-01 |  0.0000e+00  0.0000e+00 0.00e+00 |   0.2 | 1.0e+00 
+   50 | 9.48e-05 4.27e-04 | -1.1293e+01 -1.1280e+01 5.43e-04 |   0.3 | 1.0e+00 
+  100 | 8.62e-06 4.38e-05 | -1.1293e+01 -1.1292e+01 4.32e-05 |   0.4 | 1.0e+00 
+  150 | 1.02e-06 5.19e-06 | -1.1293e+01 -1.1293e+01 4.48e-06 |   0.6 | 1.0e+00 
+  200 | 1.27e-07 6.44e-07 | -1.1293e+01 -1.1293e+01 5.10e-07 |   0.7 | 1.0e+00 
+  300 | 2.04e-09 1.02e-08 | -1.1293e+01 -1.1293e+01 7.44e-09 |   0.9 | 1.0e+00 
+  400 | 3.27e-11 1.64e-10 | -1.1293e+01 -1.1293e+01 1.16e-10 |   1.2 | 1.0e+00 
+  500 | 5.25e-13 2.62e-12 | -1.1293e+01 -1.1293e+01 1.84e-12 |   1.5 | 1.0e+00 
+  600 | 8.84e-15 4.20e-14 | -1.1293e+01 -1.1293e+01 3.39e-14 |   1.7 | 1.0e+00 
+  700 | 2.09e-15 1.84e-15 | -1.1293e+01 -1.1293e+01 3.54e-15 |   2.0 | 1.0e+00 
+ Returning the best iterate: max KKT residual = 2.4e-15 (last iterate: 3.5e-15)
+ ------------------------------------------------------------------------------
+
+Solver ended: maximum iteration reached
+
+ primal infeasibility = 1.8e-15 
+ dual   infeasibility = 1.7e-15 
+ relative gap         = 2.4e-15
+ PSD violation X      = -0.0e+00 
+ PSD violation S      = 8.7e-18
+ certificate: <b,y> + R * -3.070104e-14 is a lower bound on the optimal value if every block of an
+              optimal X has trace (or entries) bounded by R, see certified_lower_bound()
+
+ LOBPCG calls = 0, certificate fallbacks to cuSOLVER = 0
+
+ primal objective = -1.12927569e+01 
+ dual   objective = -1.12927569e+01
+
+ algorithm: plain ADMM, plain ADMM iterations = 700
+ sigma policy: fixed, initial sigma 1.000000e+00, final sigma 1.000000e+00, 0 change(s)
+ phases: sGS-ADMM 0 iterations (0.000 s, validation 0.000 s) | plain ADMM 700 iterations (1.823 s, validation 0.000 s)
+ switch: switch_admm = 0, first plain-ADMM iteration 1
+ stop reason: max_iter
+
+ time per iteration = 0.0026s 
+ total time         = 2.0s (init 0.2s, iterations 1.8s)
+ -------------------------------------------------------------------------------
+
+[       OK ] PlainAdmmOnly.OneYSolvePerIterationNoSgsStep (4002 ms)
+[ RUN      ] PlainAdmmOnly.SigmaLogReproducesTheHistory
+
+ factorization of AA^T + 1e-15 I: supernodal LL^T -> simplicial LDL^T, nnz(L) = 6.148e+03, 0.0 s
+   pivots in [3.66e-01, 1.00e+00], 0 tiny (< 1e-12 max) and 0 nonpositive
+   y-step solves: CHOLMOD on the CPU
+
+Analysis of the blk vector:
+        1 u. block of size  10
+        1 matrices of size   20 (small)
+
+ ||C|| = 23.5025, ||b|| = 14.8909
+
+ Algorithm: plain ADMM
+ Build: plain ADMM only (CUADMM_PLAIN_ADMM_ONLY): sGS-ADMM and the sGS -> ADMM hybrid are disabled; one y linear solve per iteration
+ Sigma policy: legacy_adaptive, initial sigma 1 (adaptive updates)
+ Maximum iterations: 6000, internal KKT tolerance: 0
+ External validation: off (stopping on the internal KKT residual)
+
+Problem parameters:
+              solver max iter: 6000
+       KKT stopping tolerance: 0
+       sigma update threshold: 500
+         sigma update stage 1: 50
+         sigma update stage 2: 100
+                  switch admm: 0
+                    algorithm: plain ADMM
+         switch proj max iter: 0
+              switch proj tol: 0.01
+                     sigscale: 2
+                 sigma policy: legacy_adaptive
+                initial sigma: 1
+    initial projection method: EIG_FP64
+      final projection method: EIG_FP64
+                   use LOBPCG: true
+              LOBPCG max iter: 20
+             LOBPCG tolerance: 1e-05
+             LOBPCG warmstart: true
+                 LOBPCG ratio: 0.03
+            LOBPCG relaxation: 1.2
+        LOBPCG rank threshold: max(1e-08 * max|lambda|, 0.001 * stop_tol)
+           small matrix limit: 32
+          medium matrix limit: 1000
+
+ ------------------------------------------------------------------------------
+                                   cuADMM
+ ------------------------------------------------------------------------------
+  it. | p infeas d infeas | primal obj.   dual obj. rel. gap |  time |   sigma 
+ ------------------------------------------------------------------------------
+ --------------- Starting with projection method EIG_FP64 ---------------------
+    0 | 9.33e-01 9.57e-01 |  0.0000e+00  0.0000e+00 0.00e+00 |   0.2 | 1.0e+00 
+   50 | 2.25e-04 2.28e-04 | -1.1294e+01 -1.1287e+01 2.96e-04 |   0.3 | 2.0e+00 
+  100 | 1.43e-06 3.15e-07 | -1.1293e+01 -1.1293e+01 3.64e-07 |   0.4 | 4.0e+00 
+  150 | 1.17e-09 7.65e-10 | -1.1293e+01 -1.1293e+01 2.36e-10 |   0.5 | 2.0e+00 
+  200 | 1.66e-12 2.65e-12 | -1.1293e+01 -1.1293e+01 7.86e-13 |   0.7 | 1.0e+00 
+  300 | 1.81e-15 1.54e-15 | -1.1293e+01 -1.1293e+01 2.64e-15 |   0.9 | 1.0e+00 
+  400 | 2.11e-15 1.59e-15 | -1.1293e+01 -1.1293e+01 4.07e-15 |   1.2 | 1.0e+00 
+  500 | 1.70e-15 1.40e-15 | -1.1293e+01 -1.1293e+01 3.31e-15 |   1.4 | 1.0e+00 
+  600 | 1.76e-15 1.60e-15 | -1.1293e+01 -1.1293e+01 1.58e-15 |   1.7 | 1.0e+00 
+  700 | 1.88e-15 1.94e-15 | -1.1293e+01 -1.1293e+01 2.86e-15 |   2.0 | 1.0e+00 
+  800 | 2.03e-15 1.66e-15 | -1.1293e+01 -1.1293e+01 4.52e-15 |   2.2 | 1.0e+00 
+  900 | 1.72e-15 1.47e-15 | -1.1293e+01 -1.1293e+01 3.77e-15 |   2.5 | 1.0e+00 
+ 1000 | 1.92e-15 1.47e-15 | -1.1293e+01 -1.1293e+01 3.84e-15 |   2.7 | 1.0e+00 
+ 1100 | 1.62e-15 1.33e-15 | -1.1293e+01 -1.1293e+01 2.94e-15 |   4.2 | 1.0e+00 
+ 1200 | 2.00e-15 1.47e-15 | -1.1293e+01 -1.1293e+01 4.74e-15 |   7.0 | 1.0e+00 
+ 1300 | 2.33e-15 1.80e-15 | -1.1293e+01 -1.1293e+01 3.46e-15 |   9.7 | 1.0e+00 
+ 1400 | 1.63e-15 1.29e-15 | -1.1293e+01 -1.1293e+01 3.54e-15 |  12.4 | 1.0e+00 
+ 1500 | 1.62e-15 1.20e-15 | -1.1293e+01 -1.1293e+01 2.11e-15 |  15.1 | 1.0e+00 
+ 1600 | 1.81e-15 1.53e-15 | -1.1293e+01 -1.1293e+01 1.81e-15 |  17.8 | 1.0e+00 
+ 1700 | 1.54e-15 1.42e-15 | -1.1293e+01 -1.1293e+01 1.88e-15 |  20.5 | 1.0e+00 
+ 1800 | 1.73e-15 1.22e-15 | -1.1293e+01 -1.1293e+01 2.86e-15 |  23.2 | 1.0e+00 
+ 1900 | 1.78e-15 1.35e-15 | -1.1293e+01 -1.1293e+01 3.46e-15 |  25.9 | 1.0e+00 
+ 2000 | 2.46e-15 2.29e-15 | -1.1293e+01 -1.1293e+01 1.88e-15 |  28.6 | 1.0e+00 
+ 2100 | 2.29e-15 2.08e-15 | -1.1293e+01 -1.1293e+01 4.14e-15 |  31.3 | 1.0e+00 
+ 2200 | 1.77e-15 1.36e-15 | -1.1293e+01 -1.1293e+01 3.46e-15 |  34.0 | 1.0e+00 
+ 2300 | 1.78e-15 1.27e-15 | -1.1293e+01 -1.1293e+01 2.79e-15 |  36.7 | 1.0e+00 
+ 2400 | 1.97e-15 1.58e-15 | -1.1293e+01 -1.1293e+01 2.94e-15 |  38.0 | 1.0e+00 
+ 2500 | 1.96e-15 1.55e-15 | -1.1293e+01 -1.1293e+01 3.62e-15 |  38.3 | 1.0e+00 
+ 2600 | 1.63e-15 1.39e-15 | -1.1293e+01 -1.1293e+01 3.31e-15 |  38.5 | 1.0e+00 
+ 2700 | 2.04e-15 1.40e-15 | -1.1293e+01 -1.1293e+01 3.09e-15 |  38.8 | 1.0e+00 
+ 2800 | 2.16e-15 1.85e-15 | -1.1293e+01 -1.1293e+01 2.49e-15 |  40.5 | 1.0e+00 
+ 2900 | 1.80e-15 1.64e-15 | -1.1293e+01 -1.1293e+01 2.26e-15 |  43.2 | 1.0e+00 
+ 3000 | 2.01e-15 1.52e-15 | -1.1293e+01 -1.1293e+01 2.18e-15 |  44.9 | 1.0e+00 
+ 3100 | 1.91e-15 1.47e-15 | -1.1293e+01 -1.1293e+01 2.18e-15 |  45.2 | 1.0e+00 
+ 3200 | 1.94e-15 1.53e-15 | -1.1293e+01 -1.1293e+01 3.69e-15 |  45.4 | 1.0e+00 
+ 3300 | 1.97e-15 1.74e-15 | -1.1293e+01 -1.1293e+01 3.09e-15 |  45.7 | 1.0e+00 
+ 3400 | 1.84e-15 1.40e-15 | -1.1293e+01 -1.1293e+01 3.09e-15 |  45.9 | 1.0e+00 
+ 3500 | 2.11e-15 1.86e-15 | -1.1293e+01 -1.1293e+01 4.29e-15 |  46.2 | 1.0e+00 
+ 3600 | 1.83e-15 1.67e-15 | -1.1293e+01 -1.1293e+01 3.16e-15 |  46.4 | 1.0e+00 
+ 3700 | 1.98e-15 1.70e-15 | -1.1293e+01 -1.1293e+01 3.09e-15 |  46.7 | 1.0e+00 
+ 3800 | 1.92e-15 1.59e-15 | -1.1293e+01 -1.1293e+01 2.26e-15 |  46.9 | 1.0e+00 
+ 3900 | 1.81e-15 1.44e-15 | -1.1293e+01 -1.1293e+01 3.24e-15 |  47.2 | 1.0e+00 
+ 4000 | 2.05e-15 1.48e-15 | -1.1293e+01 -1.1293e+01 4.07e-15 |  47.4 | 1.0e+00 
+ 4100 | 2.04e-15 1.85e-15 | -1.1293e+01 -1.1293e+01 3.09e-15 |  47.7 | 1.0e+00 
+ 4200 | 1.69e-15 1.30e-15 | -1.1293e+01 -1.1293e+01 2.94e-15 |  47.9 | 1.0e+00 
+ 4300 | 2.39e-15 2.13e-15 | -1.1293e+01 -1.1293e+01 1.43e-15 |  48.2 | 1.0e+00 
+ 4400 | 2.29e-15 1.71e-15 | -1.1293e+01 -1.1293e+01 4.22e-15 |  48.4 | 1.0e+00 
+ 4500 | 1.81e-15 1.54e-15 | -1.1293e+01 -1.1293e+01 3.16e-15 |  48.7 | 1.0e+00 
+ 4600 | 2.16e-15 1.83e-15 | -1.1293e+01 -1.1293e+01 3.16e-15 |  48.9 | 1.0e+00 
+ 4700 | 1.75e-15 1.43e-15 | -1.1293e+01 -1.1293e+01 2.94e-15 |  49.2 | 1.0e+00 
+ 4800 | 1.98e-15 1.63e-15 | -1.1293e+01 -1.1293e+01 3.09e-15 |  49.4 | 1.0e+00 
+ 4900 | 2.22e-15 1.62e-15 | -1.1293e+01 -1.1293e+01 4.59e-15 |  50.1 | 1.0e+00 
+ 5000 | 1.83e-15 1.35e-15 | -1.1293e+01 -1.1293e+01 3.84e-15 |  52.8 | 1.0e+00 
+ 5100 | 1.14e-15 1.87e-15 | -1.1293e+01 -1.1293e+01 1.21e-15 |  55.5 | 5.0e-01 
+ 5200 | 1.05e-15 1.63e-15 | -1.1293e+01 -1.1293e+01 1.66e-15 |  55.8 | 5.0e-01 
+ 5300 | 2.02e-15 1.27e-15 | -1.1293e+01 -1.1293e+01 3.39e-15 |  56.0 | 1.0e+00 
+ 5400 | 1.66e-15 1.57e-15 | -1.1293e+01 -1.1293e+01 1.96e-15 |  56.3 | 1.0e+00 
+ 5500 | 1.03e-15 1.67e-15 | -1.1293e+01 -1.1293e+01 8.28e-16 |  56.5 | 5.0e-01 
+ 5600 | 1.14e-15 1.96e-15 | -1.1293e+01 -1.1293e+01 2.03e-15 |  56.8 | 5.0e-01 
+ 5700 | 1.72e-15 1.33e-15 | -1.1293e+01 -1.1293e+01 3.46e-15 |  57.0 | 1.0e+00 
+ 5800 | 1.81e-15 1.56e-15 | -1.1293e+01 -1.1293e+01 2.71e-15 |  57.3 | 1.0e+00 
+ 5900 | 9.48e-16 1.79e-15 | -1.1293e+01 -1.1293e+01 6.78e-16 |  57.5 | 5.0e-01 
+ 6000 | 1.20e-15 2.15e-15 | -1.1293e+01 -1.1293e+01 2.41e-15 |  57.8 | 5.0e-01 
+ Returning the best iterate: max KKT residual = 1.4e-15 (last iterate: 2.4e-15)
+ ------------------------------------------------------------------------------
+
+Solver ended: maximum iteration reached
+
+ primal infeasibility = 8.5e-16 
+ dual   infeasibility = 1.4e-15 
+ relative gap         = 1.1e-15
+ PSD violation X      = 3.0e-17 
+ PSD violation S      = 1.3e-17
+ certificate: <b,y> + R * -2.648986e-14 is a lower bound on the optimal value if every block of an
+              optimal X has trace (or entries) bounded by R, see certified_lower_bound()
+
+ LOBPCG calls = 0, certificate fallbacks to cuSOLVER = 0
+
+ primal objective = -1.12927569e+01 
+ dual   objective = -1.12927569e+01
+
+ algorithm: plain ADMM, plain ADMM iterations = 6000
+ sigma policy: legacy_adaptive, initial sigma 1.000000e+00, final sigma 5.000000e-01, 137 change(s)
+ phases: sGS-ADMM 0 iterations (0.000 s, validation 0.000 s) | plain ADMM 6000 iterations (57.604 s, validation 0.000 s)
+ switch: switch_admm = 0, first plain-ADMM iteration 1
+ stop reason: max_iter
+
+ time per iteration = 0.0096s 
+ total time         = 57.8s (init 0.2s, iterations 57.6s)
+ -------------------------------------------------------------------------------
+
+
+ factorization of AA^T + 1e-15 I: supernodal LL^T -> simplicial LDL^T, nnz(L) = 6.148e+03, 0.0 s
+   pivots in [3.66e-01, 1.00e+00], 0 tiny (< 1e-12 max) and 0 nonpositive
+   y-step solves: CHOLMOD on the CPU
+
+Analysis of the blk vector:
+        1 u. block of size  10
+        1 matrices of size   20 (small)
+
+ ||C|| = 23.5025, ||b|| = 14.8909
+
+ Algorithm: plain ADMM
+ Build: plain ADMM only (CUADMM_PLAIN_ADMM_ONLY): sGS-ADMM and the sGS -> ADMM hybrid are disabled; one y linear solve per iteration
+ Sigma policy: fixed, initial sigma 1 (kept for every iteration)
+ Maximum iterations: 6000, internal KKT tolerance: 0
+ External validation: off (stopping on the internal KKT residual)
+
+Problem parameters:
+              solver max iter: 6000
+       KKT stopping tolerance: 0
+       sigma update threshold: 500
+         sigma update stage 1: 50
+         sigma update stage 2: 100
+                  switch admm: 0
+                    algorithm: plain ADMM
+         switch proj max iter: 0
+              switch proj tol: 0.01
+                     sigscale: 2
+                 sigma policy: fixed
+                initial sigma: 1
+    initial projection method: EIG_FP64
+      final projection method: EIG_FP64
+                   use LOBPCG: true
+              LOBPCG max iter: 20
+             LOBPCG tolerance: 1e-05
+             LOBPCG warmstart: true
+                 LOBPCG ratio: 0.03
+            LOBPCG relaxation: 1.2
+        LOBPCG rank threshold: max(1e-08 * max|lambda|, 0.001 * stop_tol)
+           small matrix limit: 32
+          medium matrix limit: 1000
+
+ ------------------------------------------------------------------------------
+                                   cuADMM
+ ------------------------------------------------------------------------------
+  it. | p infeas d infeas | primal obj.   dual obj. rel. gap |  time |   sigma 
+ ------------------------------------------------------------------------------
+ --------------- Starting with projection method EIG_FP64 ---------------------
+    0 | 9.33e-01 9.57e-01 |  0.0000e+00  0.0000e+00 0.00e+00 |   0.2 | 1.0e+00 
+   50 | 9.48e-05 4.27e-04 | -1.1293e+01 -1.1280e+01 5.43e-04 |   1.7 | 1.0e+00 
+  100 | 8.62e-06 4.38e-05 | -1.1293e+01 -1.1292e+01 4.32e-05 |   3.3 | 1.0e+00 
+  150 | 1.02e-06 5.19e-06 | -1.1293e+01 -1.1293e+01 4.48e-06 |   4.9 | 1.0e+00 
+  200 | 1.27e-07 6.44e-07 | -1.1293e+01 -1.1293e+01 5.10e-07 |   5.9 | 1.0e+00 
+  300 | 2.04e-09 1.02e-08 | -1.1293e+01 -1.1293e+01 7.44e-09 |   8.3 | 1.0e+00 
+  400 | 3.27e-11 1.64e-10 | -1.1293e+01 -1.1293e+01 1.16e-10 |  11.5 | 1.0e+00 
+  500 | 5.25e-13 2.62e-12 | -1.1293e+01 -1.1293e+01 1.84e-12 |  14.6 | 1.0e+00 
+  600 | 8.84e-15 4.20e-14 | -1.1293e+01 -1.1293e+01 3.39e-14 |  17.7 | 1.0e+00 
+  700 | 2.09e-15 1.84e-15 | -1.1293e+01 -1.1293e+01 3.54e-15 |  20.7 | 1.0e+00 
+  800 | 1.86e-15 1.27e-15 | -1.1293e+01 -1.1293e+01 3.84e-15 |  22.9 | 1.0e+00 
+  900 | 2.04e-15 1.78e-15 | -1.1293e+01 -1.1293e+01 4.52e-15 |  23.2 | 1.0e+00 
+ 1000 | 1.83e-15 1.67e-15 | -1.1293e+01 -1.1293e+01 2.71e-15 |  23.5 | 1.0e+00 
+ 1100 | 1.87e-15 1.82e-15 | -1.1293e+01 -1.1293e+01 3.46e-15 |  23.8 | 1.0e+00 
+ 1200 | 1.73e-15 1.42e-15 | -1.1293e+01 -1.1293e+01 3.24e-15 |  25.3 | 1.0e+00 
+ 1300 | 2.00e-15 1.36e-15 | -1.1293e+01 -1.1293e+01 4.97e-15 |  28.1 | 1.0e+00 
+ 1400 | 1.82e-15 1.42e-15 | -1.1293e+01 -1.1293e+01 4.97e-15 |  30.9 | 1.0e+00 
+ 1500 | 2.10e-15 1.82e-15 | -1.1293e+01 -1.1293e+01 4.44e-15 |  33.8 | 1.0e+00 
+ 1600 | 2.17e-15 1.73e-15 | -1.1293e+01 -1.1293e+01 3.46e-15 |  36.6 | 1.0e+00 
+ 1700 | 1.83e-15 1.61e-15 | -1.1293e+01 -1.1293e+01 3.77e-15 |  39.4 | 1.0e+00 
+ 1800 | 1.61e-15 1.66e-15 | -1.1293e+01 -1.1293e+01 2.26e-15 |  42.3 | 1.0e+00 
+ 1900 | 1.69e-15 1.45e-15 | -1.1293e+01 -1.1293e+01 2.94e-15 |  45.1 | 1.0e+00 
+ 2000 | 2.03e-15 1.87e-15 | -1.1293e+01 -1.1293e+01 3.01e-15 |  47.9 | 1.0e+00 
+ 2100 | 1.89e-15 1.76e-15 | -1.1293e+01 -1.1293e+01 2.94e-15 |  50.7 | 1.0e+00 
+ 2200 | 2.14e-15 1.62e-15 | -1.1293e+01 -1.1293e+01 1.88e-15 |  53.5 | 1.0e+00 
+ 2300 | 1.98e-15 1.50e-15 | -1.1293e+01 -1.1293e+01 3.62e-15 |  56.4 | 1.0e+00 
+ 2400 | 1.92e-15 1.71e-15 | -1.1293e+01 -1.1293e+01 2.94e-15 |  58.0 | 1.0e+00 
+ 2500 | 2.05e-15 1.51e-15 | -1.1293e+01 -1.1293e+01 3.77e-15 |  58.3 | 1.0e+00 
+ 2600 | 1.62e-15 1.24e-15 | -1.1293e+01 -1.1293e+01 2.94e-15 |  58.6 | 1.0e+00 
+ 2700 | 1.76e-15 1.30e-15 | -1.1293e+01 -1.1293e+01 3.16e-15 |  59.4 | 1.0e+00 
+ 2800 | 1.97e-15 1.76e-15 | -1.1293e+01 -1.1293e+01 2.03e-15 |  62.3 | 1.0e+00 
+ 2900 | 1.72e-15 1.42e-15 | -1.1293e+01 -1.1293e+01 2.49e-15 |  64.6 | 1.0e+00 
+ 3000 | 1.62e-15 1.35e-15 | -1.1293e+01 -1.1293e+01 3.16e-15 |  67.4 | 1.0e+00 
+ 3100 | 2.02e-15 1.44e-15 | -1.1293e+01 -1.1293e+01 3.39e-15 |  70.2 | 1.0e+00 
+ 3200 | 2.15e-15 1.69e-15 | -1.1293e+01 -1.1293e+01 3.54e-15 |  73.0 | 1.0e+00 
+ 3300 | 1.59e-15 1.29e-15 | -1.1293e+01 -1.1293e+01 3.69e-15 |  75.8 | 1.0e+00 
+ 3400 | 2.05e-15 1.74e-15 | -1.1293e+01 -1.1293e+01 2.41e-15 |  77.2 | 1.0e+00 
+ 3500 | 1.98e-15 1.96e-15 | -1.1293e+01 -1.1293e+01 3.69e-15 |  80.1 | 1.0e+00 
+ 3600 | 1.72e-15 1.59e-15 | -1.1293e+01 -1.1293e+01 3.01e-15 |  82.3 | 1.0e+00 
+ 3700 | 1.93e-15 1.34e-15 | -1.1293e+01 -1.1293e+01 3.77e-15 |  85.2 | 1.0e+00 
+ 3800 | 1.89e-15 1.43e-15 | -1.1293e+01 -1.1293e+01 3.99e-15 |  87.9 | 1.0e+00 
+ 3900 | 1.73e-15 1.33e-15 | -1.1293e+01 -1.1293e+01 2.11e-15 |  90.7 | 1.0e+00 
+ 4000 | 1.76e-15 1.48e-15 | -1.1293e+01 -1.1293e+01 2.86e-15 |  93.1 | 1.0e+00 
+ 4100 | 1.50e-15 1.23e-15 | -1.1293e+01 -1.1293e+01 2.94e-15 |  93.4 | 1.0e+00 
+ 4200 | 1.99e-15 1.90e-15 | -1.1293e+01 -1.1293e+01 1.73e-15 |  93.7 | 1.0e+00 
+ 4300 | 2.02e-15 1.42e-15 | -1.1293e+01 -1.1293e+01 5.27e-15 |  93.9 | 1.0e+00 
+ 4400 | 1.87e-15 1.39e-15 | -1.1293e+01 -1.1293e+01 2.49e-15 |  94.2 | 1.0e+00 
+ 4500 | 1.84e-15 1.47e-15 | -1.1293e+01 -1.1293e+01 3.09e-15 |  95.7 | 1.0e+00 
+ 4600 | 1.94e-15 1.42e-15 | -1.1293e+01 -1.1293e+01 4.37e-15 |  98.0 | 1.0e+00 
+ 4700 | 1.79e-15 1.40e-15 | -1.1293e+01 -1.1293e+01 3.39e-15 | 100.2 | 1.0e+00 
+ 4800 | 2.22e-15 1.86e-15 | -1.1293e+01 -1.1293e+01 4.59e-15 | 102.5 | 1.0e+00 
+ 4900 | 2.13e-15 1.70e-15 | -1.1293e+01 -1.1293e+01 3.24e-15 | 104.8 | 1.0e+00 
+ 5000 | 1.71e-15 1.41e-15 | -1.1293e+01 -1.1293e+01 2.56e-15 | 107.1 | 1.0e+00 
+ 5100 | 2.03e-15 1.59e-15 | -1.1293e+01 -1.1293e+01 4.44e-15 | 109.4 | 1.0e+00 
+ 5200 | 1.92e-15 1.98e-15 | -1.1293e+01 -1.1293e+01 2.11e-15 | 111.7 | 1.0e+00 
+ 5300 | 1.82e-15 1.46e-15 | -1.1293e+01 -1.1293e+01 3.62e-15 | 113.9 | 1.0e+00 
+ 5400 | 1.93e-15 1.73e-15 | -1.1293e+01 -1.1293e+01 3.16e-15 | 116.2 | 1.0e+00 
+ 5500 | 1.64e-15 1.25e-15 | -1.1293e+01 -1.1293e+01 3.92e-15 | 117.4 | 1.0e+00 
+ 5600 | 1.59e-15 1.24e-15 | -1.1293e+01 -1.1293e+01 2.56e-15 | 117.6 | 1.0e+00 
+ 5700 | 1.96e-15 1.58e-15 | -1.1293e+01 -1.1293e+01 3.92e-15 | 117.9 | 1.0e+00 
+ 5800 | 1.92e-15 1.53e-15 | -1.1293e+01 -1.1293e+01 3.24e-15 | 119.4 | 1.0e+00 
+ 5900 | 2.29e-15 1.72e-15 | -1.1293e+01 -1.1293e+01 5.05e-15 | 121.7 | 1.0e+00 
+ 6000 | 2.18e-15 1.72e-15 | -1.1293e+01 -1.1293e+01 3.09e-15 | 123.9 | 1.0e+00 
+ Returning the best iterate: max KKT residual = 1.5e-15 (last iterate: 3.1e-15)
+ ------------------------------------------------------------------------------
+
+Solver ended: maximum iteration reached
+
+ primal infeasibility = 1.5e-15 
+ dual   infeasibility = 1.4e-15 
+ relative gap         = 8.3e-16
+ PSD violation X      = 1.2e-18 
+ PSD violation S      = 1.3e-17
+ certificate: <b,y> + R * -2.598333e-14 is a lower bound on the optimal value if every block of an
+              optimal X has trace (or entries) bounded by R, see certified_lower_bound()
+
+ LOBPCG calls = 0, certificate fallbacks to cuSOLVER = 0
+
+ primal objective = -1.12927569e+01 
+ dual   objective = -1.12927569e+01
+
+ algorithm: plain ADMM, plain ADMM iterations = 6000
+ sigma policy: fixed, initial sigma 1.000000e+00, final sigma 1.000000e+00, 0 change(s)
+ phases: sGS-ADMM 0 iterations (0.000 s, validation 0.000 s) | plain ADMM 6000 iterations (123.750 s, validation 0.000 s)
+ switch: switch_admm = 0, first plain-ADMM iteration 1
+ stop reason: max_iter
+
+ time per iteration = 0.0206s 
+ total time         = 123.9s (init 0.2s, iterations 123.8s)
+ -------------------------------------------------------------------------------
+
+[       OK ] PlainAdmmOnly.SigmaLogReproducesTheHistory (181777 ms)
+[----------] 3 tests from PlainAdmmOnly (187720 ms total)
+
+[----------] 1 test from DimacsValidator
+[ RUN      ] DimacsValidator.HandComputedSmallProblem
+[       OK ] DimacsValidator.HandComputedSmallProblem (0 ms)
+[----------] 1 test from DimacsValidator (0 ms total)
+
+[----------] 1 test from StrictStage
+[ RUN      ] StrictStage.PracticalThenStrictAndTheReturnedIterate
+
+ factorization of AA^T + 1e-15 I: supernodal LL^T -> simplicial LDL^T, nnz(L) = 6.148e+03, 0.0 s
+   pivots in [3.66e-01, 1.00e+00], 0 tiny (< 1e-12 max) and 0 nonpositive
+   y-step solves: CHOLMOD on the CPU
+
+Analysis of the blk vector:
+        1 u. block of size  10
+        1 matrices of size   20 (small)
+
+ ||C|| = 23.5025, ||b|| = 14.8909
+
+ Algorithm: plain ADMM
+ Build: plain ADMM only (CUADMM_PLAIN_ADMM_ONLY): sGS-ADMM and the sGS -> ADMM hybrid are disabled; one y linear solve per iteration
+ Strict stage: after the practical criteria, continue until max_abs_DIMACS <= 1e-06 or a safety limit
+ Sigma policy: legacy_adaptive, initial sigma 1 (adaptive updates)
+ Maximum iterations: 200000, internal KKT tolerance: 0.0001
+ External validation: every 100 iterations and at each crossing of the internal tolerance; stop only when eta_p <= 0.0001, eta_d <= 0.0001, eta_g <= 0.0001, X cone <= 0.0001, dual cone <= 0.0001 (recomputed on the CPU, all finite)
+
+Problem parameters:
+              solver max iter: 200000
+       KKT stopping tolerance: 0.0001
+       sigma update threshold: 500
+         sigma update stage 1: 50
+         sigma update stage 2: 100
+                  switch admm: 0
+                    algorithm: plain ADMM
+         switch proj max iter: 0
+              switch proj tol: 0.01
+                     sigscale: 2
+                 sigma policy: legacy_adaptive
+                initial sigma: 1
+    initial projection method: EIG_FP64
+      final projection method: EIG_FP64
+                   use LOBPCG: true
+              LOBPCG max iter: 20
+             LOBPCG tolerance: 1e-05
+             LOBPCG warmstart: true
+                 LOBPCG ratio: 0.03
+            LOBPCG relaxation: 1.2
+        LOBPCG rank threshold: max(1e-08 * max|lambda|, 0.001 * stop_tol)
+           small matrix limit: 32
+          medium matrix limit: 1000
+
+ ------------------------------------------------------------------------------
+                                   cuADMM
+ ------------------------------------------------------------------------------
+  it. | p infeas d infeas | primal obj.   dual obj. rel. gap |  time |   sigma 
+ ------------------------------------------------------------------------------
+ --------------- Starting with projection method EIG_FP64 ---------------------
+    0 | 9.33e-01 9.57e-01 |  0.0000e+00  0.0000e+00 0.00e+00 |   0.2 | 1.0e+00 
+   50 | 2.25e-04 2.28e-04 | -1.1294e+01 -1.1287e+01 2.96e-04 |   1.3 | 2.0e+00 
+ [validation] it      64 internal_crossing | ext KKT 7.72e-05 (p 7.7e-05 d 3.1e-05 g 3.1e-05) | X cone 8.7e-10 | dual cone 1.0e-05 | sigma 2.000e+00 | VALIDATED (3 ms)
+ practical criteria validated at iteration 64 (1.367 s, max_abs_DIMACS 2.03e-04): continuing toward 1.0e-06
+ [validation] it     100 interval          | ext KKT 1.43e-06 (p 1.4e-06 d 3.1e-07 g 3.6e-07) | X cone 8.9e-14 | dual cone 1.5e-07 | sigma 4.000e+00 | VALIDATED (3 ms)
+  100 | 1.43e-06 3.15e-07 | -1.1293e+01 -1.1293e+01 3.64e-07 |   2.3 | 4.0e+00 
+  150 | 1.17e-09 7.65e-10 | -1.1293e+01 -1.1293e+01 2.36e-10 |   3.4 | 2.0e+00 
+ [validation] it     200 interval          | ext KKT 2.65e-12 (p 1.7e-12 d 2.7e-12 g 7.9e-13) | X cone 5.7e-16 | dual cone 1.4e-12 | sigma 1.000e+00 | VALIDATED (3 ms)
+  200 | 1.66e-12 2.65e-12 | -1.1293e+01 -1.1293e+01 7.86e-13 |   4.5 | 1.0e+00 
+ ------------------------------------------------------------------------------
+
+Solver ended: strict DIMACS target validated
+
+ primal infeasibility = 1.7e-12 
+ dual   infeasibility = 2.7e-12 
+ relative gap         = 7.9e-13
+ PSD violation X      = 2.1e-16 
+ PSD violation S      = 1.6e-17
+ certificate: <b,y> + R * -8.850037e-11 is a lower bound on the optimal value if every block of an
+              optimal X has trace (or entries) bounded by R, see certified_lower_bound()
+
+ LOBPCG calls = 0, certificate fallbacks to cuSOLVER = 0
+
+ primal objective = -1.12927569e+01 
+ dual   objective = -1.12927569e+01
+
+ algorithm: plain ADMM, plain ADMM iterations = 200
+ sigma policy: legacy_adaptive, initial sigma 1.000000e+00, final sigma 1.000000e+00, 20 change(s)
+ phases: sGS-ADMM 0 iterations (0.000 s, validation 0.000 s) | plain ADMM 200 iterations (4.303 s, validation 0.009 s)
+ switch: switch_admm = 0, first plain-ADMM iteration 1
+ stop reason: strict_validated
+ external validations: 3 (0.01 s); first validated iteration: 64; returned the validated iterate
+ best external iterate: iteration 200, KKT 2.65e-12, X cone 5.71e-16, dual cone 1.45e-12, merit 2.65e-12
+
+ time per iteration = 0.0215s 
+ total time         = 4.5s (init 0.2s, iterations 4.3s)
+ -------------------------------------------------------------------------------
+
+[ STRICT   ] practical at 64 (1.367 s), strict at 200 (4.302 s), max_abs_DIMACS 1.78e-11
+
+ factorization of AA^T + 1e-15 I: supernodal LL^T -> simplicial LDL^T, nnz(L) = 6.148e+03, 0.0 s
+   pivots in [3.66e-01, 1.00e+00], 0 tiny (< 1e-12 max) and 0 nonpositive
+   y-step solves: CHOLMOD on the CPU
+
+Analysis of the blk vector:
+        1 u. block of size  10
+        1 matrices of size   20 (small)
+
+ ||C|| = 23.5025, ||b|| = 14.8909
+
+ Algorithm: plain ADMM
+ Build: plain ADMM only (CUADMM_PLAIN_ADMM_ONLY): sGS-ADMM and the sGS -> ADMM hybrid are disabled; one y linear solve per iteration
+ Strict stage: after the practical criteria, continue until max_abs_DIMACS <= 1e-300 or a safety limit
+ Sigma policy: legacy_adaptive, initial sigma 1 (adaptive updates)
+ Maximum iterations: 1564, internal KKT tolerance: 0.0001
+ External validation: every 100 iterations and at each crossing of the internal tolerance; stop only when eta_p <= 0.0001, eta_d <= 0.0001, eta_g <= 0.0001, X cone <= 0.0001, dual cone <= 0.0001 (recomputed on the CPU, all finite)
+
+Problem parameters:
+              solver max iter: 1564
+       KKT stopping tolerance: 0.0001
+       sigma update threshold: 500
+         sigma update stage 1: 50
+         sigma update stage 2: 100
+                  switch admm: 0
+                    algorithm: plain ADMM
+         switch proj max iter: 0
+              switch proj tol: 0.01
+                     sigscale: 2
+                 sigma policy: legacy_adaptive
+                initial sigma: 1
+    initial projection method: EIG_FP64
+      final projection method: EIG_FP64
+                   use LOBPCG: true
+              LOBPCG max iter: 20
+             LOBPCG tolerance: 1e-05
+             LOBPCG warmstart: true
+                 LOBPCG ratio: 0.03
+            LOBPCG relaxation: 1.2
+        LOBPCG rank threshold: max(1e-08 * max|lambda|, 0.001 * stop_tol)
+           small matrix limit: 32
+          medium matrix limit: 1000
+
+ ------------------------------------------------------------------------------
+                                   cuADMM
+ ------------------------------------------------------------------------------
+  it. | p infeas d infeas | primal obj.   dual obj. rel. gap |  time |   sigma 
+ ------------------------------------------------------------------------------
+ --------------- Starting with projection method EIG_FP64 ---------------------
+    0 | 9.33e-01 9.57e-01 |  0.0000e+00  0.0000e+00 0.00e+00 |   0.2 | 1.0e+00 
+   50 | 2.25e-04 2.28e-04 | -1.1294e+01 -1.1287e+01 2.96e-04 |   0.9 | 2.0e+00 
+ [validation] it      64 internal_crossing | ext KKT 7.72e-05 (p 7.7e-05 d 3.1e-05 g 3.1e-05) | X cone 8.7e-10 | dual cone 1.0e-05 | sigma 2.000e+00 | VALIDATED (3 ms)
+ practical criteria validated at iteration 64 (0.934 s, max_abs_DIMACS 2.03e-04): continuing toward 1.0e-300
+ [validation] it     100 interval          | ext KKT 1.43e-06 (p 1.4e-06 d 3.1e-07 g 3.6e-07) | X cone 8.9e-14 | dual cone 1.5e-07 | sigma 4.000e+00 | VALIDATED (3 ms)
+  100 | 1.43e-06 3.15e-07 | -1.1293e+01 -1.1293e+01 3.64e-07 |   1.9 | 4.0e+00 
+  150 | 1.17e-09 7.65e-10 | -1.1293e+01 -1.1293e+01 2.36e-10 |   3.1 | 2.0e+00 
+ [validation] it     200 interval          | ext KKT 2.65e-12 (p 1.7e-12 d 2.7e-12 g 7.9e-13) | X cone 5.7e-16 | dual cone 1.4e-12 | sigma 1.000e+00 | VALIDATED (3 ms)
+  200 | 1.66e-12 2.65e-12 | -1.1293e+01 -1.1293e+01 7.86e-13 |   4.2 | 1.0e+00 
+ [validation] it     300 interval          | ext KKT 2.71e-15 (p 1.8e-15 d 1.6e-15 g 2.7e-15) | X cone 0.0e+00 | dual cone 3.4e-16 | sigma 1.000e+00 | VALIDATED (3 ms)
+  300 | 1.81e-15 1.54e-15 | -1.1293e+01 -1.1293e+01 2.64e-15 |   6.5 | 1.0e+00 
+ [validation] it     400 interval          | ext KKT 4.01e-15 (p 2.1e-15 d 1.6e-15 g 4.0e-15) | X cone 2.5e-17 | dual cone 3.5e-16 | sigma 1.000e+00 | VALIDATED (1 ms)
+  400 | 2.11e-15 1.59e-15 | -1.1293e+01 -1.1293e+01 4.07e-15 |   8.8 | 1.0e+00 
+ [validation] it     500 interval          | ext KKT 3.38e-15 (p 1.7e-15 d 1.4e-15 g 3.4e-15) | X cone 0.0e+00 | dual cone 4.1e-16 | sigma 1.000e+00 | VALIDATED (3 ms)
+  500 | 1.70e-15 1.40e-15 | -1.1293e+01 -1.1293e+01 3.31e-15 |  11.1 | 1.0e+00 
+ [validation] it     600 interval          | ext KKT 1.77e-15 (p 1.8e-15 d 1.6e-15 g 1.7e-15) | X cone 7.1e-17 | dual cone 3.6e-16 | sigma 1.000e+00 | VALIDATED (1 ms)
+  600 | 1.76e-15 1.60e-15 | -1.1293e+01 -1.1293e+01 1.58e-15 |  12.5 | 1.0e+00 
+ [validation] it     700 interval          | ext KKT 2.89e-15 (p 1.9e-15 d 1.9e-15 g 2.9e-15) | X cone 1.8e-16 | dual cone 6.0e-16 | sigma 1.000e+00 | VALIDATED (1 ms)
+  700 | 1.88e-15 1.94e-15 | -1.1293e+01 -1.1293e+01 2.86e-15 |  12.8 | 1.0e+00 
+ [validation] it     800 interval          | ext KKT 4.59e-15 (p 2.1e-15 d 1.6e-15 g 4.6e-15) | X cone 2.3e-16 | dual cone 3.6e-16 | sigma 1.000e+00 | VALIDATED (1 ms)
+  800 | 2.03e-15 1.66e-15 | -1.1293e+01 -1.1293e+01 4.52e-15 |  13.0 | 1.0e+00 
+ [validation] it     900 interval          | ext KKT 3.73e-15 (p 1.7e-15 d 1.5e-15 g 3.7e-15) | X cone 1.8e-16 | dual cone 4.0e-16 | sigma 1.000e+00 | VALIDATED (1 ms)
+  900 | 1.72e-15 1.47e-15 | -1.1293e+01 -1.1293e+01 3.77e-15 |  14.4 | 1.0e+00 
+ [validation] it    1000 interval          | ext KKT 3.95e-15 (p 1.9e-15 d 1.5e-15 g 4.0e-15) | X cone 1.3e-16 | dual cone 3.9e-16 | sigma 1.000e+00 | VALIDATED (1 ms)
+ 1000 | 1.92e-15 1.47e-15 | -1.1293e+01 -1.1293e+01 3.84e-15 |  16.7 | 1.0e+00 
+ [validation] it    1100 interval          | ext KKT 2.88e-15 (p 1.6e-15 d 1.3e-15 g 2.9e-15) | X cone 0.0e+00 | dual cone 3.7e-16 | sigma 1.000e+00 | VALIDATED (3 ms)
+ 1100 | 1.62e-15 1.33e-15 | -1.1293e+01 -1.1293e+01 2.94e-15 |  19.1 | 1.0e+00 
+ [validation] it    1200 interval          | ext KKT 4.73e-15 (p 2.0e-15 d 1.5e-15 g 4.7e-15) | X cone 1.1e-16 | dual cone 3.5e-16 | sigma 1.000e+00 | VALIDATED (1 ms)
+ 1200 | 2.00e-15 1.47e-15 | -1.1293e+01 -1.1293e+01 4.74e-15 |  21.4 | 1.0e+00 
+ [validation] it    1300 interval          | ext KKT 3.61e-15 (p 2.3e-15 d 1.8e-15 g 3.6e-15) | X cone 0.0e+00 | dual cone 4.4e-16 | sigma 1.000e+00 | VALIDATED (1 ms)
+ 1300 | 2.33e-15 1.80e-15 | -1.1293e+01 -1.1293e+01 3.46e-15 |  23.7 | 1.0e+00 
+ [validation] it    1400 interval          | ext KKT 3.58e-15 (p 1.7e-15 d 1.3e-15 g 3.6e-15) | X cone 1.1e-16 | dual cone 3.2e-16 | sigma 1.000e+00 | VALIDATED (1 ms)
+ 1400 | 1.63e-15 1.29e-15 | -1.1293e+01 -1.1293e+01 3.54e-15 |  26.0 | 1.0e+00 
+ [validation] it    1500 interval          | ext KKT 2.16e-15 (p 1.6e-15 d 1.2e-15 g 2.2e-15) | X cone 1.2e-16 | dual cone 2.2e-16 | sigma 1.000e+00 | VALIDATED (3 ms)
+ 1500 | 1.62e-15 1.20e-15 | -1.1293e+01 -1.1293e+01 2.11e-15 |  28.3 | 1.0e+00 
+ [validation] it    1564 max_iter          | ext KKT 1.97e-15 (p 2.0e-15 d 1.6e-15 g 1.5e-15) | X cone 2.3e-16 | dual cone 2.3e-16 | sigma 1.000e+00 | VALIDATED (1 ms)
+ 1564 | 2.00e-15 1.65e-15 | -1.1293e+01 -1.1293e+01 1.51e-15 |  29.8 | 1.0e+00 
+ Returning the best externally evaluated iterate: iteration 1500, merit 2.2e-15 (final iterate: 2.0e-15)
+ ------------------------------------------------------------------------------
+
+Solver ended: maximum iteration reached (safety cap, not validated)
+
+ primal infeasibility = 1.6e-15 
+ dual   infeasibility = 1.2e-15 
+ relative gap         = 2.1e-15
+ PSD violation X      = 4.4e-17 
+ PSD violation S      = 1.1e-17
+ certificate: <b,y> + R * -2.688248e-14 is a lower bound on the optimal value if every block of an
+              optimal X has trace (or entries) bounded by R, see certified_lower_bound()
+
+ LOBPCG calls = 0, certificate fallbacks to cuSOLVER = 0
+
+ primal objective = -1.12927569e+01 
+ dual   objective = -1.12927569e+01
+
+ algorithm: plain ADMM, plain ADMM iterations = 1564
+ sigma policy: legacy_adaptive, initial sigma 1.000000e+00, final sigma 1.000000e+00, 64 change(s)
+ phases: sGS-ADMM 0 iterations (0.000 s, validation 0.000 s) | plain ADMM 1564 iterations (29.566 s, validation 0.026 s)
+ switch: switch_admm = 0, first plain-ADMM iteration 1
+ stop reason: max_iter
+ external validations: 17 (0.03 s); first validated iteration: 64; returned the validated iterate
+ best external iterate: iteration 1500, KKT 2.16e-15, X cone 1.21e-16, dual cone 2.22e-16, merit 2.16e-15
+
+ time per iteration = 0.0189s 
+ total time         = 29.8s (init 0.2s, iterations 29.6s)
+ -------------------------------------------------------------------------------
+
+[       OK ] StrictStage.PracticalThenStrictAndTheReturnedIterate (34347 ms)
+[----------] 1 test from StrictStage (34347 ms total)
+
+[----------] 1 test from PlainAdmmOnlyCli
+[ RUN      ] PlainAdmmOnlyCli.RejectsSgsOptionsAndWritesTheNewOutputs
+[       OK ] PlainAdmmOnlyCli.RejectsSgsOptionsAndWritesTheNewOutputs (30165 ms)
+[----------] 1 test from PlainAdmmOnlyCli (30166 ms total)
+
+[----------] Global test environment tear-down
+[==========] 6 tests from 4 test suites ran. (252234 ms total)
+[  PASSED  ] 6 tests.
+========= ERROR SUMMARY: 0 errors

@@ -1,0 +1,236 @@
+{
+ "mater-1": {
+  "objective": -143.4654,
+  "text": "-1.434654e+02",
+  "exact": false,
+  "digits": 7,
+  "n": 103,
+  "m_published": "222",
+  "resolution": 3.461036345034867e-07
+ },
+ "mater-2": {
+  "objective": -141.5919,
+  "text": "-1.415919e+02",
+  "exact": false,
+  "digits": 7,
+  "n": 423,
+  "m_published": "1014",
+  "resolution": 3.5065105381161203e-07
+ },
+ "mater-3": {
+  "objective": -133.9163,
+  "text": "-1.339163e+02",
+  "exact": false,
+  "digits": 7,
+  "n": 1439,
+  "m_published": "3588",
+  "resolution": 3.7060014245869474e-07
+ },
+ "mater-4": {
+  "objective": -134.2627,
+  "text": "-1.342627e+02",
+  "exact": false,
+  "digits": 7,
+  "n": 4807,
+  "m_published": "12498",
+  "resolution": 3.696510567954063e-07
+ },
+ "mater-5": {
+  "objective": -133.8016,
+  "text": "-1.338016e+02",
+  "exact": false,
+  "digits": 7,
+  "n": 10143,
+  "m_published": "26820",
+  "resolution": 3.709154787480267e-07
+ },
+ "mater-6": {
+  "objective": -133.5387,
+  "text": "-1.335387e+02",
+  "exact": false,
+  "digits": 7,
+  "n": 20463,
+  "m_published": "56311",
+  "resolution": 3.71640278968059e-07
+ },
+ "trto1": {
+  "objective": 1.1045,
+  "text": "1.1045",
+  "exact": true,
+  "digits": null,
+  "n": 36,
+  "m_published": "25+36",
+  "resolution": 0.0
+ },
+ "trto2": {
+  "objective": 1.28,
+  "text": "1.28",
+  "exact": true,
+  "digits": null,
+  "n": 144,
+  "m_published": "91+144",
+  "resolution": 0.0
+ },
+ "trto3": {
+  "objective": 1.28,
+  "text": "1.28",
+  "exact": true,
+  "digits": null,
+  "n": 544,
+  "m_published": "312+544",
+  "resolution": 0.0
+ },
+ "trto4": {
+  "objective": 1.276582,
+  "text": "1.276582",
+  "exact": false,
+  "digits": 7,
+  "n": 1200,
+  "m_published": "673+1200",
+  "resolution": 2.1962749419963783e-07
+ },
+ "trto5": {
+  "objective": 1.28,
+  "text": "1.28",
+  "exact": true,
+  "digits": null,
+  "n": 3280,
+  "m_published": "1761+3280",
+  "resolution": 0.0
+ },
+ "buck1": {
+  "objective": 14.64192,
+  "text": "14.64192",
+  "exact": false,
+  "digits": 7,
+  "n": 36,
+  "m_published": "49+36",
+  "resolution": 3.1965385323540844e-07
+ },
+ "buck2": {
+  "objective": 292.3683,
+  "text": "292.3683",
+  "exact": false,
+  "digits": 7,
+  "n": 144,
+  "m_published": "193+144",
+  "resolution": 1.704342289197572e-07
+ },
+ "buck3": {
+  "objective": 607.6055,
+  "text": "607.6055",
+  "exact": false,
+  "digits": 7,
+  "n": 544,
+  "m_published": "641+544",
+  "resolution": 8.21550248888648e-08
+ },
+ "buck4": {
+  "objective": 486.1421,
+  "text": "486.1421",
+  "exact": false,
+  "digits": 7,
+  "n": 1200,
+  "m_published": "1345+1200",
+  "resolution": 1.0263945571528308e-07
+ },
+ "buck5": {
+  "objective": 436.239,
+  "text": "436.2390",
+  "exact": false,
+  "digits": 7,
+  "n": 3280,
+  "m_published": "3521+3280",
+  "resolution": 1.1435393457582697e-07
+ },
+ "vibra1": {
+  "objective": 40.81901,
+  "text": "40.81901",
+  "exact": false,
+  "digits": 7,
+  "n": 36,
+  "m_published": "49+36",
+  "resolution": 1.1956284952704524e-07
+ },
+ "vibra2": {
+  "objective": 166.0153,
+  "text": "166.0153",
+  "exact": false,
+  "digits": 7,
+  "n": 144,
+  "m_published": "193+144",
+  "resolution": 2.9937376994802275e-07
+ },
+ "vibra3": {
+  "objective": 172.613,
+  "text": "172.6130",
+  "exact": false,
+  "digits": 7,
+  "n": 544,
+  "m_published": "641+544",
+  "resolution": 2.879968665940915e-07
+ },
+ "vibra4": {
+  "objective": 165.6133,
+  "text": "165.6133",
+  "exact": false,
+  "digits": 7,
+  "n": 1200,
+  "m_published": "1345+1200",
+  "resolution": 3.00096090768264e-07
+ },
+ "vibra5": {
+  "objective": 165.9029,
+  "text": "165.9029",
+  "exact": false,
+  "digits": 7,
+  "n": 3280,
+  "m_published": "3521+3280",
+  "resolution": 2.995753818537605e-07
+ },
+ "shmup1": {
+  "objective": 188.4148,
+  "text": "188.4148",
+  "exact": false,
+  "digits": 7,
+  "n": 16,
+  "m_published": "81+32",
+  "resolution": 2.6397092518641625e-07
+ },
+ "shmup2": {
+  "objective": 3462.427,
+  "text": "3462.427",
+  "exact": false,
+  "digits": 7,
+  "n": 200,
+  "m_published": "881+400",
+  "resolution": 1.443656817366152e-07
+ },
+ "shmup3": {
+  "objective": 2098.838,
+  "text": "2098.838",
+  "exact": false,
+  "digits": 7,
+  "n": 420,
+  "m_published": "1801+840",
+  "resolution": 2.381136068591958e-07
+ },
+ "shmup4": {
+  "objective": 7992.534,
+  "text": "7992.534",
+  "exact": false,
+  "digits": 7,
+  "n": 800,
+  "m_published": "3361+1600",
+  "resolution": 6.255055648728086e-08
+ },
+ "shmup5": {
+  "objective": 23858.867,
+  "text": "23858.867",
+  "exact": false,
+  "digits": 8,
+  "n": 1800,
+  "m_published": "7441+3600",
+  "resolution": 2.0955690993583494e-08
+ }
+}

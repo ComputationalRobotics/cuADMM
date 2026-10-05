@@ -1,0 +1,43 @@
+buck1 convert_rc=0 check_rc=0 convert_s=.435523207 check_s=2.616772075 | {"problem": "buck1", "all_ok": true, "blocks": true, "con_num": true, "largest_indices": true, "b_equals_c": true, "forward_inner_products": true, "objective_matrix": true, "adjoint": true, "round_trip": true, "full_row_
+buck2 convert_rc=0 check_rc=0 convert_s=.271281822 check_s=1.723269259 | {"problem": "buck2", "all_ok": true, "blocks": true, "con_num": true, "largest_indices": true, "b_equals_c": true, "forward_inner_products": true, "objective_matrix": true, "adjoint": true, "round_trip": true, "full_row_
+buck3 convert_rc=0 check_rc=0 convert_s=.308455437 check_s=1.965635190 | {"problem": "buck3", "all_ok": true, "blocks": true, "con_num": true, "largest_indices": true, "b_equals_c": true, "forward_inner_products": true, "objective_matrix": true, "adjoint": true, "round_trip": true, "full_row_
+buck4 convert_rc=0 check_rc=0 convert_s=.367989381 check_s=2.312906849 | {"problem": "buck4", "all_ok": true, "blocks": true, "con_num": true, "largest_indices": true, "b_equals_c": true, "forward_inner_products": true, "objective_matrix": true, "adjoint": true, "round_trip": true, "full_row_
+buck5 convert_rc=0 check_rc=0 convert_s=.556867848 check_s=5.098263635 | {"problem": "buck5", "all_ok": true, "blocks": true, "con_num": true, "largest_indices": true, "b_equals_c": true, "forward_inner_products": true, "objective_matrix": true, "adjoint": true, "round_trip": true, "full_row_
+mater-1 convert_rc=0 check_rc=0 convert_s=.280396765 check_s=1.759257009 | {"problem": "mater-1", "all_ok": true, "blocks": true, "con_num": true, "largest_indices": true, "b_equals_c": true, "forward_inner_products": true, "objective_matrix": true, "adjoint": true, "round_trip": true, "full_ro
+mater-2 convert_rc=0 check_rc=0 convert_s=.337729410 check_s=2.033377521 | {"problem": "mater-2", "all_ok": true, "blocks": true, "con_num": true, "largest_indices": true, "b_equals_c": true, "forward_inner_products": true, "objective_matrix": true, "adjoint": true, "round_trip": true, "full_ro
+mater-3 convert_rc=0 check_rc=0 convert_s=.567966679 check_s=2.671774266 | {"problem": "mater-3", "all_ok": true, "blocks": true, "con_num": true, "largest_indices": true, "b_equals_c": true, "forward_inner_products": true, "objective_matrix": true, "adjoint": true, "round_trip": true, "full_ro
+mater-4 convert_rc=0 check_rc=0 convert_s=1.280415416 check_s=7.541466646 | {"problem": "mater-4", "all_ok": true, "blocks": true, "con_num": true, "largest_indices": true, "b_equals_c": true, "forward_inner_products": true, "objective_matrix": true, "adjoint": true, "round_trip": true, "full_ro
+mater-5 convert_rc=0 check_rc=0 convert_s=2.495319741 check_s=8.135906045 | {"problem": "mater-5", "all_ok": true, "blocks": true, "con_num": true, "largest_indices": true, "b_equals_c": true, "forward_inner_products": true, "objective_matrix": true, "adjoint": true, "round_trip": true, "full_ro
+mater-6 convert_rc=0 check_rc=0 convert_s=4.877562370 check_s=15.607802070 | {"problem": "mater-6", "all_ok": true, "blocks": true, "con_num": true, "largest_indices": true, "b_equals_c": true, "forward_inner_products": true, "objective_matrix": true, "adjoint": true, "round_trip": true, "full_ro
+shmup1 convert_rc=0 check_rc=0 convert_s=.485302671 check_s=2.151833046 | {"problem": "shmup1", "all_ok": true, "blocks": true, "con_num": true, "largest_indices": true, "b_equals_c": true, "forward_inner_products": true, "objective_matrix": true, "adjoint": true, "round_trip": true, "full_row
+shmup2 convert_rc=0 check_rc=0 convert_s=.353581026 check_s=2.108887743 | {"problem": "shmup2", "all_ok": true, "blocks": true, "con_num": true, "largest_indices": true, "b_equals_c": true, "forward_inner_products": true, "objective_matrix": true, "adjoint": true, "round_trip": true, "full_row
+shmup3 convert_rc=0 check_rc=0 convert_s=.450087854 check_s=2.704933973 | {"problem": "shmup3", "all_ok": true, "blocks": true, "con_num": true, "largest_indices": true, "b_equals_c": true, "forward_inner_products": true, "objective_matrix": true, "adjoint": true, "round_trip": true, "full_row
+shmup4 convert_rc=0 check_rc=0 convert_s=.608710079 check_s=4.508511541 | {"problem": "shmup4", "all_ok": true, "blocks": true, "con_num": true, "largest_indices": true, "b_equals_c": true, "forward_inner_products": true, "objective_matrix": true, "adjoint": true, "round_trip": true, "full_row
+shmup5 convert_rc=0 check_rc=0 convert_s=1.061911194 check_s=13.280818602 | {"problem": "shmup5", "all_ok": true, "blocks": true, "con_num": true, "largest_indices": true, "b_equals_c": true, "forward_inner_products": true, "objective_matrix": true, "adjoint": true, "round_trip": true, "full_row
+trto1 convert_rc=0 check_rc=0 convert_s=.299863750 check_s=1.688971528 | {"problem": "trto1", "all_ok": true, "blocks": true, "con_num": true, "largest_indices": true, "b_equals_c": true, "forward_inner_products": true, "objective_matrix": true, "adjoint": true, "round_trip": true, "full_row_
+trto2 convert_rc=0 check_rc=0 convert_s=.271292892 check_s=1.577775728 | {"problem": "trto2", "all_ok": true, "blocks": true, "con_num": true, "largest_indices": true, "b_equals_c": true, "forward_inner_products": true, "objective_matrix": true, "adjoint": true, "round_trip": true, "full_row_
+trto3 convert_rc=0 check_rc=0 convert_s=.307718033 check_s=1.863957790 | {"problem": "trto3", "all_ok": true, "blocks": true, "con_num": true, "largest_indices": true, "b_equals_c": true, "forward_inner_products": true, "objective_matrix": true, "adjoint": true, "round_trip": true, "full_row_
+trto4 convert_rc=0 check_rc=0 convert_s=.328122785 check_s=1.937105306 | {"problem": "trto4", "all_ok": true, "blocks": true, "con_num": true, "largest_indices": true, "b_equals_c": true, "forward_inner_products": true, "objective_matrix": true, "adjoint": true, "round_trip": true, "full_row_
+trto5 convert_rc=0 check_rc=0 convert_s=.418067773 check_s=3.851151769 | {"problem": "trto5", "all_ok": true, "blocks": true, "con_num": true, "largest_indices": true, "b_equals_c": true, "forward_inner_products": true, "objective_matrix": true, "adjoint": true, "round_trip": true, "full_row_
+vibra1 convert_rc=0 check_rc=0 convert_s=.311230116 check_s=1.693740731 | {"problem": "vibra1", "all_ok": true, "blocks": true, "con_num": true, "largest_indices": true, "b_equals_c": true, "forward_inner_products": true, "objective_matrix": true, "adjoint": true, "round_trip": true, "full_row
+vibra2 convert_rc=0 check_rc=0 convert_s=.276128869 check_s=1.792771608 | {"problem": "vibra2", "all_ok": true, "blocks": true, "con_num": true, "largest_indices": true, "b_equals_c": true, "forward_inner_products": true, "objective_matrix": true, "adjoint": true, "round_trip": true, "full_row
+vibra3 convert_rc=0 check_rc=0 convert_s=.317196849 check_s=2.019951358 | {"problem": "vibra3", "all_ok": true, "blocks": true, "con_num": true, "largest_indices": true, "b_equals_c": true, "forward_inner_products": true, "objective_matrix": true, "adjoint": true, "round_trip": true, "full_row
+vibra4 convert_rc=0 check_rc=0 convert_s=.365794650 check_s=2.430502862 | {"problem": "vibra4", "all_ok": true, "blocks": true, "con_num": true, "largest_indices": true, "b_equals_c": true, "forward_inner_products": true, "objective_matrix": true, "adjoint": true, "round_trip": true, "full_row
+vibra5 convert_rc=0 check_rc=0 convert_s=.558279758 check_s=5.420066825 | {"problem": "vibra5", "all_ok": true, "blocks": true, "con_num": true, "largest_indices": true, "b_equals_c": true, "forward_inner_products": true, "objective_matrix": true, "adjoint": true, "round_trip": true, "full_row
+== PLATO mirror vs Kocvara originals
+buck3: identical bytes (f5845f248b62de52)
+buck4: identical bytes (8e0da9a58f70a206)
+buck5: identical bytes (2266d91b91aee168)
+mater-3: identical bytes (92af9eb1686081d7)
+mater-4: identical bytes (0818c5dbe0f13084)
+mater-5: identical bytes (3daf7178b9901581)
+mater-6: identical bytes (4c8496bbaff42a60)
+shmup3: identical bytes (597ac2b4ab14a685)
+shmup4: identical bytes (b97dd573542952fc)
+shmup5: identical bytes (d80ccfb3c659c20d)
+trto3: identical bytes (c1a8651321d366d4)
+trto4: identical bytes (2d8090d765b4751b)
+trto5: identical bytes (2e9121db50d279bf)
+vibra3: identical bytes (ae42abc0fdeae54f)
+vibra4: identical bytes (d67f32ab4d48c2c8)
+vibra5: identical bytes (9097be5529227151)

@@ -1,0 +1,5 @@
+243456	Uninitialized __global__ memory read	geqr2_smem_domino_fast	>cuLaunchKernel>cusolverDnDgeqrf>main
+TOTAL_REPORTS	243456
+WITH_cusolverDn_FRAME	243456
+WITHOUT_cusolverDn_FRAME	0
+========= ERROR SUMMARY: 243456 errors
