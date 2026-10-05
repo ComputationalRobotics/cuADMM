@@ -21,7 +21,7 @@ void compute_ranks(
     const int mat_size,
     int *positive_rank,
     int *negative_rank,
-    const double tol = 1e-8, // should be 1e-12 * n * max(M)
+    const double tol = 1e-8, // eigenvalues in [-tol, tol] are not counted
     const int block_size = 256);
 
 #endif // RANK_H

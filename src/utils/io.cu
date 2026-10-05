@@ -14,6 +14,7 @@
 #include <iomanip>
 #include <algorithm>
 #include <regex>
+#include <stdexcept>
 
 #include "cuadmm/io.h"
 
@@ -203,22 +204,38 @@ void write_sparse_matrix_data(
 // Convert COO sparse matrix format to CSC sparse matrix format.
 // Note: the CSC format generated will always be sorted,
 // hence this function can also help to sort the COO format data.
+// Throws std::invalid_argument (before modifying anything) if nnz or col_num is negative,
+// if the triplets hold fewer than nnz entries, or if a column index lies outside [0, col_num).
 void COO_to_CSC(
     std::vector<int> &col_ptrs,                                                      // pointers of col in CSC, of size (col_num+1, 0)
     std::vector<int> &col_ids, std::vector<int> &row_ids, std::vector<double> &vals, // triplets for the COO format
     const int nnz, const int col_num)
 {
     // check the input
-    if (col_ptrs.size() != (col_num + 1))
+    if (nnz < 0 || col_num < 0)
     {
-        if (col_ptrs.data() != nullptr)
-        {
-            // if col_ptrs is empty, no need to warn the user
-            std::cout << "[WARNING] in call to COO_to_CSC: col_ptrs size is wrong and was resized to col_num+1" << std::endl;
-        }
-        col_ptrs.clear();
-        col_ptrs.resize(col_num + 1);
+        throw std::invalid_argument("COO_to_CSC: nnz (" + std::to_string(nnz) + ") and col_num (" +
+                                    std::to_string(col_num) + ") must be non-negative");
     }
+    if (col_ids.size() < static_cast<size_t>(nnz) || row_ids.size() < static_cast<size_t>(nnz) ||
+        vals.size() < static_cast<size_t>(nnz))
+    {
+        throw std::invalid_argument("COO_to_CSC: the COO triplets hold fewer than nnz = " + std::to_string(nnz) + " entries");
+    }
+    for (int i = 0; i < nnz; i++)
+    {
+        if (col_ids[i] < 0 || col_ids[i] >= col_num)
+        {
+            throw std::invalid_argument("COO_to_CSC: column index " + std::to_string(col_ids[i]) + " of entry " +
+                                        std::to_string(i) + " is out of range [0, " + std::to_string(col_num) + ")");
+        }
+    }
+    if (col_ptrs.size() != static_cast<size_t>(col_num) + 1 && !col_ptrs.empty())
+    {
+        // if col_ptrs is empty, no need to warn the user
+        std::cout << "[WARNING] in call to COO_to_CSC: col_ptrs size is wrong and was resized to col_num+1" << std::endl;
+    }
+    col_ptrs.assign(static_cast<size_t>(col_num) + 1, 0);
 
     // create nnz triplets, each containing (col_id, row_id, val)
     std::vector<Triplet> triplets;
@@ -240,27 +257,16 @@ void COO_to_CSC(
                 return t1.row_id < t2.row_id;
             }
         });
-    // fill the col_ptrs
-    int id = 0;
-    for (int i = 1; i < nnz; i++)
+    // fill the col_ptrs: count the entries of each column in col_ptrs[col+1],
+    // then take the prefix sum, so that column c spans [col_ptrs[c], col_ptrs[c+1])
+    // (this also handles empty leading, interior and trailing columns)
+    for (int i = 0; i < nnz; i++)
     {
-        if (triplets[i - 1].col_id < triplets[i].col_id)
-        {
-            int tmp = triplets[i - 1].col_id;
-            while (tmp < triplets[i].col_id)
-            {
-                id = id + 1;
-                col_ptrs[id] = i;
-                tmp = tmp + 1;
-            }
-        }
+        col_ptrs[triplets[i].col_id + 1]++;
     }
-    id = id + 1;
-    // fill the remaining col_ptrs
-    while (id <= col_num)
+    for (int c = 0; c < col_num; c++)
     {
-        col_ptrs[id] = nnz;
-        id = id + 1;
+        col_ptrs[c + 1] += col_ptrs[c];
     }
     // permutate the col_ids, row_ids, and vals
     for (int i = 0; i < nnz; i++)

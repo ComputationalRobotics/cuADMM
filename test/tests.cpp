@@ -22,6 +22,19 @@
 // #include "single_batched_comparison.hpp"
 
 #include "sliding_diff_queue_test.hpp"
+#include "io_regression_test.hpp"
+#include "problem_loader_test.hpp"
+#include "aat_factorization_test.hpp"
+#include "dense_ystep_test.hpp"
+#include "large_projection_test.hpp"
+#include "block_structure_test.hpp"
+#include "certificate_test.hpp"
+#include "warm_restart_test.hpp"
+
+#include "regression_solver_test.hpp"
+#include "fixed_sigma_validation_test.hpp"
+#include "hybrid_switch_test.hpp"
+#include "plain_admm_only_test.hpp"
 
 int main(int argc, char **argv)
 {

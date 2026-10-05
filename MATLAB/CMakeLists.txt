@@ -48,6 +48,9 @@ matlab_add_mex(
     ${BLAS_LIBRARIES}
     psd_lib
 )
+# The external validation of solve() (src/external_validation.cu) needs LAPACK (LP64 dsyevd); MATLAB's LAPACK uses
+# 64-bit integers, so the MEX binding (which never enables validation) is built without it.
+target_compile_definitions(${TARGET_NAME} PRIVATE CUADMM_NO_LAPACK)
 
 # Disable building tests in psd_projection to avoid target name conflict
 set(PSD_PROJECTION_BUILD_TESTS OFF CACHE BOOL "Disable psd_projection tests" FORCE)

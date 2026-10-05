@@ -46,10 +46,10 @@ public:
     // Destroy the stream if any
     ~DeviceStream()
     {
-        CHECK_CUDA(cudaSetDevice(this->gpu_id));
+        CHECK_CUDA_NOTHROW(cudaSetDevice(this->gpu_id));
         if (this->stream != NULL)
         {
-            CHECK_CUDA(cudaStreamDestroy(this->stream));
+            CHECK_CUDA_NOTHROW(cudaStreamDestroy(this->stream));
             this->stream = NULL;
         }
         // std::cout << "DeviceStream destructor called!" << std::endl;
@@ -93,7 +93,7 @@ public:
     {
         if (this->cublas_handle != NULL)
         {
-            CHECK_CUBLAS(cublasDestroy_v2(this->cublas_handle));
+            CHECK_CUBLAS_NOTHROW(cublasDestroy_v2(this->cublas_handle));
             this->cublas_handle = NULL;
         }
         // std::cout << "DeviceBlasHandle destructor called!" << std::endl;
@@ -134,7 +134,7 @@ public:
     {
         if (this->cusolver_dn_handle != NULL)
         {
-            CHECK_CUSOLVER(cusolverDnDestroy(this->cusolver_dn_handle));
+            CHECK_CUSOLVER_NOTHROW(cusolverDnDestroy(this->cusolver_dn_handle));
             this->cusolver_dn_handle = NULL;
         }
         // std::cout << "DeviceSolverDnHandle destructor called!" << std::endl;
@@ -175,7 +175,7 @@ public:
     {
         if (this->cusparse_handle != NULL)
         {
-            CHECK_CUSPARSE(cusparseDestroy(this->cusparse_handle));
+            CHECK_CUSPARSE_NOTHROW(cusparseDestroy(this->cusparse_handle));
             this->cusparse_handle = NULL;
         }
         // std::cout << "DeviceSparseHandle destructor called!" << std::endl;
@@ -314,15 +314,15 @@ public:
 
     ~DeviceDenseVector()
     {
-        CHECK_CUDA(cudaSetDevice(this->gpu_id));
+        CHECK_CUDA_NOTHROW(cudaSetDevice(this->gpu_id));
         if (this->vals != nullptr)
         {
-            CHECK_CUDA(cudaFree(this->vals));
+            CHECK_CUDA_NOTHROW(cudaFree(this->vals));
             this->vals = nullptr;
         }
         if (this->cusparse_descr != NULL)
         {
-            CHECK_CUSPARSE(cusparseDestroyDnVec(this->cusparse_descr));
+            CHECK_CUSPARSE_NOTHROW(cusparseDestroyDnVec(this->cusparse_descr));
             this->cusparse_descr = NULL;
         }
         // std::cout << "DeviceDenseVector destructor called!" << std::endl;
@@ -335,10 +335,10 @@ public:
             end = this->size;
         }
 
-        T host_vec[this->size];
+        std::vector<T> host_vec(this->size); // on the heap: a stack array overflows for large vectors
 
-        // copy the vector to the device
-        CHECK_CUDA(cudaMemcpy(host_vec, this->vals, sizeof(T) * this->size, cudaMemcpyDeviceToHost));
+        // copy the vector to the host
+        CHECK_CUDA(cudaMemcpy(host_vec.data(), this->vals, sizeof(T) * this->size, cudaMemcpyDeviceToHost));
         std::cout << "[";
         for (size_t i = start; i < end; i++)
         {
@@ -352,26 +352,27 @@ public:
         FILE *file = fopen(filename.c_str(), "w");
         if (file != NULL)
         {
-            // copy the vector to the device
-            T host_vec[this->size];
+            // copy the vector to the host (on the heap: a stack array overflows for large vectors)
+            std::vector<T> host_vec(this->size);
             CHECK_CUDA(cudaDeviceSynchronize());
-            CHECK_CUDA(cudaMemcpy(host_vec, this->vals, sizeof(T) * this->size, cudaMemcpyDeviceToHost));
+            CHECK_CUDA(cudaMemcpy(host_vec.data(), this->vals, sizeof(T) * this->size, cudaMemcpyDeviceToHost));
             CHECK_CUDA(cudaDeviceSynchronize());
 
-            // write the vector to the file
+            // write the vector to the file, with 17 significant digits (exact round trip for doubles)
             if (std::is_same<T, float>::value || std::is_same<T, double>::value)
             {
                 for (size_t i = 0; i < this->size; i++)
-                    fprintf(file, "%.17f\n", host_vec[i]);
+                    fprintf(file, "%.17g\n", double(host_vec[i]));
             }
             else if (std::is_same<T, int>::value)
             {
                 for (size_t i = 0; i < this->size; i++)
-                    fprintf(file, "%d\n", host_vec[i]);
+                    fprintf(file, "%d\n", int(host_vec[i]));
             }
             else
             {
                 std::cerr << "to_txt only supports float, double and int types." << std::endl;
+                fclose(file);
                 return;
             }
             fclose(file);
@@ -432,20 +433,20 @@ public:
 
     ~DeviceSparseVector()
     {
-        CHECK_CUDA(cudaSetDevice(this->gpu_id));
+        CHECK_CUDA_NOTHROW(cudaSetDevice(this->gpu_id));
         if (this->indices != nullptr)
         {
-            CHECK_CUDA(cudaFree(this->indices));
+            CHECK_CUDA_NOTHROW(cudaFree(this->indices));
             this->indices = nullptr;
         }
         if (this->vals != nullptr)
         {
-            CHECK_CUDA(cudaFree(this->vals));
+            CHECK_CUDA_NOTHROW(cudaFree(this->vals));
             this->vals = nullptr;
         }
         if (this->cusparse_descr != NULL)
         {
-            CHECK_CUSPARSE(cusparseDestroySpVec(this->cusparse_descr));
+            CHECK_CUSPARSE_NOTHROW(cusparseDestroySpVec(this->cusparse_descr));
             this->cusparse_descr = NULL;
         }
         // std::cout << "DeviceSparseVector destructor called!" << std::endl;
@@ -543,25 +544,25 @@ public:
 
     ~DeviceSparseMatrixDoubleCSC()
     {
-        CHECK_CUDA(cudaSetDevice(this->gpu_id));
+        CHECK_CUDA_NOTHROW(cudaSetDevice(this->gpu_id));
         if (this->col_ptrs != nullptr)
         {
-            CHECK_CUDA(cudaFree(this->col_ptrs));
+            CHECK_CUDA_NOTHROW(cudaFree(this->col_ptrs));
             this->col_ptrs = nullptr;
         }
         if (this->row_ids != nullptr)
         {
-            CHECK_CUDA(cudaFree(this->row_ids));
+            CHECK_CUDA_NOTHROW(cudaFree(this->row_ids));
             this->row_ids = nullptr;
         }
         if (this->vals != nullptr)
         {
-            CHECK_CUDA(cudaFree(this->vals));
+            CHECK_CUDA_NOTHROW(cudaFree(this->vals));
             this->vals = nullptr;
         }
         if (this->cusparse_descr != NULL)
         {
-            CHECK_CUSPARSE(cusparseDestroySpMat(this->cusparse_descr));
+            CHECK_CUSPARSE_NOTHROW(cusparseDestroySpMat(this->cusparse_descr));
             this->cusparse_descr = NULL;
         }
         // std::cout << "DeviceSparseMatrixDoubleCSC destructor called!" << std::endl;
@@ -629,25 +630,25 @@ public:
 
     ~DeviceSparseMatrixDoubleCSR()
     {
-        CHECK_CUDA(cudaSetDevice(this->gpu_id));
+        CHECK_CUDA_NOTHROW(cudaSetDevice(this->gpu_id));
         if (this->row_ptrs != nullptr)
         {
-            CHECK_CUDA(cudaFree(this->row_ptrs));
+            CHECK_CUDA_NOTHROW(cudaFree(this->row_ptrs));
             this->row_ptrs = nullptr;
         }
         if (this->col_ids != nullptr)
         {
-            CHECK_CUDA(cudaFree(this->col_ids));
+            CHECK_CUDA_NOTHROW(cudaFree(this->col_ids));
             this->col_ids = nullptr;
         }
         if (this->vals != nullptr)
         {
-            CHECK_CUDA(cudaFree(this->vals));
+            CHECK_CUDA_NOTHROW(cudaFree(this->vals));
             this->vals = nullptr;
         }
         if (this->cusparse_descr != NULL)
         {
-            CHECK_CUSPARSE(cusparseDestroySpMat(this->cusparse_descr));
+            CHECK_CUSPARSE_NOTHROW(cusparseDestroySpMat(this->cusparse_descr));
             this->cusparse_descr = NULL;
         }
         // std::cout << "DeviceSparseMatrixDoubleCSR destructor called!" << std::endl;

@@ -9,9 +9,13 @@ ksc/data
 ksc/figs
 ksc/logs
 logs/
+# experiment records are versioned
+!experiments/*/logs/
+!experiments/*/code_benchmarks/logs/
 debug/
 
 build
+build-*/
 .vscode
 .DS_Store
 
