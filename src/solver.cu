@@ -1012,8 +1012,8 @@ void SDPSolver::init(
     this->prim_win = 0;
     this->dual_win = 0;
     this->ratioconst = 1e0;
-    this->sigmax = 1e6;
-    this->sigmin = 1e-6;
+    this->sigmax = 1e3;
+    this->sigmin = 1e-3;
 
     /* Main elements for the sGS-ADMM algorithm */
     this->X_best.allocate(GPU0, this->vec_len);
@@ -1271,7 +1271,7 @@ void SDPSolver::solve(
     std::cout << " --------------- Starting with projection method " << get_projection_method_name(this->current_proj_method) << "------" << std::endl;
 
     // for each iteration of the main solver
-    Monitor1 monitor1;
+    // Monitor1 monitor1; // the chasing monitor is disabled (see the plain ADMM sigma update)
     this->time_limit_reached = false;
     const auto solve_start = std::chrono::steady_clock::now();
     auto seconds_since_start = [&solve_start]()
@@ -2059,12 +2059,13 @@ void SDPSolver::solve(
                 this->sigscale = std::max(2.0 * std::exp(-k / 50000.0), 2.0);
                 // std::printf("Current sigscale = %4.2f \n", this->sigscale);
 
-                if (this->prim_win > 1.35 * this->dual_win)
+                // max(1, .) as in SDPNAL+: a single win (e.g. at iteration 1) does not change sigma
+                if (this->prim_win > max(1.0, 1.35 * this->dual_win))
                 {
                     this->prim_win = 0;
                     this->sig = min(this->sigmax, this->sig * this->sigscale);
                 }
-                else if (this->dual_win > 1.35 * this->prim_win)
+                else if (this->dual_win > max(1.0, 1.35 * this->prim_win))
                 {
                     this->dual_win = 0;
                     this->sig = max(this->sigmin, this->sig / this->sigscale);
@@ -2072,15 +2073,15 @@ void SDPSolver::solve(
             }
             log_sigma(sig_before, "admm_schedule");
 
-            // use monitor1 for the chasing phenomenon
-            if (k > 5000 && k % monitor1.update_interval == 0)
-            {
-                const double sig_mon = this->sig;
-                monitor1.push(this->pobj, this->dobj, this->errRp, this->errRd, this->relgap);
-                if (monitor1.if_full())
-                    this->sig = monitor1.chase_update_sig(this->sig);
-                log_sigma(sig_mon, "monitor1");
-            }
+            // (disabled) use monitor1 for the chasing phenomenon
+            // if (k > 5000 && k % monitor1.update_interval == 0)
+            // {
+            //     const double sig_mon = this->sig;
+            //     monitor1.push(this->pobj, this->dobj, this->errRp, this->errRd, this->relgap);
+            //     if (monitor1.if_full())
+            //         this->sig = monitor1.chase_update_sig(this->sig);
+            //     log_sigma(sig_mon, "monitor1");
+            // }
         }
         if (this->sig != sig_before)
         {

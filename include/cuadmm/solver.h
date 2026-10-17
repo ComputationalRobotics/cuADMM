@@ -96,16 +96,16 @@ inline std::string admm_mode_name(int switch_admm, int max_iter)
 }
 
 /// @brief How solve() updates the penalty parameter sigma (set SDPSolver::sigma_policy before solve()).
-/// - LEGACY_ADAPTIVE (the default, unchanged behaviour of the public code): in the sGS phase sigma is multiplied or
-///   divided by sigscale when the primal or the dual residual "wins" (sig_update_threshold / stage_1 / stage_2); in the
-///   plain ADMM phase it follows a fixed schedule with factor 2 and the Monitor1 "chasing" correction after iteration
-///   5000. Kept for reproducibility of earlier results.
+/// - LEGACY_ADAPTIVE (the default): in the sGS phase sigma is multiplied or divided by sigscale when the primal or the
+///   dual residual "wins" (sig_update_threshold / stage_1 / stage_2); in the plain ADMM phase it follows a fixed
+///   schedule with factor 2, changing sigma only if the winner's count exceeds max(1, 1.35 * the other's). Sigma is
+///   kept in [sigmin, sigmax] = [1e-3, 1e3]. The Monitor1 "chasing" correction is disabled.
 /// - FIXED: sigma_k = sigma_0 for every iteration, as in Algorithm 1 of arXiv 2406.05846 (a fixed sigma > 0). None of
 ///   the rules above runs, and solve() throws std::logic_error if sigma ever differs from sigma_0.
 /// - FIXED_SGS_LEGACY_ADMM (for the hybrid sGS -> plain ADMM mode): sigma = sigma_0 during the sGS phase (enforced as
 ///   with FIXED), then, from the first plain-ADMM iteration, exactly the LEGACY_ADAPTIVE plain-ADMM rules (schedule
-///   with factor 2 and Monitor1) as they run in a plain-ADMM solve started at that point: the schedule and the Monitor1
-///   gate count the plain-ADMM iterations k = 1, 2, ... (not the global iteration), and the primal/dual "win" counters
+///   with factor 2) as they run in a plain-ADMM solve started at that point: the schedule counts the plain-ADMM
+///   iterations k = 1, 2, ... (not the global iteration), and the primal/dual "win" counters
 ///   start from 0 at the switch. With no sGS phase (switch_admm <= 1) it is identical to LEGACY_ADAPTIVE.
 enum class SigmaPolicy
 {
@@ -400,7 +400,7 @@ public:
     {
         int iter;                 // iteration whose update changed sigma (1-based)
         double old_sigma, new_sigma;
-        std::string rule;         // "admm_schedule", "monitor1" or "sgs_rule"
+        std::string rule;         // "admm_schedule" or "sgs_rule" ("monitor1" while the chasing monitor was enabled)
         double errRp, errRd, relgap, feasratio; // residuals of the iterate the rule saw (internal, scaled problem)
         int prim_win, dual_win;   // win counters before the rule reset them
     };
