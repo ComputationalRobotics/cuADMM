@@ -18,6 +18,8 @@ Builds are named KIND:EXE where KIND is
                       (tools/reference/sgs_no_plain_only.patch)
     legacy@c23e67e    the main commit the reorganization starts from (Phase 0 copy): only `fixed` is comparable,
                       its adaptive rule (factor 1.2) is neither reference policy
+    legacy@pre0       the copied CLI of cuADMM-reorg after Pre-0 (policies fixed, legacy_adaptive, residual_balancing
+                      under their plan names; --penalty-factor), until the new CLI of Phase 2 replaces it
     reorg             the new command-line interface of cuADMM-reorg (Phase 2 and later)
 The legacy CLIs take the old flag names; `reorg` takes the new ones (today's flags are accepted as aliases).
 
@@ -61,6 +63,7 @@ LEGACY_POLICY_FLAGS = {
     "2d8a755": {"fixed": "fixed", "residual_balancing": "legacy_adaptive"},
     "2d8a755-sgs": {"fixed": "fixed", "residual_balancing": "legacy_adaptive"},
     "c23e67e": {"fixed": "fixed"},
+    "pre0": {"fixed": "fixed", "legacy_adaptive": "legacy_adaptive", "residual_balancing": "residual_balancing"},
 }
 NEW_POLICIES = ["fixed", "legacy_adaptive", "residual_balancing", "balance_freeze"]
 
@@ -97,8 +100,11 @@ class Build:
         table = LEGACY_POLICY_FLAGS[self.commit]
         if case["policy"] not in table:
             raise ValueError("policy %s has no equivalent in the legacy build at %s" % (case["policy"], self.commit))
-        if case.get("factor", 2.0) != 2.0 and case["policy"] != "fixed":
-            raise ValueError("the legacy builds have a fixed factor of 2; cannot set factor %g" % case["factor"])
+        factor_args = []
+        if case.get("factor") is not None and case["policy"] != "fixed" and float(case["factor"]) != 2.0:
+            if self.commit != "pre0":
+                raise ValueError("the reference builds have a fixed factor of 2; cannot set factor %g" % case["factor"])
+            factor_args = ["--penalty-factor", repr(float(case["factor"]))]
         implied_tau = 1.95 if case["scheme"] == "sgs_admm" else 1.618
         if case.get("tau") is not None and float(case["tau"]) != implied_tau:
             raise ValueError("the legacy CLI cannot set tau (its %s uses %g)" % (case["scheme"], implied_tau))
@@ -109,6 +115,7 @@ class Build:
                "--streams", str(int(case.get("streams", 15))), "--lobpcg", "1" if case.get("lobpcg", True) else "0",
                "--switch-proj-iter", str(int(case.get("switch_proj_iter", 0))),
                "--switch-proj-tol", repr(float(case.get("switch_proj_tol", 1e-2)))]
+        cmd += factor_args
         if case.get("time_limit") is not None:
             cmd += ["--time-limit", repr(float(case["time_limit"]))]
         cmd += ["--history", os.path.join(out, "history.csv"), "--summary", os.path.join(out, "summary.json"),

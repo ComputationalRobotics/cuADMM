@@ -52,3 +52,15 @@ implementation, deviations from its letter, and open questions, each with its re
     large problems are tens of MB) live in `$CUADMM_BASELINES/<config>/`; the repository keeps the case lists, the
     job scripts, the configuration record and the comparison reports (`docs/baselines/`), so the baselines can be
     regenerated from the recorded commits and patches.
+
+11. **The hybrid-only policy `fixed_sgs_then_legacy_admm` is dropped in Pre-0.** The plan's policy table lists
+    `fixed`, `legacy_adaptive`, `residual_balancing` and `balance_freeze` only, the hybrid mode is kept "as a pure
+    recovery choice until Q5", and this policy's rule (the c23e67e plain-ADMM rule with factor 1.2, counted from the
+    switch) is neither reference rule, so nothing could verify it bit for bit. Removing a name is an error, never
+    an alias (plan principle 4); recorded in `CHANGES.md`. The hybrid mode remains available with every policy
+    (the adaptive rules then count the global iteration, as they did at both references).
+
+12. **`sigma_0` is not clamped for `residual_balancing`.** The option table says `penalty.sigma0` is "clamped into
+    the bounds except in `legacy_adaptive`", but the policy is defined as the 2d8a755 rule and must be bitwise with
+    it, and 2d8a755 never clamped `sigma_0` (its comment says so). The clamp is applied by `balance_freeze` (whose
+    pseudocode in plan Section 3.5 starts with `clamp(sigma0, ...)`) and not by `residual_balancing`.

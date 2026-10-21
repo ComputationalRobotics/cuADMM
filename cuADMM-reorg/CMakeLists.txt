@@ -72,6 +72,16 @@ add_library(cuadmm_psd_kernels SHARED
 target_include_directories(cuadmm_psd_kernels PUBLIC third_party/psd_projection/include)
 target_link_libraries(cuadmm_psd_kernels PUBLIC CUDA::cudart CUDA::cublas CUDA::cusolver)
 
+# ---------------------------------------------------------------------------------------------- build commit
+# generated/cuadmm/version.h holds the commit of the source tree (plan Pre-0: policy, parameters and build commit in the
+# summary); regenerated at every build
+set(CUADMM_VERSION_HEADER "${CMAKE_BINARY_DIR}/generated/cuadmm/version.h")
+add_custom_target(cuadmm_version ALL
+  COMMAND ${CMAKE_COMMAND} -DSOURCE_DIR=${CMAKE_CURRENT_SOURCE_DIR} -DOUTPUT=${CUADMM_VERSION_HEADER}
+          -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/GitVersion.cmake
+  BYPRODUCTS ${CUADMM_VERSION_HEADER}
+  COMMENT "cuADMM-reorg: recording the build commit")
+
 # ---------------------------------------------------------------------------------------------- solver library
 file(GLOB CUADMM_LEGACY_SOURCES
   src/legacy/*.cu
@@ -93,6 +103,8 @@ target_link_libraries(cuadmm PUBLIC
 if(CUADMM_BUILD_CLI)
   add_executable(cuadmm_exe apps/cli/main.cu)
   target_link_libraries(cuadmm_exe PRIVATE cuadmm)
+  target_include_directories(cuadmm_exe PRIVATE ${CMAKE_BINARY_DIR}/generated)
+  add_dependencies(cuadmm_exe cuadmm_version)
   # generator of the known-optimum TXT problems (test/regression_problems.hpp), for the reference comparisons
   add_executable(cuadmm_gen_problems apps/cli/gen_problems.cpp)
   target_include_directories(cuadmm_gen_problems PRIVATE test)

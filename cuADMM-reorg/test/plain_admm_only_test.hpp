@@ -62,10 +62,6 @@ TEST(PlainAdmmOnly, SolveRejectsSgsAndHybrid)
         ASSERT_NO_THROW(solver_setup::init_solver(p, s, true, 1.0));
         EXPECT_THROW(s.solve(100, 1e-4, 500, 50, 100, sw, 0, 1e-2, 2.0), std::invalid_argument) << "switch_admm = " << sw;
     }
-    SDPSolver h;
-    ASSERT_NO_THROW(solver_setup::init_solver(p, h, true, 1.0));
-    h.sigma_policy = SigmaPolicy::FIXED_SGS_LEGACY_ADMM;
-    EXPECT_THROW(h.solve(100, 1e-4, 500, 50, 100, 0, 0, 1e-2, 2.0), std::invalid_argument);
     for (int sw : {0, 1})
     {
         SDPSolver s;
@@ -78,7 +74,7 @@ TEST(PlainAdmmOnly, SolveRejectsSgsAndHybrid)
 TEST(PlainAdmmOnly, OneYSolvePerIterationNoSgsStep)
 {
     const regression::RegressionProblem p = regression::generate("PSD_Free");
-    for (SigmaPolicy pol : {SigmaPolicy::LEGACY_ADAPTIVE, SigmaPolicy::FIXED})
+    for (SigmaPolicy pol : {SigmaPolicy::LEGACY_ADAPTIVE, SigmaPolicy::RESIDUAL_BALANCING, SigmaPolicy::FIXED})
     {
         SDPSolver s;
         ASSERT_NO_THROW(solver_setup::init_solver(p, s, true, 1.0));
@@ -93,31 +89,44 @@ TEST(PlainAdmmOnly, OneYSolvePerIterationNoSgsStep)
     }
 }
 
-// The sigma log reproduces the per-iteration sigma history (6000 iterations reach the Monitor1 region); fixed sigma
-// logs nothing and never changes.
+// The sigma log reproduces the per-iteration sigma history of both adaptive policies (6000 iterations reach the
+// Monitor1 region of legacy_adaptive, whose log also records the monitor's changes); fixed sigma logs nothing and
+// never changes.
 TEST(PlainAdmmOnly, SigmaLogReproducesTheHistory)
 {
     const regression::RegressionProblem p = regression::generate("PSD_Free");
-    SDPSolver s;
-    ASSERT_NO_THROW(solver_setup::init_solver(p, s, true, 1.0));
-    ASSERT_NO_THROW(s.solve(6000, 0.0, 500, 50, 100, 0, 0, 1e-2, 2.0));
-    ASSERT_GT(s.sigma_changes, 10);
-    EXPECT_EQ((int)s.sigma_log.size(), s.sigma_changes);
-    const std::vector<double> sig = last_solve(s.info_sig_arr, s.info_iter_num);
-    double cur = s.sigma0;
-    size_t e = 0;
-    for (int k = 1; k <= s.info_iter_num; k++)
+    for (SigmaPolicy pol : {SigmaPolicy::LEGACY_ADAPTIVE, SigmaPolicy::RESIDUAL_BALANCING})
     {
-        while (e < s.sigma_log.size() && s.sigma_log[e].iter == k)
+        SCOPED_TRACE(sigma_policy_name(pol));
+        SDPSolver s;
+        ASSERT_NO_THROW(solver_setup::init_solver(p, s, true, 1.0));
+        s.sigma_policy = pol;
+        ASSERT_NO_THROW(s.solve(6000, 0.0, 500, 50, 100, 0, 0, 1e-2, 2.0));
+        ASSERT_GT(s.sigma_changes, 10);
+        EXPECT_EQ((int)s.sigma_log.size(), s.sigma_changes);
+        const std::vector<double> sig = last_solve(s.info_sig_arr, s.info_iter_num);
+        double cur = s.sigma0;
+        size_t e = 0;
+        int monitor_entries = 0;
+        for (int k = 1; k <= s.info_iter_num; k++)
         {
-            ASSERT_EQ(s.sigma_log[e].old_sigma, cur) << "entry " << e;
-            cur = s.sigma_log[e].new_sigma;
-            EXPECT_TRUE(s.sigma_log[e].rule == "admm_schedule" || s.sigma_log[e].rule == "monitor1");
-            e++;
+            while (e < s.sigma_log.size() && s.sigma_log[e].iter == k)
+            {
+                ASSERT_EQ(s.sigma_log[e].old_sigma, cur) << "entry " << e;
+                cur = s.sigma_log[e].new_sigma;
+                EXPECT_TRUE(s.sigma_log[e].rule == "admm_schedule" || s.sigma_log[e].rule == "monitor1");
+                monitor_entries += s.sigma_log[e].rule == "monitor1";
+                e++;
+            }
+            ASSERT_EQ(sig[k - 1], cur) << "iteration " << k;
+            // the bounds of each policy hold for every iteration
+            EXPECT_GE(sig[k - 1], pol == SigmaPolicy::LEGACY_ADAPTIVE ? 1e-6 : 1e-3);
+            EXPECT_LE(sig[k - 1], pol == SigmaPolicy::LEGACY_ADAPTIVE ? 1e6 : 1e3);
         }
-        ASSERT_EQ(sig[k - 1], cur) << "iteration " << k;
+        EXPECT_EQ(e, s.sigma_log.size());
+        if (pol == SigmaPolicy::RESIDUAL_BALANCING)
+            EXPECT_EQ(monitor_entries, 0); // Monitor1 lives only in legacy_adaptive
     }
-    EXPECT_EQ(e, s.sigma_log.size());
     SDPSolver f;
     ASSERT_NO_THROW(solver_setup::init_solver(p, f, true, 1.0));
     f.sigma_policy = SigmaPolicy::FIXED;
@@ -250,8 +259,7 @@ TEST(PlainAdmmOnlyCli, RejectsSgsOptionsAndWritesTheNewOutputs)
                                 ".log 2>&1";
         return std::system(cmd.c_str());
     };
-    for (const std::string &bad : {std::string("--algorithm sgs"), std::string("--switch-admm 5"), std::string("--sgs-iterations 10"),
-                                   std::string("--sigma-policy fixed_sgs_then_legacy_admm")})
+    for (const std::string &bad : {std::string("--algorithm sgs"), std::string("--switch-admm 5"), std::string("--sgs-iterations 10")})
     {
         EXPECT_NE(run(bad, "rejected"), 0) << bad;
         EXPECT_NE(read_file("fixed_sigma_cli/rejected.log").find("disabled in this plain-ADMM-only build"), std::string::npos) << bad;

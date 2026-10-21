@@ -189,7 +189,7 @@ inline void check_golden(const GoldenCase &c)
     const regression::RegressionProblem p = regression::generate(c.problem);
     SDPSolver s;
     ASSERT_NO_THROW(solver_setup::init_solver(p, s, true, c.sig0));
-    ASSERT_EQ(s.sigma_policy, SigmaPolicy::LEGACY_ADAPTIVE); // the default
+    s.sigma_policy = SigmaPolicy::LEGACY_ADAPTIVE; // the golden histories are those of 9bb4ba5 / 290660f
     ASSERT_NO_THROW(s.solve(c.max_iter, c.stop_tol, 500, 50, 100, c.switch_admm, 0, 1e-2, c.sigscale));
     ASSERT_EQ(s.info_iter_num, c.iterations);
     const std::vector<double> sig = last_solve(s.info_sig_arr, s.info_iter_num);
@@ -605,8 +605,9 @@ TEST(FixedSigmaCli, BackwardCompatibleAndNewFlags)
         ss << in.rdbuf();
         return ss.str();
     };
+    // the default policy is residual_balancing (plan O1, until Phase 4b): explicit and implicit runs are identical
     ASSERT_EQ(run("--max-iter 400 --tol 1e-9", "legacy"), 0);
-    ASSERT_EQ(run("--max-iter 400 --tol 1e-9 --sigma-policy legacy_adaptive", "explicit"), 0);
+    ASSERT_EQ(run("--max-iter 400 --tol 1e-9 --sigma-policy residual_balancing", "explicit"), 0);
     // identical histories apart from the time column
     auto strip_time = [](const std::string &csv)
     {
@@ -621,7 +622,20 @@ TEST(FixedSigmaCli, BackwardCompatibleAndNewFlags)
     };
     EXPECT_EQ(strip_time(read("fixed_sigma_cli/legacy.csv")), strip_time(read("fixed_sigma_cli/explicit.csv")));
     const std::string legacy = read("fixed_sigma_cli/legacy.json");
-    EXPECT_NE(legacy.find("\"sigma_policy\": \"legacy_adaptive\""), std::string::npos);
+    EXPECT_NE(legacy.find("\"sigma_policy\": \"residual_balancing\""), std::string::npos);
+    EXPECT_NE(legacy.find("\"sigma_policy_parameters\": {\"factor\": 2, \"sigma_min\": 0.001, \"sigma_max\": 1000"), std::string::npos);
+    EXPECT_NE(legacy.find("\"build_commit\": \""), std::string::npos);
+    // the historical rule is selectable under its historical name, with its own bounds and Monitor1
+    ASSERT_EQ(run("--max-iter 400 --tol 1e-9 --sigma-policy legacy_adaptive", "historical"), 0);
+    const std::string historical = read("fixed_sigma_cli/historical.json");
+    EXPECT_NE(historical.find("\"sigma_policy\": \"legacy_adaptive\""), std::string::npos);
+    EXPECT_NE(historical.find("\"sigma_min\": 1e-06, \"sigma_max\": 1000000, \"win_ratio\": 1.35, \"guard\": false"), std::string::npos);
+    EXPECT_NE(historical.find("\"monitor1\": true"), std::string::npos);
+    // the October 20 factor is an option value, never the meaning of a policy name
+    ASSERT_EQ(run("--max-iter 400 --tol 1e-9 --penalty-factor 1.2", "factor12"), 0);
+    EXPECT_NE(read("fixed_sigma_cli/factor12.json").find("\"sigma_policy_parameters\": {\"factor\": 1.2"), std::string::npos);
+    EXPECT_NE(run("--penalty-factor 0", "bad_factor"), 0);
+    EXPECT_NE(run("--sigma-min 10 --sigma-max 1", "bad_bounds"), 0);
     EXPECT_NE(legacy.find("\"validation_interval\": 0"), std::string::npos);
     EXPECT_NE(legacy.find("\"algorithm\": \"plain ADMM\""), std::string::npos);
 

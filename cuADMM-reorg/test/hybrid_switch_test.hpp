@@ -8,8 +8,7 @@
         from the same (X, y, S): the test fails if the state were reinitialized at the switch or if the wrong update
         ran on either side (negative controls show that the comparison discriminates);
       - the phase bookkeeping (iteration counts, switch iteration, phase times, sigma and tau per phase);
-      - SigmaPolicy::FIXED_SGS_LEGACY_ADMM: fixed sigma in the sGS phase, then the legacy plain-ADMM rules exactly as a
-        plain-ADMM solve started at the switch applies them; identical to LEGACY_ADAPTIVE without an sGS phase;
+      (the hybrid-only policy fixed_sgs_then_legacy_admm of main is not kept in cuADMM-reorg: docs/CHANGES.md);
       - the --sgs-iterations command-line option.
     Uses the helpers of fixed_sigma_validation_test.hpp (included before this file).
 
@@ -268,71 +267,6 @@ TEST(HybridSwitch, PhaseBookkeepingWithValidation)
             EXPECT_EQ(s.admm_phase_time_s, 0.0);
         }
     }
-}
-
-// FIXED_SGS_LEGACY_ADMM (a): without an sGS phase it is LEGACY_ADAPTIVE plain ADMM, bitwise (the golden case of the
-// pre-change solver: 6000 iterations, schedule and Monitor1).
-TEST(HybridSwitch, FixedSgsLegacyAdmmWithoutSgsIsLegacyAdmm)
-{
-    const std::vector<fixed_sigma_test::GoldenCase> cases =
-        fixed_sigma_test::read_golden(std::string(CUADMM_TEST_DATA_DIR) + "/legacy_golden.txt");
-    const fixed_sigma_test::GoldenCase *c = nullptr;
-    for (const auto &g : cases)
-        if (g.name == "admm_legacy")
-            c = &g;
-    ASSERT_NE(c, nullptr);
-    const regression::RegressionProblem p = regression::generate(c->problem);
-    SDPSolver l, n;
-    ASSERT_NO_THROW(solver_setup::init_solver(p, l, true, c->sig0));
-    ASSERT_NO_THROW(solver_setup::init_solver(p, n, true, c->sig0));
-    n.sigma_policy = SigmaPolicy::FIXED_SGS_LEGACY_ADMM;
-    ASSERT_NO_THROW(l.solve(c->max_iter, c->stop_tol, 500, 50, 100, c->switch_admm, 0, 1e-2, c->sigscale));
-    ASSERT_NO_THROW(n.solve(c->max_iter, c->stop_tol, 500, 50, 100, c->switch_admm, 0, 1e-2, c->sigscale));
-    ASSERT_EQ(n.info_iter_num, c->iterations);
-    EXPECT_TRUE(bitwise_equal(history(l, l.info_iter_num), history(n, n.info_iter_num)));
-    EXPECT_EQ(n.sigma_changes, l.sigma_changes);
-    EXPECT_GT(n.sigma_changes, 100);
-}
-
-// FIXED_SGS_LEGACY_ADMM (b): with N = 300 sGS iterations (sigma_0 = 100), sigma stays 100 in the sGS phase, then
-// follows the legacy plain-ADMM rules exactly as a LEGACY_ADAPTIVE plain-ADMM solve continued from the switch state
-// on the same object (schedule counted from the switch, win counters from 0): identical sigma decisions, and
-// objectives and residuals equal to the rounding of the continuation's unscale/rescale round trip.
-TEST(HybridSwitch, FixedSgsLegacyAdmmIsTheBaselinePolicyFromTheSwitch)
-{
-    const regression::RegressionProblem p = regression::generate("PSD_Free");
-    const int N = 300, M = 1200;
-    SDPSolver h, c;
-    ASSERT_NO_THROW(solver_setup::init_solver(p, h, true, 100.0));
-    ASSERT_NO_THROW(solver_setup::init_solver(p, c, true, 100.0));
-    h.sigma_policy = SigmaPolicy::FIXED_SGS_LEGACY_ADMM;
-    ASSERT_NO_THROW(h.solve(N + M, 0.0, 500, 50, 100, N + 1, 0, 1e-2, 2.0));
-    const History H = history(h, N + M);
-    for (int k = 0; k < N; k++)
-        ASSERT_EQ(H.sig[k], 100.0) << "iteration " << k + 1;
-    EXPECT_EQ(h.sigma_changes_sgs_phase, 0);
-    EXPECT_GT(h.sigma_changes_admm_phase, 3);
-    EXPECT_EQ(h.sigma_at_switch, 100.0);
-    // every change falls on the plain-ADMM schedule counted from the switch (k = iter - N)
-    for (int i = N; i < N + M; i++) // index i holds sigma after iteration i + 1
-        if (H.sig[i] != H.sig[i - 1])
-        {
-            const int k = i + 1 - N; // iteration i + 1 (1-based) is the k-th plain-ADMM iteration
-            const bool on = (k <= 200 && k % 10 == 1) || (k > 200 && k <= 1000 && k % 25 == 1) || (k > 1000 && k <= 5000 && k % 50 == 1);
-            EXPECT_TRUE(on) << "sigma changed at iteration " << i + 1 << " (plain-ADMM iteration " << k << ")";
-        }
-    // the practical plain-ADMM policy continued from the switch state: pure sGS (fixed) for N, then LEGACY plain ADMM
-    c.sigma_policy = SigmaPolicy::FIXED;
-    ASSERT_NO_THROW(c.solve(N, 0.0, 500, 50, 100, INT_MAX, 0, 1e-2, 2.0));
-    c.sigma_policy = SigmaPolicy::LEGACY_ADAPTIVE;
-    ASSERT_NO_THROW(c.solve(M, 0.0, 500, 50, 100, 0, 0, 1e-2, 2.0, false));
-    const History C = history(c, M), HA = slice(H, N, M);
-    EXPECT_EQ(HA.sig, C.sig) << "the sigma decisions differ from the baseline policy started at the switch";
-    const double w = discrepancy(HA, C);
-    printf("[ HYBRID   ] fixed_sgs_then_legacy_admm vs legacy plain ADMM from the switch state: %d sigma changes, discrepancy %.2e (units of 1e-10)\n",
-           h.sigma_changes_admm_phase, w);
-    printf("[ HYBRID   ] per series:%s\n", diff_report(HA, C).c_str());
-    EXPECT_LE(w, 1.0);
 }
 
 // --sgs-iterations N: switch_admm = N + 1, N sGS then plain ADMM; the history marks the phase and tau of every

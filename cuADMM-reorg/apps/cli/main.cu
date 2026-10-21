@@ -15,6 +15,7 @@
 #include "cuadmm/solver.h"
 #include "cuadmm/io.h"
 #include "cuadmm/problem.h"
+#include "cuadmm/version.h" // generated: CUADMM_BUILD_COMMIT, CUADMM_BUILD_DIRTY
 
 // Command-line options; the defaults reproduce the historical behaviour of cuadmm_exe
 // (plain ADMM from the first iteration, LOBPCG enabled, stopping tolerance 1e-4).
@@ -28,8 +29,10 @@ struct Options
     std::string algorithm;                      // "admm" or "sgs" (sets switch_admm); empty: use switch_admm
     int sgs_iterations = -1;                    // hybrid mode: N sGS iterations, then plain ADMM (sets switch_admm = N + 1)
     bool sgs_iterations_set = false;
-    std::string sigma_policy = "legacy_adaptive"; // "fixed", "legacy_adaptive" (the historical behaviour) or
-                                                  // "fixed_sgs_then_legacy_admm"
+    std::string sigma_policy = "residual_balancing"; // "fixed", "legacy_adaptive" (9bb4ba5) or "residual_balancing"
+                                                     // (2d8a755; the default until plan Phase 4b, O1)
+    double penalty_factor = 2.0;   // factor of residual_balancing (plan option penalty.factor; 1.2 = the October 20 edit)
+    double sigma_min = -1, sigma_max = -1; // bounds of the adaptive updates (< 0: the policy's own)
     double sig = 1e2;
     bool use_lobpcg = true;
     int switch_proj_max_iter = 0;
@@ -90,9 +93,12 @@ static void print_usage(const char *exe)
         << "                             the same X, y, S (= --switch-admm n+1; n = 0: plain ADMM); alternative to\n"
         << "                             --switch-admm and --algorithm [not set]\n"
         << "  --sigma-policy <p>         'fixed': sigma = --sig for every iteration (Algorithm 1 of the paper);\n"
-        << "                             'legacy_adaptive': the historical adaptive sigma rules [legacy_adaptive];\n"
-        << "                             'fixed_sgs_then_legacy_admm': fixed during the sGS phase, then the legacy plain-ADMM\n"
-        << "                             rules counted from the first plain-ADMM iteration\n"
+        << "                             'legacy_adaptive': the historical rule of commit 9bb4ba5 (no guard, factor 2,\n"
+        << "                             sigma in [1e-6, 1e6], Monitor1 after iteration 5000), for reproducing published runs;\n"
+        << "                             'residual_balancing': the October 13 rule of commit 2d8a755 (guard max(1, 1.35 other),\n"
+        << "                             --penalty-factor, sigma in [1e-3, 1e3], no Monitor1) [residual_balancing]\n"
+        << "  --penalty-factor <x>       factor of residual_balancing (2 = 2d8a755; 1.2 = the October 20 edit of main) [2]\n"
+        << "  --sigma-min <x>, --sigma-max <x>  bounds of the adaptive updates [the policy's own]\n"
         << "  --validate-interval <n>    validation-aware stopping: validate the iterate externally (CPU, original data)\n"
         << "                             every n iterations and when the internal KKT residual crosses --tol; stop only\n"
         << "                             when eta_p, eta_d, eta_g, the X cone and the dual cone violations are <= the\n"
@@ -195,6 +201,12 @@ static bool parse_options(int argc, char *argv[], Options &opt)
                 opt.algorithm = val;
             else if (key == "--sigma-policy")
                 opt.sigma_policy = val;
+            else if (key == "--penalty-factor")
+                opt.penalty_factor = std::stod(val);
+            else if (key == "--sigma-min")
+                opt.sigma_min = std::stod(val);
+            else if (key == "--sigma-max")
+                opt.sigma_max = std::stod(val);
             else if (key == "--validate-interval")
                 opt.validate_interval = parse_int_strict(val);
             else if (key == "--validate-tol")
@@ -271,7 +283,14 @@ static bool parse_options(int argc, char *argv[], Options &opt)
     SigmaPolicy policy;
     if (!parse_sigma_policy(opt.sigma_policy, policy))
     {
-        std::cerr << "ERROR: --sigma-policy must be 'fixed', 'legacy_adaptive' or 'fixed_sgs_then_legacy_admm'" << std::endl;
+        std::cerr << "ERROR: --sigma-policy must be 'fixed', 'legacy_adaptive' or 'residual_balancing' (got '" << opt.sigma_policy
+                  << "')" << std::endl;
+        return false;
+    }
+    if (!(opt.penalty_factor > 0) || (opt.sigma_min != -1 && !(opt.sigma_min > 0)) || (opt.sigma_max != -1 && !(opt.sigma_max > 0)) ||
+        (opt.sigma_min > 0 && opt.sigma_max > 0 && opt.sigma_min > opt.sigma_max))
+    {
+        std::cerr << "ERROR: --penalty-factor, --sigma-min and --sigma-max must be positive, with --sigma-min <= --sigma-max" << std::endl;
         return false;
     }
     if (opt.sgs_iterations_set)
@@ -330,8 +349,6 @@ static bool parse_options(int argc, char *argv[], Options &opt)
             why = "--switch-admm > 1";
         else if (opt.sgs_iterations_set && opt.sgs_iterations > 0)
             why = "--sgs-iterations > 0";
-        else if (opt.sigma_policy == "fixed_sgs_then_legacy_admm")
-            why = "--sigma-policy fixed_sgs_then_legacy_admm";
         if (why)
         {
             std::cerr << "ERROR: " << why << " requests sGS-ADMM, which is disabled in this plain-ADMM-only build "
@@ -394,6 +411,7 @@ static void write_summary(const Options &opt, const Problem &problem, const SDPS
 {
     double coef_sum, min_eig;
     dual_certificate_stats(solver, coef_sum, min_eig);
+    const SigmaPolicyParameters params = solver.sigma_policy_parameters();
     std::ofstream f(opt.summary_file, std::ios::app);
     if (!f.is_open())
     {
@@ -406,6 +424,14 @@ static void write_summary(const Options &opt, const Problem &problem, const SDPS
       << ", \"stop_tol\": " << opt.stop_tol << ", \"max_iter\": " << opt.max_iter
       << ", \"switch_admm\": " << opt.switch_admm
       << ", \"sigma_policy\": " << json_string(sigma_policy_name(solver.sigma_policy)) << ", \"sigma0\": " << solver.sigma0
+      << ", \"sigma_policy_parameters\": {\"factor\": " << json_number(params.factor) << ", \"sigma_min\": " << json_number(params.sigma_min)
+      << ", \"sigma_max\": " << json_number(params.sigma_max) << ", \"win_ratio\": " << json_number(params.win_ratio)
+      << ", \"guard\": " << (params.guard ? "true" : "false") << ", \"residual_weight\": " << json_number(params.residual_weight)
+      << ", \"monitor1\": " << (params.monitor1 ? "true" : "false") << ", \"sgs_rule\": " << json_string(params.sgs_rule) << "}"
+      << ", \"sigma_final_scaled\": " << json_number(solver.sig) << ", \"sigma_final_original\": " << json_number(solver.sig * solver.bscale / solver.Cscale)
+      << ", \"sigma0_original\": " << json_number(solver.sigma0 * solver.bscale / solver.Cscale)
+      << ", \"build_project\": " << json_string(CUADMM_BUILD_PROJECT) << ", \"build_commit\": " << json_string(CUADMM_BUILD_COMMIT)
+      << ", \"build_dirty\": " << (CUADMM_BUILD_DIRTY ? "true" : "false")
       << ", \"sigma_changes\": " << solver.sigma_changes << ", \"admm_phase_iterations\": " << solver.admm_phase_iterations
       << ", \"sgs_iterations_requested\": " << opt.sgs_iterations << ", \"sgs_phase_iterations\": " << solver.sgs_phase_iterations
       << ", \"switch_iteration\": " << solver.switch_iteration << ", \"sgs_phase_time_s\": " << json_number(solver.sgs_phase_time_s)
@@ -657,6 +683,9 @@ int main(int argc, char *argv[])
         if (opt.time_limit > 0)
             solver.time_limit = opt.time_limit;
         parse_sigma_policy(opt.sigma_policy, solver.sigma_policy); // validated in parse_options
+        solver.penalty_factor = opt.penalty_factor;
+        solver.penalty_sigma_min = opt.sigma_min;
+        solver.penalty_sigma_max = opt.sigma_max;
         solver.validation.interval = opt.validate_interval;
         solver.validation.tol = ValidationTolerances::all(opt.validate_tol > 0 ? opt.validate_tol : opt.stop_tol);
         solver.validation.threads = opt.validate_threads;

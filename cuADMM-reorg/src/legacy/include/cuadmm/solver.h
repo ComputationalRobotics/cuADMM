@@ -96,23 +96,29 @@ inline std::string admm_mode_name(int switch_admm, int max_iter)
 }
 
 /// @brief How solve() updates the penalty parameter sigma (set SDPSolver::sigma_policy before solve()).
-/// - LEGACY_ADAPTIVE (the default): in the sGS phase sigma is multiplied or divided by sigscale when the primal or the
-///   dual residual "wins" (sig_update_threshold / stage_1 / stage_2); in the plain ADMM phase it follows a fixed
-///   schedule with factor admm_sigma_factor (1.2), changing sigma only if the winner's count exceeds
-///   max(1, 1.35 * the other's). The updates keep sigma in [sigmin, sigmax] = [1e-3, 1e3] (sigma_0 itself is not
-///   clamped). The Monitor1 "chasing" correction is disabled.
-/// - FIXED: sigma_k = sigma_0 for every iteration, as in Algorithm 1 of arXiv 2406.05846 (a fixed sigma > 0). None of
-///   the rules above runs, and solve() throws std::logic_error if sigma ever differs from sigma_0.
-/// - FIXED_SGS_LEGACY_ADMM (for the hybrid sGS -> plain ADMM mode): sigma = sigma_0 during the sGS phase (enforced as
-///   with FIXED), then, from the first plain-ADMM iteration, exactly the LEGACY_ADAPTIVE plain-ADMM rules (schedule
-///   with factor admm_sigma_factor) as they run in a plain-ADMM solve started at that point: the schedule counts the plain-ADMM
-///   iterations k = 1, 2, ... (not the global iteration), and the primal/dual "win" counters
-///   start from 0 at the switch. With no sGS phase (switch_admm <= 1) it is identical to LEGACY_ADAPTIVE.
+/// Plan Section 3.5 / 7.3 (reorg-plan/cuadmm_reorg_plan.tex). All adaptive rules count "wins" after every iteration
+/// (prim_win if residual_weight * errRp < errRd, else dual_win) and act only at the check iterations
+/// k in {k <= 200: k = 1 mod 10} u {200 < k <= 1000: k = 1 mod 25} u {1000 < k <= 5000: k = 1 mod 50}
+/// u {5000 < k <= 10000: k = 1 mod 200} u {k > 10000: k = 1 mod 1000}, where the winner's counter is reset and the
+/// loser's is kept.
+/// - FIXED: sigma_k = sigma_0 for every iteration (Algorithm 1 of arXiv 2406.05846 with a fixed sigma > 0). None of the
+///   rules below runs, and solve() throws std::logic_error if sigma ever differs from sigma_0.
+/// - LEGACY_ADAPTIVE: the historical rule of commit 9bb4ba5, bit for bit: no guard (change if prim_win > 1.35 dual_win
+///   or dual_win > 1.35 prim_win), factor 2, sigma kept in [1e-6, 1e6] (sigma_0 itself is not clamped), and the
+///   Monitor1 "chasing" correction after iteration 5000 (every 25 iterations; include/cuadmm/monitors.h).
+///   In the sGS phase (iter < switch_admm) the sGS rule applies instead: factor sigscale every sig_update_stage_1
+///   (stage_2 after sig_update_threshold) iterations when prim_win > 1.2 dual_win or the reverse.
+/// - RESIDUAL_BALANCING: the October 13 rule of commit 2d8a755 (plan name): the same schedule, a change only if the
+///   winner's count exceeds max(1, 1.35 * the other's) (the guard), factor penalty_factor (default 2; the 1.2 of the
+///   working tree of October 20 is an option value), sigma kept in [1e-3, 1e3] (sigma_0 not clamped), Monitor1 off.
+///   The sGS phase uses the sGS rule above, as at 2d8a755.
+/// The hybrid-only policy fixed_sgs_then_legacy_admm of main (fixed sigma in the sGS phase, then the plain-ADMM rule
+/// counted from the switch) is not kept: it is neither of the reference rules of the plan (docs/CHANGES.md).
 enum class SigmaPolicy
 {
-    LEGACY_ADAPTIVE,
     FIXED,
-    FIXED_SGS_LEGACY_ADMM
+    LEGACY_ADAPTIVE,
+    RESIDUAL_BALANCING
 };
 
 inline const char *sigma_policy_name(SigmaPolicy policy)
@@ -121,26 +127,40 @@ inline const char *sigma_policy_name(SigmaPolicy policy)
     {
     case SigmaPolicy::FIXED:
         return "fixed";
-    case SigmaPolicy::FIXED_SGS_LEGACY_ADMM:
-        return "fixed_sgs_then_legacy_admm";
-    default:
+    case SigmaPolicy::LEGACY_ADAPTIVE:
         return "legacy_adaptive";
+    default:
+        return "residual_balancing";
     }
 }
 
-// Parses "fixed", "legacy_adaptive" or "fixed_sgs_then_legacy_admm"; returns false for any other string.
+// Parses "fixed", "legacy_adaptive" or "residual_balancing"; returns false for any other string (unknown names are
+// errors, never aliases: plan principle 4).
 inline bool parse_sigma_policy(const std::string &name, SigmaPolicy &policy)
 {
     if (name == "fixed")
         policy = SigmaPolicy::FIXED;
     else if (name == "legacy_adaptive")
         policy = SigmaPolicy::LEGACY_ADAPTIVE;
-    else if (name == "fixed_sgs_then_legacy_admm")
-        policy = SigmaPolicy::FIXED_SGS_LEGACY_ADMM;
+    else if (name == "residual_balancing")
+        policy = SigmaPolicy::RESIDUAL_BALANCING;
     else
         return false;
     return true;
 }
+
+/// @brief Parameters of a sigma policy as solve() applies them (written to the summary by the front-ends).
+struct SigmaPolicyParameters
+{
+    double factor = 2.0;          // multiplicative step of the schedule rule
+    double sigma_min = 1e-3;      // bounds of the updates (sigma_0 is not clamped)
+    double sigma_max = 1e3;
+    double win_ratio = 1.35;      // hysteresis of the win counts
+    bool guard = true;            // winner above max(1, win_ratio * other) (true) or above win_ratio * other (false)
+    double residual_weight = 1.0; // weight on errRp in the vote (ratioconst)
+    bool monitor1 = false;        // the chasing monitor after iteration 5000
+    const char *sgs_rule = "";    // rule of the sGS phase ("" when sigma is fixed)
+};
 
 /// @brief One external validation of the iterate during solve() (see ValidationConfig).
 struct ValidationRecord
@@ -370,7 +390,9 @@ public:
     double sigmax;
     double sigmin;
     double sigscale;                 // factor of the sGS-phase sigma rule (--sigscale)
-    double admm_sigma_factor = 1.2;  // factor of the plain-ADMM sigma rule: sigma * factor or sigma / factor
+    double penalty_factor = 2.0;     // factor of the RESIDUAL_BALANCING schedule rule (plan option penalty.factor)
+    double penalty_sigma_min = -1.0; // |- bounds of the adaptive updates; < 0: the policy's own bounds
+    double penalty_sigma_max = -1.0; // |  ([1e-6, 1e6] for LEGACY_ADAPTIVE, [1e-3, 1e3] for RESIDUAL_BALANCING)
 
     /* Info */
     int info_iter_num;                   // iteration number
@@ -392,7 +414,7 @@ public:
     double solve_time; // seconds spent in the iterations of the last solve() (without the final post-processing)
     double time_limit; // solve() stops after this many seconds of iterations, like at max_iter (default: none)
     bool time_limit_reached;          // whether the last solve() stopped because of time_limit
-    SigmaPolicy sigma_policy;         // sigma update rule of solve() (default LEGACY_ADAPTIVE), see SigmaPolicy
+    SigmaPolicy sigma_policy;         // sigma update rule of solve() (default RESIDUAL_BALANCING, plan O1), see SigmaPolicy
     double sigma0;                    // sigma at the start of the last solve()
     int sigma_changes;                // iterations of the last solve() in which sigma changed (0 with FIXED)
     int admm_phase_iterations;        // iterations of the last solve() that used the plain ADMM step (0 for pure sGS)
@@ -402,7 +424,7 @@ public:
     {
         int iter;                 // iteration whose update changed sigma (1-based)
         double old_sigma, new_sigma;
-        std::string rule;         // "admm_schedule" or "sgs_rule" ("monitor1" while the chasing monitor was enabled)
+        std::string rule;         // "admm_schedule", "monitor1" (LEGACY_ADAPTIVE only) or "sgs_rule"
         double errRp, errRd, relgap, feasratio; // residuals of the iterate the rule saw (internal, scaled problem)
         int prim_win, dual_win;   // win counters before the rule reset them
     };
@@ -474,7 +496,7 @@ public:
     DeviceDenseVector<double> S_best; // |
 
     SDPSolver() : AAt_dense_gpu(false), start(nullptr), stop(nullptr), time_limit(std::numeric_limits<double>::infinity()),
-                  time_limit_reached(false), sigma_policy(SigmaPolicy::LEGACY_ADAPTIVE), sigma0(0.0), sigma_changes(0),
+                  time_limit_reached(false), sigma_policy(SigmaPolicy::RESIDUAL_BALANCING), sigma0(0.0), sigma_changes(0),
                   admm_phase_iterations(0) {}
     ~SDPSolver();
 
@@ -500,7 +522,7 @@ public:
     /// @param cpu_X_vals Initial values for X (optional, default: zero vector).
     /// @param cpu_y_vals Initial values for y (optional, default: zero vector).
     /// @param cpu_S_vals Initial values for S (optional, default: zero vector).
-    /// @param sig Initial value for sigma (optional, default: `2e2`).
+    /// @param sig Initial value for sigma (optional, default: 1.0; the CLI and the MEX default to 1e2).
     /// @param use_lobpcg Whether to use LOBPCG for large matrices (default: true).
     void init(
         int eig_stream_num_per_gpu,
@@ -532,7 +554,7 @@ public:
     ///                             |  with factor admm_sigma_factor)
     /// @param switch_admm The iteration at which to switch from sGS-ADMM to standard ADMM (0: plain ADMM throughout,
     ///                    > max_iter: sGS-ADMM throughout).
-    /// @param sigscale Factor of the sigma updates of the sGS phase (with sigma_policy LEGACY_ADAPTIVE only; use
+    /// @param sigscale Factor of the sigma updates of the sGS phase (adaptive policies only; use
     ///                 sigma_policy = SigmaPolicy::FIXED, not sigscale = 1, for a fixed sigma).
     /// @param if_first Boolean flag to indicate if this is the first call to solve. For the second call, we assume that new X, y, S, sig are passed, but that they are unscaled.
     void solve(
@@ -545,6 +567,9 @@ public:
         double switch_proj_tol = 1e-2,
         double sigscale = 2,
         bool if_first = true);
+
+    // Parameters of sigma_policy as the next solve() applies them (bounds: penalty_sigma_min/max or the policy's own).
+    SigmaPolicyParameters sigma_policy_parameters() const;
 
     // Synchronizes the three streams of GPU0.
     void synchronize_gpu0_streams();

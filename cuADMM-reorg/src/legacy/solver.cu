@@ -68,6 +68,51 @@ static int check_eig_info(const int *d_info, const int count, const char *what, 
     return not_converged;
 }
 
+SigmaPolicyParameters SDPSolver::sigma_policy_parameters() const
+{
+    SigmaPolicyParameters p;
+    switch (this->sigma_policy)
+    {
+    case SigmaPolicy::FIXED:
+        p.factor = 1.0;
+        p.sigma_min = p.sigma_max = this->sig; // sigma_k = sigma_0
+        p.guard = false;
+        p.monitor1 = false;
+        p.sgs_rule = "";
+        break;
+    case SigmaPolicy::LEGACY_ADAPTIVE: // 9bb4ba5
+        p.factor = 2.0;
+        p.sigma_min = 1e-6;
+        p.sigma_max = 1e6;
+        p.guard = false;
+        p.monitor1 = true;
+        p.sgs_rule = "legacy_sgs";
+        break;
+    case SigmaPolicy::RESIDUAL_BALANCING: // 2d8a755 with the factor as an option
+        p.factor = this->penalty_factor;
+        p.sigma_min = 1e-3;
+        p.sigma_max = 1e3;
+        p.guard = true;
+        p.monitor1 = false;
+        p.sgs_rule = "legacy_sgs";
+        break;
+    }
+    if (this->sigma_policy != SigmaPolicy::FIXED)
+    {
+        if (this->penalty_sigma_min > 0)
+            p.sigma_min = this->penalty_sigma_min;
+        if (this->penalty_sigma_max > 0)
+            p.sigma_max = this->penalty_sigma_max;
+        if (!(p.sigma_min > 0) || !(p.sigma_max >= p.sigma_min) || !(p.factor > 0))
+            throw std::invalid_argument("sigma policy parameters: need 0 < sigma_min <= sigma_max and factor > 0 (got " +
+                                        std::to_string(p.sigma_min) + ", " + std::to_string(p.sigma_max) + ", " +
+                                        std::to_string(p.factor) + ")");
+    }
+    p.win_ratio = 1.35;
+    p.residual_weight = this->ratioconst;
+    return p;
+}
+
 void SDPSolver::synchronize_gpu0_streams()
 {
     CHECK_CUDA(cudaStreamSynchronize(this->stream_flex[0].stream));
@@ -1012,8 +1057,7 @@ void SDPSolver::init(
     this->prim_win = 0;
     this->dual_win = 0;
     this->ratioconst = 1e0;
-    this->sigmax = 1e3;
-    this->sigmin = 1e-3;
+    // sigmin / sigmax: set by solve() from the sigma policy (sigma_policy_parameters())
 
     /* Main elements for the sGS-ADMM algorithm */
     this->X_best.allocate(GPU0, this->vec_len);
@@ -1062,9 +1106,6 @@ void SDPSolver::solve(
         throw std::invalid_argument("solve(): switch_admm = " + std::to_string(switch_admm) +
                                     " requests sGS-ADMM steps, which this plain-ADMM-only build (CUADMM_PLAIN_ADMM_ONLY) does "
                                     "not execute; use switch_admm = 0 (plain ADMM)");
-    if (this->sigma_policy == SigmaPolicy::FIXED_SGS_LEGACY_ADMM)
-        throw std::invalid_argument("solve(): the fixed_sgs_then_legacy_admm policy is for the sGS -> ADMM hybrid, which this "
-                                    "plain-ADMM-only build does not execute; use fixed or legacy_adaptive");
 #endif
     // validation-aware stopping (ValidationConfig): state of this call
     const bool validating = this->validation.interval > 0;
@@ -1116,8 +1157,12 @@ void SDPSolver::solve(
     };
     sample_gpu_mem();
 
-    // sigma policy bookkeeping for this call
+    // sigma policy bookkeeping for this call; the bounds of the adaptive updates are the policy's own unless overridden
+    // (penalty_sigma_min / penalty_sigma_max)
     this->sigma0 = this->sig;
+    const SigmaPolicyParameters policy_params = this->sigma_policy_parameters();
+    this->sigmin = policy_params.sigma_min;
+    this->sigmax = policy_params.sigma_max;
     this->sigma_changes = 0;
     this->admm_phase_iterations = 0;
     this->sgs_phase_iterations = 0;
@@ -1158,12 +1203,14 @@ void SDPSolver::solve(
         std::cout << " Hybrid mode of the public code (not Algorithm 1): " << switch_admm - 1
                   << " sGS-ADMM iterations, then plain ADMM from iteration " << switch_admm << " (switch_admm = " << switch_admm
                   << "), continuing from the same X, y, S, sigma and workspaces" << std::endl;
-    std::cout << " Sigma policy: " << sigma_policy_name(this->sigma_policy) << ", initial sigma " << this->sig
-              << (this->sigma_policy == SigmaPolicy::FIXED ? " (kept for every iteration)"
-                  : this->sigma_policy == SigmaPolicy::FIXED_SGS_LEGACY_ADMM
-                      ? " (kept during the sGS phase; legacy plain-ADMM rules from the first plain-ADMM iteration, counted from there)"
-                      : " (adaptive updates)")
-              << std::endl;
+    std::cout << " Sigma policy: " << sigma_policy_name(this->sigma_policy) << ", initial sigma " << this->sig;
+    if (this->sigma_policy == SigmaPolicy::FIXED)
+        std::cout << " (kept for every iteration)";
+    else
+        std::cout << " (adaptive: factor " << policy_params.factor << ", bounds [" << policy_params.sigma_min << ", "
+                  << policy_params.sigma_max << "], guard " << (policy_params.guard ? "on" : "off") << ", Monitor1 "
+                  << (policy_params.monitor1 ? "on" : "off") << ")";
+    std::cout << std::endl;
     std::cout << " Maximum iterations: " << max_iter << ", internal KKT tolerance: " << stop_tol << std::endl;
     if (validating)
     {
@@ -1271,7 +1318,7 @@ void SDPSolver::solve(
     std::cout << " --------------- Starting with projection method " << get_projection_method_name(this->current_proj_method) << "------" << std::endl;
 
     // for each iteration of the main solver
-    // Monitor1 monitor1; // the chasing monitor is disabled (see the plain ADMM sigma update)
+    Monitor1 monitor1; // LEGACY_ADAPTIVE only: the chasing monitor of 9bb4ba5, fresh for every solve()
     this->time_limit_reached = false;
     const auto solve_start = std::chrono::steady_clock::now();
     auto seconds_since_start = [&solve_start]()
@@ -1587,12 +1634,6 @@ void SDPSolver::solve(
             this->sgs_phase_validation_s = this->validation_time_s;
             this->kkt_at_switch = max(this->maxfeas, this->relgap);
             this->sigma_at_switch = this->sig;
-            if (this->sigma_policy == SigmaPolicy::FIXED_SGS_LEGACY_ADMM && this->switch_admm > 1)
-            {
-                // the plain-ADMM sigma rules start as in a plain-ADMM solve: no primal/dual "wins" counted yet
-                this->prim_win = 0;
-                this->dual_win = 0;
-            }
             if (this->switch_admm > 1)
                 printf(" --- switching to plain ADMM at iteration %d (switch_admm = %d) after %d sGS iterations, %.3f s: internal KKT "
                        "%.3e, sigma %.6e, last sGS tau %.4f; X, y, S kept ---\n",
@@ -2014,14 +2055,13 @@ void SDPSolver::solve(
                 this->sigma_log.push_back({iter, old_sigma, this->sig, rule, this->errRp, this->errRd, this->relgap, this->feasratio,
                                            prim_win_before, dual_win_before});
         };
-        if (this->sigma_policy == SigmaPolicy::FIXED ||
-            (this->sigma_policy == SigmaPolicy::FIXED_SGS_LEGACY_ADMM && iter < this->switch_admm))
+        if (this->sigma_policy == SigmaPolicy::FIXED)
         {
             // no update
         }
         else if (iter < this->switch_admm)
         {
-            // sGS-ADMM update rule
+            // sGS-ADMM update rule (the same for both adaptive policies, as at 9bb4ba5 and 2d8a755)
             if (
                 ((iter <= this->sig_update_threshold) && ((iter % this->sig_update_stage_1) == 1)) ||
                 ((iter > this->sig_update_threshold) && ((iter % this->sig_update_stage_2) == 1)))
@@ -2041,14 +2081,8 @@ void SDPSolver::solve(
         }
         else
         {
-            // this->sig = 1e2;
-
-            // standard ADMM update rule; k counts the iterations of its schedule: the global iteration (LEGACY_ADAPTIVE,
-            // as in the public code) or the plain-ADMM iterations since the switch (FIXED_SGS_LEGACY_ADMM, as in a
-            // plain-ADMM solve started at the switch)
-            const int k = (this->sigma_policy == SigmaPolicy::FIXED_SGS_LEGACY_ADMM && this->switch_admm > 1)
-                              ? iter - this->switch_admm + 1
-                              : iter;
+            // plain-ADMM schedule rule; k is the global iteration (the schedule of both reference rules)
+            const int k = iter;
             if (
                 (k <= 200 && (k % 10) == 1) ||
                 (k > 200 && k <= 1000 && (k % 25) == 1) ||
@@ -2056,39 +2090,56 @@ void SDPSolver::solve(
                 (k > 5000 && k <= 10000 && (k % 200) == 1) ||
                 (k > 10000 && (k % 1000) == 1))
             {
-                // max(1, .): a single win (e.g. at iteration 1) does not change sigma (counter idiom of the
-                // SDPNAL+/SuiteLasso family)
-                if (this->prim_win > max(1.0, 1.35 * this->dual_win))
+                if (this->sigma_policy == SigmaPolicy::LEGACY_ADAPTIVE)
                 {
-                    this->prim_win = 0;
-                    this->sig = min(this->sigmax, this->sig * this->admm_sigma_factor);
+                    // 9bb4ba5, bit for bit: no guard; its factor sigscale = max(2 exp(-k / 50000), 2) is exactly 2 for
+                    // every k >= 1 (B6: the decay never acts), so the constant reproduces it
+                    const double factor = 2.0;
+                    if (this->prim_win > 1.35 * this->dual_win)
+                    {
+                        this->prim_win = 0;
+                        this->sig = min(this->sigmax, this->sig * factor);
+                    }
+                    else if (this->dual_win > 1.35 * this->prim_win)
+                    {
+                        this->dual_win = 0;
+                        this->sig = max(this->sigmin, this->sig / factor);
+                    }
                 }
-                else if (this->dual_win > max(1.0, 1.35 * this->prim_win))
+                else
                 {
-                    this->dual_win = 0;
-                    this->sig = max(this->sigmin, this->sig / this->admm_sigma_factor);
+                    // 2d8a755 (residual_balancing): max(1, .) guard (a single win, e.g. at iteration 1, does not change
+                    // sigma; the counter idiom of the SDPNAL+/SuiteLasso family) and the factor penalty_factor
+                    if (this->prim_win > max(1.0, 1.35 * this->dual_win))
+                    {
+                        this->prim_win = 0;
+                        this->sig = min(this->sigmax, this->sig * this->penalty_factor);
+                    }
+                    else if (this->dual_win > max(1.0, 1.35 * this->prim_win))
+                    {
+                        this->dual_win = 0;
+                        this->sig = max(this->sigmin, this->sig / this->penalty_factor);
+                    }
                 }
             }
             log_sigma(sig_before, "admm_schedule");
 
-            // (disabled) use monitor1 for the chasing phenomenon
-            // if (k > 5000 && k % monitor1.update_interval == 0)
-            // {
-            //     const double sig_mon = this->sig;
-            //     monitor1.push(this->pobj, this->dobj, this->errRp, this->errRd, this->relgap);
-            //     if (monitor1.if_full())
-            //         this->sig = monitor1.chase_update_sig(this->sig);
-            //     log_sigma(sig_mon, "monitor1");
-            // }
+            // LEGACY_ADAPTIVE only: the Monitor1 "chasing" correction of 9bb4ba5 (k > 5000, every 25 iterations)
+            if (this->sigma_policy == SigmaPolicy::LEGACY_ADAPTIVE && k > 5000 && k % monitor1.update_interval == 0)
+            {
+                const double sig_mon = this->sig;
+                monitor1.push(this->pobj, this->dobj, this->errRp, this->errRd, this->relgap);
+                if (monitor1.if_full())
+                    this->sig = monitor1.chase_update_sig(this->sig);
+                log_sigma(sig_mon, "monitor1");
+            }
         }
         if (this->sig != sig_before)
         {
             this->sigma_changes++;
             (iter < this->switch_admm ? this->sigma_changes_sgs_phase : this->sigma_changes_admm_phase)++;
         }
-        if ((this->sigma_policy == SigmaPolicy::FIXED ||
-             (this->sigma_policy == SigmaPolicy::FIXED_SGS_LEGACY_ADMM && iter < this->switch_admm)) &&
-            this->sig != this->sigma0)
+        if (this->sigma_policy == SigmaPolicy::FIXED && this->sig != this->sigma0)
             throw std::logic_error("fixed sigma policy violated at iteration " + std::to_string(iter) +
                                    ": sigma = " + std::to_string(this->sig) + ", sigma_0 = " + std::to_string(this->sigma0));
 
