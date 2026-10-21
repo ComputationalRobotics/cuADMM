@@ -113,6 +113,7 @@ void dense_vector_add_dense_vector(
     const int size = vec1.size;
     const int num_block = (size + block_size - 1) / block_size;
     dense_vector_add_dense_vector_kernel<<<num_block, block_size, 0, stream>>>(vec1.vals, vec2.vals, size, alpha, beta);
+    CHECK_KERNEL_LAUNCH();
     return;
 }
 
@@ -124,6 +125,7 @@ void dense_vector_add_dense_vector(
     const int size = vec1.size;
     const int num_block = (size + block_size - 1) / block_size;
     dense_vector_add_dense_vector_kernel<<<num_block, block_size, 0, stream>>>(vec1.vals, vec2.vals, vec3.vals, size, alpha, beta);
+    CHECK_KERNEL_LAUNCH();
     return;
 }
 
@@ -136,6 +138,7 @@ void dense_vector_mul_dense_vector(
     const int con_num = vec1.size;
     const int num_block = (con_num + block_size - 1) / block_size;
     dense_vector_mul_dense_vector_kernel<<<num_block, block_size, 0, stream>>>(vec1.vals, vec2.vals, con_num);
+    CHECK_KERNEL_LAUNCH();
     return;
 }
 
@@ -148,6 +151,7 @@ void dense_vector_mul_dense_vector_mul_scalar(
     const int num_block = (size + block_size - 1) / block_size;
     dense_vector_mul_dense_vector_mul_scalar_kernel<<<num_block, block_size, 0, stream>>>(
         vec1.vals, vec2.vals, vec3.vals, scalar, size);
+    CHECK_KERNEL_LAUNCH();
     return;
 }
 
@@ -160,6 +164,7 @@ void dense_vector_div_dense_vector_mul_scalar(
     const int num_block = (size + block_size - 1) / block_size;
     dense_vector_div_dense_vector_mul_scalar_kernel<<<num_block, block_size, 0, stream>>>(
         vec1.vals, vec2.vals, scalar, size);
+    CHECK_KERNEL_LAUNCH();
     return;
 }
 
@@ -172,6 +177,7 @@ void dense_vector_plus_dense_vector_mul_scalar(
     const int num_block = (size + block_size - 1) / block_size;
     dense_vector_plus_dense_vector_mul_scalar_kernel<<<num_block, block_size, 0, stream>>>(
         vec1.vals, vec2.vals, vec3.vals, scalar, size);
+    CHECK_KERNEL_LAUNCH();
     return;
 }
 
@@ -181,5 +187,6 @@ void dense_vector_negate(
     const int size = vec.size;
     const int num_block = (size + block_size - 1) / block_size;
     dense_vector_negate_kernel<<<num_block, block_size, 0, stream>>>(vec.vals, size);
+    CHECK_KERNEL_LAUNCH();
     return;
 }

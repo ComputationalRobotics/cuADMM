@@ -5,7 +5,7 @@
   "policy": "fixed",
   "sigma0": 100.0,
   "max_iter": 1500,
-  "tol": 0.0
+  "tol": 1e-300
  },
  {
   "name": "Free__fixed_s100_i1500",
@@ -13,7 +13,7 @@
   "policy": "fixed",
   "sigma0": 100.0,
   "max_iter": 1500,
-  "tol": 0.0
+  "tol": 1e-300
  },
  {
   "name": "PSD_Free__fixed_s100_i1500",
@@ -21,7 +21,7 @@
   "policy": "fixed",
   "sigma0": 100.0,
   "max_iter": 1500,
-  "tol": 0.0
+  "tol": 1e-300
  },
  {
   "name": "Free_PSD__fixed_s100_i1500",
@@ -29,7 +29,7 @@
   "policy": "fixed",
   "sigma0": 100.0,
   "max_iter": 1500,
-  "tol": 0.0
+  "tol": 1e-300
  },
  {
   "name": "PSD_Free_PSD__fixed_s100_i1500",
@@ -37,7 +37,7 @@
   "policy": "fixed",
   "sigma0": 100.0,
   "max_iter": 1500,
-  "tol": 0.0
+  "tol": 1e-300
  },
  {
   "name": "Nonneg_Free_PSD__fixed_s100_i1500",
@@ -45,7 +45,7 @@
   "policy": "fixed",
   "sigma0": 100.0,
   "max_iter": 1500,
-  "tol": 0.0
+  "tol": 1e-300
  },
  {
   "name": "Free_Free_PSD__fixed_s100_i1500",
@@ -53,7 +53,7 @@
   "policy": "fixed",
   "sigma0": 100.0,
   "max_iter": 1500,
-  "tol": 0.0
+  "tol": 1e-300
  },
  {
   "name": "PSD_Nonneg__fixed_s100_i1500",
@@ -61,7 +61,7 @@
   "policy": "fixed",
   "sigma0": 100.0,
   "max_iter": 1500,
-  "tol": 0.0
+  "tol": 1e-300
  },
  {
   "name": "SmallBatch_Free__fixed_s100_i1500",
@@ -69,7 +69,7 @@
   "policy": "fixed",
   "sigma0": 100.0,
   "max_iter": 1500,
-  "tol": 0.0
+  "tol": 1e-300
  },
  {
   "name": "Medium_Free__fixed_s100_i1500",
@@ -77,7 +77,7 @@
   "policy": "fixed",
   "sigma0": 100.0,
   "max_iter": 1500,
-  "tol": 0.0
+  "tol": 1e-300
  },
  {
   "name": "Large_LowRankX__fixed_s100_i800",
@@ -85,7 +85,7 @@
   "policy": "fixed",
   "sigma0": 100.0,
   "max_iter": 800,
-  "tol": 0.0
+  "tol": 1e-300
  },
  {
   "name": "Large_LowRankS__fixed_s0.0001_i800",
@@ -93,7 +93,7 @@
   "policy": "fixed",
   "sigma0": 0.0001,
   "max_iter": 800,
-  "tol": 0.0
+  "tol": 1e-300
  },
  {
   "name": "Large_HalfRank__fixed_s100_i800",
@@ -101,7 +101,7 @@
   "policy": "fixed",
   "sigma0": 100.0,
   "max_iter": 800,
-  "tol": 0.0
+  "tol": 1e-300
  },
  {
   "name": "trto1__fixed_s1_i3000",
@@ -109,7 +109,7 @@
   "policy": "fixed",
   "sigma0": 1.0,
   "max_iter": 3000,
-  "tol": 0.0
+  "tol": 1e-300
  },
  {
   "name": "mater-1__fixed_s1_i3000",
@@ -117,7 +117,7 @@
   "policy": "fixed",
   "sigma0": 1.0,
   "max_iter": 3000,
-  "tol": 0.0
+  "tol": 1e-300
  },
  {
   "name": "PSD_Free__fixed_s100_tol1e-6",

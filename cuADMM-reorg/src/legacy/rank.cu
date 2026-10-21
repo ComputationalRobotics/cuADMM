@@ -1,4 +1,5 @@
 #include <cuadmm/rank.h>
+#include <cuadmm/check.h>
 #include <cstdio>
 
 __global__ void compute_ranks_kernel(
@@ -29,8 +30,8 @@ void compute_ranks(
     int num_blocks = (mat_size + block_size - 1) / block_size;
 
     // set positive and negative ranks to zero
-    cudaMemset(positive_rank, 0, sizeof(int));
-    cudaMemset(negative_rank, 0, sizeof(int));
+    CHECK_CUDA(cudaMemset(positive_rank, 0, sizeof(int)));
+    CHECK_CUDA(cudaMemset(negative_rank, 0, sizeof(int)));
 
     // launch kernel to compute ranks
     compute_ranks_kernel<<<num_blocks, block_size>>>(
@@ -39,4 +40,5 @@ void compute_ranks(
         positive_rank,
         negative_rank,
         tol);
+    CHECK_KERNEL_LAUNCH();
 }

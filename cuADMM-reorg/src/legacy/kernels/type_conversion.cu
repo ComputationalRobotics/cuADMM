@@ -69,6 +69,7 @@ void long_int_to_int(
     }
     long_int_to_int_kernel<<<num_block, block_size, 0, stream>>>(
         vec_int.vals, vec_long_int.vals, vec_int.size);
+    CHECK_KERNEL_LAUNCH();
     return;
 }
 
@@ -89,6 +90,7 @@ void int_to_long_int(
     }
     int_to_long_int_kernel<<<num_block, block_size, 0, stream>>>(
         vec_long_int.vals, vec_int.vals, vec_int.size);
+    CHECK_KERNEL_LAUNCH();
     return;
 }
 
@@ -109,6 +111,7 @@ void double_to_float(
     }
     double_to_float_kernel<<<num_block, block_size, 0, stream>>>(
         vec_float.vals, vec_double.vals, vec_float.size);
+    CHECK_KERNEL_LAUNCH();
     return;
 }
 
@@ -129,5 +132,6 @@ void float_to_double(
     }
     float_to_double_kernel<<<num_block, block_size, 0, stream>>>(
         vec_double.vals, vec_float.vals, vec_float.size);
+    CHECK_KERNEL_LAUNCH();
     return;
 }

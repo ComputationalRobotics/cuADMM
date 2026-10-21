@@ -14,10 +14,6 @@
 #include "cuadmm/matrix_sizes.h"
 #include "cuadmm/monitors.h"
 
-#include "psd_projection/composite_FP32.h"
-#if defined(CUDA_VERSION) && (CUDA_VERSION >= 12090)
-#include "psd_projection/composite_FP32_emulated.h"
-#endif
 #include "psd_projection/composite_FP16.h"
 #include "psd_projection/lobpcg.h"
 #include "psd_projection/lanczos.h"
@@ -315,34 +311,31 @@ bool SDPSolver::large_composite_project(int i, int j, int idx)
     double *A = this->large_mat.vals + mat_offset;
     double *A_copy = this->large_mat_tmp.vals + mat_offset; // large_mat_tmp is free here
 
-    // keep a copy of the input to restore it if the polynomial filter overflows
+    // keep a copy of the input to restore it if the polynomial filter overflows or fails the norm test
     CHECK_CUDA(cudaMemcpy(A_copy, A, sizeof(double) * nn, D2D));
+    double norm_in;
+    CHECK_CUBLAS(cublasDnrm2(cublasH, nn, A_copy, 1, &norm_in));
 
     // scale the spectrum into [-1, 1]: the Lanczos estimate 'up' is not a certified upper bound on
-    // ||A||_2, and the filters overflow if ||A||/scale > ~1.01 (FP32) / ~1.02 (FP16), hence the margin
+    // ||A||_2, and the filter overflows if ||A||/scale > ~1.02 (FP16), hence the margin
     double lo, up;
     approximate_two_norm(cublasH, this->cusolverH_composite_proj.cusolver_dn_handle, A, n, &lo, &up);
-    const double margin = this->current_proj_method == ProjectionMethod::COMPOSITE_FP16 ? COMPOSITE_FP16_SCALE_MARGIN : COMPOSITE_FP32_SCALE_MARGIN;
+    const double margin = COMPOSITE_FP16_SCALE_MARGIN;
     const double scale = up > 0.0 ? margin * up : 1.0;
     const double inv_scale = 1.0 / scale;
     CHECK_CUBLAS(cublasDscal(cublasH, nn, &inv_scale, A, 1));
 
-    if (this->current_proj_method == ProjectionMethod::COMPOSITE_FP32)
-        composite_FP32(cublasH, A, n, this->float_proj_workspace.vals);
-    else if (this->current_proj_method == ProjectionMethod::COMPOSITE_FP16)
-        composite_FP16(cublasH, A, n, this->float_proj_workspace.vals, this->half_proj_workspace.vals);
-#if defined(CUDA_VERSION) && (CUDA_VERSION >= 12090)
-    else if (this->current_proj_method == ProjectionMethod::COMPOSITE_FP32_EMULATED)
-        composite_FP32_emulated(cublasH, A, n, this->float_proj_workspace.vals);
-#endif
+    composite_FP16(cublasH, A, n, this->float_proj_workspace.vals, this->half_proj_workspace.vals);
 
     // rescale the result back to the original scale
     CHECK_CUBLAS(cublasDscal(cublasH, nn, &scale, A, 1));
 
-    // reject a non-finite result (overflow of the filter, or non-finite input)
+    // reject a non-finite result (overflow of the filter, or non-finite input) and, B22, a result whose norm exceeds
+    // that of the input beyond the slack: the projection is nonexpansive with Pi(0) = 0, so ||P||_F <= ||Z||_F, and a
+    // finite but wrong result from an underestimated scale fails this free necessary condition
     double norm;
     CHECK_CUBLAS(cublasDnrm2(cublasH, nn, A, 1, &norm));
-    if (!std::isfinite(norm))
+    if (!std::isfinite(norm) || !std::isfinite(norm_in) || norm > (1.0 + COMPOSITE_NORM_SLACK) * norm_in)
     {
         CHECK_CUDA(cudaMemcpy(A, A_copy, sizeof(double) * nn, D2D));
         this->composite_fallbacks++;
@@ -547,18 +540,15 @@ void SDPSolver::init(
     this->cublasH.set_gpu_id(GPU0);
     this->cublasH.activate();
 
+    // B17: the medium-block EVDs are distributed over the streams with counter % eig_stream_num_per_gpu
+    if (eig_stream_num_per_gpu < 1)
+        throw std::invalid_argument("init(): eig_stream_num_per_gpu must be at least 1 (got " + std::to_string(eig_stream_num_per_gpu) + ")");
     this->eig_stream_num_per_gpu = eig_stream_num_per_gpu;
 
     this->initial_proj_method = initial_proj_method;
     this->final_proj_method = final_proj_method;
     this->current_proj_method = initial_proj_method;
     this->switched_proj_method = false;
-#if !(defined(CUDA_VERSION) && (CUDA_VERSION >= 12090))
-    if (initial_proj_method == ProjectionMethod::COMPOSITE_FP32_EMULATED || final_proj_method == ProjectionMethod::COMPOSITE_FP32_EMULATED)
-    {
-        throw std::invalid_argument("the projection method 'COMPOSITE_FP32_EMULATED' was selected, but is not supported. BF16x9 emulation requires CUDA 12.9 or higher.");
-    }
-#endif
 
     /* Initialize the A matrix */
     this->vec_len = vec_len;
@@ -575,7 +565,7 @@ void SDPSolver::init(
     // wait for the streams to finish
     this->synchronize_gpu0_streams();
 
-    // compute the norm of A
+    // compute the norm of A (get_normA rewrites At_csc.vals on the legacy default stream)
     this->normA.allocate(GPU0, con_num);
     get_normA(this->At_csc, this->normA);
 
@@ -583,6 +573,13 @@ void SDPSolver::init(
     this->CSCtoCSR_At2A_buffer_size = CSC_to_CSR_get_buffersize_cusparse(this->cusparseH, this->At_csc, this->At_csr);
     this->CSCtoCSR_At2A_buffer.allocate(GPU0, CSCtoCSR_At2A_buffer_size, true);
     CSC_to_CSR_cusparse(this->cusparseH, this->At_csc, this->At_csr, this->CSCtoCSR_At2A_buffer);
+    // B2: the copies of At_csc into A_csr run on the non-blocking flex streams and must see the normalized values:
+    // an event on the default stream orders them after get_normA (and after the CSC-to-CSR conversion)
+    cudaEvent_t normA_done;
+    CHECK_CUDA(cudaEventCreateWithFlags(&normA_done, cudaEventDisableTiming));
+    CHECK_CUDA(cudaEventRecord(normA_done, (cudaStream_t)0));
+    for (int stream_id = 0; stream_id < 3; stream_id++)
+        CHECK_CUDA(cudaStreamWaitEvent(this->stream_flex[stream_id].stream, normA_done, 0));
     CHECK_CUDA(cudaMemcpyAsync(this->A_csr.row_ptrs, this->At_csc.col_ptrs, sizeof(int) * (con_num + 1), D2D, this->stream_flex[0].stream));
     CHECK_CUDA(cudaMemcpyAsync(this->A_csr.col_ids, this->At_csc.row_ids, sizeof(int) * At_nnz, D2D, this->stream_flex[1].stream));
     CHECK_CUDA(cudaMemcpyAsync(this->A_csr.vals, this->At_csc.vals, sizeof(double) * At_nnz, D2D, this->stream_flex[2].stream));
@@ -709,6 +706,11 @@ void SDPSolver::init(
     this->psd_blk_sizes = blk_struct.psd_blk_sizes;
     this->psd_blk_nums = blk_struct.psd_blk_nums;
     this->sizes = blk_struct.sizes;
+    // B21: the exact EVD (the fallback of every projection method) has a size limit on CUDA 12.9 (plan O5)
+    if (this->sizes.large_mat_num > 0 && this->sizes.max_large_mat_size > CUADMM_MAX_EVD_BLOCK_SIZE)
+        throw std::invalid_argument("PSD block of size " + std::to_string(this->sizes.max_large_mat_size) +
+                                    " exceeds the exact-EVD limit of " + std::to_string(CUADMM_MAX_EVD_BLOCK_SIZE) +
+                                    " (cusolverDnXsyevd workspace queries fail above it on CUDA 12.9)");
     const std::vector<int> &map_B_tmp = blk_struct.map_B;   // |
     const std::vector<int> &map_M1_tmp = blk_struct.map_M1; // |- CPU version
     const std::vector<int> &map_M2_tmp = blk_struct.map_M2; // |
@@ -730,6 +732,7 @@ void SDPSolver::init(
     CHECK_CUDA(cudaMemcpyAsync(this->Corg.indices, this->C.indices, sizeof(int) * this->C.nnz, D2D, this->stream_flex[2].stream));
     CHECK_CUDA(cudaMemcpyAsync(this->Corg.vals, this->C.vals, sizeof(double) * this->C.nnz, D2D, this->stream_flex[0].stream));
     this->synchronize_gpu0_streams();
+    CHECK_CUDA(cudaEventDestroy(normA_done)); // every stream that waited on it has completed
     // compute the norms of b and C
     this->norm_borg = 1 + this->borg.get_norm(this->cublasH);
     this->norm_Corg = 1 + this->Corg.get_norm(this->cublasH);
@@ -934,10 +937,8 @@ void SDPSolver::init(
     if (total_cpu_eig_large_buffer_size != 0)
         this->cpu_eig_large_buffer.allocate(total_cpu_eig_large_buffer_size, true);
 
-    if (
-        this->sizes.large_mat_sizes.size() > 0 && (this->initial_proj_method == ProjectionMethod::COMPOSITE_FP32 || this->initial_proj_method == ProjectionMethod::COMPOSITE_FP32_EMULATED || this->initial_proj_method == ProjectionMethod::COMPOSITE_FP16
-
-                                                   || this->final_proj_method == ProjectionMethod::COMPOSITE_FP32 || this->final_proj_method == ProjectionMethod::COMPOSITE_FP32_EMULATED || this->final_proj_method == ProjectionMethod::COMPOSITE_FP16))
+    if (this->sizes.large_mat_sizes.size() > 0 &&
+        (this->initial_proj_method == ProjectionMethod::COMPOSITE_FP16 || this->final_proj_method == ProjectionMethod::COMPOSITE_FP16))
     {
         // create a workspace for the composite projection
         int largest_size = *std::max_element(this->sizes.large_mat_sizes.begin(), this->sizes.large_mat_sizes.end());
@@ -945,19 +946,13 @@ void SDPSolver::init(
         size_t stride = nn % 4 == 0 ? nn : nn + (4 - nn % 4); // we need to ensure proper memory alignment
 
         this->float_proj_workspace.allocate_size_t(GPU0, 3 * stride);
-        if (this->initial_proj_method == ProjectionMethod::COMPOSITE_FP16 || this->final_proj_method == ProjectionMethod::COMPOSITE_FP16) // if FP16, we need a second workspace
-            this->half_proj_workspace.allocate_size_t(GPU0, 3 * stride);
+        this->half_proj_workspace.allocate_size_t(GPU0, 3 * stride);
 
-        // create a cuBLAS handle
+        // create a cuBLAS handle; B1: the math mode is set explicitly to the default (the FP16 filter calls
+        // cublasGemmEx with its own compute type; the plan measured its output bitwise identical under both modes)
         this->cublasH_composite_proj.set_gpu_id(GPU0);
         this->cublasH_composite_proj.activate();
-        CHECK_CUBLAS(cublasSetMathMode(this->cublasH_composite_proj.cublas_handle, CUBLAS_TENSOR_OP_MATH));
-#if defined(CUDA_VERSION) && (CUDA_VERSION >= 12090)
-        if (this->initial_proj_method == ProjectionMethod::COMPOSITE_FP32_EMULATED || this->final_proj_method == ProjectionMethod::COMPOSITE_FP32_EMULATED)
-        {
-            CHECK_CUBLAS(cublasSetEmulationStrategy(this->cublasH_composite_proj.cublas_handle, CUBLAS_EMULATION_STRATEGY_EAGER));
-        }
-#endif
+        CHECK_CUBLAS(cublasSetMathMode(this->cublasH_composite_proj.cublas_handle, CUBLAS_DEFAULT_MATH));
 
         // create a cuSOLVER handle
         this->cusolverH_composite_proj.set_gpu_id(GPU0);
@@ -1100,13 +1095,6 @@ void SDPSolver::solve(
     this->switch_admm = switch_admm;
     this->sigscale = sigscale;
 
-#ifdef CUADMM_PLAIN_ADMM_ONLY
-    // plain-ADMM-only build: sGS-ADMM (switch_admm > max_iter) and the sGS -> ADMM hybrid (1 < switch_admm) are rejected
-    if (switch_admm > 1)
-        throw std::invalid_argument("solve(): switch_admm = " + std::to_string(switch_admm) +
-                                    " requests sGS-ADMM steps, which this plain-ADMM-only build (CUADMM_PLAIN_ADMM_ONLY) does "
-                                    "not execute; use switch_admm = 0 (plain ADMM)");
-#endif
     // validation-aware stopping (ValidationConfig): state of this call
     const bool validating = this->validation.interval > 0;
     const std::set<int> checkpoints(this->validation.checkpoint_iterations.begin(), this->validation.checkpoint_iterations.end());
@@ -1192,10 +1180,6 @@ void SDPSolver::solve(
 
     std::cout << std::endl;
     std::cout << " Algorithm: " << admm_mode_name(switch_admm, max_iter) << std::endl;
-#ifdef CUADMM_PLAIN_ADMM_ONLY
-    std::cout << " Build: plain ADMM only (CUADMM_PLAIN_ADMM_ONLY): sGS-ADMM and the sGS -> ADMM hybrid are disabled; "
-                 "one y linear solve per iteration" << std::endl;
-#endif
     if (validating && this->validation.strict_dimacs_tol > 0)
         std::cout << " Strict stage: after the practical criteria, continue until max_abs_DIMACS <= " << this->validation.strict_dimacs_tol
                   << " or a safety limit" << std::endl;
@@ -1713,10 +1697,7 @@ void SDPSolver::solve(
                 - if low rank, use LOBPCG
                 - else, use cuSOLVER
         */
-        bool is_composite =
-            this->current_proj_method == ProjectionMethod::COMPOSITE_FP32 ||
-            this->current_proj_method == ProjectionMethod::COMPOSITE_FP16 ||
-            this->current_proj_method == ProjectionMethod::COMPOSITE_FP32_EMULATED;
+        bool is_composite = this->current_proj_method == ProjectionMethod::COMPOSITE_FP16;
         bool is_lobpcg_phase = this->use_lobpcg && this->switched_proj_method;
         // every LOBPCG_REEVALUATE iterations of the LOBPCG phase, the full EVD is used to recompute the ranks
         bool reevaluate = is_lobpcg_phase && (iter - this->switched_proj_method_iter) % LOBPCG_REEVALUATE == 0;
@@ -1919,16 +1900,8 @@ void SDPSolver::solve(
         // hence SmC = S^{k+1} - C
 
         /* Compute y^{k+1} */
-        // If the number of iterations goes large but sGS-ADMM still fail to converge,
-        // switch to ordinary ADMM
-        if (iter == this->switch_admm)
-        {
-            // (historical: only the sGS sigma rule reads sig_update_stage_2 and the plain-ADMM rule overwrites sigscale
-            // before using it, so these writes do not change the iteration)
-            this->sig_update_stage_2 = this->sig_update_stage_2 / 2;
-            this->sigscale = this->sigscale * 1.23;
-            this->sgs_KKT = max(this->maxfeas, this->relgap);
-        }
+        // (the historical writes at iter == switch_admm, sig_update_stage_2 / 2, sigscale * 1.23 and sgs_KKT, are
+        // gone: nothing read them after the switch)
 
         // when before the switch, perform the special sGS-ADMM step
         if (iter >= this->switch_admm)
@@ -1937,9 +1910,6 @@ void SDPSolver::solve(
             this->sgs_phase_iterations++;
         if (iter < this->switch_admm)
         {
-#ifdef CUADMM_PLAIN_ADMM_ONLY
-            throw std::logic_error("sGS second y-update reached in a plain-ADMM-only build (iteration " + std::to_string(iter) + ")");
-#endif
             // rhsy <-- -1.0 * A * SmC + 0.0 * rhsy
             SpMV_cusparse(this->cusparseH, this->A_csr, this->SmC, this->rhsy, -1.0, 0.0, this->SpMV_AX_buffer);
             // hence rhsy = - A(S - C)

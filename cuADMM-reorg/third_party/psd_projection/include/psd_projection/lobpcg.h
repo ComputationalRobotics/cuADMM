@@ -15,7 +15,7 @@ struct LobpcgInfo {
 /// @param cusolverH cuSOLVER handle for QR and eigenvalue decompositions
 /// @param A n x n symmetric matrix (device pointer)
 /// @param V n x m matrix to store the eigenvectors (device pointer)
-/// @param D m x m matrix to store the eigenvalues (device pointer)
+/// @param D vector of m eigenvalues (device pointer; B12: it was documented as an m x m matrix)
 /// @param n size of the matrix A
 /// @param m number of eigenpairs to compute
 /// @param warmstart if true, warm start the algorithm using the values in `V` and `D`; in this case, `V` is assumed to be orthonormal
@@ -38,7 +38,7 @@ void lobpcg(
     cusolverDnHandle_t cusolverH,
     const double* A, // n x n, device pointer
     double* V,       // n x m, device pointer (output eigenvectors)
-    double* D,       // m x m, device pointer (output eigenvalues, diagonal)
+    double* D,       // m, device pointer (output eigenvalues)
     const int n,
     const int m ,    // number of eigenpairs
     const bool warmstart = false,

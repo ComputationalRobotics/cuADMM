@@ -34,7 +34,7 @@
 #include "regression_solver_test.hpp"
 #include "fixed_sigma_validation_test.hpp"
 #include "hybrid_switch_test.hpp"
-#include "plain_admm_only_test.hpp"
+#include "outputs_test.hpp"
 
 int main(int argc, char **argv)
 {

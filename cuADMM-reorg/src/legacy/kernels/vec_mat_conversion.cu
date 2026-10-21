@@ -101,6 +101,7 @@ void vector_to_matrices(
         Xb.vals, large_mat.vals, medium_mat.vals, small_mat.vals,
         map_B.vals, map_M1.vals, map_M2.vals,
         vec_len);
+    CHECK_KERNEL_LAUNCH();
     return;
 }
 
@@ -121,5 +122,6 @@ void matrices_to_vector(
         Xb.vals, Xinput.vals, large_mat.vals, medium_mat.vals, small_mat.vals,
         map_B.vals, map_M1.vals, map_M2.vals,
         vec_len);
+    CHECK_KERNEL_LAUNCH();
     return;
 }

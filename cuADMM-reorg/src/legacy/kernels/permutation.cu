@@ -29,5 +29,6 @@ void perform_permutation(
     int num_block = (perm.size + block_size - 1) / block_size;
     perform_permutation_kernel<<<num_block, block_size, 0, stream>>>(
         vec1.vals, vec2.vals, perm.vals, perm.size);
+    CHECK_KERNEL_LAUNCH();
     return;
 }

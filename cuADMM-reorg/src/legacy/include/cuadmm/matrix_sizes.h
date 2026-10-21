@@ -63,8 +63,6 @@ public:
 
     MatrixSizes() {}
 
-    void init(const std::vector<int> &psd_blk_sizes, const std::vector<int> &psd_blk_nums);
-
     // Given a matrix size index and an index i, returns the offset of the i-th matrix of size mat_size (to which mat_size_index corresponds) in the vectorized representation.
     int large_mat_offset(int mat_size_index, int mat_index) const;
 

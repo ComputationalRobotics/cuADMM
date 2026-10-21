@@ -64,8 +64,6 @@ endif()
 # Phase 6a); a static library would give a duplicate symbol at link time.
 add_library(cuadmm_psd_kernels SHARED
   third_party/psd_projection/src/composite_FP16.cu
-  third_party/psd_projection/src/composite_FP32.cu
-  third_party/psd_projection/src/composite_FP32_emulated.cu
   third_party/psd_projection/src/lanczos.cu
   third_party/psd_projection/src/lobpcg.cu
   third_party/psd_projection/src/utils.cu)
@@ -91,8 +89,6 @@ add_library(cuadmm SHARED ${CUADMM_LEGACY_SOURCES})
 target_include_directories(cuadmm PUBLIC
   src/legacy/include
   ${SUITESPARSE_INCLUDE_DIRECTORIES})
-# Phase 0 keeps the plain-ADMM-only build of main (CUADMM_PLAIN_ADMM_ONLY); Phase 1 removes it (B5).
-target_compile_definitions(cuadmm PUBLIC CUADMM_PLAIN_ADMM_ONLY)
 target_link_libraries(cuadmm PUBLIC
   CUDA::cudart CUDA::cusparse CUDA::cublas CUDA::cusolver
   ${CMAD_LIB} ${CCOLAMD_LIB} ${CHOLMOD_LIB}

@@ -77,6 +77,10 @@ inline std::string cuadmm_error_message(const std::string &what, const char *fil
         }                                                                                                    \
     } while (0)
 
+// Check the launch of the kernel that was just enqueued (B16): an invalid configuration or a sticky error of an
+// earlier asynchronous failure surfaces here instead of at the next synchronizing call.
+#define CHECK_KERNEL_LAUNCH() CHECK_CUDA(cudaGetLastError())
+
 /* Non-throwing variants, for destructors */
 
 #define CHECK_CUDA_NOTHROW(func)                                                \

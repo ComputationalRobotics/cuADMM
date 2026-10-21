@@ -38,6 +38,7 @@ void sparse_vector_mul_scalar(
         num_block = (vec.nnz + block_size - 1) / block_size;
     }
     sparse_vector_mul_scalar_kernel<<<num_block, block_size, 0, stream>>>(vec.vals, vec.nnz, scalar);
+    CHECK_KERNEL_LAUNCH();
     return;
 }
 
@@ -57,5 +58,6 @@ void sparse_vector_div_scalar(
         num_block = (vec.nnz + block_size - 1) / block_size;
     }
     sparse_vector_mul_scalar_kernel<<<num_block, block_size, 0, stream>>>(vec.vals, vec.nnz, 1 / scalar);
+    CHECK_KERNEL_LAUNCH();
     return;
 }

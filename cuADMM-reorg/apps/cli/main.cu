@@ -339,25 +339,6 @@ static bool parse_options(int argc, char *argv[], Options &opt)
         std::cerr << "ERROR: --strict-dimacs-tol must be a finite non-negative number" << std::endl;
         return false;
     }
-#ifdef CUADMM_PLAIN_ADMM_ONLY
-    // plain-ADMM-only build: every option that would run an sGS-ADMM step is rejected
-    {
-        const char *why = nullptr;
-        if (opt.algorithm == "sgs")
-            why = "--algorithm sgs";
-        else if (opt.switch_admm_set && opt.switch_admm > 1)
-            why = "--switch-admm > 1";
-        else if (opt.sgs_iterations_set && opt.sgs_iterations > 0)
-            why = "--sgs-iterations > 0";
-        if (why)
-        {
-            std::cerr << "ERROR: " << why << " requests sGS-ADMM, which is disabled in this plain-ADMM-only build "
-                      << "(CUADMM_PLAIN_ADMM_ONLY, branch experiment/plato-cold-plain-admm-sigma); use plain ADMM "
-                      << "(--algorithm admm, the default)" << std::endl;
-            return false;
-        }
-    }
-#endif
     for (int c : opt.checkpoint_iters)
         if (c <= 0)
         {
@@ -462,11 +443,6 @@ static void write_summary(const Options &opt, const Problem &problem, const SDPS
       << ", \"validation_count\": " << solver.validation_history.size()
       << ", \"validation_time_s\": " << solver.validation_time_s
       << ", \"callback_time_s\": " << solver.callback_time_s << ", \"callback_failures\": " << solver.callback_failures
-#ifdef CUADMM_PLAIN_ADMM_ONLY
-      << ", \"plain_admm_only_build\": true"
-#else
-      << ", \"plain_admm_only_build\": false"
-#endif
       << ", \"y_solves\": " << solver.y_solves << ", \"y_solves_per_iteration\": "
       << json_number(solver.info_iter_num > 0 ? (double)solver.y_solves / solver.info_iter_num : 0.0)
       << ", \"sigma_log_entries\": " << solver.sigma_log.size()

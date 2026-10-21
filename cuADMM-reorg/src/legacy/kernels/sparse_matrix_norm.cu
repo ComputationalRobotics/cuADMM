@@ -42,5 +42,6 @@ void get_normA(
     const int num_block = (con_num + block_size - 1) / block_size;
     get_normA_kernel<<<num_block, block_size, 0, stream>>>(
         At.col_ptrs, At.vals, normA.vals, con_num);
+    CHECK_KERNEL_LAUNCH();
     return;
 }

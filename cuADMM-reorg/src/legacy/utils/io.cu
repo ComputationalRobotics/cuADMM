@@ -4,6 +4,7 @@
 
     Defines functions for reading data from files.
     The data is read into vectors of doubles or integers, depending on the type of data.
+    A file that cannot be opened throws std::runtime_error (B16: the library never calls exit()).
 
     For dense vectors, the data is read from a file where each line contains a single value.
     For sparse vectors and matrices, the data is read from a file where each line contains three values: row index, column index, and value.
@@ -31,9 +32,7 @@ void read_dense_vector_data(const std::string &filename, std::vector<double> &va
     std::ifstream file(filename);
     if (!file.is_open())
     {
-        std::cerr << "ERROR: could not open file '" << filename << "'. Please verify that the provided directory path is correct." << std::endl;
-        exit(1);
-        return;
+        throw std::runtime_error("could not open file '" + filename + "': verify that the provided directory path is correct");
     }
 
     double val;
@@ -57,9 +56,7 @@ void read_dense_vector_data(const std::string &filename, std::vector<int> &vals)
     std::ifstream file(filename);
     if (!file.is_open())
     {
-        std::cerr << "ERROR: could not open file " << filename << std::endl;
-        exit(1);
-        return;
+        throw std::runtime_error("could not open file " + filename);
     }
 
     double val;
@@ -85,8 +82,7 @@ void read_sparse_vector_data(
     std::ifstream file(filename);
     if (!file.is_open())
     {
-        std::cerr << "Failed to open file: " << filename << std::endl;
-        exit(1);
+        throw std::runtime_error("could not open file " + filename);
     }
     int row, col;
     double val;
@@ -119,8 +115,7 @@ void read_COO_sparse_matrix_data(
     std::ifstream file(filename);
     if (!file.is_open())
     {
-        std::cerr << "Failed to open file: " << filename << std::endl;
-        exit(1);
+        throw std::runtime_error("could not open file " + filename);
     }
     int row, col;
     double val;
@@ -147,8 +142,7 @@ void write_dense_vector_data(
     std::ofstream file(filename);
     if (!file.is_open())
     {
-        std::cerr << "Failed to open file: " << filename << std::endl;
-        exit(1);
+        throw std::runtime_error("could not open file " + filename);
     }
     file << std::setprecision(precision);
     for (int i = 0; i < vals.size(); i++)
@@ -168,8 +162,7 @@ void write_dense_vector_data(
     std::ofstream file(filename);
     if (!file.is_open())
     {
-        std::cerr << "Failed to open file: " << filename << std::endl;
-        exit(1);
+        throw std::runtime_error("could not open file " + filename);
     }
     file << std::setprecision(precision);
     for (int i = 0; i < vals.size(); i++)
@@ -189,8 +182,7 @@ void write_sparse_matrix_data(
     std::ofstream file(filename);
     if (!file.is_open())
     {
-        std::cerr << "Failed to open file: " << filename << std::endl;
-        exit(1);
+        throw std::runtime_error("could not open file " + filename);
     }
     file << std::setprecision(precision);
     for (int i = 0; i < vals.size(); i++)
@@ -347,9 +339,7 @@ void read_blk(const std::string &filename, std::vector<std::tuple<char, int>> &v
     std::ifstream file(filename);
     if (!file.is_open())
     {
-        std::cerr << "ERROR: could not open file " << filename << std::endl;
-        exit(1);
-        return;
+        throw std::runtime_error("could not open file " + filename);
     }
 
     std::string line;

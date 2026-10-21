@@ -19,6 +19,8 @@
 
 */
 
+#include <cmath>
+#include <limits>
 #include <memory>
 #include <stdexcept>
 #include <string>
@@ -49,6 +51,35 @@ void check_double_input(const mxArray* arr, const char* name, bool sparse, bool 
 // An optional input is used if the caller passed it and it is not [] (pass [] to keep its default value)
 bool has_optional_input(int nrhs, const mxArray* prhs[], int input_id) {
     return nrhs > input_id && !mxIsEmpty(prhs[input_id]);
+}
+
+// B17: a scalar option must be a real finite numeric scalar; integers must be whole and within [lo, hi]
+double get_scalar(const mxArray* arr, const char* name) {
+    if (!mxIsNumeric(arr) || mxIsComplex(arr) || mxIsSparse(arr) || mxGetNumberOfElements(arr) != 1) {
+        throw InputError(std::string(name) + " must be a real numeric scalar.");
+    }
+    const double v = mxGetScalar(arr);
+    if (!std::isfinite(v)) {
+        throw InputError(std::string(name) + " must be finite.");
+    }
+    return v;
+}
+
+int get_int(const mxArray* arr, const char* name, double lo, double hi) {
+    const double v = get_scalar(arr, name);
+    if (v != std::floor(v) || v < lo || v > hi) {
+        throw InputError(std::string(name) + " must be an integer in [" + std::to_string((long long)lo) + ", " +
+                         std::to_string((long long)hi) + "], got " + std::to_string(v) + ".");
+    }
+    return static_cast<int>(v);
+}
+
+double get_positive(const mxArray* arr, const char* name) {
+    const double v = get_scalar(arr, name);
+    if (!(v > 0)) {
+        throw InputError(std::string(name) + " must be positive, got " + std::to_string(v) + ".");
+    }
+    return v;
 }
 
 void get_dnvec_from_matlab(
@@ -275,14 +306,15 @@ void cuadmm_mex(int nlhs, mxArray* plhs[], int nrhs, const mxArray* prhs[]) {
         throw InputError("cuadmm_MATLAB returns at most " + std::to_string(OUTPUT_ID.info + 1) + " outputs.");
     }
 
-    // eig_stream_num_per_gpu
-    int eig_stream_num_per_gpu = static_cast<int>( mxGetScalar(prhs[INPUT_ID.eig_stream_num_per_gpu]) );
+    // eig_stream_num_per_gpu (B17: at least one stream, or the medium-block EVDs divide by zero)
+    const int max_int = std::numeric_limits<int>::max() - 2;
+    int eig_stream_num_per_gpu = get_int(prhs[INPUT_ID.eig_stream_num_per_gpu], "eig_stream_num_per_gpu", 1, max_int);
 
     // max_iter
-    int max_iter = static_cast<int>( mxGetScalar(prhs[INPUT_ID.max_iter]) );
+    int max_iter = get_int(prhs[INPUT_ID.max_iter], "max_iter", 0, max_int);
 
     // stop_tol
-    double stop_tol = mxGetScalar(prhs[INPUT_ID.stop_tol]);
+    double stop_tol = get_positive(prhs[INPUT_ID.stop_tol], "stop_tol");
 
     // At
     int vec_len;
@@ -409,63 +441,23 @@ void cuadmm_mex(int nlhs, mxArray* plhs[], int nrhs, const mxArray* prhs[]) {
     }
 
     // sig
-    double sig = mxGetScalar(prhs[INPUT_ID.sig]);
+    double sig = get_positive(prhs[INPUT_ID.sig], "sig");
 
-    // sig_update_threshold
-    int sig_update_threshold;
-    if (has_optional_input(nrhs, prhs, INPUT_ID.sig_update_threshold)) {
-        sig_update_threshold = static_cast<int>( mxGetScalar(prhs[INPUT_ID.sig_update_threshold]) );
-    } else {
-        sig_update_threshold = 500;
-    }
-
-    // sig_update_stage_1
-    int sig_update_stage_1;
-    if (has_optional_input(nrhs, prhs, INPUT_ID.sig_update_stage_1)) {
-        sig_update_stage_1 = static_cast<int>( mxGetScalar(prhs[INPUT_ID.sig_update_stage_1]) );
-    } else {
-        sig_update_stage_1 = 50;
-    }
-
-    // sig_update_stage_2
-    int sig_update_stage_2;
-    if (has_optional_input(nrhs, prhs, INPUT_ID.sig_update_stage_2)) {
-        sig_update_stage_2 = static_cast<int>( mxGetScalar(prhs[INPUT_ID.sig_update_stage_2]) );
-    } else {
-        sig_update_stage_2 = 100;
-    }
-
-    // switch_admm
-    int switch_admm;
-    if (has_optional_input(nrhs, prhs, INPUT_ID.switch_admm)) {
-        switch_admm = static_cast<int>( mxGetScalar(prhs[INPUT_ID.switch_admm]) );
-    } else {
-        switch_admm = 0;
-    }
-
-    // switch_proj_iter
-    int switch_proj_iter;
-    if (has_optional_input(nrhs, prhs, INPUT_ID.switch_proj_iter)) {
-        switch_proj_iter = static_cast<int>( mxGetScalar(prhs[INPUT_ID.switch_proj_iter]) );
-    } else {
-        switch_proj_iter = (int) 5000;
-    }
-
-    // switch_proj_tol
-    double switch_proj_tol;
-    if (has_optional_input(nrhs, prhs, INPUT_ID.switch_proj_tol)) {
-        switch_proj_tol = mxGetScalar(prhs[INPUT_ID.switch_proj_tol]);
-    } else {
-        switch_proj_tol = (double) 1e-2;
-    }
-
-    // sigscale
-    double sigscale;
-    if (has_optional_input(nrhs, prhs, INPUT_ID.sigscale)) {
-        sigscale = mxGetScalar(prhs[INPUT_ID.sigscale]);
-    } else {
-        sigscale = 2.0;
-    }
+    // optional scalars (B17: validated like the required ones)
+    int sig_update_threshold = has_optional_input(nrhs, prhs, INPUT_ID.sig_update_threshold)
+        ? get_int(prhs[INPUT_ID.sig_update_threshold], "sig_update_threshold", 0, max_int) : 500;
+    int sig_update_stage_1 = has_optional_input(nrhs, prhs, INPUT_ID.sig_update_stage_1)
+        ? get_int(prhs[INPUT_ID.sig_update_stage_1], "sig_update_stage_1", 1, max_int) : 50;
+    int sig_update_stage_2 = has_optional_input(nrhs, prhs, INPUT_ID.sig_update_stage_2)
+        ? get_int(prhs[INPUT_ID.sig_update_stage_2], "sig_update_stage_2", 1, max_int) : 100;
+    int switch_admm = has_optional_input(nrhs, prhs, INPUT_ID.switch_admm)
+        ? get_int(prhs[INPUT_ID.switch_admm], "switch_admm", 0, max_int) : 0;
+    int switch_proj_iter = has_optional_input(nrhs, prhs, INPUT_ID.switch_proj_iter)
+        ? get_int(prhs[INPUT_ID.switch_proj_iter], "switch_proj_iter", 0, max_int) : 5000;
+    double switch_proj_tol = has_optional_input(nrhs, prhs, INPUT_ID.switch_proj_tol)
+        ? get_positive(prhs[INPUT_ID.switch_proj_tol], "switch_proj_tol") : 1e-2;
+    double sigscale = has_optional_input(nrhs, prhs, INPUT_ID.sigscale)
+        ? get_positive(prhs[INPUT_ID.sigscale], "sigscale") : 2.0;
 
     // -------------------------------------------------------
 

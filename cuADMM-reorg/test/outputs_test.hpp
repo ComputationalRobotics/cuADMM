@@ -1,11 +1,10 @@
 /*
 
-    plain_admm_only_test.hpp
+    outputs_test.hpp
 
-    Tests of the plain-ADMM-only build (CUADMM_PLAIN_ADMM_ONLY, branch experiment/plato-cold-plain-admm-sigma) and of
-    the additions for the PLATO campaign:
-      - solve() and the command line reject every sGS-ADMM / hybrid configuration; a solve performs exactly one y linear
-        solve per iteration and no sGS step;
+    Tests of the outputs added for the PLATO campaign (formerly plain_admm_only_test.hpp of the plain-ADMM-only build
+    of main; sGS-ADMM is a runtime option since B5, so the build-rejection tests are gone):
+      - a plain-ADMM solve performs exactly one y linear solve per iteration and no sGS step, an sGS-ADMM solve two;
       - the sigma log records every change of the adaptive rules and reproduces the per-iteration sigma history;
         fixed sigma never changes;
       - the six DIMACS error measures of ExternalValidator on a small problem with hand-computed values, including the
@@ -32,8 +31,6 @@
 #include "regression_problems.hpp"
 #include "solver_setup.hpp"
 
-#ifdef CUADMM_PLAIN_ADMM_ONLY
-
 namespace plain_test
 {
 using fixed_sigma_test::last_solve;
@@ -51,27 +48,9 @@ inline std::string read_file(const std::string &f)
 
 using namespace plain_test;
 
-// solve() rejects sGS-ADMM (switch_admm > max_iter), the hybrid (1 < switch_admm <= max_iter) and the hybrid sigma
-// policy; switch_admm = 0 or 1 is plain ADMM.
-TEST(PlainAdmmOnly, SolveRejectsSgsAndHybrid)
-{
-    const regression::RegressionProblem p = regression::generate("PSD_Free");
-    for (int sw : {INT_MAX, 101, 2})
-    {
-        SDPSolver s;
-        ASSERT_NO_THROW(solver_setup::init_solver(p, s, true, 1.0));
-        EXPECT_THROW(s.solve(100, 1e-4, 500, 50, 100, sw, 0, 1e-2, 2.0), std::invalid_argument) << "switch_admm = " << sw;
-    }
-    for (int sw : {0, 1})
-    {
-        SDPSolver s;
-        ASSERT_NO_THROW(solver_setup::init_solver(p, s, true, 1.0));
-        EXPECT_NO_THROW(s.solve(50, 1e-12, 500, 50, 100, sw, 0, 1e-2, 2.0));
-    }
-}
-
-// Exactly one y linear solve per iteration, no sGS iteration, tau = 1.618 at every iteration.
-TEST(PlainAdmmOnly, OneYSolvePerIterationNoSgsStep)
+// Plain ADMM: exactly one y linear solve per iteration, no sGS iteration, tau = 1.618 at every iteration; pure
+// sGS-ADMM: two y solves per iteration, tau = 1.95 (stop_tol 0: the tau reduction never fires).
+TEST(PlainAdmm, OneYSolvePerIterationNoSgsStep)
 {
     const regression::RegressionProblem p = regression::generate("PSD_Free");
     for (SigmaPolicy pol : {SigmaPolicy::LEGACY_ADAPTIVE, SigmaPolicy::RESIDUAL_BALANCING, SigmaPolicy::FIXED})
@@ -87,12 +66,22 @@ TEST(PlainAdmmOnly, OneYSolvePerIterationNoSgsStep)
         for (double t : last_solve(s.info_tau_arr, s.info_iter_num))
             ASSERT_EQ(t, 1.618);
     }
+    SDPSolver g;
+    ASSERT_NO_THROW(solver_setup::init_solver(p, g, true, 1.0));
+    g.sigma_policy = SigmaPolicy::FIXED;
+    ASSERT_NO_THROW(g.solve(300, 0.0, 500, 50, 100, INT_MAX, 0, 1e-2, 2.0));
+    ASSERT_EQ(g.info_iter_num, 300);
+    EXPECT_EQ(g.y_solves, 600);
+    EXPECT_EQ(g.sgs_phase_iterations, 300);
+    EXPECT_EQ(g.admm_phase_iterations, 0);
+    for (double t : last_solve(g.info_tau_arr, g.info_iter_num))
+        ASSERT_EQ(t, 1.95);
 }
 
 // The sigma log reproduces the per-iteration sigma history of both adaptive policies (6000 iterations reach the
 // Monitor1 region of legacy_adaptive, whose log also records the monitor's changes); fixed sigma logs nothing and
 // never changes.
-TEST(PlainAdmmOnly, SigmaLogReproducesTheHistory)
+TEST(SigmaLog, ReproducesTheHistory)
 {
     const regression::RegressionProblem p = regression::generate("PSD_Free");
     for (SigmaPolicy pol : {SigmaPolicy::LEGACY_ADAPTIVE, SigmaPolicy::RESIDUAL_BALANCING})
@@ -245,9 +234,9 @@ TEST(StrictStage, PracticalThenStrictAndTheReturnedIterate)
     EXPECT_EQ(u.max_abs_dimacs, best);
 }
 
-// Command line of the plain-ADMM-only build: sGS options are rejected with a clear error; a plain-ADMM run reports
-// the build, one y solve per iteration, writes the sigma log and, at a safety limit, the final iterate.
-TEST(PlainAdmmOnlyCli, RejectsSgsOptionsAndWritesTheNewOutputs)
+// Command line: a plain-ADMM run reports one y solve per iteration, writes the sigma log and, at a safety limit, the
+// final iterate; an sGS-ADMM run reports two y solves per iteration.
+TEST(OutputsCli, WritesTheSigmaLogAndTheFinalIterate)
 {
     const std::string dir = "fixed_sigma_cli/PSD_Free";
     regression::write_txt(regression::generate("PSD_Free"), dir);
@@ -259,15 +248,11 @@ TEST(PlainAdmmOnlyCli, RejectsSgsOptionsAndWritesTheNewOutputs)
                                 ".log 2>&1";
         return std::system(cmd.c_str());
     };
-    for (const std::string &bad : {std::string("--algorithm sgs"), std::string("--switch-admm 5"), std::string("--sgs-iterations 10")})
-    {
-        EXPECT_NE(run(bad, "rejected"), 0) << bad;
-        EXPECT_NE(read_file("fixed_sigma_cli/rejected.log").find("disabled in this plain-ADMM-only build"), std::string::npos) << bad;
-    }
+    ASSERT_EQ(run("--algorithm sgs --max-iter 50 --tol 1e-12 --sig 1", "sgs"), 0);
+    EXPECT_NE(read_file("fixed_sigma_cli/sgs.json").find("\"y_solves_per_iteration\": 2,"), std::string::npos);
     ASSERT_EQ(run("--algorithm admm --max-iter 600 --tol 1e-12 --sig 1 --sigma-log fixed_sigma_cli/plain_sigma.csv", "plain"), 0);
     const std::string js = read_file("fixed_sigma_cli/plain.json"), log = read_file("fixed_sigma_cli/plain.log");
-    EXPECT_NE(log.find("Build: plain ADMM only"), std::string::npos);
-    EXPECT_NE(js.find("\"plain_admm_only_build\": true"), std::string::npos);
+    EXPECT_NE(log.find("Algorithm: plain ADMM"), std::string::npos);
     // the run may converge before the cap (internal KKT < 1e-12): one y solve per completed iteration
     const size_t ip = js.find("\"iterations\": ");
     ASSERT_NE(ip, std::string::npos);
@@ -292,4 +277,3 @@ TEST(PlainAdmmOnlyCli, RejectsSgsOptionsAndWritesTheNewOutputs)
     EXPECT_NE(run("--save-final-dir fixed_sigma_cli/x", "final_without_validation"), 0);
 }
 
-#endif // CUADMM_PLAIN_ADMM_ONLY

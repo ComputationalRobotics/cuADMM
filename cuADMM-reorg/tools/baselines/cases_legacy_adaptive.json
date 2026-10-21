@@ -5,7 +5,7 @@
   "policy": "legacy_adaptive",
   "sigma0": 100.0,
   "max_iter": 6000,
-  "tol": 0.0
+  "tol": 1e-300
  },
  {
   "name": "Nonneg_Free_PSD__legacy_s100_i6000",
@@ -13,7 +13,7 @@
   "policy": "legacy_adaptive",
   "sigma0": 100.0,
   "max_iter": 6000,
-  "tol": 0.0
+  "tol": 1e-300
  },
  {
   "name": "Medium_Free__legacy_s100_i3000",
@@ -21,7 +21,7 @@
   "policy": "legacy_adaptive",
   "sigma0": 100.0,
   "max_iter": 3000,
-  "tol": 0.0
+  "tol": 1e-300
  },
  {
   "name": "Large_LowRankX__legacy_s100_i800",
@@ -29,7 +29,7 @@
   "policy": "legacy_adaptive",
   "sigma0": 100.0,
   "max_iter": 800,
-  "tol": 0.0
+  "tol": 1e-300
  },
  {
   "name": "PSD_Nonneg__legacy_s100_i2000",
@@ -37,7 +37,7 @@
   "policy": "legacy_adaptive",
   "sigma0": 100.0,
   "max_iter": 2000,
-  "tol": 0.0
+  "tol": 1e-300
  },
  {
   "name": "trto1__legacy_s1_i6000",
@@ -45,7 +45,7 @@
   "policy": "legacy_adaptive",
   "sigma0": 1.0,
   "max_iter": 6000,
-  "tol": 0.0
+  "tol": 1e-300
  },
  {
   "name": "trto1__legacy_s1_tol1e-4",
@@ -61,7 +61,7 @@
   "policy": "legacy_adaptive",
   "sigma0": 1.0,
   "max_iter": 6000,
-  "tol": 0.0
+  "tol": 1e-300
  },
  {
   "name": "mater-1__legacy_s1_tol1e-4",

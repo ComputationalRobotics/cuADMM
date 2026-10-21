@@ -29,17 +29,20 @@
 #include <memory>
 #include <string>
 
-// Safety margins applied to the Lanczos estimate of ||A||_2 before a composite projection:
-// the polynomial filters overflow if the scaled spectrum exceeds ~1.01 (FP32) / ~1.02 (FP16).
-#define COMPOSITE_FP32_SCALE_MARGIN 1.02 // COMPOSITE_FP32 and COMPOSITE_FP32_EMULATED
+// Safety margin applied to the Lanczos estimate of ||A||_2 before a composite projection:
+// the polynomial filter overflows if the scaled spectrum exceeds ~1.02 (FP16).
 #define COMPOSITE_FP16_SCALE_MARGIN 1.05
+// Norm test of a composite projection (B22): the projection is nonexpansive with Pi(0) = 0, so ||P||_F <= ||Z||_F; a
+// result above (1 + COMPOSITE_NORM_SLACK) ||Z||_F (an underestimated Lanczos scale) is rejected
+#define COMPOSITE_NORM_SLACK 1e-2
+// Largest PSD block the exact EVD handles (B21): on CUDA 12.9 the cusolverDnXsyevd workspace query fails above it
+#define CUADMM_MAX_EVD_BLOCK_SIZE 32768
 
-/// @brief Method for the PSD projection of large matrices.
+/// @brief Method for the PSD projection of large matrices (the FP32 and FP32-emulated composite filters of main are
+/// not ported: plan decision Q3).
 enum ProjectionMethod
 {
-    EIG_FP64, // EIG_FP32,
-    COMPOSITE_FP32,
-    COMPOSITE_FP32_EMULATED,
+    EIG_FP64,
     COMPOSITE_FP16
 };
 
@@ -50,10 +53,6 @@ inline const char *get_projection_method_name(ProjectionMethod method, bool dash
         {
         case ProjectionMethod::EIG_FP64:
             return "EIG_FP64 ---------------";
-        case ProjectionMethod::COMPOSITE_FP32:
-            return "COMPOSITE_FP32 ---------";
-        case ProjectionMethod::COMPOSITE_FP32_EMULATED:
-            return "COMPOSITE_FP32_EMULATED ";
         case ProjectionMethod::COMPOSITE_FP16:
             return "COMPOSITE_FP16 ---------";
         default:
@@ -64,10 +63,6 @@ inline const char *get_projection_method_name(ProjectionMethod method, bool dash
         {
         case ProjectionMethod::EIG_FP64:
             return "EIG_FP64";
-        case ProjectionMethod::COMPOSITE_FP32:
-            return "COMPOSITE_FP32";
-        case ProjectionMethod::COMPOSITE_FP32_EMULATED:
-            return "COMPOSITE_FP32_EMULATED";
         case ProjectionMethod::COMPOSITE_FP16:
             return "COMPOSITE_FP16";
         default:
@@ -383,8 +378,6 @@ public:
     /* Rescale and update sigma */
     int prim_win;
     int dual_win;
-    double bscale2;
-    double Cscale2;
     double ratioconst;
     double feasratio;
     double sigmax;
@@ -425,7 +418,7 @@ public:
         int iter;                 // iteration whose update changed sigma (1-based)
         double old_sigma, new_sigma;
         std::string rule;         // "admm_schedule", "monitor1" (LEGACY_ADAPTIVE only) or "sgs_rule"
-        double errRp, errRd, relgap, feasratio; // residuals of the iterate the rule saw (internal, scaled problem)
+        double errRp, errRd, relgap, feasratio; // residuals of the iterate the rule saw (internal, original units)
         int prim_win, dual_win;   // win counters before the rule reset them
     };
     std::vector<SigmaUpdate> sigma_log; // every sigma change of the last solve()
@@ -484,7 +477,6 @@ public:
     int sig_update_threshold;
     int sig_update_stage_1;
     int sig_update_stage_2;
-    double sgs_KKT;
     double best_KKT;                  // |
     double best_errRp;                // |
     double best_errRd;                // |
@@ -611,9 +603,9 @@ public:
     // (an eigenvalue of the wanted sign may be missing); large_mat is then unchanged.
     bool large_lobpcg_project(int i, int j, int idx);
 
-    // Projection with the composite polynomial filter of the current projection method, after scaling by
-    // COMPOSITE_*_SCALE_MARGIN times the Lanczos estimate of ||A||_2.
-    // Returns false if the result is not finite; large_mat is then unchanged.
+    // Projection with the FP16 composite polynomial filter, after scaling by COMPOSITE_FP16_SCALE_MARGIN times the
+    // Lanczos estimate of ||A||_2. Returns false if the result is not finite or fails the norm test (B22); large_mat is
+    // then unchanged.
     bool large_composite_project(int i, int j, int idx);
 };
 

@@ -37,5 +37,6 @@ void sparse_vector_div_dense_vector(
         num_block = (spvec.nnz + block_size - 1) / block_size;
     }
     sparse_vector_div_dense_vector_kernel<<<num_block, block_size, 0, stream>>>(spvec.indices, spvec.vals, spvec.nnz, dnvec.vals);
+    CHECK_KERNEL_LAUNCH();
     return;
 }

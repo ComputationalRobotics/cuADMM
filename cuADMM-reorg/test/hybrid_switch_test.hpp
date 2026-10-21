@@ -28,8 +28,6 @@
 #include "regression_problems.hpp"
 #include "solver_setup.hpp"
 
-#ifndef CUADMM_PLAIN_ADMM_ONLY // sGS / hybrid tests: not built in the plain-ADMM-only build
-
 namespace hybrid_test
 {
 using fixed_sigma_test::last_solve;
@@ -339,6 +337,5 @@ TEST(HybridSwitchCli, SgsIterationsOption)
     EXPECT_NE(run("--max-iter 1e6", "maxiter_float"), 0);
     EXPECT_NE(run("--max-iter 2147483647", "maxiter_huge"), 0);
     EXPECT_NE(run("--sigma-policy fixed_then_adaptive", "bad_policy"), 0);
+    EXPECT_NE(run("--sigma-policy fixed_sgs_then_legacy_admm", "removed_policy"), 0);
 }
-
-#endif // CUADMM_PLAIN_ADMM_ONLY

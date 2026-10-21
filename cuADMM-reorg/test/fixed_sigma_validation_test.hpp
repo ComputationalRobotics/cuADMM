@@ -44,17 +44,11 @@
 #define CUADMM_TEST_DATA_DIR "test/data"
 #endif
 
-// In the plain-ADMM-only build (CUADMM_PLAIN_ADMM_ONLY) solve() rejects sGS-ADMM: the validation tests then run on
-// plain ADMM, the sGS-only tests and golden cases are compiled out (see plain_admm_only_test.hpp for the rejection).
-#ifdef CUADMM_PLAIN_ADMM_ONLY
-#define CUADMM_SGS_OR_PLAIN 0
-#define CUADMM_ALGORITHM_FLAG "admm"
-static const std::vector<int> CUADMM_SGS_AND_PLAIN = {0};
-#else
+// sGS-ADMM is a runtime option (B5: the compile-time switch CUADMM_PLAIN_ADMM_ONLY of main is gone); the validation
+// tests run on pure sGS and on plain ADMM
 #define CUADMM_SGS_OR_PLAIN INT_MAX
 #define CUADMM_ALGORITHM_FLAG "sgs"
 static const std::vector<int> CUADMM_SGS_AND_PLAIN = {INT_MAX, 0};
-#endif
 
 namespace fixed_sigma_test
 {
@@ -276,19 +270,9 @@ TEST(FixedSigma, LegacyAdaptiveAndPlainAdmmUnchanged)
     const std::vector<GoldenCase> cases = read_golden(std::string(CUADMM_TEST_DATA_DIR) + "/legacy_golden.txt");
     ASSERT_EQ(cases.size(), 6u);
     for (const GoldenCase &c : cases)
-    {
-#ifdef CUADMM_PLAIN_ADMM_ONLY
-        if (c.switch_admm > 1)
-        {
-            printf("[ GOLDEN   ] %s: skipped (sGS-ADMM is disabled in the plain-ADMM-only build)\n", c.name.c_str());
-            continue;
-        }
-#endif
         check_golden(c);
-    }
 }
 
-#ifndef CUADMM_PLAIN_ADMM_ONLY
 // 3. Pure sGS (switch_admm = INT_MAX, as --algorithm sgs) never takes a plain ADMM step: the counter stays 0 and the
 //    primal residual contracts by |1 - tau| = 0.95 at every iteration (tau = 1.95 of the sGS branch).
 TEST(FixedSigma, PureSgsNeverSwitchesToAdmm)
@@ -313,8 +297,6 @@ TEST(FixedSigma, PureSgsNeverSwitchesToAdmm)
     ASSERT_NO_THROW(a.solve(300, 0.0, 500, 50, 100, 0, 0, 1e-2, 2.0));
     EXPECT_EQ(a.admm_phase_iterations, 300);
 }
-
-#endif // CUADMM_PLAIN_ADMM_ONLY
 
 // 4. The validation keeps running beyond iteration 10000 (no hidden 10000-iteration stop) and records the requested
 //    checkpoint; with an unattainable tolerance the solve ends at the safety cap.
@@ -647,18 +629,10 @@ TEST(FixedSigmaCli, BackwardCompatibleAndNewFlags)
     const std::string fresh = read("fixed_sigma_cli/new.json");
     EXPECT_NE(fresh.find("\"sigma_policy\": \"fixed\""), std::string::npos);
     EXPECT_NE(fresh.find("\"sigma_changes\": 0"), std::string::npos);
-#ifdef CUADMM_PLAIN_ADMM_ONLY
-    EXPECT_NE(fresh.find("\"sgs_phase_iterations\": 0"), std::string::npos);
-#else
     EXPECT_NE(fresh.find("\"admm_phase_iterations\": 0"), std::string::npos);
-#endif
     EXPECT_NE(fresh.find("\"stop_reason\": \"externally_validated\""), std::string::npos);
     EXPECT_NE(fresh.find("\"externally_validated_converged\": true"), std::string::npos);
-#ifdef CUADMM_PLAIN_ADMM_ONLY
-    EXPECT_NE(read("fixed_sigma_cli/new.log").find("Build: plain ADMM only"), std::string::npos);
-#else
     EXPECT_NE(read("fixed_sigma_cli/new.log").find("Algorithm: pure sGS-ADMM"), std::string::npos);
-#endif
     EXPECT_FALSE(read("fixed_sigma_cli/new_validation.csv").empty());
 
     // no JSON value may be nan or inf

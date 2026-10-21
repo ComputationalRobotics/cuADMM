@@ -352,7 +352,7 @@ def add_case_options(p):
     p.add_argument("--policy", default="fixed", choices=NEW_POLICIES)
     p.add_argument("--sigma0", type=float, default=1.0)
     p.add_argument("--max-iter", type=int, default=1000)
-    p.add_argument("--tol", type=float, default=0.0)
+    p.add_argument("--tol", type=float, default=1e-300, help="stopping tolerance (1e-300: never reached, the reference CLI rejects 0)")
     p.add_argument("--scheme", default="admm", choices=["admm", "sgs_admm"])
     p.add_argument("--tau", type=float, default=None)
     p.add_argument("--factor", type=float, default=None)
@@ -475,7 +475,7 @@ def main():
                 case["problem"] = os.path.join(args.problem_root, case["problem"])
             case["problem"] = os.path.abspath(case["problem"])
             case.setdefault("scheme", "admm")
-            case.setdefault("tol", 0.0)
+            case.setdefault("tol", 1e-300)
             print("=== case %s" % c["name"])
             report = run_pair(build_a, build_b, case, os.path.join(out, c["name"]), args.rtol, args.dry_run, label=c["name"])
             if args.dry_run:

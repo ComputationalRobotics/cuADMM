@@ -8,11 +8,7 @@
 
 */
 
-#ifdef CUADMM_PLAIN_ADMM_ONLY
-#define CUADMM_PLAIN_AND_SGS_SWITCHES {0}
-#else
-#define CUADMM_PLAIN_AND_SGS_SWITCHES {0, 100000}
-#endif
+#define CUADMM_PLAIN_AND_SGS_SWITCHES {0, 100000} // plain ADMM and pure sGS-ADMM (a runtime option since B5)
 #include <gtest/gtest.h>
 
 #include <algorithm>

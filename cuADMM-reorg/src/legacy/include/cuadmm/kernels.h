@@ -71,12 +71,6 @@ void max_dense_vector_zero(
     DeviceDenseVector<double> &vec,
     const cudaStream_t &stream = (cudaStream_t)0, int block_size = 1024);
 
-// Set a vector to its positive part coefficient-wise and multiply by a mask:
-// vec = max(vec, 0) .* mask
-void max_dense_vector_zero_mask(
-    DeviceDenseVector<double> &vec, DeviceDenseVector<int> &mask,
-    const cudaStream_t &stream = (cudaStream_t)0, int block_size = 1024);
-
 /*
     Sparse-scalar operations (kernels/sparse_scalar.cu)
 */
@@ -148,7 +142,6 @@ void dense_matrix_mul_diag_batch(
     const DeviceDenseVector<double> &dnvec,
     const int mat_size, const int mat_nums = -1,
     const int mat_offset = 0, const int vec_offset = 0,
-    const int *mask = nullptr, const bool use_mask = false,
     const cudaStream_t &stream = (cudaStream_t)0, int block_size = 1024);
 
 /*
