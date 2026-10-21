@@ -2056,19 +2056,17 @@ void SDPSolver::solve(
                 (k > 5000 && k <= 10000 && (k % 200) == 1) ||
                 (k > 10000 && (k % 1000) == 1))
             {
-                this->sigscale = std::max(2.0 * std::exp(-k / 50000.0), 2.0);
-                // std::printf("Current sigscale = %4.2f \n", this->sigscale);
-
-                // max(1, .) as in SDPNAL+: a single win (e.g. at iteration 1) does not change sigma
+                // max(1, .): a single win (e.g. at iteration 1) does not change sigma (counter idiom of the
+                // SDPNAL+/SuiteLasso family)
                 if (this->prim_win > max(1.0, 1.35 * this->dual_win))
                 {
                     this->prim_win = 0;
-                    this->sig = min(this->sigmax, this->sig * this->sigscale);
+                    this->sig = min(this->sigmax, this->sig * this->admm_sigma_factor);
                 }
                 else if (this->dual_win > max(1.0, 1.35 * this->prim_win))
                 {
                     this->dual_win = 0;
-                    this->sig = max(this->sigmin, this->sig / this->sigscale);
+                    this->sig = max(this->sigmin, this->sig / this->admm_sigma_factor);
                 }
             }
             log_sigma(sig_before, "admm_schedule");

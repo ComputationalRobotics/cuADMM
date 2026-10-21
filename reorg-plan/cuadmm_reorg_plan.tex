@@ -1,4 +1,4 @@
-% cuADMM reorganization plan -- self-contained LaTeX source (pdflatex, two runs for references).
+% cuADMM reorganization plan, revision 2 -- self-contained LaTeX source (pdflatex, two runs for references).
 \documentclass[11pt]{article}
 \PassOptionsToPackage{obeyspaces,spaces}{url}
 
@@ -18,10 +18,16 @@
 \usepackage{tcolorbox}
 \usepackage[colorlinks=true,linkcolor=NavyBlue,citecolor=ForestGreen,urlcolor=NavyBlue]{hyperref}
 \usepackage{xurl}
+\usepackage{float}
+\usepackage{needspace}
 
 % ---------------------------------------------------------------- macros
 \DeclareUrlCommand\code{\urlstyle{tt}}
 \Urlmuskip=0mu\relax
+% Code names break only after separators (. / _ : and the like), never inside a word.
+\def\UrlBreaks{}
+\def\UrlBigBreaks{\do\.\do\/\do\_\do\:\do\,\do\)\do\]\do\>\do\;\do\|\do\!\do\@\do\\\do\&\do\?\do+\do\=\do\#}
+\mathchardef\UrlBigBreakPenalty=50
 \newcommand{\R}{\mathbb{R}}
 \newcommand{\Sym}{\mathbb{S}}
 \newcommand{\K}{\mathcal{K}}
@@ -35,6 +41,8 @@
 
 \setlist{itemsep=2pt,topsep=4pt}
 \setlength{\parskip}{3pt}
+\setlength{\emergencystretch}{2em}
+\tolerance=1000
 
 \lstdefinestyle{cpp}{
   language=C++,
@@ -67,12 +75,13 @@
 \newtcolorbox{decision}[1]{colback=NavyBlue!4,colframe=NavyBlue!60,fonttitle=\bfseries,title={#1},boxrule=0.6pt,arc=2pt,left=4pt,right=4pt,top=3pt,bottom=3pt}
 \newtcolorbox{warnbox}[1]{colback=BrickRed!4,colframe=BrickRed!60,fonttitle=\bfseries,title={#1},boxrule=0.6pt,arc=2pt,left=4pt,right=4pt,top=3pt,bottom=3pt}
 
-\title{\textbf{Reorganizing cuADMM}\\[4pt]
-\large An ADMM-first, cone-extensible architecture with pluggable PSD-projection strategies\\ and cuDSS / CHOLMOD linear-system backends}
+\title{\textbf{Reorganizing cuADMM} --- revision 2\\[4pt]
+\large An ADMM-first, cone-extensible architecture with first-class free variables,\\
+memory-aware PSD-projection strategies, and direct (and later preconditioned) linear solvers}
 \author{Reorganization plan for the cuADMM developers}
-\date{October 13, 2026\\[2pt]
-\small Baseline: \code{main} at \code{9bb4ba5} (submodule \code{psd_projection} at \code{b566590}),\\
-\small plus the uncommitted penalty-rule edit of October 13, 2026 (Section~\ref{sec:penalty})}
+\date{October 20, 2026\\[2pt]
+\small Baseline: \code{main} at \code{2d8a755} (submodule \code{psd_projection} at \code{b566590}).\\
+\small Revision 2 answers the review of October 20, 2026 \cite{review20} and the $\sigma$-rule study of October 19 \cite{sigmastudy}.}
 
 \begin{document}
 \maketitle
@@ -81,76 +90,103 @@
 cuADMM is a GPU solver for large multi-block conic programs, built around the first-order method of
 \cite{cuadmm} and the factorization-free PSD projection of \cite{composite}. Its numerics are sound and
 well tested, but nearly all logic lives in one class (\code{SDPSolver}) whose \code{solve()} method spans
-about 1{,}080 lines, configuration is spread over positional arguments, public fields and preprocessor
-constants, and several algorithmic options are either compiled out or unreachable. This document is a
-complete plan to reorganize the code into a layered library in which (i) plain ADMM with step length
-$\tau\in(0,2)$ is the default algorithm and sGS-ADMM is a runtime option, justified by the
-equivalence result of \cite{afterimage}; (ii) every cone is a plug-in behind one interface, so that
-second-order and other cones can be added without touching the solver; (iii) the PSD projection is a
-catalog of explicit, named strategies---including the composite polynomial filter of \cite{composite},
-integrated directly instead of through a submodule---selected by a documented policy; and (iv) the
-normal-equation solve is an interface with a cuDSS backend first and a CHOLMOD backend second. The plan
-lists the defects found during the review, the target architecture with interface sketches and naming
-conventions, a single table of options and defaults, a test strategy, and an incremental migration in
-ten phases, each with acceptance criteria.
+about 1{,}080 lines; configuration is spread over positional arguments, public fields and preprocessor
+constants; and several algorithmic options are compiled out or unreachable. This plan reorganizes the code
+into a layered library in which (i) plain ADMM with step length $\tau\in(0,2)$ is the default and sGS-ADMM
+is a runtime option, justified by the equivalence result of \cite{afterimage}; (ii) the penalty parameter
+follows a residual-balancing rule that \emph{stops} changing (a freeze), so that the fixed-$\sigma$ theory
+applies; (iii) every cone is a plug-in, with free variables treated as a first-class cone; (iv) the PSD
+projection is a catalog of named strategies whose memory model differs by block size---batched and
+throughput-oriented for small and medium blocks, one block at a time through a shared arena for large
+blocks; and (v) the normal-equation solve is an interface that supports sparse and dense direct methods now
+and leaves room for inexact, preconditioned iterative solves. The plan lists the defects found so far, the
+target architecture, a single table of options, a test strategy, and an incremental migration (a pre-step
+and phases 0--10) with acceptance criteria.
 \end{abstract}
 
 \tableofcontents
 
-
 %=======================================================================================================
 \section{Summary}\label{sec:summary}
 
-\paragraph{Decisions already taken.}
+\paragraph{Decisions.}
 \begin{enumerate}[label=\textbf{D\arabic*.}]
-  \item \textbf{ADMM is the default algorithm.} The default iteration is plain (two-block) ADMM with
-  multiplier step length $\tau = 1.618$; $\tau = 1.918$ is offered as the aggressive preset, and any
-  $\tau\in(0,2)$ is accepted. sGS-ADMM becomes a \emph{runtime} option (today it is removed at compile
-  time by \code{CUADMM_PLAIN_ADMM_ONLY}). Rationale: ADMM and sGS-ADMM share the same fixed-point map
-  in the $z$-variable, and every $\tau\in(0,2)$ is admissible \cite{afterimage,gabay,chen2021}
-  (Section~\ref{sec:math-admm}).
-  \item \textbf{Linear systems: cuDSS first, CHOLMOD second.} The normal-equation solver is an
-  interface with two production backends: cuDSS (GPU factorization and GPU solves, preferred when
-  available) and CHOLMOD (CPU factorization, CPU or dense-GPU solves, always available). A dense
-  cuSOLVER backend is optional (Section~\ref{sec:linsys}).
-  \item \textbf{Composite polynomial filtering is integrated directly.} The kernels of
-  \cite{composite} move into cuADMM as one PSD projection strategy among several; the
-  \code{psd_projection} submodule is retired (Section~\ref{sec:psd}).
-  \item \textbf{Cones are plug-ins.} Free, nonnegative and PSD blocks are ported to a common
-  \code{Cone} interface; second-order cones are the first new cone (Section~\ref{sec:cones}).
+  \item \textbf{ADMM is the default algorithm.} Plain two-block ADMM with multiplier step length
+  $\tau = 1.618$; $\tau = 1.918$ stays available as an aggressive setting, and any $\tau\in(0,2)$ is
+  accepted. sGS-ADMM becomes a \emph{runtime} option (today it is removed at compile time by
+  \code{CUADMM_PLAIN_ADMM_ONLY} in the CMake library). Both methods iterate the same fixed-point map in the
+  $z$-variable \cite{afterimage} (Section~\ref{sec:math-admm}).
+  \item \textbf{The penalty rule must stop changing $\sigma$.} The default policy balances the residuals
+  early and then freezes $\sigma$, so that its total variation is finite and the fixed-$\sigma$ convergence
+  theory applies (Section~\ref{sec:penalty}). The historical rule is restored under its historical name
+  \code{legacy_adaptive}, and the October 13 rule now on \code{main} becomes \code{residual_balancing}.
+  \item \textbf{Linear systems: direct methods now, iterative methods later.} Sparse direct (cuDSS on the
+  GPU, CHOLMOD on the CPU) and dense direct (cuSOLVER) backends sit behind one interface that already
+  carries the hooks for inexact, preconditioned iterative solves (Section~\ref{sec:linsys}). cuDSS is the
+  intended default once the benchmark of Section~\ref{sec:bench} confirms it.
+  \item \textbf{Composite polynomial filtering is integrated directly}, in FP16 only, as the default warm-up
+  of large blocks with $n\ge5000$; the \code{psd_projection} submodule is retired after parity tests pass
+  (Section~\ref{sec:composite}).
+  \item \textbf{Cones are plug-ins, and free variables are first class.} Free, nonnegative and PSD blocks
+  are ported to one \code{Cone} interface; every component states what it does for free variables
+  (Section~\ref{sec:free}).
+  \item \textbf{Memory-aware PSD projection.} Small and medium blocks are processed in batches for
+  throughput; large blocks are processed one at a time through one shared arena sized for the largest
+  block, which cuts the large-tier memory from about $7\sum_b n_b^2$ to about $5\,n_{\max}^2$ doubles
+  (Section~\ref{sec:psd}).
   \item \textbf{Software-engineering standards.} One options object with one table of defaults, explicit
-  ownership of GPU resources, no allocation inside the iteration loop, deterministic by default,
-  consistent naming, and a behavior-preserving migration in which every structural step reproduces the
-  current iterates bit for bit (Sections~\ref{sec:principles}--\ref{sec:migration}).
+  ownership of GPU resources, no allocation in the iteration loop, deterministic by default, consistent
+  naming, option and policy names that never silently change meaning, and a migration in which every
+  structural step reproduces the current iterates bit for bit.
+  \item \textbf{Data formats.} A native HDF5 format for very large problems, and readers for SDPA, SeDuMi,
+  SDPT3 and MOSEK MATLAB data and the legacy text files, all producing one \code{ProblemData}
+  (Section~\ref{sec:io}).
 \end{enumerate}
 
-\paragraph{What the reader should take away.}
-Table~\ref{tab:phases-short} summarizes the migration. Phases 0--6 restructure the code without changing
-its iterates (except for explicit bug fixes); Phases 7--9 change behavior on purpose and are validated
-against tolerances instead of bitwise histories.
+\paragraph{What changed since revision 1.} Every recommendation of the October 20 review \cite{review20}
+is adopted or answered; Appendix~\ref{app:review} maps each one to the section that addresses it. The
+main changes:
+\begin{itemize}
+  \item a new penalty plan (balance, then freeze) with a separate decision step, Phase~4b;
+  \item a pre-step (``Pre-0'') that restores \code{legacy_adaptive}, names the edited rule, and records the
+  policy in the summary;
+  \item a rewritten PSD section with an explicit, measured memory model for large blocks;
+  \item the composite filter reduced to FP16, on by default for large blocks with $n\ge5000$;
+  \item a new section on input and output formats, including MOSEK's MATLAB format used by SPOT;
+  \item a new section on free variables;
+  \item interface hooks and a plan for preconditioned iterative linear solves;
+  \item a smaller first milestone, Phases 8--9 deferred, and corrected facts and citations.
+\end{itemize}
 
 \begin{table}[h]
 \centering\small
 \begin{tabularx}{\textwidth}{@{}l>{\raggedright\arraybackslash}X l@{}}
 \toprule
-Phase & Content & Iterates \\
+Step & Content & Iterates \\
 \midrule
-0 & Safety net: frozen baseline histories, CI build matrix, environment fixes & unchanged \\
-1 & Cleanup: dead code, compile-time algorithm flag, the defects of Table~\ref{tab:defects} that are one-line fixes & unchanged$^{\dagger}$ \\
-2 & \code{SolverOptions}: one source of defaults; CLI and MATLAB rebuilt on it & unchanged \\
-3 & Core infrastructure: \code{GpuContext}, stream pool, workspace arena & unchanged \\
-4 & Algorithm layer: \code{IterationScheme}, \code{PenaltyPolicy}, termination, observers & unchanged \\
-5 & Cone layer: \code{Cone} interface; free, nonnegative and PSD cones ported & unchanged \\
-6 & PSD strategies and composite filter integrated; submodule retired & unchanged$^{\ddagger}$ \\
-7 & Linear systems: \code{NormalEquationSolver}, CHOLMOD port, cuDSS backend, presolve & within tolerance \\
-8 & Data layout: variables grouped by cone, concurrent cone projections & within tolerance \\
-9 & New cones: second-order and rotated second-order & new tests \\
-10 & Documentation, examples, benchmarks, release & --- \\
+Pre-0 & Restore \code{legacy_adaptive} (9bb4ba5); add \code{residual_balancing}; policy in the summary; housekeeping & legacy: as 9bb4ba5 \\
+0 & Safety net: fixed-$\sigma$ baselines, per-machine baselines, published golden generator, GPU gate scripts & baseline \\
+1 & Cleanup and one-line fixes (B1, B2, B6, B12, B15--B17, B21, B22) & unchanged$^{\dagger}$ \\
+2 & \code{SolverOptions}; CLI and MATLAB rebuilt on it & unchanged \\
+2b & Input and output formats: HDF5, SDPA, SeDuMi, SDPT3, MOSEK, TXT; \code{cuadmm-convert} & unchanged (TXT) \\
+3 & Thin core: \code{GpuContext}, \code{ExecContext}, buffer types, unified checks & unchanged \\
+4 & Algorithm layer: schemes, penalty policies (incl.\ \code{balance_freeze}), termination, observers & unchanged \\
+4b & Tune \code{balance_freeze} and make it the default: CPU screen, then GPU gates ($\le$ 12.6 H200-hours) & by design \\
+\midrule
+5 & Cone layer: \code{Cone}, free/nonnegative/PSD cones; validator kept independent & unchanged \\
+6a & PSD strategies as named projectors; FP16 composite filter moved in, default warm-up for $n\ge5000$ & unchanged$^{\ddagger}$ \\
+6b & Large-block arena, per-block streaming, SYRK products; medium/small workspace fixes & within rounding \\
+7 & Linear systems: interface, CHOLMOD port, cuDSS, dense cuSOLVER, presolve; benchmark & within tolerance \\
+\midrule
+8 & (deferred) Data layout: contiguous slices per cone & within rounding \\
+9 & (deferred until needed) Second-order cones & new tests \\
+10 & Documentation, examples, release & --- \\
 \bottomrule
 \end{tabularx}
-\caption{Migration phases (details in Section~\ref{sec:migration}). $^{\dagger}$Except the stream race
-fix (B2), which only removes a possible nondeterminism. $^{\ddagger}$For the exact-EVD paths; the
-composite path changes because of the math-mode fix (B1).}
+\caption{Migration overview (Section~\ref{sec:migration}). The first milestone is Pre-0 to 4b.
+$^{\dagger}$B2 only removes a possible nondeterminism; B22 changes only the composite path.
+$^{\ddagger}$Exact and LOBPCG paths. The composite path is not reproducible before the B8 fix and is accepted
+on accuracy; turning on the default warm-up for blocks with $n\ge5000$ is a deliberate change.}
 \label{tab:phases-short}
 \end{table}
 
@@ -165,14 +201,17 @@ composite path changes because of the math-mode fix (B1).}
   contact-rich planning and multi-block SDPs from Mittelmann's collection.
   \item \textbf{Composite polynomial filtering} \cite{composite} replaces the eigenvalue decomposition
   of a large dense block by a short composition of odd degree-5 polynomials evaluated with GEMMs in
-  FP16 or FP32, after scaling the spectrum with a Lanczos bound. It is designed as a low-precision
-  \emph{warm start} inside ADMM, followed by FP64 projections, and notes that ADMM quickly enters a
-  low-rank regime \cite{kang2025local} in which LOBPCG becomes attractive.
+  FP16 or FP32, after scaling the spectrum with a Lanczos estimate of the norm. It is designed as a
+  low-precision \emph{warm start} inside ADMM, followed by FP64 projections, and notes that ADMM quickly
+  enters a low-rank regime \cite{kang2025local} in which LOBPCG becomes attractive.
   \item \textbf{Afterimage slow regions} \cite{afterimage} studies first-order methods for linear
   conic programs as fixed-point iterations. Its Table~1 and Appendix~A.2 show that ADMM and sGS-ADMM
   induce the \emph{same} fixed-point map in the auxiliary variable $z$, which is the basis of
   decision D1.
 \end{itemize}
+Two internal documents shaped this revision: the $\sigma$-rule study of October 19 \cite{sigmastudy},
+which replicated the solver on the CPU decision for decision against 13 GPU runs, and the review of
+revision 1 of October 20 \cite{review20}. Numbers quoted from them are labelled as such.
 
 %=======================================================================================================
 \section{Mathematical specification}\label{sec:math}
@@ -180,7 +219,7 @@ composite path changes because of the math-mode fix (B1).}
 This section fixes the mathematics the code must implement; class and function names in later sections
 refer to the symbols introduced here (Appendix~\ref{app:notation}).
 
-\subsection{Problem class}
+\subsection{Problem class}\label{sec:problem}
 Let $\mathbb{X} = \mathbb{X}_1\times\cdots\times\mathbb{X}_B$ and
 $\K = \K_1\times\cdots\times\K_B$ with each $\K_\beta$ a closed convex cone in $\mathbb{X}_\beta$.
 cuADMM solves the primal--dual pair
@@ -190,9 +229,11 @@ cuADMM solves the primal--dual pair
 \max_{y\in\R^m,\ S\in\mathbb{X}}\ \inner{b}{y}\ \ \text{s.t.}\ \ \Ad y + S = C,\ S\in\Kd .
 \end{equation}
 Today $\K_\beta\in\{\Sym^n_+,\ \R^n_+,\ \R^n\}$ (block codes \code{s}, \code{l}, \code{u}), with dual
-cones $\Sym^n_+$, $\R^n_+$ and $\{0\}$. PSD blocks are stored in $\svec$ form (upper triangle, column by
-column, off-diagonal entries multiplied by $\sqrt2$), so $\inner{\cdot}{\cdot}$ is the Euclidean inner
-product on the stacked vector.
+cones $\Sym^n_+$, $\R^n_+$ and $\{0\}$. A \emph{free} block ($\K_\beta = \R^n$) leaves $X_\beta$ unrestricted
+and turns the dual constraint on its rows into the equality $\A_\beta^* y = C_\beta$
+(Section~\ref{sec:free}). PSD blocks are stored in $\svec$ form (upper triangle, column by column,
+off-diagonal entries multiplied by $\sqrt2$), so $\inner{\cdot}{\cdot}$ is the Euclidean inner product on
+the stacked vector.
 
 \subsection{ADMM, sGS-ADMM and their equivalence}\label{sec:math-admm}
 
@@ -203,7 +244,7 @@ product on the stacked vector.
   X^{k+1}   &= X^k + \tau\sigma\big(\Ad y^{k+1} + S^{k+1} - C\big). && \text{(multiplier step)}\label{eq:xstep}
 \end{align}
 This is the classical three-step ADMM for SDP \cite{wen}, exactly (12a)--(12c) of \cite{afterimage} and
-(24a)--(24c) of \cite{composite} with $\tau$, and it is what \code{SDPSolver::solve} executes today when
+(24a)--(24c) of \cite{composite} with $\tau$, and what \code{SDPSolver::solve} executes when
 \code{switch_admm = 0}.
 
 \paragraph{sGS-ADMM (option).} sGS-ADMM \cite{chen2017,cuadmm} inserts a second y-step after the cone
@@ -219,22 +260,32 @@ $\sigma>0$ and $\tau\in(0,2)$, both methods generate $z^{k+1} = T(z^k)$ with the
 T(z) = z - P_\A\big[\Proj_{\K}(z) - \A^{\dagger}b\big] - \tau P_\A^{\perp}\big[-\Proj_{\Kd}(-z) + \sigma C\big]
 \end{equation}
 (\cite[Table~1, eqs.~(13) and (21)]{afterimage}). They differ only in how $(X,y,S)$ is recovered from $z$
-(\cite[eqs.~(14) and (22)]{afterimage}), hence in the KKT residuals one observes. The map $T$ is
-$\alpha$-averaged with $\alpha = \max\{1,\tau\}/2$ in the metric $G = P_\A + \tau^{-1}P_\A^{\perp}$, which
-is why every $\tau\in(0,2)$ is admissible; see also \cite{gabay} and, for convergence of the full
-sequence, \cite{chen2021}.
+(\cite[eqs.~(14) and (22)]{afterimage}), hence in the KKT residuals one observes. At fixed $\sigma$ the map
+$T$ is $\alpha$-averaged with $\alpha = \max\{1,\tau\}/2$ in the metric $G = P_\A + \tau^{-1}P_\A^{\perp}$,
+which is why every $\tau\in(0,2)$ is admissible \cite{afterimage}; convergence of the full sequence is
+shown in \cite{chen2021}. The review found the equivalence to hold numerically to about $10^{-13}$
+\cite{review20}.
+
+\paragraph{Step length and the residual vote.} The multiplier step gives
+$\A X^{k+1} - b = (1-\tau)(\A X^k - b) + \tau s^{k+1}$, where $s^{k+1} = \sigma\A(S^{k+1}-S^k)$ is the ADMM
+dual residual \cite{sigmastudy}. The primal residual that the penalty rule watches is therefore a
+filtered signal whose gain on sign-alternating components is $\tau/(2-\tau)$: 4.24 at $\tau = 1.618$ and
+23.4 at $\tau = 1.918$. A larger $\tau$ makes the residual vote of Section~\ref{sec:penalty} noisier, so
+$\tau$ is chosen first at fixed $\sigma$ and the penalty rule is re-screened at the chosen $\tau$ (Q4 in
+Section~\ref{sec:decisions}).
 
 \begin{decision}{Consequences for the design}
 \begin{itemize}[leftmargin=*]
   \item One iteration engine with an \code{IterationScheme} strategy (\code{Admm}, \code{SgsAdmm}); no
   compile-time switch.
-  \item $\tau$ is a validated user option in $(0,2)$; presets \code{tau=1.618} (default) and
-  \code{tau=1.918} (aggressive). The hidden $\tau$ rules of today's sGS branch ($\tau=1.95$, reduced to
-  $\max(1.618,\tau/1.1)$ when $\eta_d<\text{tol}$) are removed; the value of $\tau$ is no longer tied to the scheme.
-  \item The derivations of (13) and (21) in \cite{afterimage} use only the definition of $z^k$, so a
-  mid-run switch between the two schemes at fixed $\sigma$ continues the same $z$-orbit. The ``hybrid''
-  mode (sGS for $N$ iterations, then ADMM) is therefore a pure recovery choice and can stay as a cheap
-  option (\code{scheme_switch_iteration}).
+  \item $\tau$ is a validated option in $(0,2)$, default 1.618. The hidden $\tau$ rules of today's sGS branch
+  ($\tau=1.95$, reduced to $\max(1.618,\tau/1.1)$ when $\eta_d<\text{tol}$) are removed.
+  \item The derivations of (13) and (21) in \cite{afterimage} use only the definition of $z^k$, so a mid-run
+  switch between the two schemes at fixed $\sigma$ continues the same $z$-orbit: the hybrid mode is a pure
+  recovery choice. Whether to keep it is decided after a plain-ADMM run with $\tau=1.95$ (Q5).
+  \item No penalty rule reads sGS residuals: the sGS primal residual contracts by exactly $|1-\tau|$ per
+  iteration whatever the progress, and in the September campaign $\sigma$ climbed to $800$--$10^6$ on every
+  stalled problem \cite{review20}.
 \end{itemize}
 \end{decision}
 
@@ -244,13 +295,15 @@ $\Proj_{\Kd}(Z) = (\Proj_{\Kd_1}(Z_1),\dots,\Proj_{\Kd_B}(Z_B))$:
 \begin{itemize}
   \item PSD: $\Proj_{\Sym^n_+}(Z) = Q\max(\Lambda,0)Q^{\top}$ for $Z = Q\Lambda Q^{\top}$ (self-dual);
   \item nonnegative orthant: $\max(Z,0)$ entrywise (self-dual);
-  \item free primal block: $\Kd = \{0\}$, so $S_\beta = 0$.
+  \item free block: $\Kd = \{0\}$, so $S_\beta = 0$.
 \end{itemize}
 For cones that are not self-dual, Moreau's decomposition $Z = \Proj_{\K}(Z) - \Proj_{\Kd}(-Z)$ gives
-$\Proj_{\Kd}(Z) = Z + \Proj_{\K}(-Z)$, so a cone may implement whichever projection is cheaper.
+$\Proj_{\Kd}(Z) = Z + \Proj_{\K}(-Z)$, so a cone may implement whichever projection is cheaper. The same
+identity gives the PSD projection from the negative side, $\Proj_{\Sym^n_+}(Z) = Z + \Proj_{\Sym^n_+}(-Z)$,
+which the large-block strategies use when the negative part has lower rank (Section~\ref{sec:large-alg}).
 
 \subsection{Scaling and KKT residuals}\label{sec:math-scaling}
-The solver works on a scaled problem (on by default; Section~\ref{sec:scaling} makes it an option):
+The solver works on a scaled problem (on by default; Section~\ref{sec:scaling}):
 \begin{enumerate}
   \item rows of $\A$ and entries of $b$ are divided by $\nu_i = \max(1,\norm{A_i}_2)$, and $y_i$ is multiplied by $\nu_i$;
   \item with $b_s = 1+\norm{\tilde b}_2$ and $C_s = 1+\norm{C}_2$: $b\leftarrow b/b_s$, $X\leftarrow X/b_s$,
@@ -266,117 +319,258 @@ Termination uses the residuals of \cite[eqs.~(12)--(13)]{cuadmm} in original uni
 \]
 and, at termination and in validation mode, the cone violations of $X$ and $S$.
 
-\subsection{Penalty update (current default)}\label{sec:penalty}
-Each iteration increments $w_p$ if $\eta_p<\eta_d$ and $w_d$ otherwise. At the check iterations
+\subsection{The penalty parameter}\label{sec:penalty}
+
+\paragraph{Rules in the code today.} All of them count ``wins'' after every iteration ($w_p$ if
+$\eta_p<\eta_d$, else $w_d$) and act only at the check iterations
 $k\in\{k\le200: k\equiv1\ (10)\}\cup\{200<k\le1000: k\equiv1\ (25)\}\cup\{1000<k\le5000: k\equiv1\ (50)\}
-\cup\{5000<k\le10^4: k\equiv1\ (200)\}\cup\{k>10^4: k\equiv1\ (1000)\}$:
+\cup\{5000<k\le10^4: k\equiv1\ (200)\}\cup\{k>10^4: k\equiv1\ (1000)\}$, where
 \[
 \begin{aligned}
-&\text{if } w_p > \max(1,\ 1.35\,w_d): && \sigma\leftarrow\min(\sigma_{\max},\,2\sigma),\quad w_p\leftarrow0;\\
-&\text{else if } w_d > \max(1,\ 1.35\,w_p): && \sigma\leftarrow\max(\sigma_{\min},\,\sigma/2),\quad w_d\leftarrow0,
+&\text{if } w_p > \max(g,\ 1.35\,w_d): && \sigma\leftarrow\min(\sigma_{\max},\,f\sigma),\quad w_p\leftarrow0;\\
+&\text{else if } w_d > \max(g,\ 1.35\,w_p): && \sigma\leftarrow\max(\sigma_{\min},\,\sigma/f),\quad w_d\leftarrow0.
 \end{aligned}
 \]
-with $[\sigma_{\min},\sigma_{\max}] = [10^{-3},10^{3}]$. This residual-balancing rule follows the convention
-of the ADMM phase of SDPNAL+ \cite{sdpnalplus}. Since $X$ is the multiplier of $\Ad y + S = C$, a larger
-$\sigma$ weights dual feasibility more. The $\max(1,\cdot)$ guard, the bounds and the
-removal of the ``chasing'' monitor (\code{Monitor1}) are the uncommitted edits of October 13, 2026; before
-them the guard was absent (so $\sigma$ always changed at $k=1$), the bounds were $[10^{-6},10^{6}]$, and
-after $k=5000$ the monitor could reset $\sigma$ to $\max(\sigma,100)$ or $\min(\sigma,0.01)$.
+Since $X$ is the multiplier of $\Ad y + S = C$, a larger $\sigma$ weights dual feasibility more. The
+winner-count idiom (winner above $\max(1,\text{ratio}\cdot\text{other})$, winner-only reset) is the one used in
+the SDPNAL+/SuiteLasso family of codes \cite{sdpnalplus}; the ratio, factor, schedule and run length here
+differ from those codes \cite{sigmastudy}.
+\begin{itemize}
+  \item \code{legacy_adaptive} at \code{9bb4ba5}: $g = 0$ (no guard), $f = 2$, $[\sigma_{\min},\sigma_{\max}] =
+  [10^{-6},10^{6}]$, plus the ``chasing'' monitor (\code{Monitor1}) after $k = 5000$, which could move
+  $\sigma$ to $\max(\sigma,100)$ or $\min(\sigma,0.01)$.
+  \item The October 13 rule, committed in place in \code{2d8a755} under the same name: $g = 1$, $f = 2$,
+  $[10^{-3},10^{3}]$, \code{Monitor1} off. Plan name: \code{residual_balancing}. An uncommitted edit of
+  October 20 sets $f = 1.2$; it becomes the option \code{penalty.factor} (Pre-0).
+\end{itemize}
+
+\paragraph{Why neither rule is enough.} Both keep checking every 1{,}000 iterations forever. On the GPU the
+old rule changed $\sigma$ at 95.7\% of its checks; in the CPU replica the October 13 rule changed it at
+70--100\% of the checks after $k = 10^4$ on nine small problems, and locked \code{trto1} and \code{buck1}
+into exact periodic orbits that are not solutions, while fixed $\sigma = 1$ solves both \cite{sigmastudy}. The
+varying-penalty convergence results that let $\sigma$ move both ways require $\sigma$ to become fixed after
+finitely many iterations \cite{boyd2011} or its variation to be summable \cite{lorenz2019}; neither rule
+provides that by construction. Removing \code{Monitor1} removed the $\times100$ to $\times16{,}384$ jumps that
+preceded most large error spikes, but also the large-$\sigma$ excursions behind the old rule's speed on
+\code{vibra1} \cite{sigmastudy}.
+
+\paragraph{Planned rule: balance, then freeze.} Keep the residual balancing during the early, dense part
+of the schedule---which is where the adaptive gains on the \code{mater} problems come from---and freeze
+$\sigma$ at a well-chosen value once it stops making progress:
+\begin{lstlisting}[style=plain]
+policy balance_freeze                 (planned default; initial parameters in Table 2)
+state: sigma, w_p, w_d, step = factor, dirs = [], sigmas = [], frozen = false
+
+reset(sigma0): sigma = clamp(sigma0, sigma_min, sigma_max); w_p = w_d = 0; dirs = sigmas = []
+
+update(k, eta_p, eta_d):              # residuals of the new iterate, original units
+    if frozen: return sigma
+    if residual_weight * eta_p < eta_d: w_p += 1 else: w_d += 1
+    if is_check(k):                   # the 10/25/50/200/1000 schedule
+        if   w_p > max(1, win_ratio * w_d): w_p = 0; change(k, +1)
+        elif w_d > max(1, win_ratio * w_p): w_d = 0; change(k, -1)
+    if k >= K_f:                                              freeze(k, "K_f")
+    elif k >= k_min and len(dirs) >= W and |sum(dirs[-W:])| <= net_max:   freeze(k, "ping-pong")
+    return sigma
+
+change(k, d):                         # d = +1 raises sigma, d = -1 lowers it
+    if step_schedule == halve_on_reversal and dirs and d == -dirs[-1]: step = sqrt(step)
+    sigma = clamp(sigma * step^d, sigma_min, sigma_max); dirs.append(d); sigmas.append(sigma)
+    if step_schedule == halve_on_reversal and log2(step) < 1/16: freeze(k, "step")
+
+freeze(k, reason):
+    if len(dirs) >= W and |sum(dirs[-W:])| <= net_max:        # sigma is bouncing in a band:
+        sigma = geometric_mean(sigmas[-W:])                    # freeze at the centre of the band
+    sigma = clamp(bias * sigma, sigma_min, sigma_max); frozen = true; log(k, reason, sigma)
+\end{lstlisting}
+The ping-pong test uses the \emph{net} movement over the last $W$ changes rather than a count of reversals:
+the \code{trto1} orbit has the pattern $+\,+\,-\,-$, in which only half of the consecutive pairs reverse, so a
+reversal count would miss it, while its net movement is zero. Steady drift ($+\,+\,+\,\dots$) has net movement $W$
+and never triggers the freeze, so $\sigma$ can still travel to where it is needed.
+
+\begin{table}[h]
+\centering\small
+\begin{tabularx}{\textwidth}{@{}l l>{\raggedright\arraybackslash}X@{}}
+\toprule
+Parameter & Initial value & Screened in Phase 4b \\
+\midrule
+\code{factor} $f$ & 2 & $\{2,\ 1.2\}$; $f=2$ has the GPU evidence (isolated $\times2$ steps are harmless), $f=1.2$ settles closer to balance but travels $3.8\times$ slower \\
+\code{step_schedule} & \code{constant} & $\{$\code{constant}, \code{halve_on_reversal}$\}$ ($2\to\sqrt2\to2^{1/4}\to\cdots$) \\
+\code{freeze_iteration} $K_f$ & $10^4$ & $\{10^4,\ 2\cdot10^4,\ 5\cdot10^4\}$; $10^4$ had the best geometric mean of these three on four problems \cite{sigmastudy} \\
+ping-pong $W$, \code{net_max}, $k_{\min}$ & 8, 2, 1000 & sanity check $W\in\{6,8,12\}$ \\
+\code{freeze_value} & band centre & $\{$last value, band centre$\}$ \\
+\code{freeze_bias} & 1 & $\{1,2,4\}$: where the duality gap dominates (\code{vibra1}, \code{shmup1}), the best fixed $\sigma$ is $10$--$39\times$ above the rule's late average \cite{sigmastudy} \\
+\code{win_ratio}, \code{guard}, \code{residual_weight} & 1.35, on, 1 & --- \\
+$[\sigma_{\min},\sigma_{\max}]$ & $[10^{-3},10^{3}]$, $\sigma_0$ clamped & --- \\
+\bottomrule
+\end{tabularx}
+\caption{Parameters of \texttt{balance\_freeze}. All of them are options of \texttt{ResidualBalancingPenalty} (Section~\ref{sec:penalty-policies}).}
+\label{tab:freeze-params}
+\end{table}
+
+\paragraph{What the freeze guarantees, and what it does not.} The rule changes $\sigma$ at most once per
+check before the freeze, so finitely often; after the last change the iteration is fixed-$\sigma$ ADMM with
+$\tau\in(0,2)$ started from the current point, whose iterates converge \cite{afterimage,chen2021}. The local
+linear rate under strict complementarity \cite{kang2025local} is also a fixed-$\sigma$ result. Speed is not
+guaranteed: in the replica, a freeze at $2\cdot10^4$ converged wherever any rule converged but was slower
+than the best rule on four of the five problems it solved \cite{review20}, and the frozen value mattered
+more than the freeze time \cite{sigmastudy}. Hence the band-centre value, the optional bias, and the
+Phase-4b screen. The vote still ignores the duality gap $\eta_g$; a gap-aware vote is a research item
+(Section~\ref{sec:decisions}).
 
 %=======================================================================================================
 \section{Assessment of the current code}\label{sec:assessment}
 
 \subsection{What must be preserved}
 \begin{itemize}
-  \item The numerics are correct: the iteration matches \eqref{eq:ystep}--\eqref{eq:xstep}; the three
-  cones project onto the right dual cones; $\svec$ conventions, permutations of the CHOLMOD factor,
-  unscaling and the residuals in original units were checked line by line.
-  \item The test suite (87 tests in the plain-ADMM build) generates problems with a known strictly
+  \item The numerics: the iteration matches \eqref{eq:ystep}--\eqref{eq:xstep}; the three cones project
+  onto the right dual cones; the $\svec$ conventions, the permutations of the CHOLMOD factor, unscaling and
+  the residuals in original units are correct.
+  \item The test suite (87 tests in the plain-ADMM build), which generates problems with a known strictly
   complementary primal--dual solution for PSD, free and nonnegative blocks and for every projection tier,
   and keeps golden $\sigma$ histories. On the reference workstation (2$\times$ RTX 6000 Ada, CUDA 12.9,
-  SuiteSparse 7.6.1) 85 pass with the October 13 edit; the two failures are expected (B14) or
-  environment-specific (B9).
+  SuiteSparse 7.6.1) 85 pass: the golden test fails by construction (B14) and the rank-deficient CHOLMOD test
+  fails with this SuiteSparse version (B9; it passes with 7.10.1 on the reviewers' H200 \cite{review20}).
   \item Bitwise reproducibility of the exact paths (deterministic \code{CUSPARSE_SPMV_CSR_ALG2}), the
-  external validator, the certified lower bound, the LOBPCG accept-or-fall-back logic, and the error
-  checks on library calls.
+  external validator, the certified lower bound, the LOBPCG accept-or-fall-back logic, and the error checks
+  on library calls (with the gaps listed as B15--B16).
 \end{itemize}
 
 \subsection{Structural problems}
 \begin{enumerate}[label=\textbf{P\arabic*.}]
   \item \textbf{One class does everything.} \code{SDPSolver} (\code{include/cuadmm/solver.h},
-  \code{src/solver.cu}, 2{,}229 lines) has over 200 public data members; \code{init()} is about 590 lines
-  and \code{solve()} about 1{,}080. \code{solve()} mixes the ADMM steps, the three PSD tiers with LOBPCG and
-  composite filtering, the $\sigma$ rules, termination, external validation, best-iterate tracking,
-  printing, and bookkeeping for a compiled-out mode.
+  \code{src/solver.cu}, 2{,}230 lines at \code{main}) has over 200 public data members; \code{init()} has 23
+  parameters and about 590 lines, and \code{solve()} spans lines 1040--2119. \code{solve()} mixes the ADMM
+  steps, the three PSD tiers with LOBPCG and composite filtering, the $\sigma$ rules, termination, external
+  validation, best-iterate tracking, printing, and bookkeeping for a mode that is compiled out.
   \item \textbf{Projection logic at two levels.} Large blocks use member functions
   (\code{large_full_eig_project}, \code{large_lobpcg_project}, \code{large_composite_project}); medium and
   small blocks are inline in \code{solve()}. The buffers, handles and streams of all tiers are solver fields.
-  \item \textbf{Configuration in four places.} 20 positional parameters of \code{init()}, 10 of
-  \code{solve()}, public fields set before either call, and \texttt{\#define} constants (tier limits 32/1000,
-  LOBPCG thresholds, composite margins). The CLI and MATLAB re-encode defaults independently, which
-  produced B3 and B4.
+  \item \textbf{Configuration in four places.} The 23 parameters of \code{init()}, 10 of \code{solve()},
+  public fields set before either call, and \texttt{\#define} constants (tier limits 32/1000, LOBPCG
+  thresholds, composite margins). The CLI and MATLAB re-encode defaults independently, which produced B3
+  and B4, and the C++ API has defaults of its own (Section~\ref{sec:api-defaults}).
   \item \textbf{Dead or compiled-out code.} \code{analyze_blk}, \code{get_maps}, \code{MatrixSizes::init}
   (all superseded by \code{BlockStructure}), \code{get_eig_rank_mask}, \code{max_dense_vector_zero_mask}
-  and the \code{use_mask} path, \code{check_gpus}, \code{bscale2}/\code{Cscale2}, the disabled monitor, and
-  the sGS code that is compiled out but still threaded through \code{solve()}.
+  and the \code{use_mask} path, \code{check_gpus}, \code{bscale2}/\code{Cscale2}, the commented-out monitor,
+  and the sGS code that the CMake library compiles out but still threads through \code{solve()}.
   \item \textbf{Scaling in four places.} Applied in \code{init()}, re-applied for warm starts in
   \code{solve()}, undone at the end, and undone again on the host in \code{validate_current_iterate}.
-  \item \textbf{Ad hoc streams.} The legacy default stream and non-blocking streams are mixed with
-  manual synchronizations; B2 is a consequence.
+  \item \textbf{Ad hoc streams.} The legacy default stream and non-blocking streams are mixed with manual
+  synchronizations; B2 is a consequence.
   \item \textbf{Cone-specific branches in seven live files.} Conversion kernel, \code{solver.cu},
-  external validator, block structure, problem loader, CLI, MATLAB binding. Adding a cone touches all of them.
-  \item \textbf{The PSD projection depends on a submodule} whose kernels, helper names and handle
-  conventions differ from the solver's (B1, B10).
+  external validator, block structure, problem loader, CLI, MATLAB binding.
+  \item \textbf{Memory sized for concurrency that never happens.} The medium tier allocates one
+  eigensolver workspace per matrix although at most \code{--streams} of them run at once (B20). The large
+  tier keeps three dense $n_b\times n_b$ buffers and one EVD workspace per block although its blocks are
+  projected one at a time (B19).
+  \item \textbf{The PSD projection depends on a submodule} whose kernels, helper names, error macros and
+  handle conventions differ from the solver's (B1, B10, B15).
 \end{enumerate}
 
 \subsection{Defect register}
-Table~\ref{tab:defects} lists the defects found in the review, with the phase that fixes each one.
+Table~\ref{tab:defects} lists the defects and inconsistencies found so far, with the step that fixes each.
+B15--B29 are new in this revision.
 
 {\small
 \begin{longtable}{@{}p{0.6cm}>{\raggedright\arraybackslash}p{8.6cm}>{\raggedright\arraybackslash}p{4.4cm}p{0.9cm}@{}}
-\caption{Defects and inconsistencies of the baseline.}\label{tab:defects}\\
+\caption{Defects and inconsistencies at \texttt{2d8a755}.}\label{tab:defects}\\
 \toprule
-ID & Description & Location / evidence & Phase\\
+ID & Description & Location / evidence & Step\\
 \midrule
 \endfirsthead
 \toprule
-ID & Description & Location / evidence & Phase\\
+ID & Description & Location / evidence & Step\\
 \midrule
 \endhead
 B1 & \code{CUBLAS_TENSOR_OP_MATH} on the composite handle equals \code{CUBLAS_COMPUTE_32F_FAST_16F} for
-\code{cublasSgemm}, so the ``FP32'' composite filter runs at FP16 accuracy. Measured relative error
-$6.6\times10^{-4}$ / $6.5\times10^{-4}$ instead of $5.3\times10^{-6}$ / $6.5\times10^{-6}$ at $n=2000/5000$.
-The test that mirrors the handle accepts $10^{-3}$, which hides it. & \code{src/solver.cu:909};
-\code{test/large_projection_test.hpp:630} & 1, 6\\
-B2 & Race in \code{init()}: \code{get_normA} rewrites \code{At_csc.vals} on stream 0 while
-\code{At_csc} is copied into \code{A_csr} on non-blocking streams with no ordering. If the copy wins,
-$\A$ and $\Ad$ are inconsistent. & \code{src/solver.cu:535, 541-543} & 1\\
+\code{cublasSgemm}, so the ``FP32'' composite filter runs at FP16 accuracy: relative error
+$6.6\times10^{-4}$ / $6.5\times10^{-4}$ instead of $5.3\times10^{-6}$ / $6.5\times10^{-6}$ at $n=2000/5000$
+(measured). Opt-in: no default path uses it. The test that mirrors the handle accepts $10^{-3}$. The FP16
+filter is bitwise identical under both modes (measured at $n = 1000$, 2000, 5000). &
+\code{src/solver.cu:909}; \code{test/large_projection_test.hpp:630} & 1, 6a\\
+B2 & Race in \code{init()}: \code{get_normA} rewrites \code{At_csc.vals} on stream 0 while \code{At_csc} is
+copied into \code{A_csr} on non-blocking streams with no ordering; if the copy wins, $\A$ and $\Ad$ are
+inconsistent. & \code{src/solver.cu:535, 541-543} & 1\\
 B3 & Default \code{switch_proj_max_iter} is 0 in the CLI (low-rank analysis from iteration 2) and 5000 in
 MATLAB. & \code{src/main.cu}, \code{MATLAB/cuadmm_MATLAB.cu} & 2\\
-B4 & Composite filtering is unreachable: CLI and MATLAB hard-code \code{EIG_FP64} for both projection
-phases. & \code{src/main.cu:651}; \code{MATLAB/cuadmm_MATLAB.cu:485} & 2, 6\\
-B5 & \code{CUADMM_PLAIN_ADMM_ONLY} is defined unconditionally, so sGS-ADMM throws; the README still
-documents the sGS options. & \code{CMakeLists.txt:94} & 1, 4\\
-B6 & \code{sigscale = max(2 exp(-k/50000), 2)} is always 2 (dead decay). & \code{src/solver.cu:2059} & 4\\
+B4 & Composite filtering is unreachable from the CLI and MATLAB, which hard-code \code{EIG_FP64} for both
+projection phases; the C++ API defaults to \code{COMPOSITE_FP16}. & \code{src/main.cu:649-650};
+\code{MATLAB/cuadmm_MATLAB.cu:485-486}; \code{solver.h:512} & 2, 6a\\
+B5 & \code{CUADMM_PLAIN_ADMM_ONLY} is defined for the CMake library only, so the tests and CLI reject
+sGS-ADMM while the MEX builds sGS and the hybrid mode untested; the README documents the sGS options. &
+\code{CMakeLists.txt:94}; \code{MATLAB/CMakeLists.txt} & 1, 4\\
+B6 & \code{sigscale = max(2 exp(-k/50000), 2)} is always 2 (dead decay). & \code{src/solver.cu:2059} & 1\\
 B7 & LOBPCG and Lanczos allocate and free device memory on every call; \code{cudaFree} synchronizes the
-device. & \code{psd_projection/src/lobpcg.cu}, \code{lanczos.cu} & 3, 6\\
-B8 & The Lanczos start vector is seeded from \code{std::random_device} and the clock, so runs with
-composite filtering are not reproducible. & \code{psd_projection/src/utils.cu:188} & 6\\
+device. & \code{psd_projection/src/lobpcg.cu}, \code{lanczos.cu} & 6b\\
+B8 & The Lanczos start vector is seeded from \code{std::random_device} and the clock, so composite runs are
+not reproducible. & \code{psd_projection/src/utils.cu:188} & 6a\\
 B9 & With SuiteSparse 7.6.1, CHOLMOD reports failure on the rank-deficient $\A\Ad+10^{-15}I$ and
-\code{factorize()} throws (\code{AAtFactorization.RankDeficientRangeSolves} fails); SPOT-type data with
-dependent rows may fail at setup on such systems. & \code{include/cuadmm/cholesky_cpu.h:168} & 0, 7\\
+\code{factorize()} throws (\code{AAtFactorization.RankDeficientRangeSolves}); SPOT-type data with dependent
+rows may fail at setup on such systems. & \code{include/cuadmm/cholesky_cpu.h:168} & 0, 7\\
 B10 & Two definitions of the kernel \code{max_dense_vector_zero_kernel} (cuADMM and submodule). &
-\code{src/kernels/dense_scalar.cu}; \code{psd_projection/src/utils.cu} & 6\\
+\code{src/kernels/dense_scalar.cu}; \code{psd_projection/src/utils.cu} & 6a\\
 B11 & The composite damping divides the \emph{input} of each polynomial in the code; \cite[\S3.4]{composite}
 describes rescaling the \emph{output}. Coefficients match \cite[Tables~1--2]{composite} exactly. &
-\code{composite_FP16.cu}, \code{composite_FP32.cu} & 6\\
-B12 & Documentation drift: \code{init()} documents a default $\sigma$ of \code{2e2} (signature: 1.0);
-\code{lobpcg.h} documents \code{D} as $m\times m$ (it is a vector); README lists disabled options. &
-headers, README & 1, 10\\
+\code{composite_FP16.cu}, \code{composite_FP32.cu} & 6a\\
+B12 & Documentation drift: \code{init()} documents a default $\sigma$ of \code{2e2} (signature: 1.0); \code{lobpcg.h}
+documents \code{D} as $m\times m$ (a vector); \code{solver.h} says the logged residuals are scaled (they are in
+original units); README lists options the build rejects. & headers, README & 1, 10\\
 B13 & LOBPCG tolerance is an absolute $10^{-5}$, not tied to the stopping tolerance; the acceptance test is
-necessary but not sufficient (documented in the code). & \code{src/solver.cu:36-43, 219-234} & 6\\
-B14 & The golden test \code{FixedSigma.LegacyAdaptiveAndPlainAdmmUnchanged} fails after the October 13
-penalty edit, by design. & \code{test/fixed_sigma_validation_test.hpp} & 0, 4\\
+necessary but not sufficient (documented in the code). & \code{src/solver.cu:36-43, 219-234} & 6a\\
+B14 & The golden test \code{FixedSigma.LegacyAdaptiveAndPlainAdmmUnchanged} fails by construction: both
+plain-ADMM golden cases start with a $\sigma$ change at $k = 1$, which the guard blocks. &
+\code{test/fixed_sigma_validation_test.hpp}; \code{legacy_golden.txt:6, 476} & Pre-0\\
+B15 & \code{include/cuadmm/check.h} and the submodule's \code{check.h} share the include guard
+\code{CUADMM_CHECK_H}; whichever is included first wins, and the submodule's own \code{CHECK_*} macros only
+print. & both \code{check.h} files & 3\\
+B16 & No \code{cudaGetLastError} after cuADMM's kernel launches; eight \code{exit(1)} calls in library I/O. &
+\code{src/kernels/*.cu}; \code{src/utils/io.cu} & 1, 3\\
+B17 & The MEX accepts 0 eigensolver streams, and any medium block then divides by zero. &
+\code{src/solver.cu:779} & 1\\
+B18 & \code{legacy_adaptive} silently runs the October 13 rule: the old rule cannot be selected, the published
+PLATO command (\code{--sigma-policy legacy_adaptive --sig 1}) now runs a different rule, CLI help and README
+still call it ``historical'', the summary JSON writes the same label for both rules with no commit stamp, and
+MATLAB users get the new rule without a way to choose. & \code{main.cu:19-20, 31, 93, 408}; \code{README.md:46};
+PLATO \code{PROTOCOL.md:36} & Pre-0\\
+B19 & Large-tier memory: three dense buffers of $\sum_b n_b^2$ doubles (matrices, $Q\max(\Lambda,0)$, result)
+plus one \code{cusolverDnXsyevd} workspace \emph{per large block} ($\approx4.0\,n_b^2$ doubles each, measured),
+although large blocks are projected one at a time: about $7\sum_b n_b^2$ doubles. One block of $n = 30{,}000$
+alone takes $\approx47$\,GiB of the reference GPUs' 48\,GiB; one block of $n = 32{,}768$ ($\approx56$\,GiB) does not fit. & \code{src/solver.cu:839-890, 954-964} & 6b\\
+B20 & Medium-tier memory: one \code{Xsyevd} workspace per medium matrix ($4.2$--$31\,n^2$ doubles each,
+measured), allocated even for groups that use the batched call; batched groups are decomposed in one call
+whatever their size, and the batched workspace grows linearly with the batch. 1{,}000 blocks of $n = 500$
+take $\approx8.9$\,GiB of streamed workspace (plus as much again for the batched call). & \code{src/solver.cu:768-837} & 6b\\
+B21 & Exact-EVD size limit: on CUDA 12.9 the \code{cusolverDnXsyevd}/\code{Xsyevdx} workspace queries fail for
+$n > 32{,}768$ (FP64 and FP32, measured), while \code{BlockStructure} accepts PSD blocks up to 46{,}340; setup
+then fails with a cuSOLVER error instead of a clear message. & \code{matrix_sizes.h:17}; \code{src/solver.cu:869} & 1\\
+B22 & The Lanczos value is an estimate, not a bound: it fell below $\norm{Z}_2$ in 0.2\% of random starts on one
+test spectrum (worst ratio 0.979) \cite{review20}, and only non-finite composite results are rejected. &
+\code{src/solver.cu:297-305} & 1\\
+B23 & Best-iterate ranking: without a validation the merit is normalized by $1+\norm{b}_2$, while DIMACS
+\code{err1} uses $1+\norm{b}_\infty$ (about $12\times$ apart on the long-horizon problems); in 3 of 4
+long-horizon runs the returned iterate's validated error was 1.19--6.1$\times$ that of the best one seen
+\cite{review20}. & \code{external_validation.cu:94-107, 215, 354} & 4\\
+B24 & Certificate with free blocks: \code{--trace-bound R} applies $R$, and \code{--trace-bound-scale f} applies
+$f$, as an entrywise bound $|X_u|\le R_u$ on every free block; the lower bound is valid only if that holds,
+and nothing reports it per block (Section~\ref{sec:free}). & \code{src/main.cu:68-74} & 5\\
+B25 & The history CSV keeps 10 significant digits, too few for exact replays and unit-test fixtures. &
+\code{src/main.cu:597} & 4\\
+B26 & References on \code{main} to experiment material that is not published: the golden generator
+\code{gen_legacy_golden.cu} exists only in local commits, seven cited experiment commits are on no remote,
+and four references point to directories \code{main} lacks (one was never committed). Owner: the experiment
+authors. & \code{README.md:56}; \code{fixed_sigma_validation_test.hpp:10}; \code{legacy_golden.txt:2};
+\code{external_validation.h:10} & Pre-0\\
+B27 & The only input format is text: about $3.5\times10^6$ nonzeros per second to parse (measured), COO triplets
+before CSC (twice the host memory), and \code{int} sizes (\code{At_nnz}, \code{vec_len}, \code{con_num}). &
+\code{src/problem.cu}; \code{src/utils/io.cu}; \code{problem.h:26-38} & 2b\\
+B28 & \code{mosek_to_txt.m} treats every scalar variable as free (it overwrites \code{blx}), negates $c$ (that is,
+assumes maximization) exactly when \code{barc} is absent, reads only \code{blc} (equalities assumed), and ignores
+\code{cfix}. Right for SPOT's moment and SOS files, wrong for other MOSEK problems. & \code{examples/mosek_to_txt.m};
+\code{examples/utils/convert_mosek2sedumi.m} & 2b\\
+B29 & \code{sdpt3_to_txt.m} and \code{sedumi_to_txt.m} reject \code{l} blocks (\code{store_blk} writes only \code{s} and
+\code{u}); each MATLAB example defines its own local \code{sdpt3_to_cuadmm}, with two different signatures. &
+\code{examples/*_to_txt.m}; \code{MATLAB/example_*.m} & 2b\\
 \bottomrule
 \end{longtable}
 }
@@ -385,21 +579,25 @@ penalty edit, by design. & \code{test/fixed_sigma_validation_test.hpp} & 0, 4\\
 \section{Design principles}\label{sec:principles}
 \begin{enumerate}[label=\textbf{\arabic*.}]
   \item \textbf{Layers with one-way dependencies.} Front-ends $\to$ solver facade $\to$ algorithm $\to$
-  components (cones, normal-equation solver, scaling, KKT) $\to$ core $\to$ CUDA libraries
-  (Figure~\ref{fig:layers}). No component knows the solver.
+  components $\to$ core $\to$ CUDA libraries (Figure~\ref{fig:layers}). No component knows the solver.
   \item \textbf{Strategies, not branches.} Every algorithmic choice (iteration scheme, penalty policy, PSD
   projector, normal-equation backend, stopping rule) is an object chosen at runtime from options. No
   compile-time algorithm flags.
   \item \textbf{One source of truth for options.} Defaults live in \code{SolverOptions}; the CLI flags and
   MATLAB fields are generated from, or checked against, the same table.
+  \item \textbf{Names never change meaning.} A behavior change gets a new option value or policy name; a
+  removed or renamed name is an error, never a silent alias (B18).
+  \item \textbf{Memory follows the access pattern.} Resources that are used concurrently are allocated per
+  concurrent user; resources that are used one after another share one allocation sized for the largest
+  user (Section~\ref{sec:psd}). Nothing is allocated inside the iteration loop.
   \item \textbf{Explicit GPU resource ownership.} Each component owns its streams, handles and workspace
-  slices, declares cross-stream dependencies with events, and never allocates inside the iteration loop.
+  slices and declares cross-stream dependencies with events.
   \item \textbf{Math-to-code traceability.} Names follow Section~\ref{sec:math}: \code{y_step},
   \code{cone_step}, \code{multiplier_step}, \code{sigma}, \code{tau} (Appendix~\ref{app:notation}).
-  \item \textbf{Deterministic by default.} Fixed seeds, deterministic SpMV, fixed reduction orders;
-  faster nondeterministic modes are opt-in.
-  \item \textbf{Behavior-preserving migration.} Structural phases must reproduce baseline iterates bit for
-  bit; behavior changes are isolated in labeled phases with tolerance-based acceptance.
+  \item \textbf{Deterministic by default.} Fixed seeds, deterministic SpMV, fixed reduction orders; faster
+  nondeterministic modes are opt-in.
+  \item \textbf{Behavior-preserving migration.} Structural phases reproduce baseline iterates bit for bit on
+  each pinned machine; behavior changes are isolated in labelled phases with tolerance-based acceptance.
   \item \textbf{Testable components.} Each component can be driven from host data in a unit test without
   constructing a solver.
 \end{enumerate}
@@ -407,53 +605,63 @@ penalty edit, by design. & \code{test/fixed_sigma_validation_test.hpp} & 0, 4\\
 %=======================================================================================================
 \section{Target architecture}\label{sec:architecture}
 
-\begin{figure}[h]
+The library is organized in six layers (Figure~\ref{fig:layers}). Each layer uses only the layers below it:
+the front-ends build options and call the facade; the algorithm layer drives the components through the
+interfaces of Sections~\ref{sec:algorithm}--\ref{sec:linsys}; the components take their streams, workspaces
+and library handles from the core and create none of their own.
+
+\begin{figure}[H]
 \centering
 \begin{tikzpicture}[
   layer/.style={draw, rounded corners=2pt, minimum height=0.85cm, text width=14.2cm, align=center, font=\small},
   >=Stealth, node distance=0.28cm]
-\node[layer, fill=Gray!10] (fe) {\textbf{Front-ends}: CLI (\texttt{apps/cli}) \quad MATLAB (\texttt{matlab/}) \quad C++ API \quad (future) Python};
+\node[layer, fill=Gray!10] (fe) {\textbf{Front-ends}: CLI (\texttt{apps/cli}) \quad MATLAB (\texttt{matlab/}) \quad C++ API \quad (later) Python};
 \node[layer, fill=NavyBlue!8, below=of fe] (fa) {\textbf{Solver facade}: \texttt{Solver}, \texttt{SolverOptions}, \texttt{ProblemData}, \texttt{SolveResult}};
-\node[layer, fill=NavyBlue!14, below=of fa] (al) {\textbf{Algorithm}: \texttt{AdmmSolver} \quad \texttt{IterationScheme} (ADMM / sGS-ADMM) \quad \texttt{PenaltyPolicy} \quad \texttt{StoppingRule} \quad observers};
-\node[layer, fill=ForestGreen!10, below=of al] (co) {\textbf{Components}: \texttt{ConeProduct} (free, nonnegative, PSD with projector strategies, \dots) \quad \texttt{NormalEquationSolver} \quad \texttt{Scaling} \quad \texttt{KktEvaluator} \quad \texttt{Presolve}};
+\node[layer, fill=NavyBlue!14, below=of fa] (al) {\textbf{Algorithm}: \texttt{AdmmSolver} \quad \texttt{IterationScheme} \quad \texttt{PenaltyPolicy} \quad \texttt{KktEvaluator} \quad \texttt{StoppingRule} \quad \texttt{BestIterateTracker} \quad observers};
+\node[layer, fill=ForestGreen!10, below=of al] (co) {\textbf{Components}: \texttt{ConeProduct} (free, nonnegative, PSD with projector strategies, \dots) \quad \texttt{NormalEquationSolver} \quad \texttt{Scaling} \quad \texttt{Presolve} \quad \texttt{ExternalValidator}};
 \node[layer, fill=Orange!10, below=of co] (core) {\textbf{Core}: \texttt{GpuContext} \quad \texttt{StreamPool} \quad \texttt{WorkspaceArena} \quad \texttt{DeviceBuffer} \quad sparse/dense linear algebra wrappers \quad checks, logging};
 \node[layer, fill=Gray!20, below=of core] (lib) {\textbf{Libraries}: cuBLAS \quad cuSOLVER \quad cuSPARSE \quad cuDSS (optional) \quad CHOLMOD};
 \foreach \a/\b in {fe/fa, fa/al, al/co, co/core, core/lib} \draw[->] (\a) -- (\b);
 \end{tikzpicture}
-\caption{Layers and dependency direction.}
+\caption{Layers and dependency direction. The external validator is a component of its own: a CPU
+implementation on the original data that shares no code with the GPU path (Section~\ref{sec:termination}).}
 \label{fig:layers}
 \end{figure}
 
 \subsection{Directory layout}
 \begin{lstlisting}[style=plain]
 cuADMM/
-|-- CMakeLists.txt        CUADMM_WITH_{CUDSS,CHOLMOD}, CUADMM_BUILD_{CLI,MATLAB,TESTS,BENCH}
+|-- CMakeLists.txt        CUADMM_WITH_{CUDSS,HDF5,MATIO}, CUADMM_BUILD_{CLI,MATLAB,TESTS,BENCH}   (CHOLMOD is required)
 |-- cmake/                FindCUDSS.cmake, FindCHOLMOD.cmake, compiler warnings
 |-- include/cuadmm/       public API only
 |   |-- cuadmm.h          umbrella header
 |   |-- options.h         SolverOptions (single source of defaults)
 |   |-- problem.h         ProblemData, ConeSpec
-|   |-- result.h          SolveResult, Status, Statistics
+|   |-- result.h          SolveResult (best and final iterate), Status, Statistics
 |   `-- solver.h          Solver facade
 |-- src/
-|   |-- core/             GpuContext, StreamPool, WorkspaceArena, buffers, checks, logging
+|   |-- core/             GpuContext, StreamPool, ExecContext, WorkspaceArena, buffers, checks, logging
 |   |-- linalg/           sparse matrix wrappers (CSR/CSC), SpMV, vector kernels
 |   |-- problem/          BlockLayout, Presolve (dependent rows, grouping by cone), DeviceProblem
 |   |-- scaling/          Scaling
 |   |-- cone/
 |   |   |-- cone.h, cone_product.{h,cu}, cone_registry.{h,cu}
-|   |   |-- free_cone.cu, nonnegative_cone.cu        (soc/ added in Phase 9)
+|   |   |-- free_cone.cu, nonnegative_cone.cu         (soc/ when Phase 9 is scheduled)
 |   |   `-- psd/
-|   |       |-- psd_cone.{h,cu}, psd_block_group.h, svec.cu
-|   |       |-- projectors/   one file per PSD projection strategy (catalog in Section 9)
-|   |       |-- policy/       PsdProjectionPolicy, LargeBlockState, RankAnalyzer
-|   |       `-- kernels/      composite filters + coefficients, Lanczos bound, LOBPCG
-|   |-- linsys/           NormalMatrix, NormalEquationSolver, cudss/ cholmod/ dense/, factory
+|   |       |-- psd_cone.{h,cu}, svec.cu
+|   |       |-- batched/      small and medium tiers: batch layout, Jacobi, batched and streamed EVD
+|   |       |-- large/        large tier: arena, LargeBlockState, RankAnalyzer, selection policy
+|   |       |   `-- projectors/  FullEvd, Lobpcg, CompositeFilter
+|   |       `-- kernels/      composite filters + coefficients, Lanczos estimate, LOBPCG, precision
+|   |-- linsys/           NormalSystem, NormalEquationSolver, factory
+|   |   |-- direct/       cudss/, cholmod/, dense/ (cuSOLVER)
+|   |   `-- iterative/    NormalOperator, PcgSolver, preconditioners/   (research track)
 |   |-- admm/             AdmmState, IterationScheme, PenaltyPolicy, AdmmSolver
-|   |-- termination/      KktEvaluator, StoppingRule, BestIterate, ExternalValidator, Certificate
-|   |-- io/               TXT problem reader, solution and warm-start I/O
+|   |-- termination/      KktEvaluator, StoppingRule, BestIterateTracker, Certificate
+|   |-- validation/       ExternalValidator (CPU, original data, independent of the GPU path)
+|   |-- io/               readers (h5, sdpa, sedumi, sdpt3, mosek, txt), writers, detection, conversion report
 |   `-- report/           IterationObserver: console, CSV, sigma log, JSON, checkpoints
-|-- apps/cli/             cuadmm executable (argument parser driven by the option table)
+|-- apps/cli/             cuadmm executable (argument parser driven by the option table), cuadmm-convert
 |-- matlab/               MEX gateway and +cuadmm package (options struct)
 |-- test/                 unit/, integration/, golden/, data/
 |-- bench/                projection and linear-system micro-benchmarks, end-to-end suites
@@ -469,8 +677,8 @@ cuADMM/
 Item & Convention \\
 \midrule
 Namespaces & \code{cuadmm}, \code{cuadmm::core}, \code{cuadmm::cone}, \code{cuadmm::cone::psd},
-\code{cuadmm::linsys}, \code{cuadmm::admm}, \code{cuadmm::termination}, \code{cuadmm::report};
-implementation details in \code{detail} or anonymous namespaces.\\
+\code{cuadmm::linsys}, \code{cuadmm::admm}, \code{cuadmm::termination}, \code{cuadmm::validation},
+\code{cuadmm::report}; implementation details in \code{detail} or anonymous namespaces.\\
 Files & \code{snake_case}, named after the main class (\code{full_evd_projector.cu} defines
 \code{FullEvdProjector}); public headers only under \code{include/cuadmm}.\\
 Types & \code{PascalCase} classes and structs; \code{enum class} with \code{PascalCase} values
@@ -478,12 +686,13 @@ Types & \code{PascalCase} classes and structs; \code{enum class} with \code{Pasc
 Functions, variables & \code{snake_case}; private members end in \code{_} (\code{sigma_}).\\
 Constants & \code{constexpr} with a \code{k} prefix (\code{kDefaultTau}); no \texttt{\#define} for numerical
 parameters---those are options.\\
-CUDA kernels & \code{snake_case_kernel}, file-local (\code{static} or anonymous namespace), launched only
-through a host wrapper that takes an \code{ExecContext}.\\
+Option and policy names & lower \code{snake_case} strings (\code{balance_freeze}); unknown names are errors.\\
+CUDA kernels & \code{snake_case_kernel}, file-local, launched only through a host wrapper that takes an
+\code{ExecContext} and checks the launch.\\
 Math names & as in Appendix~\ref{app:notation}: \code{sigma}, \code{tau}, \code{y_step}, \code{cone_step},
 \code{multiplier_step}, \code{eta_p}, \code{eta_d}, \code{eta_g}.\\
-Errors & \code{CUADMM_CHECK_CUDA/CUBLAS/CUSOLVER/CUSPARSE/CUDSS} macros throwing \code{cuadmm::Error}
-with call site and context; no \code{exit()} in library code.\\
+Errors & one set of \code{CUADMM_CHECK_CUDA/CUBLAS/CUSOLVER/CUSPARSE/CUDSS} macros throwing
+\code{cuadmm::Error} with call site and context; no \code{exit()} in library code.\\
 Ownership & RAII for every CUDA object; non-owning \code{DeviceSpan<T>} for views; no raw
 \code{cudaMalloc} outside \code{core}.\\
 Style tools & \code{.clang-format}, \code{.clang-tidy}, Doxygen comments on every public type; warnings as
@@ -496,43 +705,57 @@ errors in CI.\\
 \begin{lstlisting}
 namespace cuadmm {
 
+enum class ConeKind { Free, Nonnegative, Psd, SecondOrder, RotatedSecondOrder, Exponential, Power };
 struct ConeSpec { ConeKind kind; std::int64_t size; double parameter = 0.0; };
+enum class Sense { Minimize, Maximize };
 
-struct ProblemData {                       // host data, original units
+struct ProblemData {                       // host data, original units, 64-bit sizes
   CscMatrix At;                            // vec_len x m, transpose of A in svec form
   SparseVector b, C;
   std::vector<ConeSpec> cones;             // in input order
+  Sense sense = Sense::Minimize;           // results are reported in this sense
+  double objective_offset = 0.0;           // e.g. MOSEK cfix
+  io::SourceInfo source;                   // format, file, block mapping for output, conversion report
 };
+namespace io {
+ProblemData read_problem(const std::string& path, const IoOptions& options);  // format from extension/content
+void write_problem(const std::string& path_h5, const ProblemData& problem);    // native HDF5
+void write_solution(const std::string& path, const ProblemData& problem, const SolveResult& result);  // input's convention
+}
 
 struct WarmStart { std::vector<double> X, y, S; std::optional<double> sigma; };
 
 class Solver {
  public:
   explicit Solver(SolverOptions options);
-  void setup(const ProblemData& problem);  // presolve, scale, factorize AA^T, plan cones
-  SolveResult solve(const WarmStart* warm_start = nullptr);
+  void setup(const ProblemData& problem);  // presolve, scale, factorize, plan cones, check memory
+  SolveResult solve(const WarmStart* warm_start = nullptr);  // resets the penalty-policy state
   const SolverOptions& options() const;
   void add_observer(std::shared_ptr<report::IterationObserver> observer);
 };
 
 }  // namespace cuadmm
 \end{lstlisting}
-\code{SolveResult} carries the unscaled iterate, the residuals $\eta_p,\eta_d,\eta_g$, cone violations, the
-certificate quantities, the stop reason, timings per phase and component, and the choices made at setup
-(normal-equation backend, PSD strategies per block group).
+\code{SolveResult} carries both the best and the final iterate (unscaled), the residuals
+$\eta_p,\eta_d,\eta_g$, cone violations, the certificate quantities, the stop reason, timings per phase and
+component, the policy and its parameters, and the choices made at setup (normal-equation backend, PSD
+strategies and memory plan). The solver uses one GPU.
 
 %=======================================================================================================
 \section{Algorithm layer}\label{sec:algorithm}
 
 \subsection{The iteration loop}
-After the reorganization the loop reads as the mathematics:
+After the reorganization the loop reads as the mathematics. Observers receive the residuals of the
+iterate after the step, paired with the $\sigma$ that the next iteration will use, as the history does
+today:
 \begin{lstlisting}
 SolveResult AdmmSolver::run(AdmmState& s) {
+  KktResiduals r = kkt_.evaluate(s);                        // starting point, original units
   for (int k = 1; ; ++k) {
-    const KktResiduals r = kkt_.evaluate(s);               // original units, cached
     if (const auto stop = stopping_.check(k - 1, r, s)) return finish(*stop, s);
-    scheme_->iterate(s, sigma_, tau_);                      // y-step(s), cone, multiplier
-    sigma_ = penalty_->update(k, kkt_.evaluate(s), sigma_);
+    scheme_->iterate(s, sigma_, tau_);                      // y-step(s), cone step, multiplier step
+    r = kkt_.evaluate(s);                                   // post-step residuals
+    sigma_ = penalty_->update(k, r, sigma_);
     observers_.on_iteration(k, s, r, sigma_);
   }
 }
@@ -552,54 +775,70 @@ class AdmmScheme final : public IterationScheme { /* (2) -> (3) -> (4) */ };
 class SgsAdmmScheme final : public IterationScheme { /* (2) -> (3) -> (2') -> (4) */ };
 \end{lstlisting}
 Both share the step implementations (\code{y_step}, \code{cone_step}, \code{multiplier_step}) in
-\code{AdmmState}; the sGS scheme differs in one extra call. $\tau$ is validated in $(0,2)$ at setup.
-An optional \code{scheme_switch_iteration} reproduces the hybrid mode.
+\code{AdmmState}. $\tau$ is validated in $(0,2)$ at setup; an optional \code{scheme_switch_iteration}
+reproduces the hybrid mode until Q5 is decided.
 
-\subsection{Penalty policies}
+\subsection{Penalty policies}\label{sec:penalty-policies}
 \begin{lstlisting}
 class PenaltyPolicy {
  public:
   virtual ~PenaltyPolicy() = default;
   virtual std::string_view name() const = 0;
-  virtual void reset(double sigma0) = 0;
+  virtual void reset(double sigma0) = 0;                    // called by every solve(), warm starts included
   // Returns sigma for the next iteration; records every change for the sigma log.
   virtual double update(int k, const KktResiduals& r, double sigma) = 0;
+  virtual PolicyState state() const = 0;                    // k, counters, history, frozen flag
+  virtual void restore(const PolicyState& st) = 0;          // exact resume from a checkpoint
 };
 class FixedPenalty final : public PenaltyPolicy { };             // sigma_k = sigma_0
-class ResidualBalancingPenalty final : public PenaltyPolicy { };  // Section 3.5
-class LegacyPenalty final : public PenaltyPolicy { };            // old rule, if Q1 keeps it
+class LegacyPenalty final : public PenaltyPolicy { };            // 9bb4ba5, bit for bit (Monitor1 included)
+class ResidualBalancingPenalty final : public PenaltyPolicy { };  // all options of Table 2
 \end{lstlisting}
-\code{ResidualBalancingPenalty} exposes the schedule, the factor (2), the ratio (1.35), the
-$\max(1,\cdot)$ guard and the bounds as options and documents that $\sigma$ is in scaled units. The
-\code{Monitor1} heuristic is deleted; if Q1 keeps a legacy policy, it lives only there.
+\begin{center}\small
+\begin{tabularx}{\textwidth}{@{}l l>{\raggedright\arraybackslash}X@{}}
+\toprule
+Policy name & Class & Behavior \\
+\midrule
+\code{fixed} & \code{FixedPenalty} & $\sigma_k = \sigma_0$. \\
+\code{legacy_adaptive} & \code{LegacyPenalty} & The rule of \code{9bb4ba5} bit for bit, for reproducing published runs and as the Phase-4b comparator. Whether to keep it after the migration is a separate decision. \\
+\code{residual_balancing} & \code{ResidualBalancingPenalty} & The October 13 rule (\code{2d8a755}): guard, $f=2$, $[10^{-3},10^3]$, no freeze. Default from Pre-0 until Phase 4b (O1). \\
+\code{balance_freeze} & \code{ResidualBalancingPenalty} & The planned rule of Section~\ref{sec:penalty}. Becomes the default in Phase 4b, with the parameters the screen selects. \\
+\bottomrule
+\end{tabularx}
+\end{center}
+\code{Monitor1} survives only inside \code{LegacyPenalty}. Every policy writes one $\sigma$-log row per change
+(old and new $\sigma$, reason, $\eta_p$, $\eta_d$, $\eta_g$, counters); the summary records the policy name,
+its parameters and the build commit, $\sigma_0$ and the final $\sigma$ in scaled and original units, the number
+of changes after $10^4$ and after the freeze, $\sum_k|\log_2(\sigma_{k+1}/\sigma_k)|$, and the freeze
+iteration and reason. Unit tests drive the policies with scripted residual sequences stored at full
+precision (B25), so they need no GPU.
 
-\subsection{Termination and validation}
+\subsection{Termination, validation and the returned iterate}\label{sec:termination}
 \begin{itemize}
   \item \code{KktEvaluator} computes $\eta_p,\eta_d,\eta_g$ once per iteration from the cached residual vectors
-  and the \code{Scaling} object (no ad hoc unscaling).
-  \item Stopping rules implement \code{StoppingRule}: the default \code{InternalKktRule}; the
-  \code{ValidatedRule}, which is today's validation-aware stopping through the \code{ExternalValidator};
-  and the \code{StrictDimacsRule}. All of them also enforce the iteration and time limits and detect
-  non-finite residuals.
-  \item \code{BestIterateTracker} keeps the best internal or externally validated iterate.
-  \item \code{Certificate} computes the cone-measure terms of the certified lower bound through
-  \code{Cone::measure} (Section~\ref{sec:cones}), so new cones contribute their own terms.
+  and the \code{Scaling} object.
+  \item Stopping rules implement \code{StoppingRule}: \code{InternalKktRule} (default), \code{ValidatedRule}
+  (today's validation-aware stopping), \code{StrictDimacsRule}; all enforce the iteration and time limits
+  and detect non-finite residuals.
+  \item \code{ExternalValidator} stays a separate CPU implementation on the original data that uses none
+  of the solver's GPU residuals or eigendecompositions. Each cone registers a host-side reference measure
+  for it, kept apart from its GPU projection code.
+  \item \code{Certificate} computes the cone terms of the certified lower bound through \code{Cone::measure}
+  and needs an explicit bound per block where the cone requires one (free blocks: Section~\ref{sec:free}).
+  \item \code{BestIterateTracker} ranks by the maximum DIMACS error when validations exist (B23), and
+  \code{SolveResult} carries both the best and the final iterate.
 \end{itemize}
 
 \subsection{Reporting}
 All bookkeeping that today lives in solver fields (\code{info_*} arrays, \code{sigma_log}, phase timers,
-validation history) moves to \code{IterationObserver} implementations: console table, CSV history,
-$\sigma$ log, JSON summary, checkpoint writer. The solver emits events
-(\code{on_setup}, \code{on_iteration}, \code{on_sigma_change}, \code{on_projection_switch},
-\code{on_validation}, \code{on_finish}); observers never influence the iteration.
+validation history) moves to \code{IterationObserver} implementations: console table, CSV history with 17
+significant digits, $\sigma$ log, JSON summary, checkpoint writer. Observers never influence the iteration.
 
 %=======================================================================================================
 \section{Cones}\label{sec:cones}
 
 \subsection{Interface}
 \begin{lstlisting}
-enum class ConeKind { Free, Nonnegative, Psd, SecondOrder, RotatedSecondOrder, Exponential, Power };
-
 class Cone {
  public:
   virtual ~Cone() = default;
@@ -607,7 +846,7 @@ class Cone {
   virtual std::string_view name() const = 0;
   virtual std::int64_t dimension() const = 0;       // length of this cone's slice
   virtual bool is_self_dual() const = 0;
-  virtual WorkspaceRequest workspace() const = 0;   // served by the WorkspaceArena
+  virtual WorkspaceRequest workspace() const = 0;   // served by the WorkspaceArena at setup
   // Cone step (3): s = Pi_{K*}(z) on this cone's slice.
   virtual void project_dual(DeviceSpan<const double> z, DeviceSpan<double> s, ExecContext& ctx) = 0;
   // Optional; default via Moreau: Pi_K(z) = z + Pi_{K*}(-z).
@@ -615,12 +854,13 @@ class Cone {
   // Violation measures and certificate coefficient of X (Side::Primal) or S (Side::Dual).
   virtual ConeMeasures measure(DeviceSpan<const double> v, Side side, ExecContext& ctx) = 0;
   virtual ScalingCompatibility scaling_compatibility() const = 0;
+  virtual const HostReferenceMeasure& host_reference() const = 0;   // for the ExternalValidator
 };
 \end{lstlisting}
 A \code{ConeProduct} owns one object per cone kind (each holding all blocks of that kind), maps slices of
-the vector to cones, runs their \code{project_dual} on separate streams when profitable, and joins them
-with events. A \code{ConeRegistry} maps input codes to factories, so the TXT reader, the MATLAB gateway
-and the validator never switch on cone letters.
+the vector to cones, runs their \code{project_dual} on separate streams, and joins them with events. A
+\code{ConeRegistry} maps input codes to factories, so the TXT reader, the MATLAB gateway and the validator
+never switch on cone letters.
 
 \subsection{Existing cones}
 \begin{center}\small
@@ -630,14 +870,15 @@ Code & Primal $\K_\beta$ & Dual $\Kd_\beta$ & Cone step and status \\
 \midrule
 \code{s n} & $\Sym^n_+$ & $\Sym^n_+$ & $Q\max(\Lambda,0)Q^\top$ through the strategies of Section~\ref{sec:psd}; correct, tested for all tiers. \\
 \code{l n} & $\R^n_+$ & $\R^n_+$ & $\max(z,0)$; correct, tested together with PSD and free blocks (a pure-LP test is added in Phase 5). \\
-\code{u n} & $\R^n$ & $\{0\}$ & $s=0$; correct, tested alone and with PSD blocks. \\
+\code{u n} & $\R^n$ & $\{0\}$ & $s=0$; correct, tested alone and with PSD, nonnegative, small, medium blocks (Section~\ref{sec:free}). \\
 \bottomrule
 \end{tabularx}
 \end{center}
 
 \subsection{Adding a cone (checklist)}
 \begin{enumerate}
-  \item Implement a \code{Cone} subclass with \code{project_dual} (or \code{project_primal} plus Moreau) and \code{measure}.
+  \item Implement a \code{Cone} subclass with \code{project_dual} (or \code{project_primal} plus Moreau),
+  \code{measure} and a host reference measure for the validator.
   \item Register its input code and parameters in \code{ConeRegistry}.
   \item Add a generator case producing a problem with a known strictly complementary solution for the cone
   (the pattern of \code{test/regression_problems.hpp}).
@@ -653,42 +894,144 @@ Code & Primal $\K_\beta$ & Dual $\Kd_\beta$ & Cone step and status \\
   $\tfrac{t+\norm{x}}{2}\,(1, x/\norm{x})$. One batched kernel with a segmented reduction.
   \item \textbf{Rotated second-order} (code \code{r}) through the orthogonal map to $\mathcal{Q}^n$.
   \item \textbf{Exponential and power cones}: not self-dual, projections by a few Newton steps per cone;
-  the interface already separates primal and dual projections.
+  the interface separates primal and dual projections.
 \end{itemize}
-The current scaling (row normalization of $\A$ and two scalars) is valid for every cone. Any future
-variable scaling must be uniform on each PSD and second-order block; \code{scaling_compatibility()} makes
-this checkable.
+
+\subsection{Scaling compatibility}
+The current scaling (row normalization of $\A$ and two scalars) is valid for every cone. A future variable
+scaling must map each cone onto itself: any positive diagonal scaling for free and nonnegative blocks, a
+congruence $X\mapsto DXD$ with positive diagonal $D$ for PSD blocks (entrywise $d_id_j$ in $\svec$
+coordinates), and a uniform factor for second-order blocks. \code{scaling_compatibility()} makes this
+checkable.
 
 %=======================================================================================================
-\section{PSD cone projection strategies}\label{sec:psd}
+\section{Free variables}\label{sec:free}
 
-\subsection{Organization}
-\code{PsdCone} groups its blocks into \code{PsdBlockGroup}s of equal size $n$ (stored as a contiguous batch of
-$n\times n$ column-major matrices), converts the $\svec$ slice to the batch, projects, and converts back.
-Each group has a \emph{size class} (small, medium, large) and is assigned a \code{PsdProjector}; large blocks
-additionally carry a per-block \code{LargeBlockState} because their strategy changes during a run.
+Free variables are not a corner case: SOS formulations produce large free blocks (the SOS version of the
+PushBox problem, \code{examples/SPOT/data/TXT/PushBox_N=30_SOS}, has one free block of 22{,}870 entries), and
+modeling with equality-constrained auxiliary variables or SeDuMi's \code{K.f} produces them too. They are
+handled correctly today; this section makes the handling explicit for every component, so that no part of
+the reorganization can drop it.
+
+\subsection{Mathematics}
+For a free block $u$, $\K_u = \R^{n_u}$ and $\Kd_u = \{0\}$. In \eqref{eq:ystep}--\eqref{eq:xstep}:
+\begin{itemize}
+  \item the y-step is unchanged: the columns of $\A$ that belong to $u$ are part of $\A\Ad$;
+  \item the cone step sets $S_u = 0$;
+  \item the multiplier step updates $X_u \leftarrow X_u + \tau\sigma(\A_u^* y - C_u)$, with no projection;
+  \item at a solution, the dual constraint on the rows of $u$ is the equality $\A_u^* y = C_u$, and its
+  residual is part of $\eta_d$; $X_u$ has no cone condition, so the primal solution set can be unbounded
+  along $\ker\A_u$.
+\end{itemize}
+
+\subsection{Requirements on every component}
+\begin{center}\small
+\begin{tabularx}{\textwidth}{@{}l>{\raggedright\arraybackslash}X>{\raggedright\arraybackslash}p{4.0cm}@{}}
+\toprule
+Component & Requirement for free blocks & Today \\
+\midrule
+Input & \code{u n} in \code{blk.txt}; MATLAB/SeDuMi \code{K.f}; CBF \code{F} when a CBF reader is added & \code{blk.txt} and the MEX support \code{u} \\
+\code{FreeCone} & \code{project_dual}: $s = 0$; \code{project_primal}: identity; \code{is_self_dual} false & conversion kernel writes 0 \\
+y-step, multiplier step & no special case & correct \\
+KKT residuals & $\eta_d$ includes the rows of $u$; no primal cone violation; $S_u\equiv0$ & correct \\
+Scaling & any positive diagonal scaling is compatible & --- \\
+Presolve & dependent rows may involve free columns; removing rows does not change the cone & --- \\
+Warm start & $X_u$ from the file; $S_u$ set to 0 on load & $S$ read as given \\
+External validator & host reference: primal violation 0; dual violation $\max|S_u|$; the free rows enter the
+dual residual and DIMACS errors & handled \\
+Certificate & the term $-R_u\sum_i|(C-\Ad y)_{u,i}|$ needs $|X_{u,i}|\le R_u$; per-block bounds are explicit options, and the summary marks the bound as conditional on them & global $R$ or $f$ applied implicitly (B24) \\
+Data layout (Phase 8) & free entries form one contiguous slice & interleaved \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+\subsection{Tests}
+The generator already covers free blocks in \code{Free}, \code{PSD_Free}, \code{Free_PSD},
+\code{PSD_Free_PSD}, \code{Nonneg_Free_PSD}, \code{Free_Free_PSD}, \code{SmallBatch_Free} and
+\code{Medium_Free} (each with and without LOBPCG). Added in Phase 5:
+\begin{itemize}
+  \item free and nonnegative blocks only (an LP with free variables), and free blocks only;
+  \item a free block whose columns are rank deficient (non-unique $X_u$), checking that $\eta$ and the
+  validator still converge;
+  \item free blocks together with a large PSD block (LOBPCG path) and with dependent rows (presolve);
+  \item warm start from a file with $S_u\neq0$; sGS-ADMM with free blocks;
+  \item the certificate with per-block bounds, including a missing bound (reported as unavailable);
+  \item end to end: \code{PushBox_N=30_SOS} against MOSEK.
+\end{itemize}
+
+\subsection{Research option: enforce the free equalities in the y-step}
+Instead of reaching $\A_u^* y = C_u$ only in the limit, the y-step can impose it exactly, as an affine
+constraint on the $y$-block. With $r$ the non-free blocks, the y-step becomes the saddle-point system
+\[
+\begin{bmatrix} \A_r\A_r^* & \A_u \\ \A_u^* & 0 \end{bmatrix}
+\begin{bmatrix} y \\ \mu \end{bmatrix} =
+\begin{bmatrix} \sigma^{-1}b - \A_r(\sigma^{-1}X_r + S_r - C_r) \\ C_u \end{bmatrix},
+\qquad X_u = \sigma\mu ,
+\]
+whose matrix does not depend on $\sigma$, so it is factorized once. It is still a two-block ADMM (the
+$y$-block now carries the indicator of an affine set), but not iterate-by-iterate equivalent to
+\eqref{eq:ystep}--\eqref{eq:xstep}. It needs an indefinite factorization: cuDSS in symmetric-indefinite mode,
+or $LDL^\top$ of the regularized quasi-definite form with $-\delta I$ in the (2,2) block, which factors
+without pivoting for any symmetric ordering \cite{vanderbei1995}. The \code{NormalEquationSolver} interface
+reserves a saddle-point mode for it (Section~\ref{sec:linsys}); the option is evaluated on SOS problems
+after Phase 7 and is not scheduled before.
+
+%=======================================================================================================
+\section{PSD cone projection}\label{sec:psd}
+
+\subsection{Design philosophy by block size}\label{sec:psd-philosophy}
+The three tiers face different constraints, and the reorganization gives them different designs rather
+than one abstraction stretched over all of them.
+\begin{center}\small
+\begin{tabularx}{\textwidth}{@{}l>{\raggedright\arraybackslash}X>{\raggedright\arraybackslash}X>{\raggedright\arraybackslash}X@{}}
+\toprule
+ & Small ($n\le32$) & Medium ($32<n\le1000$) & Large ($n>1000$) \\
+\midrule
+Typical count & hundreds to thousands & tens to thousands & a few \\
+Goal & throughput & throughput & memory and latency per block \\
+Parallelism & one batched call per size group & batched call per chunk, or $N$ streams for singletons & none across blocks: each library call already fills the GPU \\
+Dense storage & resident batch: $\sum n_b^2$ input $+\sum n_b^2$ result & same, chunked & one buffer $M$ of $n_{\max}^2$, reused block after block \\
+Workspace & per group ($2$--$17\,n^2$ per matrix, measured) & per chunk ($4.2$--$31\,n^2$ per matrix, measured) or per stream & one region $W$ ($\approx4.0\,n_{\max}^2$, measured) shared by all strategies \\
+Per-block state & none & none & mode, rank, LOBPCG warm start ($n_b\times k_b$) \\
+Strategy & fixed & fixed & chosen per iteration \\
+Final product & strided-batched GEMM & strided-batched GEMM & SYRK on the smaller eigen-side \\
+\bottomrule
+\end{tabularx}
+\end{center}
+The tiers run concurrently on their own streams (small; medium; large) and are joined with events before
+the multiplier step; the large tier itself is sequential.
+
+\subsection{Interfaces}
 \begin{lstlisting}
-struct PsdBatch { double* data; int n; int count; std::int64_t stride; };  // count n x n matrices
-
-enum class ProjectionStatus { Ok, Rejected };  // Rejected: fall back to the exact projector
-
-class PsdProjector {
+// Small and medium tiers: batches of equal-size blocks resident in the tier's batch buffer.
+struct PsdBatch { double* data; int n; int count; std::int64_t stride; };
+class BatchProjector {
  public:
-  virtual ~PsdProjector() = default;
-  virtual std::string_view name() const = 0;
-  virtual WorkspaceRequest workspace(int n, int count) const = 0;
-  // In place: M_i <- Pi_{S^n_+}(M_i) for every matrix of the batch.
-  virtual ProjectionStatus project(PsdBatch batch, ExecContext& ctx) = 0;
+  virtual ~BatchProjector() = default;
+  virtual WorkspaceRequest workspace(int n, int max_batch) const = 0;
+  virtual ProjectionStatus project(PsdBatch batch, ExecContext& ctx) = 0;          // in place
+};
+
+// Large tier: one block at a time through the shared arena.
+struct LargeBlockJob {
+  int n;                                   // this block's size (n <= n_max)
+  DeviceSpan<double> M;                    // n x n dense input Z (overwritten), leading part of M
+  DeviceSpan<double> W;                    // shared region, n_max-sized; strategies carve it up
+  SvecSlice z_in, s_out;                   // the block's slices of the cone-step input and output
+  LargeBlockState& state;                  // mode, ranks, tol_r, warm start V (n x k_alloc), D
+};
+class LargeBlockProjector {
+ public:
+  virtual ~LargeBlockProjector() = default;
+  virtual std::size_t workspace_doubles(int n_max, int k_max) const = 0;          // must fit in W
+  virtual ProjectionStatus project(LargeBlockJob& job, ExecContext& ctx) = 0;     // writes s_out
 };
 \end{lstlisting}
 
 \subsection{Strategy catalog}
-Table~\ref{tab:psd-strategies} lists every projector. All of them exist in some form today; the
-reorganization gives each one a name, a file, a workspace declaration and a test.
-
 {\small
-\begin{longtable}{@{}>{\raggedright\arraybackslash}p{3.5cm}>{\raggedright\arraybackslash}p{3.6cm}>{\raggedright\arraybackslash}p{1.4cm}>{\raggedright\arraybackslash}p{6.6cm}@{}}
-\caption{PSD projection strategies (``Today'' refers to the baseline code).}\label{tab:psd-strategies}\\
+\begin{longtable}{@{}>{\raggedright\arraybackslash}p{3.3cm}>{\raggedright\arraybackslash}p{4.35cm}>{\raggedright\arraybackslash}p{1.45cm}>{\raggedright\arraybackslash}p{6.0cm}@{}}
+\caption{PSD projection strategies.}\label{tab:psd-strategies}\\
 \toprule
 Projector & Method & Precision & Use, cost and notes\\
 \midrule
@@ -697,266 +1040,551 @@ Projector & Method & Precision & Use, cost and notes\\
 Projector & Method & Precision & Use, cost and notes\\
 \midrule
 \endhead
-\code{JacobiBatchedEvdProjector} & \code{cusolverDnDsyevjBatched}, one call per size group & FP64 &
-Small blocks ($n\le32$). Tolerance $10^{-16}$, 15 sweeps; \code{info = n+1} (tolerance not reached) is a
-warning. Today: small tier.\\
-\code{BatchedEvdProjector} & \code{cusolverDnXsyevBatched}, one call per size group & FP64 & Medium
-groups ($32<n\le1000$) with at least two blocks, CUDA $\ge$ 12.8. Verified on the reference workstation up
-to $n=1000$: residual $\approx4\times10^{-15}$, orthogonality $\approx10^{-13}$. Today: medium tier.\\
-\code{StreamedEvdProjector} & \code{cusolverDnXsyevd} per block on $N$ streams & FP64 & Medium singletons, or
-every medium block with CUDA $<$ 12.8. One workspace per block. Today: medium tier.\\
-\code{FullEvdProjector} & \code{cusolverDnXsyevd}, then $Q\max(\Lambda,0)Q^\top$ & FP64 & Large blocks
-($n>1000$) in the exact phase; also the fallback of every large strategy and the provider of eigenvalues
-for \code{RankAnalyzer}. One stream; the final GEMM is batched per size group.\\
-\code{LobpcgProjector} (\code{Positive}) & warm-started LOBPCG \cite{lobpcg} on $Z$, $P = V\max(D,0)V^\top$ & FP64 & Large
-blocks whose positive rank is below $\rho n$; $k=\lceil 1.2\,r_+\rceil$ pairs. Cost $O(n^2k)$ per
-LOBPCG iteration.\\
-\code{LobpcgProjector} (\code{Negative}) & LOBPCG on $-Z$, $P = Z + V\max(D,0)V^\top$ & FP64 & Large blocks
-whose negative rank is below $\rho n$ (primal low rank). Uses $\Proj(Z) = Z + \Proj(-Z)$.\\
-\code{CompositeFilterProjector} (\code{Fp16}, \code{Fp32}, \code{Fp32Emulated}) & Lanczos bound, then the
-composite polynomial filter of \cite{composite} & FP16 / FP32 / BF16x9 & Large blocks in the warm-up phase;
-22 (FP16) or 31 (FP32) GEMMs. Rejected if not finite or if the norm test below fails.\\
-\code{FullEvdFp32Projector} (optional) & \code{cusolverDnXsyevd} in FP32 & FP32 & Experimental; exists in the
-submodule today, not wired into the solver.\\
+\code{JacobiBatchedEvd} & \code{cusolverDnDsyevjBatched}, one call per size group & FP64 & Small blocks.
+Tolerance $10^{-16}$, 15 sweeps; \code{info = n+1} (tolerance not reached) is a warning.\\
+\code{BatchedEvd} & \code{cusolverDnXsyevBatched}, one call per chunk & FP64 & Medium groups with at least two
+blocks (CUDA $\ge$ 12.8). Accurate to machine precision up to $n=1000$ (measured: residual
+$\approx4\times10^{-15}$, orthogonality $\approx10^{-13}$). Chunk size from the memory budget (B20).\\
+\code{StreamedEvd} & \code{cusolverDnXsyevd} per block on $N$ streams & FP64 & Medium singletons, or all medium
+blocks with CUDA $<$ 12.8. One workspace per stream, not per matrix (B20).\\
+\code{FullEvd} & \code{cusolverDnXsyevd} in $M$, then SYRK on the smaller side & FP64 & Large blocks: exact
+phase, fallback of every large strategy, and provider of eigenvalues for \code{RankAnalyzer}
+(Section~\ref{sec:large-alg}). Limited to $n\le32{,}768$ on CUDA 12.9 (B21).\\
+\code{Lobpcg} (\code{Positive}) & warm-started LOBPCG \cite{lobpcg} on $Z$ & FP64 & Large blocks whose positive
+rank is below $\rho n$; $k=\lceil 1.2\,r_+\rceil$ pairs; $O(n^2k)$ per LOBPCG iteration.\\
+\code{Lobpcg} (\code{Negative}) & LOBPCG on $-Z$, then $\Proj(Z) = Z + \Proj(-Z)$ & FP64 & Large blocks whose
+negative rank is below $\rho n$ (primal low rank).\\
+\code{CompositeFilter} & FP64 Lanczos estimate, then the 7-step composite polynomial filter of
+\cite{composite} & FP16 & Warm-up of large blocks with $n\ge$ \code{psd.large.warmup.min_size} (default 5000);
+22 GEMMs on FP16 Tensor Cores with FP32 accumulation; rejected if not finite or if the norm test fails.\\
+\code{FullEvdFp32} (optional) & \code{cusolverDnXsyevd} in FP32 & FP32 & Experimental; exists in the submodule,
+not wired into the solver.\\
 \bottomrule
 \end{longtable}
 }
 
-\subsection{Selection policy}
-\code{PsdProjectionPolicy} assigns projectors from two inputs: the size class (thresholds are options:
-\code{psd.small_max = 32}, \code{psd.medium_max = 1000}, \code{psd.medium_batch_min = 2}) and, for large
-blocks, the phase of the run (Figure~\ref{fig:psd-state}). Unlike today, the warm-up switch and the start
-of the low-rank analysis are two separate, explicit options; today both hang on
-\code{switched_proj_method}, which is why the CLI default of 0 starts the rank analysis at iteration 2.
+\subsection{The large-block memory model}\label{sec:large-memory}
+\paragraph{What has to persist.} Nothing of a large block's dense matrix: the cone-step input is rebuilt
+every iteration from $\svec$ vectors, and the result is packed back into $S$. Only the per-block state
+persists---the projection mode, the ranks and rank tolerance, and the LOBPCG warm start
+$V_b\in\R^{n_b\times k_b^{\rm alloc}}$, $D_b\in\R^{k_b^{\rm alloc}}$ with
+$k_b^{\rm alloc} = \lceil 1.2\rho\, n_b\rceil$. Everything else is transient and can be shared between blocks,
+because they are processed one after another.
+
+\paragraph{The arena.} At setup the large tier reserves one region of the \code{WorkspaceArena}, sized for
+the largest large block $n_{\max}$ (Figure~\ref{fig:arena}):
+\begin{itemize}
+  \item $M$: $n_{\max}^2$ doubles, the dense input block; the EVD overwrites it with the eigenvectors;
+  \item $W$: the largest workspace of any strategy at $n_{\max}$, queried from cuSOLVER at setup. On CUDA 12.9,
+  \code{cusolverDnXsyevd} (FP64, vectors) needs $4.16\,n^2$ doubles at $n = 1000$ and $4.004\,n^2$ at
+  $n = 30{,}000$ on the device, and no host workspace (measured). $W$ also hosts, at different times, the
+  result $P$ of the final product ($n^2$), the LOBPCG buffers and the composite-filter buffers, which are all
+  smaller than the EVD workspace;
+  \item per block: $V_b$, $D_b$ and a few scalars.
+\end{itemize}
 
 \begin{figure}[h]
 \centering
-\resizebox{\textwidth}{!}{%
-\begin{tikzpicture}[
-  >=Stealth, font=\small,
-  st/.style={draw, rounded corners=3pt, align=center, minimum width=3.6cm, minimum height=1.1cm, fill=NavyBlue!6},
-  dc/.style={draw, diamond, aspect=2.2, align=center, inner sep=1pt, fill=ForestGreen!8},
-  lab/.style={font=\footnotesize, align=center}]
-\node[st] (W) at (0,0) {\textbf{Warm-up}\\ \texttt{CompositeFilterProjector}};
-\node[st] (E) at (7.0,0) {\textbf{Exact}\\ \texttt{FullEvdProjector}};
-\node[dc] (R) at (12.2,0) {\textbf{Rank}\\\textbf{analysis}};
-\node[st] (Lp) at (9.6,-3.7) {\textbf{Low rank} $+$\\ \texttt{LobpcgProjector} on $Z$};
-\node[st] (Ln) at (14.8,-3.7) {\textbf{Low rank} $-$\\ \texttt{LobpcgProjector} on $-Z$};
-\node[lab] (S) at (-3.2,0) {start};
-\draw[->] (S) -- (W);
-\draw[->] (W) -- node[lab, above] {$\eta < \texttt{switch\_tol}$ or\\ $k > \texttt{switch\_iter}$} (E);
-\draw[->, dashed] (W.south) to[bend right=22] node[lab, below] {non-finite or norm test fails:\\ exact projection in this iteration} (E.south);
-\draw[->] (E) -- node[lab, above] {low-rank eligible,\\ every $R$ iterations} (R);
-\draw[->] (R.north) to[bend right=35] node[lab, above] {otherwise} (E.north);
-\draw[->] (R.south west) -- node[lab, left, pos=0.45] {$r_+ < \rho n$} (Lp.north);
-\draw[->] (R.south east) -- node[lab, right, pos=0.45] {$r_- < \rho n$\\ (and $r_+ \ge \rho n$)} (Ln.north);
-\draw[->, dashed] (Lp.east) to[bend right=25] (R.south);
-\draw[->, dashed] (Ln.west) to[bend left=25] (R.south);
-\node[lab] at (12.2,-5.15) {dashed: every $R$ iterations, or at once when LOBPCG is rejected\\
-(exact projection in that iteration; ranks and warm starts refreshed)};
-\end{tikzpicture}}
-\caption{Per-block state machine for large PSD blocks. Without a warm-up method the block starts in
-\textbf{Exact}. Rank analysis is a \texttt{FullEvdProjector} call plus \texttt{RankAnalyzer}; a rejected LOBPCG
-result is replaced by an exact projection in the same iteration, which also refreshes ranks and warm starts.
-Defaults: $\texttt{switch\_tol} = 10^{-2}$, $\rho = 0.03$, $R = 100$; \texttt{switch\_iter} is decision Q2.}
-\label{fig:psd-state}
+\begin{tikzpicture}[font=\footnotesize, >=Stealth,
+  blk/.style={draw, anchor=south west, minimum height=0.6cm, inner sep=1pt, align=center}]
+% one unit = n^2 doubles = 1.45 cm
+\def\u{1.45}
+\node[blk, fill=Gray!25, minimum width=1*\u cm] at (0,4.2) {$M$: $n^2$};
+\node[blk, fill=NavyBlue!10, minimum width=4*\u cm] at (1*\u,4.2) {$W$: $\approx 4.0\,n^2$ (EVD workspace size)};
+\node[anchor=east] at (-0.1,4.5) {arena};
+\node[anchor=east] at (-0.1,3.35) {FullEvd, during EVD};
+\node[blk, fill=Orange!20, minimum width=4*\u cm] at (1*\u,3.05) {\texttt{cusolverDnXsyevd} workspace};
+\node[blk, fill=Gray!10, minimum width=1*\u cm] at (0,3.05) {$Z\to Q$};
+\node[anchor=east] at (-0.1,2.3) {FullEvd, after EVD};
+\node[blk, fill=Gray!10, minimum width=1*\u cm] at (0,2.0) {$B$ in $Q$};
+\node[blk, fill=ForestGreen!20, minimum width=1*\u cm] at (1*\u,2.0) {$P = BB^\top$};
+\node[anchor=east] at (-0.1,1.25) {LOBPCG};
+\node[blk, fill=Gray!10, minimum width=1*\u cm] at (0,0.95) {$Z$};
+\node[blk, fill=Plum!20, minimum width=0.65*\u cm] at (1*\u,0.95) {buffers};
+\node[blk, fill=ForestGreen!20, minimum width=1*\u cm] at (1.65*\u,0.95) {$P$};
+\node[anchor=east] at (-0.1,0.2) {Composite};
+\node[blk, fill=Gray!10, minimum width=1*\u cm] at (0,-0.1) {$Z\to P$};
+\node[blk, fill=BrickRed!15, minimum width=1.5*\u cm] at (1*\u,-0.1) {FP32: $3n^2$};
+\node[blk, fill=BrickRed!8, minimum width=0.75*\u cm] at (2.5*\u,-0.1) {FP16};
+\node[anchor=west, align=left] at (5.3*\u,2.3) {per block $b$ (persistent):\\ $V_b$: $n_b\times k_b^{\rm alloc}$ ($\approx0.036\,n_b^2$)\\ $D_b$, mode, ranks};
+\end{tikzpicture}
+\caption{Large-tier arena for one block of size $n = n_{\max}$, in units of $n^2$ doubles. Each row shows
+how one strategy uses the region; the rows never coexist, because large blocks and strategies run one at a
+time. LOBPCG buffers: about $0.65\,n^2$ for $k = 0.036n$ with today's implementation, less after the
+changes of Section~\ref{sec:large-alg}. Composite: $3n^2$ FP32 plus $3n^2$ FP16 values, $2.25\,n^2$ in double
+units, plus the Lanczos vectors.}
+\label{fig:arena}
 \end{figure}
 
-\paragraph{Rank analysis.} With eigenvalues $\lambda_1\le\dots\le\lambda_n$ of the block,
+\paragraph{Totals.} Large-tier device memory becomes
+\[
+\underbrace{n_{\max}^2}_{M} + \underbrace{w_{\rm evd}(n_{\max})}_{W\ \approx\ 4.0\,n_{\max}^2} +
+\sum_b 1.2\rho\, n_b^2 \;\approx\; 5.0\,n_{\max}^2 + 0.036\sum_b n_b^2 \quad\text{doubles,}
+\]
+against $\approx 7\sum_b n_b^2$ today (B19):
+\begin{center}\small
+\begin{tabularx}{\textwidth}{@{}lcc>{\raggedright\arraybackslash}X@{}}
+\toprule
+Large blocks & Today & Planned & On a 48\,GiB GPU \\
+\midrule
+one block, $n = 20{,}000$ & 21.0\,GiB & 15.0\,GiB & both fit \\
+two blocks, $n = 20{,}000$ & 42.0\,GiB & 15.1\,GiB & today leaves $\approx6$\,GiB for everything else \\
+one block, $n = 30{,}000$ & 47.2\,GiB & 33.8\,GiB & today leaves almost nothing for the rest of the solver \\
+one block, $n = 32{,}768$ (EVD limit) & $\approx56.3$\,GiB & $\approx40.3$\,GiB & only the planned layout fits \\
+\bottomrule
+\end{tabularx}
+\end{center}
+\code{Solver::setup} computes this plan, adds the persistent memory of the other components, prints the
+breakdown, and fails early with the breakdown if it exceeds the budget (\code{psd.large.memory_budget}).
+Blocks above the EVD limit are rejected at setup with a clear message (B21); supporting them is decision O5.
+
+\subsection{Large-block pipeline and algorithms}\label{sec:large-alg}
+\begin{lstlisting}[style=plain]
+for each large block b, sequentially, on the large-tier stream:
+    unpack  z_in(b) -> M                         # svec -> dense, O(n^2)
+    pick    strategy from the large-block selection policy (below)
+    project with M and W                         # result: S_b written to s_out(b)
+    if rejected: unpack again (Z is not copied), then FullEvd with rank analysis
+record event "large tier done"
+\end{lstlisting}
+\begin{description}[style=nextline,leftmargin=0.6cm]
+  \item[FullEvd.] \code{cusolverDnXsyevd} in place: $M\leftarrow Q$, eigenvalues $\lambda_1\le\dots\le\lambda_n$.
+  With $r_+$ positive and $r_-$ negative eigenvalues: if $r_+\le r_-$, scale the last $r_+$ columns of $Q$ in
+  place by $\sqrt{\lambda_i}$ to get $B$, compute the lower triangle of $P = BB^\top$ with one SYRK into $W$, and
+  pack it into $s_{\rm out}$; otherwise scale the first $r_-$ columns by $\sqrt{-\lambda_i}$, compute $P' =
+  BB^\top$, and pack $S_b = Z_b + P'$, reading $Z_b$ from $z_{\rm in}$. The final product costs
+  $n^2\min(r_+,r_-)\le n^3/2$ flops instead of $2n^3$ for today's GEMM, needs no $n^2$ temporary, and computes
+  only the triangle that $\svec$ stores. When a rank analysis is due, the warm-start eigenvectors are copied
+  to $V_b$ before the in-place scaling.
+  \item[LOBPCG.] Works on $M = Z$; the negative mode passes $\alpha=-1$ to its products instead of negating $M$
+  twice. Its buffers come from $W$ (B7). One product $Z[X\ R\ \Delta]$ ($n\times 3k$) per iteration serves both
+  the residual and the Rayleigh--Ritz matrix, instead of the two products of today; the residual block is
+  allocated $n\times k$, not $n\times 3k$. The result is formed by a SYRK on a scaled copy of the $k$ Ritz
+  vectors (the warm start $V_b$ itself is not modified) and packed like FullEvd (adding $Z_b$ in the negative
+  mode, without today's $n^2$ copy of $Z$).
+  \item[Composite filter.] Lanczos estimate on $Z^2$, scaling, filter in the FP32/FP16 buffers of $W$, result in
+  $M$, then the norm test and packing (Section~\ref{sec:composite}). On rejection the block is unpacked again
+  and projected with FullEvd; today's $n^2$ copy of the input is no longer needed.
+\end{description}
+The memory model changes rounding in two places (per-block instead of strided-batched products for
+equal-size large blocks, and SYRK instead of GEMM), so it is introduced in Phase 6b with tolerance-based
+acceptance, after Phase 6a has ported the strategies bit for bit (option
+\code{psd.large.final_product = gemm_compat} keeps the old product for comparisons).
+
+\subsection{Small and medium tiers}\label{sec:batched}
+\begin{itemize}
+  \item \textbf{Resident batches.} Each size group keeps its matrices in one batch buffer; the result buffer is
+  separate. Today's third buffer ($Q\max(\Lambda,0)$) is dropped by scaling the columns of $Q$ in place by
+  $\sqrt{\max(\lambda,0)}$ and forming $BB^\top$ with one strided-batched GEMM (Phase 6b: rounding changes).
+  \item \textbf{Chunked batched EVD.} The batched workspace is $4.2$--$31\,n^2$ doubles per matrix (measured;
+  the same as one \code{Xsyevd} per matrix), so groups are decomposed in chunks whose size follows from the
+  memory budget (\code{psd.medium.max_batch}), instead of in one call per group.
+  \item \textbf{Streamed EVD.} One workspace per stream, sized for the largest medium singleton, instead of
+  one per matrix: 1{,}000 blocks of $n = 500$ need $15\times9.2$\,MiB $\approx137$\,MiB instead of $\approx8.9$\,GiB (B20).
+  \item \textbf{Termination measures} (eigenvalues of $X$, $S$ and $C-\Ad y$) reuse the same machinery and
+  workspaces; they do not keep per-matrix buffers alive for the whole solve.
+\end{itemize}
+
+\subsection{Selection policy for large blocks}\label{sec:selection}
+Per iteration and per large block, \code{LargeBlockPolicy} decides:
+\begin{lstlisting}[style=plain]
+warm(b)  = warmup != none and n_b >= warmup.min_size      # default: composite_fp16 and 5000
+k_sw     = first k > 1 with eta < warmup.switch_tol or k > warmup.switch_iter   # global, one-way
+start(b) = k_sw if warm(b) else lowrank.start_iter
+
+if warm(b) and k < k_sw:
+    CompositeFilter                      -> if rejected: FullEvd
+elif lowrank.enabled and k >= start(b) and (k - start(b)) % lowrank.reevaluate == 0:
+    FullEvd + RankAnalyzer               -> mode = LowRankPositive | LowRankNegative | Dense
+elif mode(b) is LowRankPositive or LowRankNegative:
+    Lobpcg(mode(b))                      -> if rejected: FullEvd + RankAnalyzer (same k)
+else:
+    FullEvd
+\end{lstlisting}
+Defaults (Q2, Q3): blocks with $n\ge5000$, the sizes evaluated in \cite{composite}, start with the FP16 filter;
+large blocks with $1000<n<5000$ start with exact projections. The warm-up ends for all blocks at the first
+iteration with $\eta<10^{-2}$ or $k>5000$, as today. The low-rank analysis then runs every 100 iterations,
+from iteration 2 for blocks without a warm-up (today's CLI) and from the end of the warm-up for blocks with one
+(today's C++ API), so no exact EVD of a warm-up block is paid during its warm-up; $\rho = 0.03$, relaxation
+1.2. Today a single flag, \code{switched_proj_method}, sets both the warm-up and the low-rank start for every
+block (B3).
+
+\paragraph{Rank analysis.} With the eigenvalues of the block,
 \[
 \text{tol}_r = \max\big(10^{-8}\max(|\lambda_1|,|\lambda_n|),\ 10^{-3}\,\text{tol}\big),\qquad
 r_+ = \#\{\lambda_i>\text{tol}_r\},\qquad r_- = \#\{\lambda_i<-\text{tol}_r\}.
 \]
-Positive mode is preferred when both ranks are small. The top (or bottom) $k$ eigenpairs are kept as the
-LOBPCG warm start.
+Positive mode is preferred when both ranks are below $\rho n$; the top (or bottom) $k$ eigenpairs are kept as
+the warm start, with $k = \min(\lceil1.2\,r\rceil, k^{\rm alloc})$.
 
 \paragraph{LOBPCG acceptance.} A result is accepted if LOBPCG converged, all Ritz values are finite, and the
 $k$-th Ritz value is at most $\text{tol}_r$ plus the residual norm. This is necessary, not sufficient (Ritz
 values are lower bounds); the periodic exact analysis and the cone violation reported at termination bound
-the risk. The tolerance becomes relative to the stopping tolerance (option, B13).
+the risk. The convergence tolerance becomes proportional to the stopping tolerance, with the constant
+calibrated in Phase 6a (B13).
 
 \subsection{Integrating the composite polynomial filter}\label{sec:composite}
 \begin{enumerate}
-  \item \textbf{Code move.} The composite kernels (FP16, FP32, FP32-emulated), the Lanczos norm bound
+  \item \textbf{Code move.} The FP16 composite kernel, the Lanczos norm estimate
   (\code{approximate_two_norm}), LOBPCG and the precision-conversion and symmetrization helpers move to
-  \code{src/cone/psd/kernels/}. The WIP functions (\code{compute_eigenpairs},
-  \code{*_auto_scale_deflate}) and the commented-out coefficient candidates are not carried over; the
-  standalone repository keeps them, and deflation is recorded as a possible future strategy.
-  \item \textbf{Coefficients as data.} \code{constexpr} tables \code{kCompositeFp32[10][3]} and
-  \code{kCompositeFp16[7][3]} hold the refined coefficients $\tilde f$ of \cite[Tables~1 and 2]{composite}
-  (identical to the code today), obtained by Remez initialization and gradient refinement as in
-  \cite{composite}, with the Polar Express coefficients \cite{polarexpress} kept only as a test baseline,
-  and with a provenance comment. Each step evaluates
-  $a X + b X^3 + c X^5$ with three GEMMs ($X^2$, $X^3$, $X^3X^2$).
-  \item \textbf{Algorithm per block.} Lanczos (20 steps) on $Z^2$ gives $\theta$ and $q$;
-  $u = \sqrt{\theta + \norm{Z^2q - \theta q}}$ \cite[Theorem~2]{composite}; scale $s = \mu u$ with safety
-  margin $\mu = 1.02$ (FP32) or $1.05$ (FP16); $X_0 = Z/s$; $X_t = \tilde f_t(X_{t-1}/d_t)$ with damping
-  $d_t = 1.001$ for $t\le8$ (FP32) and $d_t = 1.01$ for all $t$ (FP16); result
-  $P = s\cdot\tfrac12 X_0(I + X_T)$, symmetrized. The damping location (input, as coded, versus output, as in
-  \cite[\S3.4]{composite}) is documented and kept as coded (B11).
-  \item \textbf{Precision and math modes (fixes B1).} One cuBLAS handle per precision mode, each with an
-  explicit setting: FP32 uses \code{CUBLAS_DEFAULT_MATH}; FP16 uses \code{cublasGemmEx} with
-  \code{CUBLAS_COMPUTE_32F_FAST_16F} (unchanged); FP32-emulated uses
-  \code{CUBLAS_FP32_EMULATED_BF16X9_MATH} with an emulation strategy (to be validated on a Blackwell GPU;
-  the reference workstation cannot run it). \code{CUBLAS_TENSOR_OP_MATH} is never set.
-  \item \textbf{Safety checks.} Reject (and fall back to \code{FullEvdProjector}) if the result is not
-  finite or if $\norm{P}_F > (1+10^{-2})\norm{Z}_F$, a free necessary condition since the projection is
-  nonexpansive with $\Proj(0)=0$. This also catches finite but wrong results from an underestimated scale.
-  \item \textbf{Determinism (fixes B8).} The Lanczos start vector is drawn from a counter-based generator
-  seeded by \code{(options.seed, block index)}, so runs are reproducible.
-  \item \textbf{Workspace (fixes B7).} $3n^2$ floats (plus $3n^2$ halves for FP16) for the largest large
-  block, and the Lanczos vectors, come from the \code{WorkspaceArena}; nothing is allocated per call.
-  \item \textbf{Exposure (fixes B4).} Option \code{psd.large.warmup} $\in$ \{\code{none},
-  \code{composite_fp16}, \code{composite_fp32}, \code{composite_fp32_emulated}\}, available in the CLI
-  (\code{--psd-warmup}) and MATLAB (\code{opts.psd.large.warmup}). The default is decision Q3.
-  \item \textbf{Scope.} The filter is used for large blocks only: its GEMM advantage needs $n$ in the
-  thousands \cite{composite}, while many small blocks are served better by batched EVD. A strided-batched
-  composite filter for medium groups is a benchmark item, not a default.
+  \code{src/cone/psd/kernels/}, under cuADMM's error macros (B15) and with one copy of each helper (B10). The
+  FP32 and FP32-emulated kernels (Q3), the WIP functions (\code{compute_eigenpairs},
+  \code{*_auto_scale_deflate}) and the commented-out coefficient candidates stay in the frozen standalone
+  repository; deflation is recorded as a possible future strategy.
+  \item \textbf{Coefficients as data.} A \code{constexpr} table \code{kCompositeFp16[7][3]} holds the refined
+  half-precision coefficients $\tilde f$ of \cite[Table~2]{composite}
+  (identical to the code today), obtained by Remez initialization and gradient refinement, with a provenance
+  comment; the Polar Express coefficients \cite{polarexpress} are kept only as a test baseline. Each step
+  evaluates $aX + bX^3 + cX^5$ with three GEMMs ($X^2$, $X^3$, $X^3X^2$).
+  \item \textbf{Algorithm per block.} Lanczos (20 steps) on $Z^2$ gives $\theta$ and $q$; the estimate
+  $u = \sqrt{\theta + \norm{Z^2q - \theta q}}$ \cite[Theorem~2]{composite} is not a certified bound when the
+  Ritz value is not closest to $\lambda_{\max}(Z^2)$, so it is scaled by a safety margin $\mu = 1.05$:
+  $s = \mu u$, $X_0 = Z/s$, $X_t = \tilde f_t(X_{t-1}/d_t)$ for $t = 1,\dots,7$ with damping $d_t = 1.01$, result
+  $P = s\cdot\tfrac12 X_0(I + X_T)$, symmetrized. The damping
+  location (input, as coded, versus output, as described in \cite[\S3.4]{composite}) is documented (B11).
+  \item \textbf{Precision and math modes (B1).} The GEMMs run on FP16 Tensor Cores with FP32 accumulation and
+  output (\code{cublasGemmEx}, compute type \code{CUBLAS_COMPUTE_32F_FAST_16F} set in each call); the polynomial
+  updates run in FP32 and the Lanczos estimate in FP64. The handle uses \code{CUBLAS_DEFAULT_MATH};
+  \code{CUBLAS_TENSOR_OP_MATH} is never set. The FP16 output is bitwise identical under both modes (measured at
+  $n = 1000$, 2000, 5000), so the B1 fix does not change it. Why FP16 only: the filter runs only while
+  $\eta\ge10^{-2}$, where an error of about $10^{-3}$ does not limit progress; on H100/H200 (SXM) plain FP32 GEMMs peak at
+  the FP64 Tensor Core rate (about 67 TFLOPS, against about 990 for dense FP16); and the FP32-emulated variant needs
+  Blackwell GPUs that are not available for validation. A TF32 variant can be added later as a new option value.
+  \item \textbf{Safety checks (B22, moved to Phase 1).} Reject and fall back to FullEvd if the result is not
+  finite or if $\norm{P}_F > (1+10^{-2})\norm{Z}_F$: a free necessary condition, since the projection is
+  nonexpansive with $\Proj(0)=0$. It also catches finite but wrong results from an underestimated scale.
+  \item \textbf{Determinism (B8).} The Lanczos start vector comes from a counter-based generator seeded by
+  \code{(options.seed, block index)}.
+  \item \textbf{Workspace (B7).} The FP32/FP16 buffers and the Lanczos vectors live in $W$
+  (Figure~\ref{fig:arena}); nothing is allocated per call.
+  \item \textbf{Exposure (B4).} Options \code{psd.large.warmup} $\in$ \{\code{none}, \code{composite_fp16}\} and
+  \code{psd.large.warmup.min_size}, in the CLI (\code{--psd-warmup}, \code{--psd-warmup-min-size}) and MATLAB.
+  \item \textbf{Scope.} Large blocks with $n\ge$ \code{min_size}: the GEMM advantage needs $n$ in the thousands,
+  and $n = 5000$ is the smallest size evaluated in \cite{composite}. Phase 6a benchmarks the filter against
+  \code{FullEvd} at $n\in\{2000, 3000, 5000, 10000, 20000\}$ on the pinned GPUs to confirm or move the
+  threshold. A strided-batched filter for medium groups is a benchmark item, not a default.
 \end{enumerate}
-
-\subsection{LOBPCG improvements}
-\begin{itemize}
-  \item Preallocate per-block workspaces (B7); keep the eigenpair warm starts in the
-  \code{LargeBlockState}.
-  \item Reuse $Z X_k$ from the residual computation in the Rayleigh--Ritz step instead of recomputing it
-  inside $Q^\top Z Q$.
-  \item Negative mode: pass $\alpha=-1$ to the GEMMs instead of negating the block in place twice.
-  \item Options for maximum iterations (20), tolerance (relative to $\text{tol}$), ratio $\rho$ (0.03),
-  relaxation (1.2) and re-evaluation period $R$ (100), all reported in the summary.
-\end{itemize}
 
 \subsection{PSD options}
 \begin{center}\small
-\begin{tabularx}{\textwidth}{@{}l l>{\raggedright\arraybackslash}X@{}}
+\begin{tabularx}{\textwidth}{@{}>{\raggedright\arraybackslash}p{6.1cm}>{\raggedright\arraybackslash}p{3.6cm}>{\raggedright\arraybackslash}X@{}}
 \toprule
 Option & Default & Today\\
 \midrule
 \code{psd.small_max}, \code{psd.medium_max} & 32, 1000 & \code{SMALL_MAT_LIMIT}, \code{MEDIUM_MAT_LIMIT} macros\\
 \code{psd.medium_batch_min} & 2 & public field \code{medium_batch_min_count}\\
-\code{psd.medium_streams} & 15 & \code{--streams}, first MEX argument\\
-\code{psd.jacobi_tol}, \code{psd.jacobi_max_sweeps} & $10^{-16}$, 15 & constructor defaults of \code{BatchEigParameter}\\
-\code{psd.large.warmup} & Q3 & hard-coded \code{EIG_FP64}\\
-\code{psd.large.switch_tol}, \code{psd.large.switch_iter} & $10^{-2}$, Q2 & $10^{-2}$; CLI 0 / MATLAB 5000\\
+\code{psd.medium.max_batch} & from the budget & whole group in one call\\
+\code{psd.medium_streams} & 15 (must be $\ge1$) & \code{--streams}; 0 accepted by the MEX (B17)\\
+\code{psd.jacobi_tol}, \code{psd.jacobi_max_sweeps} & $10^{-16}$, 15 & \code{BatchEigParameter} defaults\\
+\code{psd.large.memory_budget} & 0.9 of free memory & none (allocation fails)\\
+\code{psd.large.final_product} & \code{syrk} (\code{gemm_compat} in 6a) & GEMM with an $n^2$ temporary\\
+\code{psd.large.warmup} & \code{composite_fp16} from 6a, \code{none} before & CLI/MEX \code{EIG_FP64}; C++ API \code{COMPOSITE_FP16} on every large block\\
+\code{psd.large.warmup.min_size} & 5000 & none (every large block)\\
+\code{psd.large.warmup.switch_tol}, \code{.switch_iter} & $10^{-2}$, 5000 & $10^{-2}$; CLI 0 / MEX and API 5000\\
 \code{psd.lowrank.enabled} & true & \code{--lobpcg}\\
-\code{psd.lowrank.start_tol}, \code{psd.lowrank.start_iter} & $= $ switch values & coupled to the warm-up switch\\
-\code{psd.lowrank.ratio}, \code{.relaxation}, \code{.reevaluate} & 0.03, 1.2, 100 & \code{LOBPCG_*} macros\\
+\code{psd.lowrank.start_iter}, \code{.reevaluate} & 2 (warm-up blocks: end of the warm-up), 100 & coupled to the warm-up switch for every block; 100\\
+\code{psd.lowrank.ratio}, \code{.relaxation} & 0.03, 1.2 & \code{LOBPCG_*} macros\\
 \code{psd.lowrank.max_iter}, \code{.tol} & 20, relative & 20, absolute $10^{-5}$\\
 \code{psd.lowrank.rank_rtol}, \code{.rank_stop_factor} & $10^{-8}$, $10^{-3}$ & macros\\
-\code{psd.composite.margin_fp32}, \code{.margin_fp16} & 1.02, 1.05 & \code{COMPOSITE_*_SCALE_MARGIN} macros\\
-\code{psd.composite.lanczos_steps}, \code{.seed} & 20, 0 & 20, random seed\\
+\code{psd.composite.margin} & 1.05 & \code{COMPOSITE_FP16_SCALE_MARGIN} macro\\
+\code{psd.composite.lanczos_steps}, \code{.norm_slack} & 20, $10^{-2}$ & 20; no norm test\\
 \bottomrule
 \end{tabularx}
 \end{center}
 
 %=======================================================================================================
-\section{Normal-equation solvers}\label{sec:linsys}
+\section{Linear systems}\label{sec:linsys}
 
 \subsection{Role}
 Every y-step solves $(\A\Ad + \varepsilon I)\,y = r$ with the scaled, row-normalized $\A$; ADMM needs one solve
-per iteration and sGS-ADMM two. The matrix does not depend on $\sigma$, so analysis and factorization run
-once at setup and the \emph{solve} time dominates. Today CHOLMOD \cite{cholmod} always factors on the CPU (supernodal,
-falling back to simplicial $LDL^\top$); solves run on the CPU with a device synchronization and two
-PCIe copies per iteration, unless the factor is dense ($m\ge2000$,
-$\mathrm{nnz}(L) > 0.3\,m(m+1)/2$, $8m^2$ bytes $\le$ 25\% of free memory), in which case $L$ and $D$ are
-copied to the GPU and each solve is two \code{cublasDtrsv} calls.
+per iteration and sGS-ADMM two. The matrix does not depend on $\sigma$, so a direct method factors it once
+at setup, and the per-iteration \emph{solve} dominates the cost: SPOT runs are bound by CPU CHOLMOD solves of
+5--93\,ms each \cite{review20}. Today CHOLMOD \cite{cholmod} always factors on the CPU (supernodal, falling
+back to simplicial $LDL^\top$); solves run on the CPU with a device synchronization and two PCIe copies per
+iteration, unless the factor is dense ($m\ge2000$, $m^2\le$ \code{INT_MAX}, $8m^2$ bytes $\le$ 25\% of free
+memory, $\mathrm{nnz}(L) > 0.3\,m(m+1)/2$, simplicial $LDL^\top$ factor), in which case $L$ and $D$ are copied
+to the GPU and each solve is two \code{cublasDtrsv} calls.
+
+\subsection{Supported methods}
+\begin{center}\small
+\begin{tabularx}{\textwidth}{@{}>{\raggedright\arraybackslash}p{2.5cm}>{\raggedright\arraybackslash}p{3.9cm}>{\raggedright\arraybackslash}p{2.3cm}>{\raggedright\arraybackslash}X@{}}
+\toprule
+Method & Backend & Factor / solve & Status \\
+\midrule
+sparse direct & \code{CholmodSolver} & CPU / CPU & today's default; ported bitwise in Phase 7 \\
+sparse direct & \code{CudssSolver} & GPU / GPU & Phase 7; optional build; intended default once the benchmark confirms it \\
+dense direct & \code{CholmodSolver}, dense mode & CPU / GPU \code{trsv} & today, for dense factors \\
+dense direct & \code{DenseCusolverSolver} & GPU / GPU & Phase 7: \code{Xpotrf}/\code{Xpotrs}, \code{Dsytrf}/\code{Xsytrs}, optional \code{Xtrtri} inverse factor \\
+iterative & \code{PcgSolver} + preconditioner & --- / GPU & reserved: interface in Phase 7, solver on the research track \\
+saddle point (free variables) & cuDSS indefinite, quasi-definite $LDL^\top$ & GPU or CPU & reserved (Section~\ref{sec:free}) \\
+\bottomrule
+\end{tabularx}
+\end{center}
 
 \subsection{Interface}
+The interface is written for both exact and inexact solves, so that iterative methods can be added without
+touching the algorithm layer:
 \begin{lstlisting}
+struct SolveRequest {
+  double rel_tol = 0.0;           // 0: exact (direct backends); > 0: inexact solve allowed
+  int max_iter = 0;               // iterative backends only
+  bool use_initial_guess = false; // warm start from the content of y (e.g. the previous y-step)
+};
+struct SolveReport { int iterations = 0; double rel_residual = 0.0; bool converged = true; };
+
+struct Capabilities { bool exact; bool device_solves; bool saddle_point; bool sigma_dependent_ok; };
+
 class NormalEquationSolver {
  public:
   virtual ~NormalEquationSolver() = default;
   virtual std::string_view name() const = 0;
-  virtual SymbolicInfo analyze(const NormalMatrix& AAt) = 0;   // ordering, nnz(L), memory
-  virtual FactorInfo factorize(const NormalMatrix& AAt) = 0;   // numeric, pivot statistics
-  virtual void solve(DeviceSpan<const double> rhs, DeviceSpan<double> y, ExecContext& ctx) = 0;
-  virtual bool solves_on_device() const = 0;
+  virtual Capabilities capabilities() const = 0;
+  virtual SymbolicInfo analyze(const NormalSystem& sys) = 0;    // ordering, nnz(L), memory
+  virtual FactorInfo factorize(const NormalSystem& sys) = 0;    // no-op for matrix-free solvers
+  virtual void update(const NormalSystem& sys) {}               // future sigma-dependent systems
+  virtual SolveReport solve(DeviceSpan<const double> rhs, DeviceSpan<double> y,
+                            const SolveRequest& req, ExecContext& ctx) = 0;
+};
+
+class NormalOperator {           // matrix-free: v -> (A A^T + eps I) v with two SpMVs (no A A^T formed)
+ public:
+  void apply(DeviceSpan<const double> v, DeviceSpan<double> out, ExecContext& ctx) const;
+};
+class Preconditioner {
+ public:
+  virtual ~Preconditioner() = default;
+  virtual void setup(const NormalSystem& sys, ExecContext& ctx) = 0;
+  virtual void apply(DeviceSpan<const double> r, DeviceSpan<double> z, ExecContext& ctx) const = 0;
 };
 \end{lstlisting}
-\code{NormalMatrix} builds $\A\Ad+\varepsilon I$ once (lower triangle, CSR), on the GPU with
-\code{cusparseSpGEMM} or on the host with \code{cholmod_aat}, and records pivot statistics for diagnostics.
+\code{NormalSystem} describes $\A\Ad+\varepsilon I$ (assembled once, lower triangle, with \code{cusparseSpGEMM}
+on the GPU or \code{cholmod_aat} on the host), optionally the saddle-point form of
+Section~\ref{sec:free}, and the matrix-free operator. Today's system does not depend on $\sigma$;
+\code{update()} exists for future variants whose system does (proximal terms, quadratic objectives), where a
+penalty rule with finitely many changes also bounds the number of refactorizations.
 
 \subsection{Backends}
 \begin{description}
-  \item[\code{CudssSolver} (preferred).] NVIDIA cuDSS \cite{cudss}, distributed separately from the CUDA toolkit; it is
-  NVIDIA's replacement for the sparse Cholesky routines of cuSOLVER, which the CUDA 12.9 headers mark
-  deprecated in favor of cuDSS (\code{cusolverSpDcsrlsvchol}, \code{cusolverSpXcsrchol*}). Phases:
-  analysis (reordering, symbolic), factorization, solve, all on the device; matrix type SPD (Cholesky) or
-  symmetric indefinite ($LDL^\top$) for rank-deficient data; lower view; solves on the solver stream with no
-  host synchronization. Enabled by \code{CUADMM_WITH_CUDSS}; the exact API calls and the minimum version
-  are pinned when the backend is written.
-  \item[\code{CholmodSolver} (always available).] Today's behavior, moved out of \code{SDPSolver}:
-  supernodal with simplicial $LDL^\top$ fallback; CPU solves through pinned host buffers and asynchronous
-  copies on the solver stream; the dense-GPU-triangular-solve mode is kept as an option of this backend.
-  \item[\code{DenseCusolverSolver} (optional).] \code{cusolverDnXpotrf}/\code{cusolverDnXpotrs} for SPD,
-  \code{cusolverDnDsytrf}/\code{cusolverDnXsytrs} otherwise; or an explicit inverse factor from
-  \code{cusolverDnXtrtri} so each solve is two triangular matrix--vector products, which parallelize better
-  than \code{trsv}. Useful when $m$ is a few thousand and the factor is dense.
-  \item[\code{PcgSolver} (future).] Matrix-free conjugate gradients on $\A\Ad$ with warm start from the
-  previous $y$, for problems whose factor does not fit; inexact solves are compatible with ADMM when the
-  errors are summable.
+  \item[\code{CholmodSolver} (always built).] Today's behavior moved out of \code{SDPSolver}: supernodal with
+  simplicial $LDL^\top$ fallback; CPU solves through pinned host buffers and asynchronous copies on the solver
+  stream; the dense mode keeps all of today's conditions, so the CHOLMOD path stays bitwise.
+  \item[\code{CudssSolver} (optional, \code{CUADMM_WITH_CUDSS}).] NVIDIA cuDSS \cite{cudss}, distributed
+  separately from the CUDA toolkit and NVIDIA's replacement for the sparse Cholesky routines of cuSOLVER,
+  which the CUDA 12.9 headers mark deprecated in favor of cuDSS. Analysis, factorization and solve on the
+  device; SPD (Cholesky) or symmetric indefinite ($LDL^\top$) for rank-deficient and saddle-point systems; no
+  host synchronization per solve. The minimum version is pinned, availability is checked at runtime, and its
+  deterministic mode is enabled under \code{determinism = strict} (it is off by default in cuDSS).
+  \item[\code{DenseCusolverSolver} (optional).] \code{cusolverDnXpotrf}/\code{Xpotrs} for SPD, \code{Dsytrf}/\code{Xsytrs}
+  otherwise, or an explicit inverse factor from \code{Xtrtri} so each solve is two triangular matrix--vector
+  products, which parallelize better than \code{trsv}. Useful when $m$ is a few thousand and the factor is
+  dense. The reference GPUs have weak FP64 (about 1/64 of FP32), which penalizes dense FP64 factorizations.
 \end{description}
 
-\subsection{Selection}
+\subsection{Selection}\label{sec:linsys-selection}
 \begin{enumerate}
   \item If \code{linsys.backend} is not \code{auto}, use it.
-  \item Otherwise run the symbolic analysis (cuDSS analysis phase, or \code{cholmod_analyze}) to get
-  $\mathrm{nnz}(L)$ and the memory need.
-  \item If cuDSS is built in and its factor fits in the memory budget, use \code{CudssSolver}.
-  \item Otherwise use \code{CholmodSolver}, with GPU dense solves if $8m^2$ bytes fit the budget and
-  $\mathrm{nnz}(L)\ge0.3\,m(m+1)/2$, and CPU solves otherwise.
+  \item Otherwise run the symbolic analysis (\code{cholmod_analyze}, or the cuDSS analysis phase once cuDSS is
+  admitted to \code{auto}) to get $\mathrm{nnz}(L)$ and the memory need.
+  \item Until the benchmark of Section~\ref{sec:bench} reports, \code{auto} chooses CHOLMOD with today's rule
+  for the dense mode ($m\ge2000$, $m^2\le$ \code{INT_MAX}, $8m^2$ bytes within the budget,
+  $\mathrm{nnz}(L)\ge0.3\,m(m+1)/2$, simplicial factor). After the benchmark, \code{auto} prefers cuDSS when its
+  factor fits the budget.
   \item With \code{linsys.autotune = true}, factor with the two best candidates, time ten solves each and keep
   the faster. The choice and the timings go to the log and the summary.
 \end{enumerate}
+Throughout the bitwise phases the backend is CHOLMOD and presolve is off.
+
+\subsection{Inexact and preconditioned solves (reserved)}\label{sec:pcg}
+Direct factorizations stop scaling when the factor does not fit or its fill makes each solve expensive. The
+interface above lets an iterative backend take over without changes elsewhere:
+\begin{itemize}
+  \item \textbf{Solver.} Preconditioned CG on the matrix-free \code{NormalOperator}, warm-started from the
+  previous $y$ (successive y-steps change little near convergence), with $O(m)$ vectors of memory.
+  \item \textbf{Accuracy schedule.} Inexact y-steps are admissible when the errors are summable, as in the
+  inexact sGS-ADMM of \cite{chen2017}: $\norm{(\A\Ad+\varepsilon I)\hat y - r}\le\epsilon_k$ with
+  $\sum_k\epsilon_k<\infty$, for example $\epsilon_k = \min(\kappa\,\eta_{k-1},\ \epsilon_0 k^{-1.1})$. The
+  policy that produces $\epsilon_k$ is a small strategy object of its own; \code{SolveReport} feeds the
+  iteration count and residual to the observers.
+  \item \textbf{Preconditioners}, behind the \code{Preconditioner} interface: Jacobi (weak here, since the row
+  normalization makes the diagonal of $\A\Ad$ close to 1 for rows with $\norm{A_i}\ge1$); block-Jacobi over
+  groups of constraints; incomplete Cholesky (in-house or third party: cuSPARSE's \code{csric02} is marked
+  deprecated in CUDA 12.9); the exact factor of a nearby matrix, e.g.\ from the previous problem in a
+  sequence of related trajectory-optimization solves; and mixed precision (an FP32 factor with FP64
+  iterative refinement).
+  \item \textbf{Scope.} Inexact solves change the iterates, so they are never used in the bitwise phases.
+  The interface and \code{NormalOperator} land in Phase 7; \code{PcgSolver} and the preconditioners are a
+  research item with their own benchmark.
+\end{itemize}
 
 \subsection{Rank deficiency and presolve}
 Moment relaxations often have dependent constraints (the SPOT data); a tiny regularization
-$\varepsilon = 10^{-15}$ plus simplicial $LDL^\top$ is what makes them work today, and it is fragile (B9).
-A \code{Presolve} step detects dependent rows from the factorization pivots (or a sparse QR), removes them
-after checking that $b$ is consistent, and maps $y$ back at the end. Regularization stays as a fallback
-option (\code{linsys.regularization}). cuDSS in SPD mode also requires a nonsingular matrix, so presolve or
-the $LDL^\top$ mode is needed there too.
+$\varepsilon = 10^{-15}$ plus simplicial $LDL^\top$ makes them work today, and it is fragile (B9). A
+\code{Presolve} step detects dependent rows from the factorization pivots (or a sparse QR), removes them after
+checking that $b$ is consistent, and maps $y$ back at the end. Regularization stays as a fallback option.
+Presolve changes $b$, hence $b_s$ and the meaning of a given $\sigma$, so it is off during the bitwise phases
+and its effect is measured in Phase 7. cuDSS in SPD mode also needs a nonsingular matrix.
 
-\subsection{Benchmark protocol}
-Problems: SPOT (PushBox, PushT, PlanarHand at $N=1,10,30$), pendulum (\code{licols}), and PLATO / Mittelmann
-instances including one with a dense factor (\code{neosfrbr25}). Metrics: analysis, factorization and
-per-solve time; peak memory; relative residual $\norm{\A\Ad y - r}/\norm{r}$; end-to-end time to
-$\eta<10^{-4}$. GPUs: the RTX 6000 Ada workstation (FP64 throughput is about 1/64 of FP32, which penalizes
-dense FP64 factorizations and FP64 EVD) and an H100/H200 node. Defaults are set from these results.
+\subsection{Benchmark protocol}\label{sec:bench}
+Run early, before cuDSS can become a default. Problems: SPOT (PushBox, PushT, PlanarHand at $N=1,10,30$,
+including the SOS form), pendulum (\code{licols}), and PLATO / Mittelmann instances including one with a
+dense factor (\code{neosfrbr25}). Metrics: analysis, factorization and per-solve time; peak memory; relative
+residual $\norm{\A\Ad y - r}/\norm{r}$; end-to-end time to $\eta<10^{-4}$. GPUs: the RTX 6000 Ada workstation
+and an H100/H200 node.
+
+%=======================================================================================================
+\section{Problem input and output}\label{sec:io}
+
+\paragraph{Today.} The solver reads one format: a directory of text files (\code{blk.txt}; \code{At.txt} with
+0-based \code{row col value} triplets of $\Ad$ in $\svec$ form; \code{b.txt}; \code{C.txt}; \code{con_num.txt}). Every
+other format is converted outside the solver, by MATLAB scripts (\code{examples/sdpt3_to_txt.m},
+\code{sedumi_to_txt.m}, \code{mosek_to_txt.m}) or by the Python SDPA converter of the PLATO experiments; the MEX
+takes the same arrays in memory. The text reader parses about $3.5\times10^6$ nonzeros per second: 20 million
+nonzeros take 708\,MB of text and 5.7\,s, against 320\,MB and 0.16\,s for the same data in binary read from the
+page cache (measured on the reference workstation). It also builds COO triplets before CSC, doubling the host
+memory, and stores sizes in \code{int} (B27). At $10^9$ nonzeros that would be about 35\,GB of text and five
+minutes of parsing at every run.
+
+\paragraph{Design.} Every reader produces the same \code{ProblemData}; all conventions (objective sense, $\svec$
+layout, block mapping) live in \code{src/io/} and nowhere else. Sizes are 64-bit in the readers and in the native
+format; setup checks that the problem fits the solver's current 32-bit indexing and says so if it does not.
+Readers fill the CSC arrays directly, without a COO copy. Each reader prints a conversion report (what was
+mapped, mirrored, merged or simplified), which also goes into the summary.
+
+\begin{center}\small
+\begin{tabularx}{\textwidth}{@{}>{\raggedright\arraybackslash}p{3.4cm}>{\raggedright\arraybackslash}p{3.6cm}>{\raggedright\arraybackslash}X@{}}
+\toprule
+Format & Typical source & Support \\
+\midrule
+cuADMM HDF5 (\code{.h5}) & large problems, converted once & native: read and write; chunked, 64-bit, optional compression \\
+SDPA sparse (\code{.dat-s}, \code{.dat-s.gz}) & SDPLIB, DIMACS, Mittelmann (PLATO), Kocvara & C++ reader, with the checks of the PLATO converter \\
+SeDuMi \code{.mat} (\code{A} or \code{At}, \code{b}, \code{c}, \code{K}) & PLATO, DIMACS, SOSTOOLS, GloptiPoly & C++ reader (matio); MEX and Python take the same variables \\
+SDPT3 \code{.mat} (\code{blk}, \code{At}, \code{C}, \code{b}) & SDPT3 and SDPNAL+ users & same \\
+MOSEK MATLAB \code{prob} (\code{.mat}) & SPOT; MOSEK toolbox users & same; the objective sense is an input \\
+legacy TXT directory & today's data and tests & read only; deprecated \\
+CBF (\code{.cbf}) & CBLIB & with second-order cones (Phase 9) \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+\paragraph{Mappings.}
+\begin{description}[style=nextline,leftmargin=0.6cm]
+\item[SDPA.] SDPA's dual (D) is cuADMM's primal: $C = -F_0$, $A_i = F_i$, $b_i = c_i$, and the returned $y$ is
+$-x_{\rm SDPA}$. Negative block sizes are diagonal blocks (\code{l}). Lower-triangle entries are mirrored;
+duplicate entries, non-finite values and indices out of range reject the file; explicit zeros are dropped; the
+DIMACS block kinds are kept for the error measures.
+\item[SeDuMi.] \code{K.f} $\to$ \code{u}, \code{K.l} $\to$ \code{l}, \code{K.s} $\to$ \code{s}; \code{K.q} and \code{K.r} with
+Phase 9; complex data (\code{K.scomplex}, \code{K.xcomplex}) is rejected. \code{A} ($m\times N$ or $N\times m$) and
+\code{At} ($N\times m$) are both accepted; when $N = m$ the name decides the orientation. PSD blocks are full
+column-major $n^2$ vectors and need not be symmetric: the $\svec$ entry of $(k,l)$, $k<l$, is $(A_{kl}+A_{lk})/\sqrt2$.
+PLATO's \code{.mat} files are in this format (with \code{At}).
+\item[SDPT3.] \code{blk{p,1}} $\in$ \{\code{s}, \code{l}, \code{u}\} (\code{q} with Phase 9). An \code{s} entry that lists several
+sizes is split into separate blocks. \code{At{p}} is already in $\svec$ form with the same convention as cuADMM;
+\code{C{p}} is converted.
+\item[MOSEK \code{prob}.] Bar variables (\code{bardim}) become \code{s} blocks. \code{bara} and \code{barc} list the lower
+triangle ($\text{subk}\ge\text{subl}$) of symmetric matrices, so the $\svec$ value is \code{val} on the diagonal and
+$\sqrt2\,\text{val}$ off it. Scalar variables (columns of \code{a}): missing or infinite bounds $\to$ \code{u},
+$[0,\infty)$ $\to$ \code{l}, other bounds by a shift and, for a finite upper bound, a slack. Rows with
+\code{blc} $=$ \code{buc} are equalities; other rows get a slack in an \code{l} block. \code{cfix} is the objective
+offset. \code{cones} and \code{accs}/\code{f}/\code{g} come with Phase 9; integer variables are rejected. The struct does
+not store the objective sense, which is an argument of \code{mosekopt}: the reader takes it from a variable
+\code{sense} saved next to \code{prob}, or from \code{io.sense}, and stops if neither is given, because SPOT's SOS files
+are maximization problems and a silent default would solve a different problem.
+\end{description}
+
+\paragraph{Exact simplifications at read time} (option \code{io.simplify}, on by default, each one reported).
+A $1\times1$ PSD block becomes an \code{l} block. A PSD block whose data ($\A$ and $C$) touch only its diagonal
+becomes an \code{l} block of the same size; this is exact, because such an $X\succeq0$ can be replaced by
+$\operatorname{diag}(X)\ge0$ without changing the optimal value, and the dual slack is diagonal. It matters for
+PLATO's SeDuMi files: \code{buck3.mat} stores the 544-entry diagonal block of \code{buck3.dat-s} as a
+$544\times544$ PSD block, which would cost an $n = 544$ eigendecomposition per iteration instead of 544 scalar
+operations; read with this simplification, \code{buck3.mat} gives the same data as \code{buck3.dat-s} to within
+rounding (checked). Solutions are mapped back to the file's block structure on output. The legacy TXT reader
+reads files exactly as today and never simplifies, so results on existing TXT data do not change.
+
+\paragraph{Output.} Solutions are written in the convention of the input: \code{.h5} (group \code{/solution});
+SDPA ($x = -y$, $X$, $Y$); SeDuMi (\code{x}, \code{y}, \code{z} as full vectors); SDPT3 (cell arrays); MOSEK (the
+\code{res.sol.itr} fields \code{barx} and \code{bars} as lower triangles, \code{xx}, \code{slx}, \code{y}), so that SPOT's
+\code{recover_mosek_sol_blk} works unchanged. Objective values are reported in the file's sense, including the
+offset.
+
+\paragraph{Native format.} One HDF5 file, version 1:
+\begin{lstlisting}[style=plain]
+/                  attrs: format = "cuadmm", version = 1, sense = "min" | "max",
+                          objective_offset, source, source_sha256,
+                          svec = "upper, column-major, off-diagonal x sqrt(2)"
+/blocks/kind       uint8 (B)       's', 'l', 'u' ('q' later)
+/blocks/size       int64 (B)
+/At/colptr         int64 (m+1)     CSC of A^T: one column per constraint
+/At/rowind         int64 (nnz)     svec index, 0-based, sorted within each column
+/At/val            float64 (nnz)
+/b/index, /b/val   int64, float64  sparse
+/C/index, /C/val   int64, float64  sparse
+/meta/...          optional: DIMACS block kinds, conversion report
+/start/...         optional warm start: X, y, S, sigma
+/solution/...      written by the solver: X, y, S, status, residuals, objective values
+\end{lstlisting}
+Datasets are chunked (about $10^6$ entries per chunk) and optionally compressed; the reader copies chunks
+straight into the CSC arrays. MATLAB writes the file with \code{h5create}/\code{h5write} and Python with
+\code{h5py}; the tool \code{cuadmm-convert} converts any supported format into it once, for problems too large to
+parse at every run.
+
+\paragraph{Dependencies and detection.} HDF5 and matio (BSD-style licenses), and zlib for \code{.gz}. Build options
+\code{CUADMM_WITH_HDF5} and \code{CUADMM_WITH_MATIO} are on when the libraries are found; without matio, the
+\code{.mat} formats are read by the MATLAB and Python front-ends, which pass the variables in memory. The CLI lists
+the formats compiled in. The format is detected from the extension and, for \code{.mat}, from the variables
+present (\code{prob} $\to$ MOSEK; \code{blk} with \code{At}, \code{C}, \code{b} $\to$ SDPT3; \code{K} with \code{A} or
+\code{At} $\to$ SeDuMi), and can be forced with \code{io.format}.
+
+\paragraph{SPOT.} SPOT builds the MOSEK \code{prob} struct from coordinate lists produced by its C++ core
+(\code{mosek_standard_sdp_test_1.m} and \code{_2.m}). Moment relaxations are minimizations over bar variables with
+\code{barc}; SOS relaxations are maximizations with free scalar variables and no \code{barc}. The sample files in
+\code{examples/SPOT/data/MOSEK} are MATLAB v5 files that contain only \code{prob}; read with the mapping above, three
+of them (PushBox $N=30$ moment and SOS, PushT $N=10$ moment) reproduce their TXT conversions in
+\code{examples/SPOT/data/TXT} to within rounding (checked). Two changes on the SPOT side make
+the hand-over exact and fast (O9): save \code{sense} next to \code{prob}, and, for large instances, write the cuADMM
+HDF5 file directly from the same coordinate lists.
 
 %=======================================================================================================
 \section{Scaling}\label{sec:scaling}
 A \code{Scaling} object holds $\nu$, $b_s$, $C_s$ and provides \code{scale_problem}, \code{scale_iterate},
 \code{unscale_iterate}, \code{to_original_residuals} and \code{sigma_to_original}. It is the only code that
 knows the scaling; the warm start, the termination, the validator and the result use it. Option
-\code{scaling.enabled} (default true) allows running unscaled for diagnostics. The unused fields
+\code{scaling.enabled} (default true) allows running unscaled for diagnostics. Two known limitations are
+recorded, not changed: the residual vote is not invariant under rescaling $b$ and $C$, because of the ``$1+$''
+in its normalizers \cite{wohlberg2017,sigmastudy}, and $\sigma_0$ is given in scaled units. The unused fields
 \code{bscale2}, \code{Cscale2} are deleted.
 
 %=======================================================================================================
 \section{Core infrastructure}\label{sec:core}
 \begin{itemize}
-  \item \textbf{\code{GpuContext}}: device, library handles per stream role, cuDSS handle, and the
-  math-mode policy of each handle set explicitly at creation.
+  \item \textbf{\code{GpuContext}}: device, library handles per stream role, cuDSS handle, and the math mode of
+  each handle set explicitly at creation (B1).
   \item \textbf{\code{StreamPool} and \code{ExecContext}}: named streams (main, small, medium[$N$], large,
   linsys, copy). An \code{ExecContext} bundles a stream, its handles and a workspace slice; cross-stream
-  dependencies use events. Everything runs on non-blocking streams owned by the pool, which removes the
-  class of bugs behind B2.
+  dependencies use events. Everything runs on non-blocking streams owned by the pool, which removes the class
+  of bugs behind B2. A \code{single_stream} mode runs everything on one stream; it must reproduce the
+  concurrent run bit for bit, because \code{compute-sanitizer racecheck} cannot see B2-type races between
+  streams in global memory.
   \item \textbf{\code{WorkspaceArena}}: components declare \code{WorkspaceRequest}s at setup; the arena
-  allocates once and hands out aligned slices. No \code{cudaMalloc}/\code{cudaFree} inside the loop.
+  allocates once, hands out aligned slices, and lets components that never run at the same time share a
+  region (the large tier, Section~\ref{sec:large-memory}). No \code{cudaMalloc}/\code{cudaFree} inside the loop.
   \item \textbf{Buffers}: \code{DeviceBuffer<T>}, \code{PinnedHostBuffer<T>}, \code{DeviceSpan<T>} with
   \code{std::size_t} sizes; the overflow checks of \code{BlockStructure} are kept.
+  \item \textbf{Checks}: one set of error macros (B15), a launch check after every kernel (B16), exceptions
+  instead of \code{exit()}.
   \item \textbf{Determinism}: option \code{determinism} $\in$ \{\code{strict} (default), \code{fast}\}.
   \item \textbf{Logging}: a \code{Logger} with levels; library code does not call \code{printf}.
 \end{itemize}
 
 %=======================================================================================================
 \section{Unified options}\label{sec:options}
-Table~\ref{tab:options} is the single table of defaults (PSD options are in Section~\ref{sec:psd}). The CLI
-flag names are derived from it (\code{algorithm.tau} becomes \code{--tau}, with the current flags kept as
-aliases for one release) and the MATLAB options struct uses the same nested field names.
+Table~\ref{tab:options} is the single table of defaults (PSD options are in Section~\ref{sec:psd}). The CLI flag
+names are derived from it (\code{algorithm.tau} becomes \code{--tau}, with today's flags kept as aliases for one
+release) and the MATLAB options struct uses the same nested field names.
 
 {\small
-\begin{longtable}{@{}>{\raggedright\arraybackslash}p{6.3cm}>{\raggedright\arraybackslash}p{3.5cm}>{\raggedright\arraybackslash}p{5.9cm}@{}}
-\caption{Solver options and defaults (``Q'' marks an open decision of Section~\ref{sec:decisions}).}\label{tab:options}\\
+\begin{longtable}{@{}>{\raggedright\arraybackslash}p{6.0cm}>{\raggedright\arraybackslash}p{3.5cm}>{\raggedright\arraybackslash}p{6.1cm}@{}}
+\caption{Solver options and defaults (``O'' marks an open decision of Section~\ref{sec:decisions}).}\label{tab:options}\\
 \toprule
 Option & Default & Notes\\
 \midrule
@@ -966,131 +1594,274 @@ Option & Default & Notes\\
 \midrule
 \endhead
 \code{algorithm.scheme} & \code{admm} & \code{admm} or \code{sgs_admm}; replaces \code{switch_admm} and the compile flag.\\
-\code{algorithm.tau} & 1.618 & Validated in $(0,2)$; preset \code{--aggressive} sets 1.918 (Q4).\\
-\code{algorithm.scheme_switch_iteration} & 0 (off) & Hybrid mode: sGS until this iteration, then ADMM.\\
+\code{algorithm.tau} & 1.618 & Validated in $(0,2)$; 1.918 available; avoid $\tau\ge1.99$ from cold starts (Q4).\\
+\code{algorithm.scheme_switch_iteration} & 0 (off) & Hybrid mode until Q5 is decided.\\
 \code{algorithm.max_iter}, \code{.time_limit} & $10^6$, none & As today in the CLI.\\
 \code{algorithm.tol} & $10^{-4}$ & Internal stopping tolerance on $\eta$.\\
-\code{penalty.policy} & \code{residual_balancing} & \code{fixed}, \code{residual_balancing}, \code{legacy} (Q1).\\
-\code{penalty.sigma0} & 100 & Scaled units (Section~\ref{sec:math-scaling}).\\
-\code{penalty.sigma_min}, \code{.sigma_max} & $10^{-3}$, $10^{3}$ & October 13 values.\\
-\code{penalty.factor}, \code{.ratio}, \code{.guard} & 2, 1.35, true & The $\max(1,\cdot)$ guard is \code{guard}.\\
+\code{penalty.policy} & \code{balance_freeze} from 4b; before: \code{residual_balancing} (O1) & \code{fixed}, \code{legacy_adaptive}, \code{residual_balancing}, \code{balance_freeze}.\\
+\code{penalty.sigma0} & 100 & Scaled units; clamped into the bounds except in \code{legacy_adaptive}.\\
+\code{penalty.sigma_min}, \code{.sigma_max} & $10^{-3}$, $10^{3}$ & \code{legacy_adaptive}: $10^{-6}$, $10^{6}$.\\
+\code{penalty.factor}, \code{.step_schedule} & 2, \code{constant} & Table~\ref{tab:freeze-params}; today's working tree has 1.2.\\
+\code{penalty.win_ratio}, \code{.guard} & 1.35, true & The win-count hysteresis (not today's \code{ratioconst}).\\
+\code{penalty.residual_weight} & 1 & Today's \code{ratioconst}, a weight on $\eta_p$.\\
 \code{penalty.schedule} & as in \S\ref{sec:penalty} & List of (up to iteration, period) pairs.\\
+\code{penalty.freeze_iteration} & off / $10^4$ & Off for \code{residual_balancing}, $10^4$ for \code{balance_freeze}.\\
+\code{penalty.pingpong_window}, \code{.pingpong_net}, \code{.pingpong_min_iter} & 8, 2, 1000 & \code{balance_freeze} only.\\
+\code{penalty.freeze_value}, \code{.freeze_bias} & band centre, 1 & \code{balance_freeze} only.\\
 \code{scaling.enabled} & true & \\
-\code{linsys.backend} & \code{auto} & \code{auto}, \code{cudss}, \code{cholmod}, \code{dense}.\\
+\code{linsys.backend} & \code{auto} & \code{auto}, \code{cholmod}, \code{cudss}, \code{dense}; \code{auto} admits cuDSS after the benchmark.\\
 \code{linsys.regularization} & $10^{-15}$ & Added to the diagonal of $\A\Ad$.\\
-\code{linsys.presolve} & true & Remove dependent rows.\\
+\code{linsys.presolve} & true from Phase 7 & Off in the bitwise phases.\\
 \code{linsys.memory_fraction}, \code{.autotune} & 0.25, false & Budget for dense or cuDSS factors.\\
-\code{validation.interval}, \code{.tol}, \code{.threads} & 0, \code{tol}, 1 & Validation-aware stopping as today.\\
-\code{output.verbosity}, \code{.history}, \code{.summary}, \code{.sigma_log} & 1, off, off, off & Observers.\\
+\code{linsys.inexact}, \code{.preconditioner} & off, \code{none} & Reserved (Section~\ref{sec:pcg}).\\
+\code{certificate.block_bounds} & none & Per-block bounds $R_b$; required for a certified bound with free blocks.\\
+\code{certificate.trace_bound}, \code{.trace_bound_scale} & none & Today's \code{--trace-bound}, \code{--trace-bound-scale}.\\
+\code{validation.interval}, \code{.tol}, \code{.threads} & 0, \code{algorithm.tol}, 1 & Validation-aware stopping as today.\\
+\code{validation.strict_dimacs_tol} & 0 (off) & Today's \code{--strict-dimacs-tol}.\\
+\code{validation.checkpoint_iterations}, \code{.checkpoint_dir}, \code{.final_save_dir} & none & Today's checkpoint options.\\
+\code{io.format} & \code{auto} & \code{h5}, \code{sdpa}, \code{sedumi}, \code{sdpt3}, \code{mosek}, \code{txt} (Section~\ref{sec:io}).\\
+\code{io.sense} & from the file & Required for MOSEK files without a \code{sense} variable.\\
+\code{io.simplify} & true & $1\times1$ and diagonal-only PSD blocks become \code{l} blocks (reported); never applied to legacy TXT input.\\
+\code{io.warm_start_dir}, \code{io.save_dir}, \code{io.save_format} & none, none, input's & Today's \code{--warm-start-dir}, \code{--save-solution}.\\
+\code{output.verbosity}, \code{.history}, \code{.summary}, \code{.sigma_log} & 1, off, off, off & Observers; 17 significant digits.\\
 \code{seed}, \code{determinism} & 0, \code{strict} & \\
+\code{gpu.device} & 0 & One GPU per solver.\\
 \bottomrule
 \end{longtable}
 }
+
+\paragraph{Defaults that change.}\label{sec:api-defaults} The facade adopts the CLI's defaults, which differ
+from today's \code{SDPSolver} defaults: $\sigma_0$ from 1.0 to 100 (\code{solver.h:517}; its comment says
+\code{2e2}); the large-block warm-up from \code{COMPOSITE_FP16} on every large block (\code{solver.h:512}) to
+\code{none} until Phase 6a and \code{composite_fp16} on blocks with $n\ge5000$ from then on; for blocks without
+a warm-up, the low-rank start from the warm-up switch at 5000 to iteration 2; and the validation tolerance
+from the API value to \code{algorithm.tol}. From Phase 6a, CLI and MATLAB users also get the FP16 warm-up on
+blocks with $n\ge5000$, which today they cannot select (B4). Phase 7 then turns presolve on and, after the
+benchmark, may make cuDSS the backend. Each change is listed in the release notes.
 
 %=======================================================================================================
 \section{Testing, benchmarking and continuous integration}\label{sec:testing}
 \begin{itemize}
   \item \textbf{Unit tests} per component: cone properties (idempotence, Moreau decomposition, orthogonality,
-  nonexpansiveness, membership); every PSD projector against an FP64 reference on synthetic spectra
-  (full rank, low rank $\pm$, clustered, tiny $n$, $n=1000$ and $n>1000$), with tolerances per precision
-  (FP32 composite below $10^{-4}$ median relative error, FP16 composite below $2\times10^{-3}$; exact
-  projectors near machine precision); normal-equation solvers on full-rank and rank-deficient matrices;
-  penalty policies on scripted residual sequences; option parsing and validation.
-  \item \textbf{Integration tests}: generated problems with known optimum for every cone and every
-  projector path, both schemes, $\tau\in\{1.618, 1.918\}$, both normal-equation backends.
+  nonexpansiveness, membership) for every cone, the free cone included; every PSD projector against an FP64
+  reference on synthetic spectra (full rank, low rank $\pm$, clustered, tiny $n$, $n=1000$, $n>1000$), with
+  tolerances per precision (FP16 composite below $2\times10^{-3}$ median relative error, exact projectors near
+  machine precision); SYRK versus GEMM products on both eigen-sides; normal-equation
+  backends on full-rank and rank-deficient matrices; penalty policies on scripted residual sequences at full
+  precision; option parsing, validation and unknown names.
+  \item \textbf{Memory tests}: the setup-time memory plan against the measured peak, for one and several
+  large blocks, and a block at the EVD limit on a large-memory GPU.
+  \item \textbf{Integration tests}: generated problems with known optimum for every cone (free blocks as in
+  Section~\ref{sec:free}) and every projector path, both schemes, $\tau\in\{1.618,1.918\}$, both direct backends.
   \item \textbf{Golden histories}: per-iteration $(\text{pobj},\text{dobj},\eta_p,\eta_d,\sigma)$ of a fixed set
-  of problems, regenerated only by a documented script when a behavior change is intended (B14).
-  \item \textbf{End-to-end}: a small SPOT and PLATO subset checked against MOSEK objective values.
-  \item \textbf{Benchmarks} (\code{bench/}): projector micro-benchmarks, normal-equation backends,
-  end-to-end time; results stored per GPU and compared release to release.
-  \item \textbf{CI}: build matrix with and without cuDSS and CHOLMOD; CUDA 12.8 and 12.9; nightly
-  \code{compute-sanitizer} (memcheck, racecheck, synccheck) on the integration tests; GPU runners for Ada
-  and Hopper where available.
+  of problems, per policy, regenerated only by the published generator script when a change is intended.
+  \item \textbf{Formats}: each reader on hand-made edge cases (lower-triangle and duplicate entries, block
+  groups, bounds and ranges in MOSEK data, missing sense, $N = m$ in SeDuMi); instances available in several
+  formats (PLATO SDPA and SeDuMi, SPOT MOSEK and TXT) give the same \code{ProblemData} up to the reported
+  simplifications; HDF5 round trips; solution output read back by SPOT's \code{recover_mosek_sol_blk}.
+  \item \textbf{End to end}: a small SPOT (including SOS) and PLATO subset checked against MOSEK.
+  \item \textbf{Benchmarks} (\code{bench/}): projector micro-benchmarks, normal-equation backends, end-to-end
+  time; per-iteration time must stay within about 2\% on pendulum $N = 80$ and three PLATO problems
+  (run-to-run noise is about 0.6\% \cite{review20}).
+  \item \textbf{CI}: build matrix with and without cuDSS; CUDA 12.8 and 12.9; explicit CUDA architectures
+  (today \code{CUDA_ARCHITECTURES OFF}); nightly \code{compute-sanitizer} (memcheck, racecheck, synccheck) and the
+  single-stream bitwise check; GPU jobs through Slurm scripts until CI has GPU runners.
 \end{itemize}
 
 %=======================================================================================================
 \section{Migration plan}\label{sec:migration}
-Each phase is one or a few pull requests on a feature branch, reviewed and merged in order. ``Bitwise''
-means identical per-iteration histories on the golden set and on two real problems.
+Each step is one or a few pull requests on a feature branch, merged in order through pull requests (the
+\code{main} ruleset requires them). ``Bitwise'' means identical per-iteration histories on the golden set and
+on two real problems, on each pinned machine and configuration (GPU model and SM count, driver, CUDA,
+SuiteSparse and BLAS versions, thread count, CUDA architectures).
 
 \begin{description}[style=nextline,leftmargin=0.6cm]
-\item[Phase 0 --- Safety net.] Freeze baseline histories (golden set plus one SPOT and one PLATO problem)
-from \code{main} with the penalty rule chosen in Q1; add the CI build matrix; make the CHOLMOD
-rank-deficient test independent of the SuiteSparse version (B9: skip with a message, or presolve later).
-\emph{Acceptance:} CI green; baseline artifacts stored.
-\item[Phase 1 --- Cleanup.] Delete dead code (P4); remove \code{CUADMM_PLAIN_ADMM_ONLY} (sGS back as a runtime
-option, B5); fix B1 (math mode), B2 (event before the copy), B6, B12; update the README.
-\emph{Acceptance:} bitwise on the exact paths; composite accuracy test tightened to FP32 levels.
+\item[Pre-0 --- Names and housekeeping.] In today's \code{SDPSolver}: restore \code{legacy_adaptive} to
+\code{9bb4ba5} bit for bit (no guard, $[10^{-6},10^{6}]$, \code{Monitor1}); add \code{residual_balancing} with the
+October 13 rule and the options \code{penalty.factor} (default 2; the working-tree 1.2 becomes an option
+value); make \code{residual_balancing} the default until Phase 4b (O1); write the policy, its parameters and the
+build commit into the summary JSON; make unknown policy names an error; fix the CLI help and README (B18).
+Housekeeping: drop the LaTeX \code{.synctex.gz} from the tree; the experiment authors publish the golden
+generator, push and tag the cited commits, and fix the dangling references (B26).
+\emph{Acceptance:} the legacy golden test passes again (B14); \code{residual_balancing} goldens are generated
+by the published script.
+\item[Phase 0 --- Safety net.] Fixed-$\sigma$ baselines first: they do not depend on the penalty policy, and
+\code{main} must reproduce the PLATO fixed-$\sigma$ histories bit for bit (\code{trto1}, \code{mater-1}; under
+0.1 H200-hour). One baseline per pinned machine and configuration; GPU gate scripts; the CHOLMOD rank-deficient
+test made independent of the SuiteSparse version (B9). \emph{Acceptance:} baselines stored; CI green.
+\item[Phase 1 --- Cleanup and one-line fixes.] Delete dead code (P4); remove \code{CUADMM_PLAIN_ADMM_ONLY} (B5);
+fix B1, B2 (event before the copy), B6, B12, B16 (launch checks; \code{exit()} to exceptions), B17 (validate
+MEX scalars), B21 (EVD size check at setup), B22 (norm test). \emph{Acceptance:} bitwise on the exact paths;
+the composite accuracy test tightened to FP32 levels.
 \item[Phase 2 --- Options and front-ends.] \code{SolverOptions}, the \code{Solver} facade over the existing
-class, CLI and MATLAB rebuilt on it; resolve B3 and B4 with the Q2/Q3 defaults; old flags as aliases.
+class, CLI and MATLAB rebuilt on it (\code{cuadmm.solve(At, b, C, K, opts)} with a positional shim for one
+release); B3 and B4 resolved with the defaults of Section~\ref{sec:selection}.
 \emph{Acceptance:} bitwise for equivalent options; option table generated into the documentation.
-\item[Phase 3 --- Core infrastructure.] \code{GpuContext}, \code{StreamPool}, \code{ExecContext},
-\code{WorkspaceArena}, buffers; LOBPCG and Lanczos stop allocating per call (B7).
-\emph{Acceptance:} bitwise; no \code{cudaMalloc} in the loop (checked with Nsight Systems); sanitizers clean.
-\item[Phase 4 --- Algorithm layer.] \code{AdmmState}, \code{IterationScheme} (ADMM, sGS-ADMM),
-\code{PenaltyPolicy}, \code{KktEvaluator}, \code{StoppingRule}, \code{BestIterateTracker}, observers;
-\code{solve()} becomes \code{AdmmSolver::run}. \emph{Acceptance:} bitwise for ADMM; sGS-ADMM matches the
-pre-flag code; $\tau$ validation tests.
-\item[Phase 5 --- Cone layer.] \code{Cone}, \code{ConeProduct}, \code{ConeRegistry}; free and nonnegative
-cones; the PSD cone wrapping the current tiers unchanged; validator and certificate through
-\code{Cone::measure}; pure-LP test. \emph{Acceptance:} bitwise.
-\item[Phase 6 --- PSD strategies and composite integration.] The projector classes of
-Table~\ref{tab:psd-strategies}, \code{PsdProjectionPolicy}, \code{LargeBlockState}, \code{RankAnalyzer};
-submodule code moved in, B8, B10, B11, B13 addressed; submodule removed from \code{.gitmodules}.
-\emph{Acceptance:} bitwise on exact and LOBPCG paths; composite accuracy and fallback tests; end-to-end
-runs with each warm-up method reach the tolerance.
-\item[Phase 7 --- Normal-equation solvers.] \code{NormalMatrix}, \code{NormalEquationSolver},
-\code{CholmodSolver} (bitwise with today), \code{CudssSolver}, optional \code{DenseCusolverSolver},
-selection and presolve; benchmark report. \emph{Acceptance:} CHOLMOD path bitwise; cuDSS path within
-$10^{-10}$ relative residual per solve and same iteration counts within a few percent end to end.
-\item[Phase 8 --- Data layout.] Permute variables at setup so each cone, and each PSD size group, owns a
-contiguous slice; run cone projections concurrently on their streams. \emph{Acceptance:} within rounding
-(summation order changes); speedup measured.
-\item[Phase 9 --- New cones.] Second-order and rotated second-order cones with generator-based tests;
-input format and MATLAB \code{K.q}/\code{K.r} fields. \emph{Acceptance:} new tests, CBLIB/DIMACS
-second-order instances solved to tolerance.
-\item[Phase 10 --- Documentation and release.] README rewrite, Doxygen, examples updated to the new options,
-migration notes for users of the old MEX signature, tagged release.
+\item[Phase 2b --- Input and output formats.] After Phase 2, in parallel with Phases 3--4: the readers, writers
+and HDF5 schema of Section~\ref{sec:io}, \code{cuadmm-convert}, and B27--B29. \emph{Acceptance:} the TXT reader gives
+the same \code{ProblemData} as today; the format tests of Section~\ref{sec:testing} pass; PLATO instances read from
+either format reach their published objectives; reading $10^8$ nonzeros from \code{.h5} is limited by disk
+bandwidth, not by parsing.
+\item[Phase 3 --- Thin core.] \code{GpuContext}, \code{ExecContext}, buffer and span types, unified checks (B15).
+The stream pool and the arena come with Phase 6b. \emph{Acceptance:} bitwise.
+\item[Phase 4 --- Algorithm layer.] \code{AdmmState}, \code{IterationScheme}, the penalty policies of
+Section~\ref{sec:penalty-policies} (including \code{balance_freeze}, implemented but not yet the default), \code{KktEvaluator},
+\code{StoppingRule}, \code{BestIterateTracker} (B23), observers with post-step residuals and 17-digit histories
+(B25). \emph{Acceptance:} bitwise for ADMM with each existing policy; for sGS-ADMM: with \code{FixedPenalty} and
+$\tau = 1.95$, it matches a tagged build of today's sGS path built without \code{CUADMM_PLAIN_ADMM_ONLY}, at
+fixed $\sigma$ and stopping tolerance 0 (so that the hidden $\tau$ reduction never fires).
+\item[Phase 4b --- Tune and adopt \code{balance_freeze}.] The default policy must have finite total $\sigma$
+variation, which \code{balance_freeze} has by construction; this step chooses its parameters. CPU screen
+on the validated replica \cite{sigmastudy} (15--20 core-hours): \code{balance_freeze} over
+Table~\ref{tab:freeze-params} in a fractional design (factor, step schedule and $K_f$ first, then the freeze
+value and bias for the two best), each at $\sigma_0\in\{0.5,1,2\}$ on the nine small PLATO problems. Then GPU
+gates (at most 12.6 H200-hours): G0 fixed-$\sigma$ reproduction; G1 \code{trto1}, \code{buck1} (600\,s caps),
+\code{vibra1}, \code{mater-1}, \code{mater-2}, \code{shmup1} (1{,}800\,s); G2 pendulum $N=80$ at $\sigma_0\in\{1,100\}$
+against 124\,s (old rule) and 625\,s (fixed $\sigma=1$); G3 \code{mater-3} to \code{mater-6}.
+\emph{Gates:} no problem lost that fixed $\sigma=1$ or the old rule solves within the cap; the logged
+$\sum|\log_2\Delta\sigma|$ stays bounded and the changes stop; no change followed by a $\ge10\times$ rise in the
+validated error; a better shifted geometric mean of time (shift 10\,s) than both \code{residual_balancing} and
+fixed $\sigma = 1$; robust across $\sigma_0$. \emph{Outcome:} the best passing setting becomes the default
+of \code{penalty.policy}. If no setting passes all gates, adopt the one that loses the fewest problems,
+document the losses, and revisit the freeze design (O2, O8).
+\item[Phase 5 --- Cone layer.] \code{Cone}, \code{ConeProduct}, \code{ConeRegistry}; \code{FreeCone},
+\code{NonnegativeCone}, and the PSD cone wrapping the current tiers unchanged; the certificate through
+\code{Cone::measure} with per-block bounds (B24); the validator kept independent with host reference measures;
+the free-variable tests of Section~\ref{sec:free}. \emph{Acceptance:} bitwise; new tests pass.
+\item[Phase 6a --- PSD strategies, bit for bit.] The projectors of Table~\ref{tab:psd-strategies} on today's
+memory layout, \code{LargeBlockPolicy}, \code{RankAnalyzer}; the FP16 composite code moved in (B8, B10, B11,
+B13); the submodule removed only after the parity tests pass. Once B8 makes the filter deterministic, the
+default warm-up (\code{composite_fp16} for $n\ge5000$) is switched on, after the threshold benchmark of
+Section~\ref{sec:composite}. \emph{Acceptance:} bitwise on the exact and LOBPCG paths (\code{gemm_compat});
+for the composite path, whose Lanczos start is random today (B8), accuracy, fallback and end-to-end tests with
+and without the warm-up.
+\item[Phase 6b --- PSD memory model.] Stream pool and arena; large-block arena and per-block pipeline
+(Sections~\ref{sec:large-memory}--\ref{sec:large-alg}); SYRK products; LOBPCG and Lanczos without per-call
+allocation (B7); small and medium workspace fixes (B19, B20). \emph{Acceptance:} within rounding (relative
+differences in the histories at the level of the projection error); measured peak memory within 5\% of the
+setup plan; time per iteration not worse than Phase 6a.
+\item[Phase 7 --- Linear systems.] The interface types (\code{NormalSystem}, \code{NormalOperator}, and
+\code{NormalEquationSolver} with the inexact hooks); the backends \code{CholmodSolver} (bitwise),
+\code{CudssSolver} and \code{DenseCusolverSolver}; presolve; the benchmark report. \emph{Acceptance:} CHOLMOD path bitwise; cuDSS within $10^{-10}$ relative residual per solve
+and the same iteration counts within a few percent end to end.
+\item[Phase 8 --- Data layout (deferred).] Contiguous slices per cone and PSD size group; waits for a profile
+that justifies giving up bitwise comparability.
+\item[Phase 9 --- Second-order cones (deferred until needed).] As in Section~\ref{sec:cones}, with generator
+tests and MATLAB \code{K.q}/\code{K.r}.
+\item[Phase 10 --- Documentation and release.] README rewrite, Doxygen, examples on the new options, migration
+notes for the old MEX signature and the API default changes, tagged release.
 \end{description}
+
+\paragraph{Milestones and effort.} Milestone 1 is Pre-0 to 4b, including 2b; Phases 5 to 10 are re-planned once
+it lands. Milestone 2 is Phases 5--6b (cones, free variables, PSD), milestone 3 is Phase 7. The reorganization
+touches about 9{,}200 library and MEX lines, 2{,}900 submodule lines and 6{,}700 test lines \cite{review20}; the
+new readers and writers of Phase 2b add an estimated 3{,}000--4{,}000 lines including tests. The solver
+stays single-GPU. Neither repository has a license yet, and CHOLMOD includes GPL-licensed modules (O4).
 
 \begin{warnbox}{Risks and mitigations}
 \begin{itemize}[leftmargin=*]
-  \item \emph{Silent behavior changes during refactoring} --- bitwise acceptance on the golden set for
-  Phases 1--6; any intended change gets its own pull request and regenerated goldens.
-  \item \emph{cuDSS availability and version drift} --- optional dependency behind
-  \code{CUADMM_WITH_CUDSS}; CHOLMOD remains the guaranteed backend; the version is pinned in CMake.
+  \item \emph{Silent behavior changes} --- bitwise acceptance on each pinned machine for the structural phases;
+  every intended change gets its own pull request, option value and golden files.
+  \item \emph{The default penalty policy loses problems} --- Phase 4b gates against both the old rule and fixed
+  $\sigma$; \code{legacy_adaptive} and \code{fixed} stay selectable.
+  \item \emph{Memory regressions} --- the setup-time memory plan is tested against measured peaks.
+  \item \emph{cuDSS availability and version drift} --- optional dependency with a pinned version; CHOLMOD
+  remains the guaranteed backend.
   \item \emph{Performance regressions from abstraction} --- virtual calls happen once per component per
-  iteration, not per element; benchmarks run in CI on every phase.
-  \item \emph{Reproducing published results} --- \code{experiments/} records keep the commit hashes they used;
-  a \code{legacy} penalty policy is kept if Q1 requires it.
+  iteration, not per element; the 2\% per-iteration threshold runs in CI.
+  \item \emph{Reproducing published results} --- \code{legacy_adaptive} and tagged, published commits.
 \end{itemize}
 \end{warnbox}
 
 %=======================================================================================================
-\section{Open decisions}\label{sec:decisions}
+\section{Decisions}\label{sec:decisions}
+
+\subsection{Adopted from the review}
 \begin{enumerate}[label=\textbf{Q\arabic*.}]
-  \item \textbf{Penalty rule history.} Regenerate the golden histories with the October 13 rule, and keep a
-  \code{legacy} policy (old rule, $[10^{-6},10^{6}]$, monitor) only if earlier results must be reproduced
-  from the new code?
-  \item \textbf{Warm-up switch iteration.} Default \code{switch_iter} of 5000 (MATLAB today) or 0 (CLI today),
-  and should the start of the low-rank analysis be decoupled from it as proposed?
-  \item \textbf{Default warm-up for large blocks.} \code{none} (today's effective behavior) or
-  \code{composite_fp16}, as in the warm-start experiments of \cite{composite}?
-  \item \textbf{Default $\tau$.} Keep 1.618 or make 1.918 the default after benchmarking.
-  \item \textbf{Hybrid mode.} Keep \code{scheme_switch_iteration} (cheap given \cite{afterimage}) or drop it.
-  \item \textbf{MATLAB interface.} Keep the positional MEX signature as a compatibility wrapper, or move to
-  \code{cuadmm.solve(At, b, C, K, opts)} only.
-  \item \textbf{cuDSS distribution.} Minimum version, and whether to use the system, conda or pip package.
-  \item \textbf{Python bindings.} In scope for this reorganization or later?
-  \item \textbf{Standalone \code{psd_projection} repository.} Keep it for the benchmarks of \cite{composite}
-  (frozen), with cuADMM as the maintained home of the kernels?
+  \item \textbf{Penalty history.} \code{legacy_adaptive} = \code{9bb4ba5}, kept through the migration as the
+  bitwise baseline and Phase-4b comparator; the October 13 rule is \code{residual_balancing}; the default must
+  have finite $\sigma$ variation: \code{balance_freeze}, tuned and adopted in Phase 4b.
+  \item \textbf{Low-rank start.} Per block: from iteration 2 for blocks without a warm-up, as in today's CLI;
+  from the end of the warm-up for blocks with one, as in today's C++ API.
+  \item \textbf{Warm-up.} FP16 only: \code{composite_fp16} by default for large blocks with $n\ge5000$, none
+  below; switched on in Phase 6a. The FP32 and FP32-emulated filters are not ported. This replaces the review's
+  recommendation (\code{none} until Phase 6 shows a gain); the Phase-6a benchmark confirms or moves the
+  threshold.
+  \item \textbf{$\tau$.} Keep 1.618. Sweep $\{1.618, 1.9, 1.95\}$ at fixed $\sigma$, then re-screen the penalty at
+  the chosen $\tau$; avoid $\tau\ge1.99$ from cold starts. 1.918 stays available.
+  \item \textbf{Hybrid mode.} Decide after plain ADMM with $\tau=1.95$; probably retired.
+  \item \textbf{MATLAB.} \code{cuadmm.solve(At, b, C, K, opts)} with a positional shim for one release.
+  \item \textbf{cuDSS.} Optional, pinned minimum version, runtime check, deterministic mode under \code{strict};
+  admitted to \code{auto} after the benchmark.
+  \item \textbf{Python.} After Phases 2 and 4; public types without raw pointers.
+  \item \textbf{\code{psd_projection}.} Tagged and frozen; the submodule is removed after Phase 6a's parity tests.
+\end{enumerate}
+
+\subsection{Still open}
+\begin{enumerate}[label=\textbf{O\arabic*.}]
+  \item \textbf{Default policy before Phase 4b}: \code{residual_balancing} (the behavior of \code{main}
+  since \code{2d8a755}, proposed) or \code{legacy_adaptive} (the goldens and published runs).
+  \item \textbf{Parameters of \code{balance_freeze}}: decided by the Phase-4b screen
+  (Table~\ref{tab:freeze-params}), including the factor (2 or 1.2) and the step schedule.
+  \item \textbf{Citation for $\tau\in(0,2)$.} \cite{afterimage} cites Gabay--Mercier for two-block ADMM ``when one
+  objective block is linear''; the review reads Gabay--Mercier as assuming strong convexity of one block. This
+  plan relies only on \cite{afterimage} and \cite{chen2021}; whether the citation in \cite{afterimage} needs
+  adjusting is for its authors to decide.
+  \item \textbf{License} for cuADMM, compatible with CHOLMOD's modules.
+  \item \textbf{PSD blocks above the EVD limit} ($n>32{,}768$ on CUDA 12.9): reject (Phase 1), or later a CPU
+  LAPACK fallback for the periodic exact projections. Multi-GPU eigensolvers are out of scope.
+  \item \textbf{Exact free equalities in the y-step} (Section~\ref{sec:free}): evaluate on SOS problems after
+  Phase 7.
+  \item \textbf{Preconditioned iterative solves} (Section~\ref{sec:pcg}): priority and first preconditioner.
+  \item \textbf{Gap-aware vote}: comparing weighted $\eta_p$ and $\eta_d$ so that the duality gap is balanced too
+  \cite{sigmastudy}; untested.
+  \item \textbf{SPOT hand-over} (Section~\ref{sec:io}): SPOT saves \code{sense} next to \code{prob}, and writes the
+  cuADMM HDF5 file directly for large instances; for the SPOT maintainers.
 \end{enumerate}
 
 %=======================================================================================================
 \appendix
+\section{Response to the review of October 20}\label{app:review}
+{\small
+\begin{longtable}{@{}>{\raggedright\arraybackslash}p{6.4cm}>{\raggedright\arraybackslash}p{7.0cm}>{\raggedright\arraybackslash}p{1.8cm}@{}}
+\toprule
+Review item & Revision 2 & Where\\
+\midrule
+\endfirsthead
+\toprule
+Review item & Revision 2 & Where\\
+\midrule
+\endhead
+Restore \code{legacy_adaptive}; name the edited rule; record the policy & Pre-0; policy table; summary contents & \S\ref{sec:penalty-policies}, \S\ref{sec:migration}\\
+Default penalty must have finite $\sigma$ variation; Phase 4b with CPU screen and GPU gates & balance-then-freeze rule; Phase 4b gates and budget & \S\ref{sec:penalty}, \S\ref{sec:migration}\\
+Publish the generator, push and tag commits, fix dangling references & Pre-0 housekeeping, owner named & B26, \S\ref{sec:migration}\\
+Retitle \S3.5 and state its limits & rewritten as ``The penalty parameter'' & \S\ref{sec:penalty}\\
+\code{ResidualBalancingPenalty} parameters; $\sigma_0$ clamp; checkpointed policy state; warm-start reset & interface and options & \S\ref{sec:penalty-policies}, Table~\ref{tab:options}\\
+$\sigma$ log and summary contents; 17 significant digits & reporting & \S\ref{sec:penalty-policies}, B25\\
+Phase 0: fixed-$\sigma$ baselines first; one baseline per machine & Phase 0 & \S\ref{sec:migration}\\
+Phase 4 sGS criterion & defined precisely & \S\ref{sec:migration}\\
+\S10.4 dense-solve rule omitted conditions & all conditions restated & \S\ref{sec:linsys-selection}\\
+Presolve off and CHOLMOD during bitwise phases & stated & \S\ref{sec:linsys-selection}\\
+Loop sketch passed pre-step residuals & post-step residuals & \S\ref{sec:algorithm}\\
+Per-iteration time threshold; single-stream mode & CI and core & \S\ref{sec:testing}, \S\ref{sec:core}\\
+First milestone; defer Phases 8--9; effort, single GPU, license & milestones paragraph; O4 & \S\ref{sec:migration}\\
+Run the benchmark early; cuDSS out of \code{auto} until then & selection rule; Q7 & \S\ref{sec:linsys-selection}\\
+No $\sigma$ rule reads sGS residuals; hybrid confounded by $\tau$ & design box; Q5 & \S\ref{sec:math-admm}\\
+Keep the external validator independent & own component, host reference measures & \S\ref{sec:termination}\\
+Return best and final iterate; ranking by DIMACS error & \code{BestIterateTracker}, \code{SolveResult} & \S\ref{sec:termination}, B23\\
+Unflagged API default changes; option names; missing options & listed; \code{win_ratio}, \code{residual_weight}; options added & \S\ref{sec:options}\\
+Gabay--Mercier citation & removed from the claim; open point O3 & \S\ref{sec:math-admm}\\
+Lanczos value is an estimate; norm test to Phase 1 & reworded; B22 & \S\ref{sec:composite}\\
+``Follows the convention of SDPNAL+'' & reworded to the counter idiom & \S\ref{sec:penalty}\\
+Stale statements (Appendix A of the review) & corrected: commit status, phase count, 23 parameters, B4 and B5 scope, B6 step, KKT evaluator layer, CHOLMOD availability, EIG\_FP64 scope, $\sigma_0$ & throughout\\
+\bottomrule
+\end{longtable}
+}
+
+\needspace{12\baselineskip}
 \section{Mapping from current files to the new layout}\label{app:mapping}
 {\small
-\begin{longtable}{@{}>{\raggedright\arraybackslash}p{6.0cm}>{\raggedright\arraybackslash}p{6.0cm}>{\raggedright\arraybackslash}p{3.2cm}@{}}
+\begin{longtable}{@{}>{\raggedright\arraybackslash}p{6.0cm}>{\raggedright\arraybackslash}p{6.2cm}>{\raggedright\arraybackslash}p{3.0cm}@{}}
 \toprule
 Current & New & Note\\
 \midrule
@@ -1099,37 +1870,38 @@ Current & New & Note\\
 Current & New & Note\\
 \midrule
 \endhead
-\code{SDPSolver} (\code{solver.h}, \code{solver.cu}) & \code{Solver} facade + \code{admm/}, \code{cone/}, \code{linsys/}, \code{termination/}, \code{report/} & split\\
-\code{SDPSolver::init} & \code{Solver::setup}: \code{problem/}, \code{scaling/}, \code{linsys/} factory, \code{ConeProduct} planning & \\
+\code{SDPSolver} (\code{solver.h}, \code{solver.cu}) & \code{Solver} facade + \code{admm/}, \code{cone/}, \code{linsys/}, \code{termination/}, \code{validation/}, \code{report/} & split\\
+\code{SDPSolver::init} & \code{Solver::setup}: \code{problem/}, \code{scaling/}, \code{linsys/} factory, \code{ConeProduct} planning, memory plan & \\
 \code{SDPSolver::solve} (loop) & \code{admm/AdmmSolver::run} & \\
-y-step code, \code{solve_AAt_perm} & \code{AdmmState::y_step}, \code{linsys/cholmod/} & \\
-\code{large_full_eig_project} & \code{FullEvdProjector} + \code{RankAnalyzer} & \\
-\code{large_lobpcg_project} & \code{LobpcgProjector} & \\
-\code{large_composite_project} & \code{CompositeFilterProjector} & \\
-medium and small tiers (inline) & \code{BatchedEvdProjector}, \code{StreamedEvdProjector}, \code{JacobiBatchedEvdProjector} & \\
+y-step code, \code{solve_AAt_perm} & \code{AdmmState::y_step}, \code{linsys/direct/cholmod/} & \\
+\code{large_full_eig_project} & \code{large/projectors/FullEvd} + \code{RankAnalyzer} & SYRK in 6b\\
+\code{large_lobpcg_project} & \code{large/projectors/Lobpcg} & arena in 6b\\
+\code{large_composite_project} & \code{large/projectors/CompositeFilter} & \\
+medium and small tiers (inline) & \code{batched/}: \code{BatchedEvd}, \code{StreamedEvd}, \code{JacobiBatchedEvd} & \\
 \code{cone_measures}, \code{certified_lower_bound} & \code{Cone::measure}, \code{termination/Certificate} & \\
-\code{validate_current_iterate}, \code{external_validation.*} & \code{termination/ExternalValidator}, \code{ValidatedRule} & \\
-$\sigma$ update in \code{solve}, \code{monitors.h} & \code{admm/PenaltyPolicy} & monitor deleted\\
+\code{validate_current_iterate}, \code{external_validation.*} & \code{validation/ExternalValidator}, \code{ValidatedRule} & independent\\
+$\sigma$ update in \code{solve}, \code{monitors.h} & \code{admm/PenaltyPolicy} & \code{Monitor1} only in \code{LegacyPenalty}\\
 best-iterate fields & \code{BestIterateTracker} & \\
 \code{info_*} arrays, \code{sigma_log}, phase timers & \code{report/} observers & \\
 \code{memory.h} & \code{core/device_buffer.h}, \code{core/handles.h}, \code{linalg/sparse_matrix.h} & \\
-\code{check.h} & \code{core/check.h} & \\
+\code{check.h} (both) & \code{core/check.h} & one set of macros\\
 \code{cublas.h}, \code{cusparse.h}, \code{cusolver.h} & \code{linalg/} wrappers, projector files & \\
 \code{kernels/*.cu} & \code{linalg/vector_ops.cu}, \code{cone/psd/svec.cu}, \code{linsys/permutation.cu} & \\
 \code{kernels/type_conversion.cu} & \code{matlab/} & MEX index conversion\\
-\code{block_structure.*}, \code{matrix_sizes.*} & \code{problem/BlockLayout}, \code{cone/psd/PsdBlockGroup} & \\
+\code{block_structure.*}, \code{matrix_sizes.*} & \code{problem/BlockLayout}, \code{cone/psd/batched/} layouts & \\
 \code{utils/analyze_blk.cu}, \code{utils/get_maps.cu}, \code{MatrixSizes::init}, \code{utils/get_eig_rank_mask.cu}, \code{utils/check_gpus.cu}, \code{max_dense_vector_zero_mask} & --- & deleted (unused)\\
-\code{rank.cu} & \code{cone/psd/policy/RankAnalyzer} & \\
-\code{cholesky_cpu.h} & \code{linsys/cholmod/CholmodSolver} & \\
+\code{rank.cu} & \code{cone/psd/large/RankAnalyzer} & \\
+\code{cholesky_cpu.h} & \code{linsys/direct/cholmod/CholmodSolver} & \\
 \code{eig_cpu.h} & \code{test/} helper & test-only\\
 \code{io.*}, \code{problem.*} & \code{io/}, \code{problem/} & \\
 \code{main.cu} & \code{apps/cli/} & \\
 \code{MATLAB/cuadmm_MATLAB.cu} & \code{matlab/} & \\
-\code{psd_projection/src/composite_FP16.cu}, \code{composite_FP32.cu}, \code{composite_FP32_emulated.cu} & \code{cone/psd/kernels/composite_*.cu} & \\
-\code{psd_projection/src/lanczos.cu} & \code{cone/psd/kernels/lanczos_bound.cu} & only the norm bound\\
+\code{psd_projection/src/composite_FP16.cu} & \code{cone/psd/kernels/composite_fp16.cu} & \\
+\code{psd_projection/src/composite_FP32.cu}, \code{composite_FP32_emulated.cu} & --- & not ported (Q3)\\
+\code{psd_projection/src/lanczos.cu} & \code{cone/psd/kernels/lanczos_estimate.cu} & only the norm estimate\\
 \code{psd_projection/src/lobpcg.cu} & \code{cone/psd/kernels/lobpcg.cu} & \\
 \code{psd_projection/src/utils.cu} & \code{cone/psd/kernels/precision.cu}, \code{symmetrize.cu} & \\
-\code{psd_projection/src/eig_FP64_psd.cu}, \code{eig_FP32_psd.cu} & \code{FullEvdFp32Projector} (optional) & \\
+\code{psd_projection/src/eig_FP64_psd.cu}, \code{eig_FP32_psd.cu} & \code{FullEvdFp32} (optional) & \\
 \code{psd_projection/test/*} & \code{test/unit/psd/} & \\
 \bottomrule
 \end{longtable}
@@ -1142,13 +1914,16 @@ best-iterate fields & \code{BestIterateTracker} & \\
 Symbol & Meaning & Code name\\
 \midrule
 $X$, $y$, $S$ & primal variable, dual multiplier, dual slack & \code{X}, \code{y}, \code{S}\\
+$X_u$, $S_u$ & free block and its (zero) dual slack & \code{FreeCone}\\
 $\A$, $\Ad$ & constraint map and adjoint & \code{A}, \code{At}\\
-$\A\Ad$ & normal matrix & \code{NormalMatrix}\\
+$\A\Ad$ & normal matrix & \code{NormalSystem}, \code{NormalOperator}\\
 $\K$, $\Kd$ & cone and dual cone & \code{Cone}, \code{project_dual}\\
 $\sigma$, $\tau$ & penalty, step length & \code{sigma}, \code{tau}\\
 \eqref{eq:ystep}, \eqref{eq:sstep}, \eqref{eq:xstep} & the three steps & \code{y_step}, \code{cone_step}, \code{multiplier_step}\\
 $\eta_p,\eta_d,\eta_g,\eta$ & residuals & \code{eta_p}, \code{eta_d}, \code{eta_g}, \code{eta}\\
+$w_p$, $w_d$, $K_f$ & win counters, freeze iteration & \code{ResidualBalancingPenalty}\\
 $\nu$, $b_s$, $C_s$ & scaling factors & \code{Scaling::row_norms}, \code{b_scale}, \code{c_scale}\\
+$M$, $W$ & large-block input buffer and shared workspace & \code{LargeBlockJob}\\
 $r_+$, $r_-$, $\text{tol}_r$ & ranks and rank tolerance & \code{RankAnalyzer}\\
 $\rho$, $R$ & low-rank ratio, re-evaluation period & \code{psd.lowrank.ratio}, \code{.reevaluate}\\
 \bottomrule
@@ -1198,16 +1973,26 @@ L.~Chen, X.~Li, D.~Sun, and K.-C. Toh.
 \newblock On the equivalence of inexact proximal ALM and ADMM for a class of convex composite programming.
 \newblock \emph{Mathematical Programming}, 185(1):111--161, 2021.
 
-\bibitem{gabay}
-D.~Gabay and B.~Mercier.
-\newblock A dual algorithm for the solution of nonlinear variational problems via finite element
-approximation.
-\newblock \emph{Computers \& Mathematics with Applications}, 2(1):17--40, 1976.
-
 \bibitem{wen}
 Z.~Wen, D.~Goldfarb, and W.~Yin.
 \newblock Alternating direction augmented Lagrangian methods for semidefinite programming.
 \newblock \emph{Mathematical Programming Computation}, 2(3):203--230, 2010.
+
+\bibitem{boyd2011}
+S.~Boyd, N.~Parikh, E.~Chu, B.~Peleato, and J.~Eckstein.
+\newblock Distributed optimization and statistical learning via the alternating direction method of multipliers.
+\newblock \emph{Foundations and Trends in Machine Learning}, 3(1):1--122, 2011.
+
+\bibitem{lorenz2019}
+D.~A. Lorenz and Q.~Tran-Dinh.
+\newblock Non-stationary Douglas--Rachford and alternating direction method of multipliers: adaptive
+step-sizes and convergence.
+\newblock \emph{Computational Optimization and Applications}, 74(1):67--92, 2019.
+
+\bibitem{wohlberg2017}
+B.~Wohlberg.
+\newblock ADMM penalty parameter selection by residual balancing.
+\newblock arXiv:1704.06209, 2017.
 
 \bibitem{sdpnalplus}
 D.~Sun, K.-C. Toh, Y.~Yuan, and X.-Y. Zhao.
@@ -1224,6 +2009,11 @@ NVIDIA Corporation.
 \newblock cuDSS: NVIDIA CUDA direct sparse solver library, documentation.
 \newblock \url{https://docs.nvidia.com/cuda/cudss/}.
 
+\bibitem{vanderbei1995}
+R.~J. Vanderbei.
+\newblock Symmetric quasidefinite matrices.
+\newblock \emph{SIAM Journal on Optimization}, 5(1):100--113, 1995.
+
 \bibitem{polarexpress}
 N.~Amsel, D.~Persson, C.~Musco, and R.~Gower.
 \newblock The Polar Express: optimal matrix sign methods and their application to the Muon algorithm.
@@ -1234,6 +2024,14 @@ A.~V. Knyazev.
 \newblock Toward the optimal preconditioned eigensolver: locally optimal block preconditioned conjugate
 gradient method.
 \newblock \emph{SIAM Journal on Scientific Computing}, 23(2):517--541, 2001.
+
+\bibitem{sigmastudy}
+Does the adaptive $\sigma$ rule on \texttt{main} fit cuADMM's plain ADMM?
+\newblock Internal report on the penalty update at \texttt{2d8a755}, October 19, 2026.
+
+\bibitem{review20}
+Is the reorganization on cuADMM \texttt{main} reasonable?
+\newblock Internal review of revision 1 of this plan, October 20, 2026.
 
 \end{thebibliography}
 
