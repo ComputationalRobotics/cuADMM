@@ -6,7 +6,7 @@
 
 */
 
-#include "cuadmm/kernels.h"
+#include "cuadmm_legacy/kernels.h"
 
 __global__ void long_int_to_int_kernel(
     int *vec_int_vals, const size_t *vec_long_int_vals, const int size)

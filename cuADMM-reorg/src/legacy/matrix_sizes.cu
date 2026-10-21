@@ -1,4 +1,4 @@
-#include "cuadmm/matrix_sizes.h"
+#include "cuadmm_legacy/matrix_sizes.h"
 
 #include <vector>
 #include <unordered_map>

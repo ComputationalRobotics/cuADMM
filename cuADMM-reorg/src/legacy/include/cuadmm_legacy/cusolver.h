@@ -9,8 +9,8 @@
 #ifndef CUADMM_CUSOLVER_H
 #define CUADMM_CUSOLVER_H
 
-#include "cuadmm/check.h"
-#include "cuadmm/memory.h"
+#include "cuadmm_legacy/check.h"
+#include "cuadmm_legacy/memory.h"
 
 // Wrapper for cuSOLVER parameter for a single matrix:
 // specify to compute both eigenvalues and eigenvectors,

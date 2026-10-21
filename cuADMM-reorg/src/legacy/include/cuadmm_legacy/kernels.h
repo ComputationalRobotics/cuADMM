@@ -1,7 +1,7 @@
 #ifndef CUADMM_KERNELS_H
 #define CUADMM_KERNELS_H
 
-#include "cuadmm/memory.h"
+#include "cuadmm_legacy/memory.h"
 
 /*
     Dense-dense operations (kernels/dense_dense.cu)

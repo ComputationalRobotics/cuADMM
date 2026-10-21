@@ -64,3 +64,19 @@ implementation, deviations from its letter, and open questions, each with its re
     the bounds except in `legacy_adaptive`", but the policy is defined as the 2d8a755 rule and must be bitwise with
     it, and 2d8a755 never clamped `sigma_0` (its comment says so). The clamp is applied by `balance_freeze` (whose
     pseudocode in plan Section 3.5 starts with `clamp(sigma0, ...)`) and not by `residual_balancing`.
+
+13. **One build directory per verified commit.** The Phase 1 GPU run used a build directory that I had rebuilt
+    with later changes while its tests were running, so its CLI tests exercised the next commit's binary (the
+    comparison runs were identical either way, since the new CLI accepts the old flags). From then on every commit
+    that produces GPU evidence is built from its own worktree into `$HOME/cuadmm-builds/reorg-<commit>`
+    (`tools/slurm/build_and_compare.sh`), and `docs/PROGRESS.md` names the commit of each run.
+
+14. **`algorithm.tau` is restricted until Phase 4.** The ported engine hard-codes 1.618 (ADMM) and 1.95 (sGS phase);
+    the facade rejects any other value with a message rather than silently ignoring the option. Phase 4's
+    `multiplier_step` takes `tau` as a parameter.
+
+15. **The reference policies ignore the hysteresis options.** `penalty.win_ratio`, `.guard`, `.residual_weight` and
+    `.schedule` belong to `balance_freeze`; `legacy_adaptive` and `residual_balancing` keep their fixed values
+    (bitwise with 9bb4ba5 and 2d8a755). An explicit value that contradicts a reference rule (a win ratio other than
+    1.35, a changed schedule, `guard` off for `residual_balancing`, a factor other than 2 for `legacy_adaptive`) is
+    rejected, so that no option silently changes meaning.

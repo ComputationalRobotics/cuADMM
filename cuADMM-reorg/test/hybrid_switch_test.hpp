@@ -24,7 +24,7 @@
 #include <string>
 #include <vector>
 
-#include "cuadmm/solver.h"
+#include "cuadmm_legacy/solver.h"
 #include "regression_problems.hpp"
 #include "solver_setup.hpp"
 
@@ -300,7 +300,7 @@ TEST(HybridSwitchCli, SgsIterationsOption)
     std::stringstream csv(read("fixed_sigma_cli/hybrid.csv"));
     std::string line;
     std::getline(csv, line);
-    EXPECT_EQ(line, "iter,time_s,pobj,dobj,errRp,errRd,relgap,sig,tau,phase");
+    EXPECT_EQ(line, "iter,time_s,pobj,dobj,eta_p,eta_d,eta_g,sigma,tau,phase"); // the plan's names (Phase 2)
     int n = 0, sgs = 0;
     while (std::getline(csv, line))
     {

@@ -18,8 +18,8 @@
 #include <fstream>
 #include <iomanip>
 
-#include "cuadmm/check.h"
-#include "cuadmm/mapper.h"
+#include "cuadmm_legacy/check.h"
+#include "cuadmm_legacy/mapper.h"
 
 // Wrapper around CUDA stream
 class DeviceStream

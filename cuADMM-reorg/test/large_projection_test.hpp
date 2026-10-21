@@ -31,7 +31,7 @@
 #include <string>
 #include <vector>
 
-#include "cuadmm/solver.h"
+#include "cuadmm_legacy/solver.h"
 #include "psd_projection/lobpcg.h"
 #include "psd_projection/lanczos.h"
 #include "psd_projection/composite_FP16.h"

@@ -23,6 +23,13 @@ Options: `CUADMM_BUILD_CLI`, `CUADMM_BUILD_TESTS`, `CUADMM_BUILD_MATLAB`, `CUADM
 
 ## Run
 
-    build/cuadmm_exe <problem directory> [options]     # Phase 0: the copied CLI (same flags as main)
-    build/cuadmm_tests                                 # GPU; run from the build directory
-    build/cuadmm_gen_problems <dir>                    # writes the known-optimum generator problems as TXT
+    build/cuadmm_exe <problem directory> [--option value ...]   # the CLI on the option table (docs/OPTIONS.md);
+                                                               # today's flags are accepted as aliases
+    build/cuadmm_exe --print-options [markdown]                # the option table
+    build/cuadmm_tests                                         # GPU tests; run from the build directory
+    build/cuadmm_cpu_tests                                     # CPU-only tests (options, policies, readers)
+    build/cuadmm_gen_problems <dir>                            # writes the known-optimum generator problems as TXT
+
+Penalty policies (`--policy`): `fixed`, `legacy_adaptive` (the historical rule of 9bb4ba5), `residual_balancing`
+(the October 13 rule of 2d8a755, the default until plan Phase 4b), `balance_freeze` (Phase 4). Schemes
+(`--scheme`): `admm` (default), `sgs_admm`.

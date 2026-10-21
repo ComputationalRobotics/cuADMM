@@ -10,7 +10,7 @@
 #include <algorithm>
 #include <numeric>
 
-#include "cuadmm/utils.h"
+#include "cuadmm_legacy/utils.h"
 
 // Compute the inverse of a permutation vector.
 // The inverse permutation is a vector such that if perm[i] = j, then perm_inv[j] = i.

@@ -3,7 +3,7 @@
 #include <sstream>
 
 // Adjust include path to where you keep the class:
-#include "cuadmm/monitors.h"
+#include "cuadmm_legacy/monitors.h"
 
 TEST(SlidingDiffQueue, PushAndDiffBasic)
 {

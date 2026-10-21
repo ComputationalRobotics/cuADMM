@@ -6,7 +6,7 @@
 
 */
 
-#include "cuadmm/memory.h"
+#include "cuadmm_legacy/memory.h"
 
 __global__ void sparse_vector_div_dense_vector_kernel(
     int *spvec_indices, double *spvec_vals, int spvec_nnz,

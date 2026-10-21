@@ -22,8 +22,8 @@
 #include <string>
 #include <vector>
 
-#include "cuadmm/matrix_sizes.h"
-#include "cuadmm/memory.h"
+#include "cuadmm_legacy/matrix_sizes.h"
+#include "cuadmm_legacy/memory.h"
 
 namespace legacy_block_layout
 {

@@ -6,7 +6,7 @@
 
 */
 
-#include "cuadmm/memory.h"
+#include "cuadmm_legacy/memory.h"
 
 #define BLOCK_LIMIT 1024
 

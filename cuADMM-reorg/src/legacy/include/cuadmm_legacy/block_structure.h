@@ -17,7 +17,7 @@
 #include <iostream>
 #include <vector>
 
-#include "cuadmm/matrix_sizes.h"
+#include "cuadmm_legacy/matrix_sizes.h"
 
 // Description of one block of the blk vector
 struct BlockInfo

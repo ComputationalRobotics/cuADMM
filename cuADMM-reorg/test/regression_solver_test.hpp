@@ -18,8 +18,8 @@
 #include <cstdlib>
 #include <numeric>
 
-#include "cuadmm/problem.h"
-#include "cuadmm/solver.h"
+#include "cuadmm_legacy/problem.h"
+#include "cuadmm_legacy/solver.h"
 #include "regression_problems.hpp"
 
 namespace

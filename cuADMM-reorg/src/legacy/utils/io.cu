@@ -17,7 +17,7 @@
 #include <regex>
 #include <stdexcept>
 
-#include "cuadmm/io.h"
+#include "cuadmm_legacy/io.h"
 
 // Read dense vector data from a .txt file.
 // type: double

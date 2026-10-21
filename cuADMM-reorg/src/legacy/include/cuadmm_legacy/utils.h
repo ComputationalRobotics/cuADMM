@@ -9,8 +9,8 @@
 
 #include <vector>
 #include <unordered_map>
-#include "cuadmm/memory.h"
-#include "cuadmm/matrix_sizes.h"
+#include "cuadmm_legacy/memory.h"
+#include "cuadmm_legacy/matrix_sizes.h"
 
 // Compute the inverse of a permutation vector.
 // The inverse permutation is a vector such that if perm[i] = j, then perm_inv[j] = i.

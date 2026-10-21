@@ -62,3 +62,33 @@ Inside `cuADMM-reorg/src/legacy/` (the copied `SDPSolver`), the CLI and the test
   `bscale2`, `Cscale2`, `sgs_KKT`, and the three no-op writes at the hybrid switch (`sig_update_stage_2 / 2`,
   `sigscale * 1.23`, `sgs_KKT`) are deleted. `analyze_blk`, `get_maps` and `MatrixSizes::init` survive as the test
   oracle `test/legacy_block_layout.hpp` of `block_structure_test.hpp`.
+
+## Phase 2 (2026-10-21): options and front-ends
+
+- **One option table** (`include/cuadmm/options.h`, `docs/OPTIONS.md`): the CLI flags are the table's names
+  (`--policy`, `--sigma0`, `--scheme`, `--psd-medium-streams`, ...); today's flags are accepted as aliases for one
+  release (`--sigma-policy`, `--sig`, `--algorithm admm|sgs`, `--switch-admm`, `--streams`, `--lobpcg`,
+  `--switch-proj-iter`, `--switch-proj-tol`, `--save-solution`, `--validate-*`, `--sigscale`, `--sig-update-*`).
+  Unknown names and values are errors.
+- **Defaults that change (plan Section 15, "Defaults that change"; B3, B4):** the C++ API now has the CLI's
+  defaults: `sigma0` 100 (the old `SDPSolver::init` default was 1.0), no composite warm-up (`psd.large.warmup none`;
+  the old API default was `COMPOSITE_FP16` on every large block), the low-rank analysis from iteration 2
+  (`psd.lowrank.start_iter 2`; the old API and MEX switched at 5000), the validation tolerance from `algorithm.tol`.
+  The CLI's own behaviour is unchanged for equivalent options.
+- **The warm-up and the low-rank start are separate options** (`psd.large.warmup.switch_iter/switch_tol` end a
+  warm-up; `psd.lowrank.start_iter` starts the low-rank analysis of blocks without one). Today's single flag
+  `--switch-proj-iter` is an alias of the warm-up end and has no effect without a warm-up.
+- **`algorithm.tau`** is an option (default 1.618); until Phase 4 the ported engine accepts only 1.618 for `admm`
+  and 1.95 for `sgs_admm` (the CLI sets 1.95 for `--scheme sgs_admm` unless `--tau` is given) and rejects others.
+- **History and sigma-log CSV headers** use the plan's names: `iter,time_s,pobj,dobj,eta_p,eta_d,eta_g,sigma,tau,phase`
+  and `iter,old_sigma,new_sigma,rule,eta_p,eta_d,eta_g,feasratio,prim_win,dual_win` (today: `errRp,errRd,relgap,sig`).
+  Numbers are printed as the shortest decimal that round-trips exactly (B25).
+- **Summary JSON**: the legacy keys are kept (`sigma_policy`, `switch_admm`, `errRp`, ...; `plain_admm_only_build` is
+  gone since Phase 1) and new ones added (`scheme`, `tau`, `eta_*`, `format`, `sense`, `objective_offset`,
+  `linsys_backend`, `sigma_changes_after_1e4`, `sigma_total_variation_log2`, `freeze_iteration`, `freeze_reason`,
+  `options` with every option, `build_*`). `--sgs-iterations` must be non-negative (as today).
+- **MATLAB** (not built here): `cuadmm.solve(At, b, C, K, opts)` on the option table with nested fields, and a
+  positional shim `+cuadmm/solve.m` for the signature of `cuadmm_MATLAB` of main (one release, Q6). The old MEX source
+  is replaced by `matlab/cuadmm_mex.cu`.
+- **Reported objectives** carry the file's sense and offset (`pobj = sign * <C, X> + offset`); for TXT input (always a
+  minimization without offset) nothing changes.

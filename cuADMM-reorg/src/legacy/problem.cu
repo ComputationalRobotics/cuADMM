@@ -4,8 +4,8 @@
 
 */
 
-#include "cuadmm/problem.h"
-#include "cuadmm/io.h"
+#include "cuadmm_legacy/problem.h"
+#include "cuadmm_legacy/io.h"
 #include <algorithm>
 #include <stdexcept>
 #include <string>

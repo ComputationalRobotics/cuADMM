@@ -7,12 +7,12 @@
 
 */
 
-#include "cuadmm/solver.h"
-#include "cuadmm/block_structure.h"
-#include "cuadmm/kernels.h"
-#include "cuadmm/rank.h"
-#include "cuadmm/matrix_sizes.h"
-#include "cuadmm/monitors.h"
+#include "cuadmm_legacy/solver.h"
+#include "cuadmm_legacy/block_structure.h"
+#include "cuadmm_legacy/kernels.h"
+#include "cuadmm_legacy/rank.h"
+#include "cuadmm_legacy/matrix_sizes.h"
+#include "cuadmm_legacy/monitors.h"
 
 #include "psd_projection/composite_FP16.h"
 #include "psd_projection/lobpcg.h"

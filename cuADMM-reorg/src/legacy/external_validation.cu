@@ -10,7 +10,7 @@
 
 */
 
-#include "cuadmm/external_validation.h"
+#include "cuadmm_legacy/external_validation.h"
 
 #include <algorithm>
 #include <cmath>

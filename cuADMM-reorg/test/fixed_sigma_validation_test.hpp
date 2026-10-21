@@ -35,8 +35,8 @@
 #include <string>
 #include <vector>
 
-#include "cuadmm/external_validation.h"
-#include "cuadmm/solver.h"
+#include "cuadmm_legacy/external_validation.h"
+#include "cuadmm_legacy/solver.h"
 #include "regression_problems.hpp"
 #include "solver_setup.hpp"
 
@@ -612,6 +612,7 @@ TEST(FixedSigmaCli, BackwardCompatibleAndNewFlags)
     const std::string historical = read("fixed_sigma_cli/historical.json");
     EXPECT_NE(historical.find("\"sigma_policy\": \"legacy_adaptive\""), std::string::npos);
     EXPECT_NE(historical.find("\"sigma_min\": 1e-06, \"sigma_max\": 1000000, \"win_ratio\": 1.35, \"guard\": false"), std::string::npos);
+    // (JSON numbers are the shortest decimals that round-trip exactly: 1e-06, 1.35)
     EXPECT_NE(historical.find("\"monitor1\": true"), std::string::npos);
     // the October 20 factor is an option value, never the meaning of a policy name
     ASSERT_EQ(run("--max-iter 400 --tol 1e-9 --penalty-factor 1.2", "factor12"), 0);

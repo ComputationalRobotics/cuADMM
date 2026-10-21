@@ -6,7 +6,7 @@
 
 */
 
-#include "cuadmm/kernels.h"
+#include "cuadmm_legacy/kernels.h"
 
 __global__ void get_normA_kernel(
     int *At_col_ptrs, double *At_vals,

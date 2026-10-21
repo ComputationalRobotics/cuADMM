@@ -17,7 +17,7 @@
 #include <string>
 #include <utility>
 
-#include "cuadmm/block_structure.h"
+#include "cuadmm_legacy/block_structure.h"
 
 static const char *category_name(const MatrixSizeCategory category)
 {

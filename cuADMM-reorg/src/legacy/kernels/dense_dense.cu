@@ -6,7 +6,7 @@
 
 */
 
-#include "cuadmm/kernels.h"
+#include "cuadmm_legacy/kernels.h"
 
 /* Kernels for coefficient-wise operations */
 

@@ -6,7 +6,7 @@
 
 */
 
-#include "cuadmm/kernels.h"
+#include "cuadmm_legacy/kernels.h"
 
 __global__ void perform_permutation_kernel(double *vec1_vals, double *vec2_vals, int *perm_vals, int size)
 {

@@ -26,8 +26,8 @@
 #include <sys/stat.h>
 #include <vector>
 
-#include "cuadmm/external_validation.h"
-#include "cuadmm/solver.h"
+#include "cuadmm_legacy/external_validation.h"
+#include "cuadmm_legacy/solver.h"
 #include "regression_problems.hpp"
 #include "solver_setup.hpp"
 
@@ -262,7 +262,7 @@ TEST(OutputsCli, WritesTheSigmaLogAndTheFinalIterate)
     EXPECT_NE(js.find("\"y_solves\": " + std::to_string(iters) + ","), std::string::npos);
     EXPECT_NE(js.find("\"y_solves_per_iteration\": 1,"), std::string::npos);
     const std::string sl = read_file("fixed_sigma_cli/plain_sigma.csv");
-    EXPECT_EQ(sl.substr(0, sl.find('\n')), "iter,old_sigma,new_sigma,rule,errRp,errRd,relgap,feasratio,prim_win,dual_win");
+    EXPECT_EQ(sl.substr(0, sl.find('\n')), "iter,old_sigma,new_sigma,rule,eta_p,eta_d,eta_g,feasratio,prim_win,dual_win");
     // the final iterate at the safety cap (unattainable tolerance)
     std::system("rm -rf fixed_sigma_cli/final_iterate");
     ASSERT_EQ(run("--algorithm admm --max-iter 300 --tol 1e-4 --validate-interval 100 --validate-tol 1e-14 --strict-dimacs-tol 1e-8 "

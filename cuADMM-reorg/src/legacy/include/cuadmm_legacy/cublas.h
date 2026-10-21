@@ -9,8 +9,8 @@
 #ifndef CUADMM_CUBLAS_H
 #define CUADMM_CUBLAS_H
 
-#include "cuadmm/check.h"
-#include "cuadmm/memory.h"
+#include "cuadmm_legacy/check.h"
+#include "cuadmm_legacy/memory.h"
 
 // Multiply two dense vectors reprsenting matrices in batch:
 // mat1[i] = mat2[i] * mat3[i]^T   (i = 0, .., batch_size-1)

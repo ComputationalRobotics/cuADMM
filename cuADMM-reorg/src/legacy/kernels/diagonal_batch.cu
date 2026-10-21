@@ -6,7 +6,7 @@
 
 */
 
-#include "cuadmm/kernels.h"
+#include "cuadmm_legacy/kernels.h"
 
 __global__ void dense_matrix_mul_diag_batch_kernel(
     double *dnmat1_vals, double *dnmat2_vals, double *dnvec_vals,

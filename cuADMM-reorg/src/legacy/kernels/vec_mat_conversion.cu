@@ -6,8 +6,8 @@
 
 */
 
-#include "cuadmm/kernels.h"
-#include "cuadmm/matrix_sizes.h"
+#include "cuadmm_legacy/kernels.h"
+#include "cuadmm_legacy/matrix_sizes.h"
 
 __global__ void vector_to_matrices_kernel(
     double *Xb_vals, double *large_mat_vals, double *medium_mat_vals, double *small_mat_vals,

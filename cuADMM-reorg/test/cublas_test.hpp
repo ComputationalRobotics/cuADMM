@@ -1,4 +1,4 @@
-#include "cuadmm/cublas.h"
+#include "cuadmm_legacy/cublas.h"
 
 TEST(CuBLAS, DenseMatrixMulBatch)
 {

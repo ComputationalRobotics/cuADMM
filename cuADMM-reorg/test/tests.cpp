@@ -1,7 +1,7 @@
 #include <gtest/gtest.h>
 
-#include "cuadmm/utils.h"
-#include "cuadmm/check.h"
+#include "cuadmm_legacy/utils.h"
+#include "cuadmm_legacy/check.h"
 
 // #include "meta_test.hpp"
 // #include "memory_test.hpp"

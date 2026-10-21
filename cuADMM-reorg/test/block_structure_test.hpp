@@ -8,9 +8,9 @@
 #include <string>
 #include <vector>
 
-#include "cuadmm/block_structure.h"
-#include "cuadmm/matrix_sizes.h"
-#include "cuadmm/memory.h"
+#include "cuadmm_legacy/block_structure.h"
+#include "cuadmm_legacy/matrix_sizes.h"
+#include "cuadmm_legacy/memory.h"
 #include "legacy_block_layout.hpp" // the deleted analyze_blk + MatrixSizes::init + get_maps path, as a test oracle
 
 namespace block_structure_test

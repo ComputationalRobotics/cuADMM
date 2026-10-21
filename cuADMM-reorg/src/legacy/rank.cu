@@ -1,5 +1,5 @@
-#include <cuadmm/rank.h>
-#include <cuadmm/check.h>
+#include <cuadmm_legacy/rank.h>
+#include <cuadmm_legacy/check.h>
 #include <cstdio>
 
 __global__ void compute_ranks_kernel(

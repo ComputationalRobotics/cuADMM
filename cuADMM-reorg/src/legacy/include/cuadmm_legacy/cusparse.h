@@ -9,8 +9,8 @@
 #ifndef CUADMM_CUSPARSE_H
 #define CUADMM_CUSPARSE_H
 
-#include "cuadmm/check.h"
-#include "cuadmm/memory.h"
+#include "cuadmm_legacy/check.h"
+#include "cuadmm_legacy/memory.h"
 
 // Retrive the buffer size for converting cuSPARSE CSC format to cuSPARSE CSR format
 inline size_t CSC_to_CSR_get_buffersize_cusparse(
