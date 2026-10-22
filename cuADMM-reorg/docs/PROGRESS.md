@@ -503,6 +503,10 @@ over one hour).
   support pass (trto1 and mater-1 objectives from TXT, `.dat-s`, `.h5`; buck3 `.dat-s` and `.h5` bit for bit the
   TXT run); the two SeDuMi cases need matio (`--formats` of that build: txt sdpa sdpa.gz h5) and passed with the
   matio build of the same tree (`dev_36e8552/formats3`, 11 of 11, recorded under Phase 2b).
+- f10e149 on the full A100 (`a100-sxm4-80gb_cuda12.9_gcc12.2_ss7.10.1_t16`, batch job 54695120, 15:09-15:24,
+  holygpu8a22206): 53 of 53 identical, 0 different; tests 101 ran, 101 passed; the format acceptance with the
+  matio build 11 of 11 (SDPA, HDF5 and SeDuMi histories bit for bit the TXT runs). Both pinned configurations
+  therefore cover the final Milestone 1 commit.
 - Note on the summary comparison of `compare_runs.py`: the `options` object of the new CLI's summary was invalid
   JSON from Phase 2 until the fix recorded in CHANGES.md ("Phase 2b follow-up"), and the tool skipped the unreadable
   summary silently; the summary comparison is informational, the acceptance (histories and solutions, bit for bit)
