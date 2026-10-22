@@ -48,13 +48,13 @@ Generated from the option table of `src/options/options.cc` (`cuadmm --print-opt
 | `validation.checkpoint_dir` | `--checkpoint-dir` | string | `none` | now | save X.txt, y.txt, S.txt of those snapshots in <dir>/iter_<k> |
 | `validation.final_save_dir` | `--final-save-dir` (`--save-final-dir`) | string | `none` | now | save the final snapshot of a solve that ends at a safety limit |
 | `validation.history_file` | `--validation-history` | string | `none` | now | one CSV line per external validation |
-| `io.format` | `--format` | enum (auto, h5, sdpa, sedumi, sdpt3, mosek, txt) | `auto` | 2b | input format (auto: from the extension and the .mat variables) |
-| `io.sense` | `--sense` | enum (min, max) | `from the file` | 2b | objective sense (required for MOSEK files without a sense variable) |
-| `io.simplify` | `--simplify` | bool | `true` | 2b | 1x1 and diagonal-only PSD blocks become l blocks (reported); never for TXT input |
+| `io.format` | `--format` | enum (auto, h5, sdpa, sedumi, sdpt3, mosek, txt) | `auto` | now | input format (auto: from the extension and the .mat variables) |
+| `io.sense` | `--sense` | enum (min, max) | `from the file` | now | objective sense (required for MOSEK files without a sense variable) |
+| `io.simplify` | `--simplify` | bool | `true` | now | 1x1 and diagonal-only PSD blocks become l blocks (reported); never for TXT input |
 | `io.warm_start_dir` | `--warm-start-dir` | string | `none` | now | read X.txt, y.txt, S.txt (dense, one value per line) from this directory |
 | `io.warm_start` | `--warm-start` | bool | `false` | now | read X.txt, y.txt, S.txt from the problem directory (TXT input) |
 | `io.save_dir` | `--save-dir` (`--save-solution`) | string | `none` | now | write the returned X, y, S (and certificate.txt) in the input's convention |
-| `io.save_format` | `--save-format` | string | `input's` | 2b | convention of the written solution |
+| `io.save_format` | `--save-format` | string | `input's` | now | convention of the written solution: txt, h5, sdpa, sedumi, sdpt3, mosek (default: the input's) |
 | `output.verbosity` | `--verbosity` | int | `1` | now | 0: quiet, 1: the iteration table, 2: details |
 | `output.history` | `--history` | string | `none` | now | per-iteration CSV (17 significant digits) |
 | `output.summary` | `--summary` | string | `none` | now | append a one-line JSON summary of the run |

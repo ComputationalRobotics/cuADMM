@@ -19,12 +19,18 @@ serves as the reference implementation.
           -DCHOLMOD_LIB=... -DCMAD_LIB=... -DCCOLAMD_LIB=... -DBLAS_LIBRARIES=...
     cmake --build build -j16
 
-Options: `CUADMM_BUILD_CLI`, `CUADMM_BUILD_TESTS`, `CUADMM_BUILD_MATLAB`, `CUADMM_WITH_HDF5`, `CUADMM_WITH_MATIO`.
+Options: `CUADMM_BUILD_CLI`, `CUADMM_BUILD_TESTS`, `CUADMM_BUILD_BENCH`, `CUADMM_BUILD_MATLAB`, and the input formats
+`CUADMM_WITH_HDF5`, `CUADMM_WITH_MATIO`, `CUADMM_WITH_ZLIB` (`AUTO`: on when the library is found; `ON`; `OFF`), located with
+`-DHDF5_ROOT=`, `-DMATIO_ROOT=`, `-DZLIB_ROOT=` (`cmake/FindHDF5Lib.cmake`, `cmake/FindMatio.cmake`).
 
 ## Run
 
-    build/cuadmm_exe <problem directory> [--option value ...]   # the CLI on the option table (docs/OPTIONS.md);
+    build/cuadmm_exe <problem> [--option value ...]             # the CLI on the option table (docs/OPTIONS.md);
                                                                # today's flags are accepted as aliases
+    # <problem>: a TXT directory, a native .h5 file, SDPA .dat-s[.gz], or a SeDuMi / SDPT3 / MOSEK prob .mat file
+    # (--formats lists the formats compiled in; --format, --sense, --simplify, --save-format: plan Section 12)
+    build/cuadmm-convert <input> <output.h5 | directory>       # any input to the native HDF5 file or a TXT directory
+    build/cuadmm_io_bench generate|read ...                    # synthetic problems and read rates of the formats
     build/cuadmm_exe --print-options [markdown]                # the option table
     build/cuadmm_tests                                         # GPU tests; run from the build directory
     build/cuadmm_cpu_tests                                     # CPU-only tests (options, policies, readers)

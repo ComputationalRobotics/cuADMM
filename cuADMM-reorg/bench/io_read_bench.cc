@@ -6,7 +6,7 @@
     by parsing). Generates a synthetic problem in the native format and times read_problem on any path.
 
     usage: cuadmm_io_bench generate <file.h5> <m> <nnz per column> [blocks] [block side] [compress]
-           cuadmm_io_bench read <problem path> [repeat] [--format F]
+           cuadmm_io_bench read <problem path> [repeat] [--format F] [--no-simplify]
     The synthetic problem has `blocks` PSD blocks of side `block side` (default 100 x 1000: vec_len 5.005e7), m
     constraints with `nnz per column` distinct sorted entries each (deterministic pseudo-random), a dense b and a
     sparse C. `read` reports seconds, nnz/s, and MB/s of the file (or directory) read.
@@ -116,6 +116,8 @@ int read(int argc, char *argv[])
         const std::string a = argv[i];
         if (a == "--format" && i + 1 < argc)
             io.format = parse_io_format(argv[++i]);
+        else if (a == "--no-simplify")
+            io.simplify = false;
         else
             repeat = std::stoi(a);
     }
@@ -142,7 +144,7 @@ int main(int argc, char *argv[])
         if (argc >= 2 && std::string(argv[1]) == "read")
             return read(argc, argv);
         std::cerr << "usage: cuadmm_io_bench generate <file.h5> <m> <nnz per column> [blocks] [block side] [compress]\n"
-                     "       cuadmm_io_bench read <problem path> [repeat] [--format F]\n";
+                     "       cuadmm_io_bench read <problem path> [repeat] [--format F] [--no-simplify]\n";
         return 1;
     }
     catch (const std::exception &e)

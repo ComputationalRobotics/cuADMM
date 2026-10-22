@@ -80,3 +80,50 @@ implementation, deviations from its letter, and open questions, each with its re
     (bitwise with 9bb4ba5 and 2d8a755). An explicit value that contradicts a reference rule (a win ratio other than
     1.35, a changed schedule, `guard` off for `residual_balancing`, a factor other than 2 for `legacy_adaptive`) is
     rejected, so that no option silently changes meaning.
+
+## 2026-10-21 (Phase 2b)
+
+16. **The SDPA sense is `max`.** The plan maps SDPA's dual (D) `max <F_0, Y>` onto cuADMM's primal `min <-F_0, Y>`
+    and asks for objective values "in the file's sense". `ProblemData::sense = Maximize` for `.dat-s` input makes
+    the reported `pobj` the published SDPA value (e.g. 607.6055 for buck3), while the TXT conversions of the PLATO
+    experiments stay minimizations (their `pobj` is the negative). `tools/baselines/cases_formats.json` records the
+    sign per case so that the GPU acceptance compares the right number.
+17. **The SeDuMi and SDPT3 readers symmetrize with `value * sqrt2/2` per mirrored half.** The two halves are merged
+    by summation, which gives exactly `value * sqrt2` for a symmetric matrix (scaling by 2 is exact), so SeDuMi
+    files converted from SDPA data reproduce the SDPA reader bit for bit (buck3: 0 difference, better than the
+    2e-16 of the plan).
+18. **Untouched PSD blocks are simplified too.** A PSD block that neither A nor C touches satisfies "data on the
+    diagonal only" vacuously and becomes an `l` block (reported as "untouched by A and C"); this is exact and
+    avoids an eigendecomposition per iteration. The PLATO converter kept such blocks as `s` (reported); the
+    reference TXT files of trto1, mater-1 and buck3 have none, so the bitwise comparisons are unaffected.
+19. **Duplicate `(i, j, k, l)` entries of MOSEK's `bara` / `barc` are summed** (as `sparse()` does in
+    `convert_mosek2sedumi.m` and as MOSEK's block-triplet interface documents); the count is reported. SDPA
+    duplicates are rejected (as the converter does); SeDuMi/SDPT3 duplicates cannot occur in a MATLAB sparse
+    matrix except through the mirroring, which is the intended merge.
+20. **MOSEK layout of the problem**: one `u` block (free scalars), one `l` block (nonnegative, shifted, negated
+    and ranged scalars in variable order, then the bound slacks, then the row slacks in row order), then the bar
+    variables; the extra constraints (second rows of ranged rows, bound rows of ranged variables) come after the
+    file's rows. Fixed variables (`blx = bux`) are eliminated. Free rows are dropped. The mapping is kept in
+    `SourceInfo::mosek_*` so that the writer restores `xx` and `y` of the file; `xc`, `skc`, `skx` are not
+    written (not used by SPOT's `recover_mosek_sol_blk`).
+21. **MOSEK duals of a maximization.** MOSEK's dual variables of a maximization problem have the opposite sign and
+    its slacks are non-positive (`bars = -S`, `y = -y_cuADMM`, `slx = min(t, 0)`, `sux = min(-t, 0)`); the
+    writer follows that convention. Open question for the maintainers: SPOT's SOS pipeline uses `barx`, `xx`
+    and the objective values only, so the dual sign convention has not been checked against a MOSEK run.
+22. **`io.sense` on formats whose sense is fixed** (SDPA, SeDuMi, SDPT3, TXT, and `.h5` with a stored sense) is
+    accepted when it agrees and rejected when it contradicts, instead of silently changing the reporting.
+23. **The solution file of a non-TXT convention**: `--save-dir` names the file when it carries the convention's
+    extension (`.h5`, `.mat`, `.ini-s`), otherwise a directory that receives `solution.<ext>` (and `solution.json`
+    for SDPA). For `.h5` input the group `/solution` is added to (or replaced in) the problem file itself when it
+    is named; `certificate.txt` exists only in the TXT convention (as today).
+24. **The `.mat` solution files keep the version of the input** (v7.3 for a v7.3 input, v5 otherwise), compressed
+    with zlib; `make_sdpt3_testfiles.py` writes v7.3 files with h5py to test matio's v7.3 path independently.
+25. **HDF5 and matio are found by small modules of our own** (`cmake/FindHDF5Lib.cmake`, `cmake/FindMatio.cmake`,
+    `HDF5_ROOT` / `MATIO_ROOT`) instead of CMake's `FindHDF5`, which runs the `h5cc` wrapper; the build options are
+    tri-state (`AUTO` = on when found, `ON` = required, `OFF`). zlib (`.dat-s.gz`) is a third such option.
+26. **The conversion report is printed by the front-ends**, not by the library (plan: "each reader prints a
+    conversion report"): `read_problem` is silent and fills `source.report`; the CLI and `cuadmm-convert` print the
+    lines and the summary JSON stores them (`conversion_report`). The legacy TXT reader keeps its own printing.
+27. **"Relative difference" of the cross-format checks** is `max |a - b| / max |b|` over the entries of At, b and
+    C (the 16-decimal TXT files of SPOT limit the agreement to about 5.6e-17 in this measure, matching the plan's
+    6e-17; the elementwise relative difference of tiny entries is larger, up to 3e-15, because of the TXT rounding).

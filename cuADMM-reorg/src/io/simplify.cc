@@ -76,19 +76,53 @@ void apply_simplifications(ProblemData &problem, bool simplify)
         return;
     const std::size_t B = problem.cones.size();
     const std::vector<std::int64_t> off = cone_offsets(problem.cones);
-    // which PSD blocks have data off the diagonal
+    // which PSD blocks have data off the diagonal: the scan stops as soon as every PSD block of side > 1 is known
+    // to have some (the common case: a few entries per block), so it costs nothing on large problems
     std::vector<char> off_diagonal(B, 0), touched(B, 0);
+    std::size_t undecided = 0;
+    for (std::size_t b = 0; b < B; b++)
+        if (problem.cones[b].kind == ConeKind::Psd && problem.cones[b].size > 1)
+            undecided++;
+    // block of an svec index: a coarse table (one entry per 1024 indices) followed by a short forward scan
+    constexpr int kBucketShift = 10;
+    std::vector<std::uint32_t> bucket_block(static_cast<std::size_t>((off.back() >> kBucketShift) + 1), 0);
+    for (std::size_t b = 0, k = 0; k < bucket_block.size(); k++)
+    {
+        const std::int64_t start = static_cast<std::int64_t>(k) << kBucketShift;
+        while (b + 1 < B && off[b + 1] <= start)
+            b++;
+        bucket_block[k] = static_cast<std::uint32_t>(b);
+    }
+    auto block_of = [&](std::int64_t idx)
+    {
+        std::size_t b = bucket_block[static_cast<std::size_t>(idx >> kBucketShift)];
+        while (b + 1 < B && off[b + 1] <= idx)
+            b++;
+        return b;
+    };
     auto mark = [&](std::int64_t idx)
     {
-        const std::size_t b = static_cast<std::size_t>(std::upper_bound(off.begin(), off.end(), idx) - off.begin()) - 1;
+        const std::size_t b = block_of(idx);
         touched[b] = 1;
         if (problem.cones[b].kind == ConeKind::Psd && !off_diagonal[b] && !is_diagonal_position(idx - off[b], problem.cones[b].size))
+        {
             off_diagonal[b] = 1;
+            if (problem.cones[b].size > 1)
+                undecided--;
+        }
     };
-    for (std::int64_t idx : problem.At.rowind)
-        mark(idx);
     for (std::int64_t idx : problem.C.index)
         mark(idx);
+    for (std::size_t k = 0; k < problem.At.rowind.size() && undecided > 0; k++)
+        mark(problem.At.rowind[k]);
+    if (undecided == 0)
+    {
+        // every PSD block (side > 1) keeps its kind; only the 1x1 blocks and the touched flags matter below, and
+        // a 1x1 block is simplified whether or not it is touched
+        for (std::size_t b = 0; b < B; b++)
+            if (problem.cones[b].kind == ConeKind::Psd && problem.cones[b].size > 1)
+                touched[b] = 1;
+    }
 
     std::vector<ConeSpec> cones = problem.cones;
     std::vector<std::int64_t> new_off(B + 1, 0);
@@ -117,7 +151,7 @@ void apply_simplifications(ProblemData &problem, bool simplify)
     // remap the svec indices (monotone: sorted columns stay sorted)
     auto remap = [&](std::int64_t idx) -> std::int64_t
     {
-        const std::size_t b = static_cast<std::size_t>(std::upper_bound(off.begin(), off.end(), idx) - off.begin()) - 1;
+        const std::size_t b = block_of(idx);
         const std::int64_t r = idx - off[b];
         if (problem.cones[b].kind == ConeKind::Psd && cones[b].kind == ConeKind::Nonnegative)
         {

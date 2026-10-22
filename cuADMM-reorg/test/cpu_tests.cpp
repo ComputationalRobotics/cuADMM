@@ -2,6 +2,11 @@
 #include <gtest/gtest.h>
 
 #include "options_test.hpp"
+#include "io_builder_test.hpp"
+#include "io_sdpa_test.hpp"
+#include "io_simplify_test.hpp"
+#include "io_h5_test.hpp"
+#include "io_mat_test.hpp"
 
 int main(int argc, char **argv)
 {
