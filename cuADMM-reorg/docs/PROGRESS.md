@@ -52,7 +52,16 @@ Submissions and results are appended here as they come (`gpu_gates/submissions.t
 `gates_report.md` from `tools/sigma_screen/gates_analyze.py`).
 
 - G0 submitted 2026-10-22 13:38 as job 54683287 (gpu_h200, 0:45 limit): trto1, buck1 (600 s caps) and pendulum
-  N=80 (900 s) at fixed sigma = 1.
+  N=80 (900 s) at fixed sigma = 1. Ran 13:38:55-13:55:47 on holygpu8a12201 (NVIDIA H200), elapsed 17:03 =
+  0.28 H200-hours. **Pass**: trto1 strict stage at 60,150 iterations (campaign 60,150), practical at 38,474 (same),
+  objective -1104.50028 (relative difference to the validated reference 4.5e-10), 24.5 s of iterations (campaign
+  23.3 s); buck1 strict at 119,850 (same), practical 69,440 (same), objective -146.4190581 (3.6e-11), 70.1 s
+  (68.9 s); pendulum N=80 practical 1e-4 at 230,315 iterations (same as the three repetitions of the pendulum
+  experiment), 686 s of iterations to that snapshot (reference 622 s solve, 625 s end to end), then the strict
+  stage not reached within the 900 s cap (302,334 iterations; the reference runs stopped at the practical stage).
+  The iteration counts and objectives are reproduced exactly on the H200 with the sm_90 build; the times are 5-10%
+  above the campaign's Release build.
+- G1, G2, G3 submitted 2026-10-22 13:58 after the G0 verdict (job ids in `gpu_gates/submissions.txt`).
 
 ## Phase 0: skeleton and safety net
 
