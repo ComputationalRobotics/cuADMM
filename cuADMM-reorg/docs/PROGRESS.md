@@ -295,6 +295,17 @@ over one hour).
 - Submitted: smoke test (array 54488454, two short runs, both finished in 13 s); comparators array 54489077 (63 tasks,
   24 at a time) and Stage 1 array 54489148 (324 tasks, 40 at a time), 2026-10-21 21:16. Projected cost: at most
   about 20 core-hours for Stage 1 if every run hit the cap, less in practice.
+- GPU gates (plan: G0-G3, at most 12.6 H200-hours): prepared, not submitted. `tools/sigma_screen/gpu_gates.sh
+  <cuadmm_exe> "<flags of the chosen setting>"` writes one sbatch file per gate (partition `gpu_h200`,
+  `--gres=gpu:nvidia_h200:1`, 16 cores, 96-128 GB; the campaign protocol: tolerance 1e-4, validation every 50
+  iterations, strict stage max|DIMACS| <= 1e-6, time caps) and prints the projection. Caps: G0 trto1, buck1,
+  pendulum N=80 at fixed sigma = 1 (600, 600, 900 s: 0.58 h); G1 trto1, buck1 (600 s) and vibra1, mater-1, mater-2,
+  shmup1 (1800 s) x {balance_freeze, residual_balancing, fixed sigma = 1} (7.0 h); G2 pendulum N=80 at sigma_0 in
+  {1, 100} x {balance_freeze, residual_balancing} (900 s: 1.0 h; the comparators 124 s old rule and 625 s fixed
+  sigma = 1 are the paper-replication runs); G3 mater-3..6 x {balance_freeze, residual_balancing} (1800 s: 4.0 h).
+  Sum of the caps 12.58 H200-hours; runs that converge stop earlier (the expected total from the CPU screen's
+  iteration counts is recorded with the screen results). The setting's flags are filled in once the CPU screen has
+  chosen it; the jobs need the user's approval before submission (H200, and G1/G3 exceed one hour).
 
 ### GPU evidence of the Pre-0/Phase 1 and Phase 2 commits (clean per-commit builds, MIG configuration)
 
@@ -318,8 +329,9 @@ over one hour).
   (`FixedSigmaCli.BackwardCompatibleAndNewFlags` expected `"sigma_max": 1000000` where `std::to_chars` wrote `1e+06`;
   `HybridSwitchCli.SgsIterationsOption` expected `1.618` in the history CSV, which prints 17 significant digits).
   Both fixed in d6720b6 (`json_number` prints integral values in fixed notation; the hybrid test parses tau;
-  CHANGES.md Phase 4b): the two tests pass on the MIG with the rebuilt working tree (21:17); the clean per-commit
-  GPU run of the Phase 4b commits is recorded below when done.
+  CHANGES.md Phase 4b): the two tests pass on the MIG with the rebuilt working tree (21:17).
+- 92dca50 (d6720b6 + the Phase 4b preparation), `build_and_compare.sh 92dca50 phase4b ... reorg` (21:22-21:35,
+  MIG configuration): 53 of 53 identical, 0 different, 0 failed runs; tests 101 ran, 101 passed.
 - Second configuration `a100-sxm4-80gb_cuda12.9_gcc12.2_ss7.10.1_t16` (partition `gpu`, job 54480621, from 21:08,
   `tools/slurm/full_a100_session.sh 54480621 59e943a phase4 reorg`): Phase 0 baselines 59 of 59 identical
   (6 self-checks and the 53 reference cases, 16 threads); the comparison of 59e943a is in progress and is recorded
