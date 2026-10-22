@@ -144,6 +144,20 @@ TEST(IoSdpa, OneByOneBlocksAndUntouchedBlocksReported)
     EXPECT_EQ(q.vec_len(), 1 + 3 + 6);
 }
 
+TEST(IoSdpa, ExplicitZerosDoNotTouchABlockAndReadErrorsAreReported)
+{
+    // block 2 is touched by an explicit zero only: reported as untouched (and simplified)
+    const ProblemData p = read_sdpa_text("zero_touch", "1\n2\n{2, 2}\n1.0\n1 1 1 2 1.0\n1 2 1 1 0.0\n");
+    bool untouched = false;
+    for (const std::string &line : p.source.report)
+        untouched = untouched || line.find("not touched by any F_i: 1 (2)") != std::string::npos;
+    EXPECT_TRUE(untouched);
+    // a directory opened as a text file: the read error is reported, not taken as an empty file
+    IoOptions o;
+    o.format = IoFormat::Sdpa;
+    EXPECT_THROW(io::read_problem(temp_dir("sdpa"), o), std::runtime_error);
+}
+
 TEST(IoSdpa, SenseOptionMustAgree)
 {
     const std::string path = write_file(temp_dir("sdpa") + "/sense.dat-s", kSdpaSmall);

@@ -136,6 +136,22 @@ TEST(IoSimplify, TxtSolutionWriterAndFormatDispatch)
     EXPECT_THROW(io::read_problem("io_test_tmp/does_not_exist.xyz", IoOptions()), std::runtime_error);
     write_file(temp_dir("detect") + "/unknown.xyz", "hello");
     EXPECT_THROW(io::read_problem(temp_dir("detect") + "/unknown.xyz", IoOptions()), std::invalid_argument);
+    write_file(temp_dir("detect") + "/problem.cbf", "VER\n3\n");
+    try
+    {
+        io::read_problem(temp_dir("detect") + "/problem.cbf", IoOptions());
+        ADD_FAILURE() << "a .cbf file was accepted";
+    }
+    catch (const std::invalid_argument &e)
+    {
+        EXPECT_NE(std::string(e.what()).find("CBF"), std::string::npos) << e.what();
+        EXPECT_NE(std::string(e.what()).find("Phase 9"), std::string::npos) << e.what();
+    }
+    // the TXT convention names the layout of X.txt / S.txt (the solver's cones) in solution_blocks.txt
+    std::ifstream blocks(dir + "/solution_blocks.txt");
+    std::string line;
+    ASSERT_TRUE(std::getline(blocks, line));
+    EXPECT_EQ(line, "s 2");
 }
 
 TEST(IoSimplify, SdpaSolutionWriterLayout)

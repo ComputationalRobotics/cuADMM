@@ -236,7 +236,8 @@ ProblemData read_sdpa(const std::string &path, const IoOptions &options)
         else
         {
             At.add(matno - 1, idx, val);
-            touched[static_cast<std::size_t>(blk - 1)] = 1;
+            if (v != 0.0)
+                touched[static_cast<std::size_t>(blk - 1)] = 1;
         }
     }
 

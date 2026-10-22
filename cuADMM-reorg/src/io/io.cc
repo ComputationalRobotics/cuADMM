@@ -38,6 +38,8 @@ IoFormat detect_format(const std::string &path)
         return IoFormat::Sdpa;
     if (detail::ends_with(p, ".mat"))
         return IoFormat::Auto; // sedumi / sdpt3 / mosek: decided by the variables present
+    if (detail::ends_with(p, ".cbf") || detail::ends_with(p, ".cbf.gz"))
+        throw std::invalid_argument(path + ": the CBF format (CBLIB, with second-order cones) comes with Phase 9");
     // no known extension: the file's signature
     std::FILE *f = std::fopen(path.c_str(), "rb");
     if (f)

@@ -78,7 +78,11 @@ std::size_t TextSource::fill()
         buf_.resize(buf_.size() * 2);
     std::size_t got = 0;
     if (file_)
+    {
         got = std::fread(buf_.data() + end_, 1, buf_.size() - end_, file_);
+        if (got == 0 && std::ferror(file_))
+            throw std::runtime_error("error while reading " + path_ + " (not a readable file?)");
+    }
 #ifdef CUADMM_HAVE_ZLIB
     else if (gz_)
     {

@@ -102,6 +102,9 @@ ProblemData read_mosek(const std::string &path, const IoOptions &options)
             fail(std::string("prob.") + name + " (conic constraints other than PSD) comes with Phase 9");
     if (field("ints"))
         fail("prob.ints: integer variables are not supported");
+    for (const char *name : {"qosubi", "qosubj", "qoval", "qcsubk", "qcsubi", "qcsubj", "qcval"})
+        if (field(name))
+            fail(std::string("prob.") + name + ": quadratic terms are not supported (the problem is not a conic program)");
 
     // objective sense
     std::optional<Sense> file_sense;
@@ -330,12 +333,21 @@ ProblemData read_mosek(const std::string &path, const IoOptions &options)
     CscBuilder builder(vec_len, m_new);
     builder.reserve(nonzero_capacity(a) + nonzero_capacity(bara ? struct_field(bara, "val", "prob.bara") : nullptr) + static_cast<std::size_t>(n_l));
     std::int64_t a_entries = 0, a_dropped = 0;
+    // the columns of the fixed (eliminated) variables are kept for the writer (their reduced costs)
+    std::vector<std::int64_t> fixed_count(static_cast<std::size_t>(n) + 1, 0), fixed_rowind;
+    std::vector<double> fixed_val;
     if (a)
         for_each_nonzero(a, "prob.a", [&](std::int64_t i, std::int64_t j, double value)
         {
             const RowInfo &r = rows[static_cast<std::size_t>(i)];
             const VarInfo &v = vars[static_cast<std::size_t>(j)];
             a_entries++;
+            if (v.kind == VarKind::Fixed)
+            {
+                fixed_count[static_cast<std::size_t>(j) + 1]++;
+                fixed_rowind.push_back(i);
+                fixed_val.push_back(value);
+            }
             if (r.kind == RowKind::Dropped)
             {
                 a_dropped++;
@@ -470,12 +482,20 @@ ProblemData read_mosek(const std::string &path, const IoOptions &options)
         p.source.original_block_of.push_back(-1);
     for (std::int64_t j = 0; j < nbar; j++)
         p.source.original_block_of.push_back(static_cast<int>(j));
-    for (const VarInfo &v : vars)
+    for (std::int64_t j = 0; j < n; j++)
     {
+        const VarInfo &v = vars[static_cast<std::size_t>(j)];
         p.source.mosek_var_position.push_back(v.kind == VarKind::Fixed ? -1 : v.position);
         p.source.mosek_var_shift.push_back(v.shift);
         p.source.mosek_var_sign.push_back(v.sign);
+        p.source.mosek_var_slack.push_back(v.kind == VarKind::Ranged ? v.slack : -1);
+        p.source.mosek_var_cost.push_back(c_values[static_cast<std::size_t>(j)]);
     }
+    for (std::int64_t j = 0; j < n; j++)
+        fixed_count[static_cast<std::size_t>(j) + 1] += fixed_count[static_cast<std::size_t>(j)]; // the entries arrived column by column
+    p.source.mosek_fixed_colptr = fixed_count;
+    p.source.mosek_fixed_rowind = fixed_rowind;
+    p.source.mosek_fixed_val = fixed_val;
     for (const RowInfo &r : rows)
         p.source.mosek_row_position.push_back(r.kind == RowKind::Dropped ? -1 : r.position);
     set_dimacs_kinds_from_original(p);
