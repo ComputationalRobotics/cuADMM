@@ -10,6 +10,8 @@
 
 #include <gtest/gtest.h>
 
+#include <cctype>
+
 #include <cmath>
 #include <cstdlib>
 #include <set>
@@ -103,6 +105,148 @@ TEST(Options, ValuesParseAndPrint)
     set_option(o, "seed", "42");
     EXPECT_EQ(o.seed, 42u);
     EXPECT_THROW(set_option(o, "seed", "-1"), std::invalid_argument);
+}
+
+// A minimal JSON validator (objects, arrays, strings with escapes, numbers, true/false/null) for the summary tests.
+namespace options_test
+{
+inline bool skip_ws(const std::string &s, std::size_t &i)
+{
+    while (i < s.size() && (s[i] == ' ' || s[i] == '\n' || s[i] == '\t' || s[i] == '\r'))
+        i++;
+    return i < s.size();
+}
+inline bool parse_value(const std::string &s, std::size_t &i);
+inline bool parse_string(const std::string &s, std::size_t &i)
+{
+    if (i >= s.size() || s[i] != '"')
+        return false;
+    for (i++; i < s.size(); i++)
+    {
+        if (s[i] == '\\')
+        {
+            i++;
+            continue;
+        }
+        if (s[i] == '"')
+        {
+            i++;
+            return true;
+        }
+    }
+    return false;
+}
+inline bool parse_number(const std::string &s, std::size_t &i)
+{
+    const std::size_t start = i;
+    if (i < s.size() && s[i] == '-')
+        i++;
+    if (i >= s.size() || !std::isdigit(static_cast<unsigned char>(s[i])))
+        return false;
+    while (i < s.size() && (std::isdigit(static_cast<unsigned char>(s[i])) || s[i] == '.' || s[i] == 'e' || s[i] == 'E' || s[i] == '+' || s[i] == '-'))
+        i++;
+    return i > start;
+}
+inline bool parse_value(const std::string &s, std::size_t &i)
+{
+    if (!skip_ws(s, i))
+        return false;
+    if (s[i] == '{')
+    {
+        i++;
+        if (skip_ws(s, i) && s[i] == '}')
+        {
+            i++;
+            return true;
+        }
+        while (true)
+        {
+            if (!skip_ws(s, i) || !parse_string(s, i) || !skip_ws(s, i) || s[i] != ':')
+                return false;
+            i++;
+            if (!parse_value(s, i) || !skip_ws(s, i))
+                return false;
+            if (s[i] == ',')
+            {
+                i++;
+                continue;
+            }
+            if (s[i] == '}')
+            {
+                i++;
+                return true;
+            }
+            return false;
+        }
+    }
+    if (s[i] == '[')
+    {
+        i++;
+        if (skip_ws(s, i) && s[i] == ']')
+        {
+            i++;
+            return true;
+        }
+        while (true)
+        {
+            if (!parse_value(s, i) || !skip_ws(s, i))
+                return false;
+            if (s[i] == ',')
+            {
+                i++;
+                continue;
+            }
+            if (s[i] == ']')
+            {
+                i++;
+                return true;
+            }
+            return false;
+        }
+    }
+    if (s[i] == '"')
+        return parse_string(s, i);
+    if (s.compare(i, 4, "true") == 0 || s.compare(i, 4, "null") == 0)
+    {
+        i += 4;
+        return true;
+    }
+    if (s.compare(i, 5, "false") == 0)
+    {
+        i += 5;
+        return true;
+    }
+    return parse_number(s, i);
+}
+inline bool is_valid_json(const std::string &s)
+{
+    std::size_t i = 0;
+    return parse_value(s, i) && !skip_ws(s, i);
+}
+} // namespace options_test
+
+TEST(Options, OptionsJsonIsValidJson)
+{
+    using options_test::is_valid_json;
+    EXPECT_TRUE(is_valid_json("{\"a\": 1, \"b\": [1.5e-3, \"x\", true, null], \"c\": {}}"));
+    EXPECT_FALSE(is_valid_json("{\"a\": tau}"));
+    EXPECT_FALSE(is_valid_json("{\"a\": 1,}"));
+    SolverOptions o; // the defaults carry the symbolic values "tau", "policy", "inf", "none", "algorithm.tol", ...
+    const std::string js = options_json(o);
+    EXPECT_TRUE(is_valid_json(js)) << js;
+    EXPECT_NE(js.find("\"algorithm.sgs_tau\": \"tau\""), std::string::npos) << js;
+    EXPECT_NE(js.find("\"algorithm.time_limit\": \"inf\""), std::string::npos) << js;
+    EXPECT_NE(js.find("\"penalty.sigma_min\": \"policy\""), std::string::npos) << js;
+    EXPECT_NE(js.find("\"algorithm.tau\": 1.618"), std::string::npos) << js;
+    EXPECT_NE(js.find("\"penalty.guard\": true"), std::string::npos) << js;
+    set_option(o, "algorithm.sgs_tau", "1.95");
+    set_option(o, "algorithm.time_limit", "600");
+    set_option(o, "validation.checkpoint_iterations", "10,20");
+    set_option(o, "output.tag", "a \"quoted\" tag");
+    const std::string js2 = options_json(o);
+    EXPECT_TRUE(is_valid_json(js2)) << js2;
+    EXPECT_NE(js2.find("\"algorithm.sgs_tau\": 1.95"), std::string::npos) << js2;
+    EXPECT_NE(js2.find("\"algorithm.time_limit\": 600"), std::string::npos) << js2;
 }
 
 TEST(Options, ValidateRejectsWhatThePlanForbids)

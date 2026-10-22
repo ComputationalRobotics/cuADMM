@@ -9,6 +9,7 @@
 #include "cuadmm/options.h"
 
 #include <algorithm>
+#include <cctype>
 #include <charconv>
 #include <cmath>
 #include <cstdlib>
@@ -772,6 +773,41 @@ std::string option_table_help()
     return o.str();
 }
 
+// true when v is a JSON number: -?(0|[1-9][0-9]*)(.[0-9]+)?([eE][+-]?[0-9]+)?
+bool is_json_number(const std::string &v)
+{
+    std::size_t i = 0;
+    const std::size_t n = v.size();
+    if (i < n && v[i] == '-')
+        i++;
+    if (i >= n || !std::isdigit(static_cast<unsigned char>(v[i])))
+        return false;
+    if (v[i] == '0')
+        i++;
+    else
+        while (i < n && std::isdigit(static_cast<unsigned char>(v[i])))
+            i++;
+    if (i < n && v[i] == '.')
+    {
+        i++;
+        if (i >= n || !std::isdigit(static_cast<unsigned char>(v[i])))
+            return false;
+        while (i < n && std::isdigit(static_cast<unsigned char>(v[i])))
+            i++;
+    }
+    if (i < n && (v[i] == 'e' || v[i] == 'E'))
+    {
+        i++;
+        if (i < n && (v[i] == '+' || v[i] == '-'))
+            i++;
+        if (i >= n || !std::isdigit(static_cast<unsigned char>(v[i])))
+            return false;
+        while (i < n && std::isdigit(static_cast<unsigned char>(v[i])))
+            i++;
+    }
+    return i == n;
+}
+
 std::string options_json(const SolverOptions &options)
 {
     std::ostringstream o;
@@ -784,11 +820,11 @@ std::string options_json(const SolverOptions &options)
         const std::string v = get_option(options, s.path);
         o << (first ? "" : ", ") << json_string(s.path) << ": ";
         first = false;
-        if (s.type == "int" && v != "policy" && v != "none")
+        // numbers and booleans verbatim; every other textual value (the symbolic defaults "policy", "tau", "none",
+        // "inf", "algorithm.tol", ...) as a JSON string, so that the summary is always valid JSON
+        if ((s.type == "int" || s.type == "double") && is_json_number(v))
             o << v;
-        else if (s.type == "double" && v != "policy" && v != "none" && v != "algorithm.tol" && v != "inf" && v != "-inf")
-            o << v;
-        else if (s.type == "bool")
+        else if (s.type == "bool" && (v == "true" || v == "false"))
             o << v;
         else
             o << json_string(v);

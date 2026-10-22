@@ -185,3 +185,13 @@ Inside `cuADMM-reorg/src/legacy/` (the copied `SDPSolver`), the CLI and the test
   Affects only solves with validation on (`validation.interval > 0`) that end at a limit; the bitwise comparisons
   run without validation. The restore message prints both measures. The internal tracker (no validation) still
   ranks by the solver's own max(eta_p, eta_d, eta_g).
+
+## Phase 2b follow-up (2026-10-21): the JSON summary is always valid
+
+- `options_json` (the `options` object of the summary, Phase 2) wrote the symbolic defaults of numeric options
+  unquoted (`"algorithm.sgs_tau": tau`), so every summary of the new CLI since Phase 2 was invalid JSON. Numbers and
+  booleans are now written verbatim only when they parse as such; every other value is a JSON string
+  (`"tau"`, `"policy"`, `"inf"`, `"none"`, `"algorithm.tol"`). Found by `tools/io/check_published_objectives.py`,
+  which parses the summary. `Options.OptionsJsonIsValidJson` checks the defaults and set values with a small JSON
+  scanner. `tools/compare_runs.py` now prints a warning for a summary it cannot parse instead of skipping the
+  (informational) summary comparison silently; the acceptance comparisons (histories, solutions) were never affected.

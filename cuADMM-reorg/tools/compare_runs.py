@@ -224,8 +224,11 @@ def read_summary(path):
         return None
     try:
         return json.loads(lines[-1])
-    except ValueError:
-        return None
+    except ValueError as e:
+        # an unreadable summary is reported, never skipped silently (the summary comparison is informational, but a
+        # summary that does not parse is a defect of the writer)
+        print("WARNING: summary %s is not valid JSON: %s" % (path, e))
+        return {"__invalid_json__": str(e)}
 
 
 def rel_diff(a, b):

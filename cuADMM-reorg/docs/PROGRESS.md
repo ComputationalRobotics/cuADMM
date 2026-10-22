@@ -332,6 +332,13 @@ over one hour).
   CHANGES.md Phase 4b): the two tests pass on the MIG with the rebuilt working tree (21:17).
 - 92dca50 (d6720b6 + the Phase 4b preparation), `build_and_compare.sh 92dca50 phase4b ... reorg` (21:22-21:35,
   MIG configuration): 53 of 53 identical, 0 different, 0 failed runs; tests 101 ran, 101 passed.
+- 92dca50 on the full A100 (`compare_build.sh ... phase4b reorg` in the same allocation 54480621, 21:28-21:50):
+  53 of 53 identical, 0 different, 0 failed runs (the test summary of that run is recorded with the Milestone 1
+  report).
+- Note on the summary comparison of `compare_runs.py`: the `options` object of the new CLI's summary was invalid
+  JSON from Phase 2 until the fix recorded in CHANGES.md ("Phase 2b follow-up"), and the tool skipped the unreadable
+  summary silently; the summary comparison is informational, the acceptance (histories and solutions, bit for bit)
+  never depended on it. The tool now warns; the summaries of every later run parse.
 - Second configuration `a100-sxm4-80gb_cuda12.9_gcc12.2_ss7.10.1_t16` (partition `gpu`, job 54480621, from 21:08,
   `tools/slurm/full_a100_session.sh 54480621 59e943a phase4 reorg`): Phase 0 baselines 59 of 59 identical
   (6 self-checks and the 53 reference cases, 16 threads); the comparison of 59e943a is in progress and is recorded
