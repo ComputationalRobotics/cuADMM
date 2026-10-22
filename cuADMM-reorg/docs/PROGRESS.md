@@ -367,8 +367,32 @@ over one hour).
   sigma in [0.47, 2.4] and did not reach the strict stage within 200,000 iterations (best long-horizon error 6e-4
   with factor 1.2 + halve), while fixed sigma = 1 does not solve it within the cap either.
 - Stage 2 (freeze_value {band centre, last} x freeze_bias {1, 2, 4} for the two best Stage-1 settings,
-  factor 1.2 + halve_on_reversal and factor 2 + halve_on_reversal, at sigma_0 = 1; 90 runs, array 54498335 submitted
-  21:55): recorded below when complete.
+  factor 1.2 + halve_on_reversal and factor 2 + halve_on_reversal, at sigma_0 = 1; 90 runs, array 54498335,
+  21:55-22:12; `results/stage2_*`): the bias is what matters. factor 1.2 + halve_on_reversal + bias 4 solves all
+  five problems the comparators solve (trto1 97,750, buck1 121,900, vibra1 80,800, mater-1 73,300, mater-2
+  163,100 iterations): G1 yes, G2 yes (every run frozen by the "step" rule at iterations 150-200; total variation
+  <= 11.4), G3 yes (largest spike 7.4x, none >= 10x). Its shifted geometric mean of the estimated H200 time is 111.5 s
+  against residual_balancing 111.0 s and fixed sigma = 1 131.7 s, i.e. G4 fails by 0.4% on a measure in which the
+  comparators are censored at the cap on 7 of 9 problems (their true times are larger) and the four problems nobody
+  solves enter identically; on the five solvable problems alone: bias 4 45.0 s, residual_balancing 44.7 s (three of
+  the five censored), old rule 46.7 s (two censored), fixed 62.7 s (three censored). Band centre and last value give
+  the same runs here (the step freeze comes before eight changes). Bias 2 does not rescue vibra1 (frozen at
+  sigma = 2.69 the long-horizon error stalls at 2.7; at 1.34 it reaches 6e-4, at 5.38 it converges) and bias 4 costs
+  2-4x more iterations on trto1, mater-1 and mater-2 than bias 1 (whose geometric mean is 89.7 s). factor 2 +
+  halve_on_reversal with bias 2 or 4 loses mater-2 (and mater-1 at bias 4): the coarser band freezes too high.
+- Outcome of the CPU screen (plan: "if no setting passes all gates, adopt the one that loses the fewest problems,
+  document the losses"): `balance_freeze` with factor 1.2, `step_schedule halve_on_reversal`, `freeze_bias 4`
+  (`freeze_value band_centre`, the other parameters at their defaults; K_f irrelevant) loses no problem against the
+  comparators at the 200,000-iteration cap at sigma_0 in {0.5, 1}, keeps the variation bounded, has no spike, and
+  ties the time gate (DECISIONS 36). Robustness (36 runs, array 54504903, 22:14-22:24; `results/final_*`): at
+  sigma_0 = 0.5 the same five problems are solved (trto1 106,900, buck1 120,600, vibra1 81,400, mater-1 70,200,
+  mater-2 170,150; shifted geometric mean 113 s against residual_balancing 109 s); at sigma_0 = 2 vibra1 is lost
+  again (the step freeze comes at iteration 676 with sigma = 2.50, 4.9-5.4 at the other sigma_0; the long-horizon
+  error stalls at 4.4) and mater-2 takes 181,900 iterations, so G5 (robust across sigma_0) fails on vibra1 at
+  sigma_0 = 2; band centre and last value give identical runs at every sigma_0. The default `penalty.policy` stays
+  `residual_balancing` (user instruction: the promotion waits for the GPU gates, which need approval); the GPU gate
+  scripts are generated for this setting. Cost of the screen: 513 runs, 28.8 core-hours of replica time (the plan's
+  estimate was 15-20) on 1-core cascadelake tasks.
 - GPU gates (plan: G0-G3, at most 12.6 H200-hours): prepared, not submitted. `tools/sigma_screen/gpu_gates.sh
   <cuadmm_exe> "<flags of the chosen setting>"` writes one sbatch file per gate (partition `gpu_h200`,
   `--gres=gpu:nvidia_h200:1`, 16 cores, 96-128 GB; the campaign protocol: tolerance 1e-4, validation every 50
@@ -377,9 +401,14 @@ over one hour).
   shmup1 (1800 s) x {balance_freeze, residual_balancing, fixed sigma = 1} (7.0 h); G2 pendulum N=80 at sigma_0 in
   {1, 100} x {balance_freeze, residual_balancing} (900 s: 1.0 h; the comparators 124 s old rule and 625 s fixed
   sigma = 1 are the paper-replication runs); G3 mater-3..6 x {balance_freeze, residual_balancing} (1800 s: 4.0 h).
-  Sum of the caps 12.58 H200-hours; runs that converge stop earlier (the expected total from the CPU screen's
-  iteration counts is recorded with the screen results). The setting's flags are filled in once the CPU screen has
-  chosen it; the jobs need the user's approval before submission (H200, and G1/G3 exceed one hour).
+  Sum of the caps 12.58 H200-hours; runs that converge stop earlier. Generated for the screen's choice
+  (`gpu_gates.sh $HOME/cuadmm-builds/reorg-f10e149/cuadmm_exe "--factor 1.2 --step-schedule halve_on_reversal
+  --freeze-bias 4"`) into `$HOME/cuadmm-experiments/2026-10-21_phase4b_screen/gpu_gates/G{0,1,2,3}.sbatch`.
+  Expected from the screen's iteration counts and the campaign's H200 seconds per iteration: G0 about 0.2 h
+  (trto1 23 s, buck1 69 s, pendulum 625 s); G1 about 4.3 h (balance_freeze 0.6 h: trto1 38 s, buck1 70 s, vibra1
+  46 s, mater-1 23 s, mater-2 61 s, shmup1 at its 1800 s cap; residual_balancing 1.7 h and fixed sigma = 1 2.0 h,
+  mostly at their caps); G2 and G3 unknown (at most 1.0 h and 4.0 h): about 6 to 9.5 H200-hours in total. The jobs
+  need the user's approval before submission (H200, and G1/G3 exceed one hour).
 
 ### GPU evidence of the Pre-0/Phase 1 and Phase 2 commits (clean per-commit builds, MIG configuration)
 
@@ -408,6 +437,16 @@ over one hour).
   MIG configuration): 53 of 53 identical, 0 different, 0 failed runs; tests 101 ran, 101 passed.
 - 92dca50 on the full A100 (`compare_build.sh ... phase4b reorg` in the same allocation 54480621, 21:28-21:50):
   53 of 53 identical, 0 different, 0 failed runs; tests 101 ran, 101 passed (21:41).
+- 4640e8a (Phase 2b merged, B23, the JSON fix): the clean per-commit build failed to compile (`H5Treclaim` is
+  not in the system HDF5 1.10.5 that the AUTO detection finds without `HDF5_ROOT`); fixed by the Phase 2b review
+  fixes (9907cda) before any run.
+- f10e149 (the second merge of `reorg-io`: review fixes), `build_and_compare.sh f10e149 phase2b2 ... reorg`
+  (22:06-22:27, MIG configuration, clean configure without `HDF5_ROOT`: HDF5 1.10.5 and zlib from the system, no
+  matio): 53 of 53 identical, 0 different, 0 failed runs; tests 101 ran, 101 passed. The format acceptance with
+  that build (`check_formats.py`, `$HOME/cuadmm-baselines/<MIG config>/f10e149_formats/`): the 9 cases its formats
+  support pass (trto1 and mater-1 objectives from TXT, `.dat-s`, `.h5`; buck3 `.dat-s` and `.h5` bit for bit the
+  TXT run); the two SeDuMi cases need matio (`--formats` of that build: txt sdpa sdpa.gz h5) and passed with the
+  matio build of the same tree (`dev_36e8552/formats3`, 11 of 11, recorded under Phase 2b).
 - Note on the summary comparison of `compare_runs.py`: the `options` object of the new CLI's summary was invalid
   JSON from Phase 2 until the fix recorded in CHANGES.md ("Phase 2b follow-up"), and the tool skipped the unreadable
   summary silently; the summary comparison is informational, the acceptance (histories and solutions, bit for bit)

@@ -186,3 +186,13 @@ implementation, deviations from its letter, and open questions, each with its re
 35. **A native file without a `sense` attribute is rejected** unless `io.sense` supplies it (reported); the
     schema lists `sense` as required and a silent "min" would solve a different problem for files written by
     hand (review finding 5).
+
+36. **The CPU screen's choice for `balance_freeze` and the reading of the time gate.** Stage 1 showed that
+    `freeze_iteration` never acts (the ping-pong or step freeze comes first on every problem) and that every setting
+    loses vibra1, whose best sigma is far above the balanced value (the plan's Table 2 remark); Stage 2 showed that a
+    freeze bias of 4 with factor 1.2 and halve_on_reversal recovers vibra1 without losing anything else, at the price
+    of 2-4x more iterations on the mater and trto problems than bias 1. The time gate (a better shifted geometric mean
+    than residual_balancing and fixed sigma = 1) is evaluated on estimated H200 times with unsolved runs censored at
+    the cap, which favours the comparators (they are censored on more problems); the chosen setting ties it within
+    0.4% at sigma_0 = 1. The screen therefore recommends factor 1.2, halve_on_reversal, bias 4, band centre; the
+    promotion to the default waits for the GPU gates (G0-G3, prepared, not submitted), per the user's instruction.
