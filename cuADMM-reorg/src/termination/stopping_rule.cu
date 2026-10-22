@@ -189,11 +189,11 @@ void ValidatedRule::finish(SDPSolver &e, bool nonfinite)
         {
             e.returned_best_external = true;
             if (nonfinite)
-                printf(" Returning the best externally evaluated iterate: iteration %d, merit %2.1e (the final iterate is non-finite)\n", best.iter,
-                       best.result.merit());
+                printf(" Returning the best externally evaluated iterate: iteration %d, max |DIMACS| %2.1e, merit %2.1e (the final iterate is non-finite)\n",
+                       best.iter, best.result.max_abs_dimacs, best.result.merit());
             else
-                printf(" Returning the best externally evaluated iterate: iteration %d, merit %2.1e (final iterate: %2.1e)\n", best.iter,
-                       best.result.merit(), last.result.merit());
+                printf(" Returning the best externally evaluated iterate: iteration %d, max |DIMACS| %2.1e, merit %2.1e (final iterate: %2.1e, %2.1e)\n",
+                       best.iter, best.result.max_abs_dimacs, best.result.merit(), last.result.max_abs_dimacs, last.result.merit());
             CHECK_CUDA(cudaMemcpyAsync(e.X.vals, e.X_best.vals, sizeof(double) * e.vec_len, D2D, (cudaStream_t)0));
             CHECK_CUDA(cudaMemcpyAsync(e.y.vals, e.y_best.vals, sizeof(double) * e.con_num, D2D, (cudaStream_t)0));
             CHECK_CUDA(cudaMemcpyAsync(e.S.vals, e.S_best.vals, sizeof(double) * e.vec_len, D2D, (cudaStream_t)0));

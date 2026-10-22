@@ -4,8 +4,8 @@
 
     BestIterateTracker (plan Section 7.4): keeps the best iterate of a run by its internal KKT residual and restores
     it at the end when the last iterate is worse (the "Bug 2.2" return of main). In validation mode the best
-    externally evaluated iterate is kept by ValidatedRule, ranked by ValidationResult::better_than (the practical
-    merit, then max |DIMACS| in the strict stage; plan B23).
+    externally evaluated iterate is kept by ValidatedRule, ranked by ValidationResult::better_than (validated
+    snapshots first, then the maximum DIMACS error; the practical merit only without a finite DIMACS error; plan B23).
 
 */
 

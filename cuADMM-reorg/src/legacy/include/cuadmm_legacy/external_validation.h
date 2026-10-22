@@ -91,7 +91,8 @@ struct ValidationResult
 
     // max of the six practical criteria; +inf when an entry or a metric is not finite (used to rank iterates)
     double merit() const;
-    // strict stage: a validated (practical) snapshot is ranked by max_abs_dimacs, before every non-validated one
+    // ranking of the snapshots (B23): validated before non-validated, then by max_abs_dimacs (the strict-stage
+    // measure); merit() only when neither has a finite DIMACS error
     bool better_than(const ValidationResult &o) const;
 };
 

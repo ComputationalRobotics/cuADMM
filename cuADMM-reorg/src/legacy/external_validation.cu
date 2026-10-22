@@ -82,12 +82,13 @@ bool ValidationResult::better_than(const ValidationResult &o) const
 {
     if (validated != o.validated)
         return validated;
-    if (validated)
-    {
-        const double a = std::isfinite(max_abs_dimacs) ? max_abs_dimacs : std::numeric_limits<double>::infinity();
-        const double b = std::isfinite(o.max_abs_dimacs) ? o.max_abs_dimacs : std::numeric_limits<double>::infinity();
+    // B23: validated or not, snapshots are ranked by the maximum DIMACS error (the measure of the strict stage, with
+    // the DIMACS normalizations 1 + ||b||_inf and 1 + ||C||_inf); the practical merit, whose normalizers are
+    // 1 + ||b||_2 and 1 + ||C||_2, decides only when neither snapshot has a finite DIMACS error
+    const double a = std::isfinite(max_abs_dimacs) ? max_abs_dimacs : std::numeric_limits<double>::infinity();
+    const double b = std::isfinite(o.max_abs_dimacs) ? o.max_abs_dimacs : std::numeric_limits<double>::infinity();
+    if (std::isfinite(a) || std::isfinite(b))
         return a < b;
-    }
     return merit() < o.merit();
 }
 

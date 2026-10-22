@@ -394,27 +394,32 @@ TEST(ValidationStopping, NoStopWhenConeFailsAndBestIterateReturned)
     EXPECT_FALSE(s.converged);
     EXPECT_EQ(s.info_iter_num, 3000);
     bool crossing_failed_on_cone = false;
-    double best_merit = std::numeric_limits<double>::infinity();
+    // the ranking of B23: the maximum DIMACS error (the practical merit only for snapshots without a finite one)
+    double best_dimacs = std::numeric_limits<double>::infinity(), best_merit = std::numeric_limits<double>::infinity();
     int best_iter = -1;
     for (const ValidationRecord &r : s.validation_history)
     {
         EXPECT_FALSE(r.result.validated);
         crossing_failed_on_cone = crossing_failed_on_cone ||
                                   (r.trigger == "internal_crossing" && r.result.failed.find("X_cone") != std::string::npos);
-        if (r.result.merit() < best_merit)
+        const double d = std::isfinite(r.result.max_abs_dimacs) ? r.result.max_abs_dimacs : std::numeric_limits<double>::infinity();
+        if (d < best_dimacs || (std::isinf(d) && std::isinf(best_dimacs) && r.result.merit() < best_merit))
         {
+            best_dimacs = d;
             best_merit = r.result.merit();
             best_iter = r.iter;
         }
     }
     EXPECT_TRUE(crossing_failed_on_cone);
+    EXPECT_TRUE(std::isfinite(best_dimacs)) << "the snapshots of this test have finite DIMACS errors";
     EXPECT_EQ(s.best_validation.iter, best_iter);
     EXPECT_LE(best_iter, 2900);
     ASSERT_TRUE(s.returned_best_external);
     std::vector<double> X, y, S;
     returned_iterate(s, X, y, S);
     const ValidationResult r = make_validator(p).evaluate(X.data(), y.data(), S.data(), s.validation.tol);
-    EXPECT_EQ(r.merit(), best_merit) << "the returned iterate must be the best externally evaluated one";
+    EXPECT_EQ(r.max_abs_dimacs, best_dimacs) << "the returned iterate must be the best externally evaluated one (B23: by max |DIMACS|)";
+    EXPECT_EQ(r.merit(), best_merit);
     // and the reported residuals are the solver's own ones of that snapshot
     EXPECT_EQ(s.errRp, s.best_validation.internal_errRp);
     EXPECT_EQ(s.errRd, s.best_validation.internal_errRd);

@@ -234,8 +234,10 @@ second configuration (full A100) is in progress.
   the 2d8a755 build without `CUADMM_PLAIN_ADMM_ONLY` at fixed sigma and tolerance 1e-300. The case lists gained the
   sGS-phase adaptive rule, two hybrid cases and one sGS case to tolerance with the reduction rule on. The GPU run is
   recorded below when it completes.
-- Pending: the DIMACS-based best-iterate ranking of B23 for the non-strict validation mode (today's `better_than`
-  ranking is kept; see CHANGES.md).
+- B23 (done after the merge of Phase 2b): the externally evaluated snapshots are ranked by the maximum DIMACS error,
+  validated ones first, the practical merit only between snapshots without a finite DIMACS error
+  (`ValidationResult::better_than`; CHANGES.md "Phase 4, B23"); the GPU test
+  `ValidationStopping.NoStopWhenConeFailsAndBestIterateReturned` checks the returned iterate against that ranking.
 
 ## Phase 4b: CPU screen of `balance_freeze`
 

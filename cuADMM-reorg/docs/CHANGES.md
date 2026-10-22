@@ -173,3 +173,15 @@ Inside `cuADMM-reorg/src/legacy/` (the copied `SDPSolver`), the CLI and the test
 - Tests: `HybridSwitchCli.SgsIterationsOption` parses sigma and tau from the history CSV instead of matching the
   17-digit text; `PenaltyPolicy.BalanceFreezeAgreesWithTheReplicaOn{PsdFree,Mater1}` added with
   `test/data/golden/balance_freeze_cases_*.csv`.
+
+## Phase 4, B23 (2026-10-21): best-iterate ranking by the maximum DIMACS error
+
+- `ValidationResult::better_than` (the ranking of the externally evaluated snapshots, which decides the iterate a
+  validating solve returns when it ends without a validated snapshot, and the `best_validation` record) ranks every
+  snapshot by its maximum absolute DIMACS error, validated ones first; the practical merit (normalizers
+  `1 + ||b||_2`, `1 + ||C||_2`) decides only between snapshots without a finite DIMACS error. Before, non-validated
+  snapshots were ranked by the merit (B23: the two measures differ by about 12x on the long-horizon problems, and
+  3 of 4 long-horizon runs returned an iterate whose validated error was 1.19-6.1x that of the best one seen).
+  Affects only solves with validation on (`validation.interval > 0`) that end at a limit; the bitwise comparisons
+  run without validation. The restore message prints both measures. The internal tracker (no validation) still
+  ranks by the solver's own max(eta_p, eta_d, eta_g).
