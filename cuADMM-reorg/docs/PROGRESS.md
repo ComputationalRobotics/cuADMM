@@ -61,7 +61,13 @@ Submissions and results are appended here as they come (`gpu_gates/submissions.t
   stage not reached within the 900 s cap (302,334 iterations; the reference runs stopped at the practical stage).
   The iteration counts and objectives are reproduced exactly on the H200 with the sm_90 build; the times are 5-10%
   above the campaign's Release build.
-- G1, G2, G3 submitted 2026-10-22 13:58 after the G0 verdict (job ids in `gpu_gates/submissions.txt`).
+- G1, G2, G3 submitted 2026-10-22 13:57 after the G0 verdict (jobs 54688317, 54688318, 54688319). G2 (pendulum)
+  started 13:59 on holygpu8a12201, G3 (mater-3..6) 13:59 on holygpu8a12204. G1 (job 54688317) also landed on
+  holygpu8a12204, on GPU-458ee7a8: all twelve runs ended within seconds with "could not initialize CUDA device 0"
+  (the CUDA context could not be created on that GPU, while G3 ran on another GPU of the same node; the PLATO
+  campaign's job scripts excluded this node); 41 s of H200 time. The outputs are kept in
+  `runs/G1_attempt1_failed/`; G1 resubmitted 14:08 with `--exclude=holygpu8a12204` (job id in
+  `submissions.txt`); `gpu_gates.sh` now excludes that node by default.
 
 ## Phase 0: skeleton and safety net
 

@@ -26,6 +26,7 @@ DATA=${CUADMM_DATA:-$HOME/cuadmm-data}/plato_kocvara/txt
 PENDULUM=${PENDULUM:-$HOME/cuADMM/examples/pendulum/TXT/N=80_licols}
 PARTITION=${GATES_PARTITION:-gpu_h200}
 GRES=${GATES_GRES:-gpu:nvidia_h200:1}
+EXCLUDE=${GATES_EXCLUDE:-holygpu8a12204}   # a GPU of this node refused the CUDA context (G1, 2026-10-22); the campaign excluded it too
 VTHREADS=${GATES_VALIDATION_THREADS:-8}
 COMMON="--scheme admm --tau 1.618 --tol 1e-4 --validation-interval 50 --validation-tol 1e-4 --strict-dimacs-tol 1e-6 --validation-threads $VTHREADS --max-iter 100000000 --psd-medium-streams 15 --psd-lowrank-enabled 1"
 mkdir -p "$GATES"
@@ -54,6 +55,7 @@ header() {  # header <gate> <time limit> <mem>
 #SBATCH --mem=$mem
 #SBATCH -t $tl
 #SBATCH -J p4b-$gate
+#SBATCH --exclude=$EXCLUDE
 #SBATCH -o $GATES/logs/$gate-%j.out
 # Phase-4b GPU gate $gate (plan Phase 4b); written by tools/sigma_screen/gpu_gates.sh; approved 2026-10-22.
 set -u
