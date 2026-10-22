@@ -121,7 +121,7 @@ implementation, deviations from its letter, and open questions, each with its re
 20. **The SDPA sense is `max`.** The plan maps SDPA's dual (D) `max <F_0, Y>` onto cuADMM's primal `min <-F_0, Y>`
     and asks for objective values "in the file's sense". `ProblemData::sense = Maximize` for `.dat-s` input makes
     the reported `pobj` the published SDPA value (e.g. 607.6055 for buck3), while the TXT conversions of the PLATO
-    experiments stay minimizations (their `pobj` is the negative). `tools/baselines/cases_formats.json` records the
+    experiments stay minimizations (their `pobj` is the negative). `tools/baselines/cases_formats_gpu.json` records the
     sign per case so that the GPU acceptance compares the right number.
 21. **The SeDuMi and SDPT3 readers symmetrize with `value * sqrt2/2` per mirrored half.** The two halves are merged
     by summation, which gives exactly `value * sqrt2` for a symmetric matrix (scaling by 2 is exact), so SeDuMi

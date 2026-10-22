@@ -17,6 +17,19 @@ Machine: FASRC Cannon. Builds on CPU nodes (`sapphire`/`shared`, 16 cores); GPU 
 partition `gpu` in allocations under one hour (no H200 used; approval would be needed). Full pinned configuration:
 `tools/reference/pinned_config.md`.
 
+## Milestone 1 status (2026-10-22)
+
+Complete through the Phase-4b CPU screen; stopped before Phase 5 (the plan re-plans Phases 5-10 once Milestone 1
+lands). Branches `reorg` (HEAD: this commit) and `reorg-io` are pushed; the pull-request descriptions are in
+`docs/PULL_REQUESTS.md` (no GitHub CLI on the machines: to be opened on the web). Evidence per phase below; in
+short: every verified commit is bit for bit the references on the 53 baseline cases on both pinned configurations
+(last: f10e149, 101 of 101 GPU tests, 51 CPU tests); the readers reach the validated objectives from every
+format with bitwise cross-format histories; the screen's recommendation for `balance_freeze` is factor 1.2,
+halve_on_reversal, freeze bias 4 (DECISIONS 36), the default policy unchanged. Awaiting the user: approval of
+the GPU gates (H200, 6-12.6 hours, `gpu_gates/` job files) and the go-ahead for Milestone 2. Not verifiable here:
+MATLAB (MEX, SPOT recovery), MOSEK dual signs against a MOSEK run, buck3's published objective, performance and
+peak memory beyond the summaries' fields.
+
 ## Phase 0: skeleton and safety net
 
 Status: skeleton built; GPU acceptance pending (see below).
@@ -393,6 +406,10 @@ over one hour).
   `residual_balancing` (user instruction: the promotion waits for the GPU gates, which need approval); the GPU gate
   scripts are generated for this setting. Cost of the screen: 513 runs, 28.8 core-hours of replica time (the plan's
   estimate was 15-20) on 1-core cascadelake tasks.
+- Table 2's sanity check of the ping-pong window W in {6, 8, 12}: not run as separate runs, because for the chosen
+  setting (halve_on_reversal) the "step" freeze acts at iterations 150-700, before `pingpong_min_iter` = 1000, so
+  W cannot change those runs; with the constant step the ping-pong freeze acted at 1000-1250 with W = 8 (the
+  earliest allowed), and a smaller or larger W would move it only later. `freeze_iteration` likewise never acted.
 - GPU gates (plan: G0-G3, at most 12.6 H200-hours): prepared, not submitted. `tools/sigma_screen/gpu_gates.sh
   <cuadmm_exe> "<flags of the chosen setting>"` writes one sbatch file per gate (partition `gpu_h200`,
   `--gres=gpu:nvidia_h200:1`, 16 cores, 96-128 GB; the campaign protocol: tolerance 1e-4, validation every 50

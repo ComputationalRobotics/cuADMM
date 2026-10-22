@@ -216,7 +216,7 @@ Inside `cuADMM-reorg/src/legacy/` (the copied `SDPSolver`), the CLI and the test
 - `options_json` (the `options` object of the summary, Phase 2) wrote the symbolic defaults of numeric options
   unquoted (`"algorithm.sgs_tau": tau`), so every summary of the new CLI since Phase 2 was invalid JSON. Numbers and
   booleans are now written verbatim only when they parse as such; every other value is a JSON string
-  (`"tau"`, `"policy"`, `"inf"`, `"none"`, `"algorithm.tol"`). Found by `tools/io/check_published_objectives.py`,
-  which parses the summary. `Options.OptionsJsonIsValidJson` checks the defaults and set values with a small JSON
+  (`"tau"`, `"policy"`, `"inf"`, `"none"`, `"algorithm.tol"`). Found by the first version of the GPU objective
+  check (since replaced by `tools/io/check_formats.py`), which parses the summary. `Options.OptionsJsonIsValidJson` checks the defaults and set values with a small JSON
   scanner. `tools/compare_runs.py` now prints a warning for a summary it cannot parse instead of skipping the
   (informational) summary comparison silently; the acceptance comparisons (histories, solutions) were never affected.
