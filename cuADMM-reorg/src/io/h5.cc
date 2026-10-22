@@ -80,6 +80,16 @@ class Hid
     Hid &operator=(const Hid &) = delete;
     Hid(Hid &&o) noexcept : id_(o.id_), closer_(o.closer_) { o.id_ = -1; }
     operator hid_t() const { return id_; }
+    /// @brief Closes now and reports a failure (a file close flushes the data: the destructor cannot throw).
+    void close(const std::string &what)
+    {
+        if (id_ < 0 || !closer_)
+            return;
+        const herr_t status = closer_(id_);
+        id_ = -1;
+        if (status < 0)
+            throw std::runtime_error("HDF5: " + what + " failed");
+    }
 
   private:
     hid_t id_ = -1;
@@ -95,6 +105,29 @@ void check(herr_t status, const std::string &what)
 {
     if (status < 0)
         throw std::runtime_error("HDF5: " + what + " failed");
+}
+
+// frees the buffers of variable-length strings read with `type` (H5Treclaim from 1.12; H5Dvlen_reclaim before)
+herr_t reclaim(hid_t type, hid_t space, void *buf)
+{
+#if H5_VERSION_GE(1, 12, 0)
+    return H5Treclaim(type, space, H5P_DEFAULT, buf);
+#else
+    return H5Dvlen_reclaim(type, space, H5P_DEFAULT, buf);
+#endif
+}
+
+// a memory string type that matches the stored character set (h5py writes UTF-8, MATLAB and this writer ASCII;
+// HDF5 refuses to convert between the two)
+Hid string_memory_type(hid_t stored_type, std::size_t size)
+{
+    Hid mem(H5Tcopy(H5T_C_S1), H5Tclose, "H5Tcopy");
+    check(H5Tset_size(mem, size), "H5Tset_size");
+    check(H5Tset_strpad(mem, H5T_STR_NULLTERM), "H5Tset_strpad");
+    const H5T_cset_t cset = H5Tget_cset(stored_type);
+    if (cset == H5T_CSET_UTF8)
+        check(H5Tset_cset(mem, H5T_CSET_UTF8), "H5Tset_cset");
+    return mem;
 }
 
 bool link_exists(hid_t loc, const char *name)
@@ -135,19 +168,17 @@ std::string read_string_attribute(hid_t loc, const char *name)
         throw std::invalid_argument(std::string("attribute ") + name + " is not a string");
     if (H5Tis_variable_str(type) > 0)
     {
-        Hid mem(H5Tcopy(H5T_C_S1), H5Tclose, "H5Tcopy");
-        check(H5Tset_size(mem, H5T_VARIABLE), "H5Tset_size");
+        Hid mem = string_memory_type(type, H5T_VARIABLE);
         char *s = nullptr;
         check(H5Aread(attr, mem, &s), std::string("reading attribute ") + name);
         std::string out = s ? s : "";
         Hid space(H5Aget_space(attr), H5Sclose, "H5Aget_space");
-        H5Treclaim(mem, space, H5P_DEFAULT, &s);
+        reclaim(mem, space, &s);
         return out;
     }
     const std::size_t size = H5Tget_size(type);
     std::string buf(size + 1, '\0');
-    Hid mem(H5Tcopy(H5T_C_S1), H5Tclose, "H5Tcopy");
-    check(H5Tset_size(mem, size + 1), "H5Tset_size");
+    Hid mem = string_memory_type(type, size + 1);
     check(H5Aread(attr, mem, buf.data()), std::string("reading attribute ") + name);
     return std::string(buf.c_str());
 }
@@ -233,14 +264,26 @@ std::vector<std::string> read_strings(hid_t loc, const char *name)
     std::vector<std::string> out;
     if (n == 0)
         return out;
-    Hid type(H5Tcopy(H5T_C_S1), H5Tclose, "H5Tcopy");
-    check(H5Tset_size(type, H5T_VARIABLE), "H5Tset_size");
-    std::vector<char *> ptrs(static_cast<std::size_t>(n), nullptr);
-    check(H5Dread(dset, type, H5S_ALL, H5S_ALL, H5P_DEFAULT, ptrs.data()), std::string("reading dataset ") + name);
-    for (char *p : ptrs)
-        out.push_back(p ? p : "");
-    Hid space(H5Dget_space(dset), H5Sclose, "H5Dget_space");
-    H5Treclaim(type, space, H5P_DEFAULT, ptrs.data());
+    Hid stored(H5Dget_type(dset), H5Tclose, "H5Dget_type");
+    if (H5Tget_class(stored) != H5T_STRING)
+        throw std::invalid_argument(std::string("dataset ") + name + " is not a string dataset");
+    if (H5Tis_variable_str(stored) > 0)
+    {
+        Hid type = string_memory_type(stored, H5T_VARIABLE);
+        std::vector<char *> ptrs(static_cast<std::size_t>(n), nullptr);
+        check(H5Dread(dset, type, H5S_ALL, H5S_ALL, H5P_DEFAULT, ptrs.data()), std::string("reading dataset ") + name);
+        for (char *p : ptrs)
+            out.push_back(p ? p : "");
+        Hid space(H5Dget_space(dset), H5Sclose, "H5Dget_space");
+        reclaim(type, space, ptrs.data());
+        return out;
+    }
+    const std::size_t size = H5Tget_size(stored);
+    Hid type = string_memory_type(stored, size + 1);
+    std::vector<char> buf(static_cast<std::size_t>(n) * (size + 1), '\0');
+    check(H5Dread(dset, type, H5S_ALL, H5S_ALL, H5P_DEFAULT, buf.data()), std::string("reading dataset ") + name);
+    for (hsize_t k = 0; k < n; k++)
+        out.push_back(std::string(buf.data() + k * (size + 1)));
     return out;
 }
 
@@ -348,9 +391,15 @@ void write_problem_h5(const std::string &path, const ProblemData &problem, int c
             write_1d(g, "mosek_var_shift", H5T_IEEE_F64LE, H5T_NATIVE_DOUBLE, s.mosek_var_shift.data(), s.mosek_var_shift.size(), 0);
             write_1d(g, "mosek_var_sign", H5T_IEEE_F64LE, H5T_NATIVE_DOUBLE, s.mosek_var_sign.data(), s.mosek_var_sign.size(), 0);
             write_1d(g, "mosek_row_position", H5T_STD_I64LE, H5T_NATIVE_INT64, s.mosek_row_position.data(), s.mosek_row_position.size(), 0);
+            write_1d(g, "mosek_var_slack", H5T_STD_I64LE, H5T_NATIVE_INT64, s.mosek_var_slack.data(), s.mosek_var_slack.size(), 0);
+            write_1d(g, "mosek_var_cost", H5T_IEEE_F64LE, H5T_NATIVE_DOUBLE, s.mosek_var_cost.data(), s.mosek_var_cost.size(), 0);
+            write_1d(g, "mosek_fixed_colptr", H5T_STD_I64LE, H5T_NATIVE_INT64, s.mosek_fixed_colptr.data(), s.mosek_fixed_colptr.size(), 0);
+            write_1d(g, "mosek_fixed_rowind", H5T_STD_I64LE, H5T_NATIVE_INT64, s.mosek_fixed_rowind.data(), s.mosek_fixed_rowind.size(), 0);
+            write_1d(g, "mosek_fixed_val", H5T_IEEE_F64LE, H5T_NATIVE_DOUBLE, s.mosek_fixed_val.data(), s.mosek_fixed_val.size(), 0);
         }
         write_string_attribute(g, "mat_version", s.mat_version);
     }
+    file.close("closing " + path);
 }
 
 ProblemData read_h5(const std::string &path, const IoOptions &options)
@@ -373,7 +422,14 @@ ProblemData read_h5(const std::string &path, const IoOptions &options)
             fail(std::string("group /") + name + " is missing");
 
     ProblemData p;
-    const std::string sense = attribute_exists(file, "sense") ? read_string_attribute(file, "sense") : "min";
+    const bool has_sense = attribute_exists(file, "sense");
+    std::string sense;
+    if (has_sense)
+        sense = read_string_attribute(file, "sense");
+    else if (options.sense)
+        sense = *options.sense == Sense::Maximize ? "max" : "min";
+    else
+        fail("the attribute sense (\"min\" or \"max\") is missing; give io.sense (--sense min|max) to supply it");
     if (sense == "min" || sense == "minimize")
         p.sense = Sense::Minimize;
     else if (sense == "max" || sense == "maximize")
@@ -381,7 +437,8 @@ ProblemData read_h5(const std::string &path, const IoOptions &options)
     else
         fail("attribute sense must be \"min\" or \"max\" (got \"" + sense + "\")");
     p.objective_offset = attribute_exists(file, "objective_offset") ? read_double_attribute(file, "objective_offset") : 0.0;
-    check_sense_option(options, p.sense, path, "stored");
+    if (has_sense)
+        check_sense_option(options, p.sense, path, "stored");
     {
         Hid g(H5Gopen2(file, "blocks", H5P_DEFAULT), H5Gclose, "opening /blocks");
         const std::vector<std::uint8_t> kinds = read_1d<std::uint8_t>(g, "kind", H5T_NATIVE_UINT8);
@@ -421,6 +478,15 @@ ProblemData read_h5(const std::string &path, const IoOptions &options)
             fail("/At rows attribute " + std::to_string(read_int_attribute(g, "rows")) + " does not match the blocks (" + std::to_string(p.At.rows) + ")");
         if (p.At.rowind.size() != p.At.val.size())
             fail("/At/rowind and /At/val differ in length");
+        // ranges first: nothing below may index the arrays before this (the simplification scan would read out of bounds)
+        if (p.At.colptr.front() != 0 || p.At.colptr.back() != p.At.nnz())
+            fail("/At/colptr must start at 0 and end at nnz = " + std::to_string(p.At.nnz()));
+        for (std::int64_t j = 0; j < p.At.cols; j++)
+            if (p.At.colptr[j] > p.At.colptr[j + 1])
+                fail("/At/colptr must be non-decreasing (column " + std::to_string(j) + ")");
+        for (std::size_t k = 0; k < p.At.rowind.size(); k++)
+            if (p.At.rowind[k] < 0 || p.At.rowind[k] >= p.At.rows)
+                fail("/At/rowind[" + std::to_string(k) + "] = " + std::to_string(p.At.rowind[k]) + " outside [0, " + std::to_string(p.At.rows) + ")");
     }
     auto read_vec = [&](const char *name, SparseVector &v, std::int64_t size)
     {
@@ -430,12 +496,21 @@ ProblemData read_h5(const std::string &path, const IoOptions &options)
         v.size = size;
         if (v.index.size() != v.val.size())
             fail(std::string("/") + name + "/index and /" + name + "/val differ in length");
-        for (std::size_t k = 1; k < v.index.size(); k++)
-            if (v.index[k] <= v.index[k - 1])
+        for (std::size_t k = 0; k < v.index.size(); k++)
+        {
+            if (v.index[k] < 0 || v.index[k] >= size)
+                fail(std::string("/") + name + "/index[" + std::to_string(k) + "] = " + std::to_string(v.index[k]) + " outside [0, " + std::to_string(size) + ")");
+            if (k > 0 && v.index[k] <= v.index[k - 1])
                 fail(std::string("/") + name + "/index must be strictly increasing");
+        }
     };
     read_vec("b", p.b, p.At.cols);
     read_vec("C", p.C, p.At.rows);
+    for (const ConeSpec &c : p.cones) // the file's own blocks: the layout of /solution and /start
+    {
+        p.source.h5_block_kinds.push_back(cone_code(c.kind));
+        p.source.h5_block_sizes.push_back(c.size);
+    }
     p.source.format = "h5";
     p.source.path = path;
     std::vector<std::string> stored_report;
@@ -460,6 +535,11 @@ ProblemData read_h5(const std::string &path, const IoOptions &options)
         p.source.mosek_var_shift = read_optional_1d<double>(g, "mosek_var_shift", H5T_NATIVE_DOUBLE);
         p.source.mosek_var_sign = read_optional_1d<double>(g, "mosek_var_sign", H5T_NATIVE_DOUBLE);
         p.source.mosek_row_position = read_optional_1d<std::int64_t>(g, "mosek_row_position", H5T_NATIVE_INT64);
+        p.source.mosek_var_slack = read_optional_1d<std::int64_t>(g, "mosek_var_slack", H5T_NATIVE_INT64);
+        p.source.mosek_var_cost = read_optional_1d<double>(g, "mosek_var_cost", H5T_NATIVE_DOUBLE);
+        p.source.mosek_fixed_colptr = read_optional_1d<std::int64_t>(g, "mosek_fixed_colptr", H5T_NATIVE_INT64);
+        p.source.mosek_fixed_rowind = read_optional_1d<std::int64_t>(g, "mosek_fixed_rowind", H5T_NATIVE_INT64);
+        p.source.mosek_fixed_val = read_optional_1d<double>(g, "mosek_fixed_val", H5T_NATIVE_DOUBLE);
         if (attribute_exists(g, "mat_version"))
             p.source.mat_version = read_string_attribute(g, "mat_version");
     }
@@ -474,11 +554,11 @@ ProblemData read_h5(const std::string &path, const IoOptions &options)
                               (source_format.empty() ? "" : "; converted from " + source_format + (source.empty() ? "" : " " + source)));
     for (const std::string &line : stored_report)
         p.source.report.push_back("  [conversion] " + line);
-    // the file's structure is trusted only after the checks of finish_problem (sorted columns, ranges)
-    const std::size_t before = p.source.report.size();
-    apply_simplifications(p, options.simplify);
-    if (p.source.report.size() != before && !p.source.dimacs_kinds.empty() && p.source.dimacs_kinds.size() != p.cones.size())
-        p.source.dimacs_kinds.clear();
+    if (!has_sense)
+        p.source.report.push_back("the file has no sense attribute: objective sense " + std::string(name_of(p.sense)) + " taken from io.sense");
+    if (!p.source.dimacs_kinds.empty() && p.source.dimacs_kinds.size() != p.cones.size())
+        fail("/meta/dimacs_kinds must have one entry per block");
+    apply_simplifications(p, options.simplify); // the indices were range-checked above; sortedness is checked by finish_problem
     finish_problem(p, path);
     return p;
 }
@@ -492,10 +572,21 @@ void write_solution_h5(const std::string &path, const ProblemData &problem, cons
                    : Hid(H5Fcreate(path.c_str(), H5F_ACC_TRUNC, H5P_DEFAULT, H5P_DEFAULT), H5Fclose, "creating " + path);
     if (link_exists(file, "solution"))
         check(H5Ldelete(file, "solution", H5P_DEFAULT), "removing the previous /solution");
+    // X and S in the layout of the file's blocks (plan: solutions are mapped back to the file's block structure);
+    // /solution/blocks names that layout (the file's own /blocks for native input, the original blocks otherwise)
+    const BlockLayout layout = file_block_layout(problem);
+    const std::vector<double> X = to_file_layout(problem, layout, result.best.X), S = to_file_layout(problem, layout, result.best.S);
     Hid g(H5Gcreate2(file, "solution", H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT), H5Gclose, "creating /solution");
-    write_1d(g, "X", H5T_IEEE_F64LE, H5T_NATIVE_DOUBLE, result.best.X.data(), result.best.X.size(), 0);
+    write_1d(g, "X", H5T_IEEE_F64LE, H5T_NATIVE_DOUBLE, X.data(), X.size(), 0);
     write_1d(g, "y", H5T_IEEE_F64LE, H5T_NATIVE_DOUBLE, result.best.y.data(), result.best.y.size(), 0);
-    write_1d(g, "S", H5T_IEEE_F64LE, H5T_NATIVE_DOUBLE, result.best.S.data(), result.best.S.size(), 0);
+    write_1d(g, "S", H5T_IEEE_F64LE, H5T_NATIVE_DOUBLE, S.data(), S.size(), 0);
+    {
+        Hid blocks(H5Gcreate2(g, "blocks", H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT), H5Gclose, "creating /solution/blocks");
+        const std::vector<std::uint8_t> kinds = to_u8(layout.kinds);
+        write_1d(blocks, "kind", H5T_STD_U8LE, H5T_NATIVE_UINT8, kinds.data(), kinds.size(), 0);
+        write_1d(blocks, "size", H5T_STD_I64LE, H5T_NATIVE_INT64, layout.sizes.data(), layout.sizes.size(), 0);
+    }
+    write_string_attribute(g, "layout", "X and S in svec form over /solution/blocks (the file's blocks; a block simplified by the reader holds its diagonal)");
     write_string_attribute(g, "status", name_of(result.status));
     write_string_attribute(g, "stop_reason", result.stop_reason);
     write_string_attribute(g, "sense", problem.sense == Sense::Maximize ? "max" : "min");
@@ -514,6 +605,8 @@ void write_solution_h5(const std::string &path, const ProblemData &problem, cons
     write_scalar_attribute(g, "cone_violation_X", H5T_NATIVE_DOUBLE, &result.cone_violation_X);
     write_scalar_attribute(g, "cone_violation_S", H5T_NATIVE_DOUBLE, &result.cone_violation_S);
     write_scalar_attribute(g, "solve_time_s", H5T_NATIVE_DOUBLE, &result.solve_time_s);
+    g.close("closing /solution");
+    file.close("closing " + path);
 }
 
 void read_h5_solution(const std::string &path, std::vector<double> &X, std::vector<double> &y, std::vector<double> &S, double *pobj, double *dobj)
@@ -530,6 +623,16 @@ void read_h5_solution(const std::string &path, std::vector<double> &X, std::vect
         *pobj = read_double_attribute(g, "pobj");
     if (dobj)
         *dobj = read_double_attribute(g, "dobj");
+}
+
+void read_h5_solution_blocks(const std::string &path, std::vector<char> &kinds, std::vector<std::int64_t> &sizes)
+{
+    static QuietErrors quiet;
+    Hid file(H5Fopen(path.c_str(), H5F_ACC_RDONLY, H5P_DEFAULT), H5Fclose, "opening " + path);
+    Hid g(H5Gopen2(file, "solution/blocks", H5P_DEFAULT), H5Gclose, "opening /solution/blocks");
+    const std::vector<std::uint8_t> k = read_1d<std::uint8_t>(g, "kind", H5T_NATIVE_UINT8);
+    kinds.assign(k.begin(), k.end());
+    sizes = read_1d<std::int64_t>(g, "size", H5T_NATIVE_INT64);
 }
 
 WarmStart read_h5_warm_start(const std::string &path, const ProblemData &problem)
@@ -551,10 +654,16 @@ WarmStart read_h5_warm_start(const std::string &path, const ProblemData &problem
         if (!s.empty())
             w.sigma = s[0];
     }
+    // /start may be in the layout of the file's blocks (as /solution is written): contracted to the solver's cones
+    const BlockLayout layout = file_block_layout(problem);
+    if (static_cast<std::int64_t>(w.X.size()) == layout.vec_len() && layout.vec_len() != problem.vec_len())
+        w.X = from_file_layout(problem, layout, w.X);
+    if (static_cast<std::int64_t>(w.S.size()) == layout.vec_len() && layout.vec_len() != problem.vec_len())
+        w.S = from_file_layout(problem, layout, w.S);
     if (static_cast<std::int64_t>(w.X.size()) != problem.vec_len() || static_cast<std::int64_t>(w.S.size()) != problem.vec_len() ||
         static_cast<std::int64_t>(w.y.size()) != problem.num_constraints())
         throw std::invalid_argument("warm start in " + path + " does not match the problem sizes: X and S need " + std::to_string(problem.vec_len()) +
-                                    " entries, y " + std::to_string(problem.num_constraints()));
+                                    " entries (or " + std::to_string(layout.vec_len()) + " in the file's blocks), y " + std::to_string(problem.num_constraints()));
     return w;
 }
 
@@ -573,6 +682,8 @@ void write_h5_warm_start(const std::string &path, const WarmStart &w)
     write_1d(g, "S", H5T_IEEE_F64LE, H5T_NATIVE_DOUBLE, w.S.data(), w.S.size(), 0);
     if (w.sigma > 0)
         write_scalar_attribute(g, "sigma", H5T_NATIVE_DOUBLE, &w.sigma);
+    g.close("closing /start");
+    file.close("closing " + path);
 }
 
 #else // no HDF5
@@ -590,6 +701,7 @@ void write_problem_h5(const std::string &path, const ProblemData &, int) { no_hd
 ProblemData read_h5(const std::string &path, const IoOptions &) { no_hdf5(path); }
 void write_solution_h5(const std::string &path, const ProblemData &, const SolveResult &) { no_hdf5(path); }
 void read_h5_solution(const std::string &path, std::vector<double> &, std::vector<double> &, std::vector<double> &, double *, double *) { no_hdf5(path); }
+void read_h5_solution_blocks(const std::string &path, std::vector<char> &, std::vector<std::int64_t> &) { no_hdf5(path); }
 WarmStart read_h5_warm_start(const std::string &path, const ProblemData &) { no_hdf5(path); }
 void write_h5_warm_start(const std::string &path, const WarmStart &) { no_hdf5(path); }
 

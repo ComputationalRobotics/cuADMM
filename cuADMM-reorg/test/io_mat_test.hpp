@@ -189,7 +189,8 @@ struct MosekCase
     double cfix = 0.5;
 };
 
-void write_mosek(const std::string &path, bool v73, const MosekCase &k, const char *sense, bool with_barc = true, bool with_cones = false)
+void write_mosek(const std::string &path, bool v73, const MosekCase &k, const char *sense, bool with_barc = true, bool with_cones = false,
+                 bool with_quadratic = false)
 {
     MatFile f = MatFile::create(path, v73);
     std::vector<std::pair<std::string, matvar_t *>> prob;
@@ -259,6 +260,13 @@ void write_mosek(const std::string &path, bool v73, const MosekCase &k, const ch
         const double one = 1.0;
         cones.emplace_back("type", make_double_matrix("type", 1, 1, &one));
         prob.emplace_back("cones", make_struct("cones", cones));
+    }
+    if (with_quadratic)
+    {
+        const double one = 1.0;
+        prob.emplace_back("qosubi", make_double_matrix("qosubi", 1, 1, &one));
+        prob.emplace_back("qosubj", make_double_matrix("qosubj", 1, 1, &one));
+        prob.emplace_back("qoval", make_double_matrix("qoval", 1, 1, &one));
     }
     write_variable(f, make_struct("prob", prob));
     if (sense)
@@ -461,6 +469,112 @@ TEST(IoMat, MosekBoundsRangesSenseAndRejections)
     infeasible.blc[0] = 2.0; // blc > buc
     write_mosek(dir + "/mosek_inf.mat", false, infeasible, "minimize");
     EXPECT_THROW(io::read_problem(dir + "/mosek_inf.mat", IoOptions()), std::invalid_argument);
+    write_mosek(dir + "/mosek_quad.mat", false, k, "minimize", true, false, true);
+    try
+    {
+        io::read_problem(dir + "/mosek_quad.mat", IoOptions());
+        ADD_FAILURE() << "quadratic terms were accepted";
+    }
+    catch (const std::invalid_argument &e)
+    {
+        EXPECT_NE(std::string(e.what()).find("quadratic"), std::string::npos) << e.what();
+    }
+#endif
+}
+
+// the written MOSEK duals satisfy MOSEK's dual constraint c - a' y = slx - sux for every scalar variable kind (free,
+// nonnegative, shifted, negated, ranged, fixed), and slc - suc = y, for a minimization and a maximization
+TEST(IoMat, MosekWrittenDualsSatisfyTheDualConstraint)
+{
+#ifndef CUADMM_HAVE_MATIO
+    GTEST_SKIP() << "matio not compiled in";
+#else
+    const std::string dir = temp_dir("mat");
+    const MosekCase k;
+    for (const char *sense : {"minimize", "maximize"})
+    {
+        SCOPED_TRACE(sense);
+        const std::string in = dir + "/mosek_dual_" + sense + ".mat", out = dir + "/mosek_dual_" + sense + "_sol.mat";
+        write_mosek(in, false, k, sense);
+        const ProblemData p = io::read_problem(in, IoOptions());
+        // a dual point: any y with S = C - A' y (dual feasibility is not needed for the identity)
+        SolveResult r = fake_result(p);
+        for (std::size_t i = 0; i < r.best.y.size(); i++)
+            r.best.y[i] = 0.1 * static_cast<double>(i + 1) - 0.35;
+        std::vector<double> S(static_cast<std::size_t>(p.vec_len()), 0.0);
+        for (std::size_t q = 0; q < p.C.val.size(); q++)
+            S[static_cast<std::size_t>(p.C.index[q])] += p.C.val[q];
+        for (std::int64_t j = 0; j < p.At.cols; j++)
+            for (std::int64_t q = p.At.colptr[j]; q < p.At.colptr[j + 1]; q++)
+                S[static_cast<std::size_t>(p.At.rowind[q])] -= p.At.val[q] * r.best.y[static_cast<std::size_t>(j)];
+        r.best.S = S;
+        io::write_solution(out, p, r);
+        MatFile f(out, MAT_ACC_RDONLY);
+        MatVar res = read_variable(f, "res");
+        const matvar_t *itr = struct_field(struct_field(res.get(), "sol", "res"), "itr", "res.sol");
+        const std::vector<double> y = numeric_values(struct_field(itr, "y", "itr"), "y");
+        const std::vector<double> slx = numeric_values(struct_field(itr, "slx", "itr"), "slx");
+        const std::vector<double> sux = numeric_values(struct_field(itr, "sux", "itr"), "sux");
+        const std::vector<double> slc = numeric_values(struct_field(itr, "slc", "itr"), "slc");
+        const std::vector<double> suc = numeric_values(struct_field(itr, "suc", "itr"), "suc");
+        ASSERT_EQ(y.size(), 5u);
+        ASSERT_EQ(slx.size(), 6u);
+        const double sgn = std::string(sense) == "maximize" ? -1.0 : 1.0;
+        for (std::size_t i = 0; i < 5; i++)
+        {
+            EXPECT_NEAR(slc[i] - suc[i], y[i], 1e-12) << "row " << i;
+            if (p.source.mosek_row_position[i] >= 0)
+                EXPECT_EQ(y[i], sgn * r.best.y[static_cast<std::size_t>(p.source.mosek_row_position[i])]);
+            else
+                EXPECT_EQ(y[i], 0.0);
+        }
+        for (std::size_t j = 0; j < 6; j++)
+        {
+            double lhs = k.c[j];
+            for (const auto &t : k.a)
+                if (static_cast<std::size_t>(std::get<1>(t)) == j)
+                    lhs -= std::get<2>(t) * y[static_cast<std::size_t>(std::get<0>(t))];
+            EXPECT_NEAR(lhs, slx[j] - sux[j], 1e-12) << "variable " << j + 1 << " (c - a'y vs slx - sux)";
+            if (sgn > 0)
+            {
+                EXPECT_GE(slx[j], 0.0);
+                EXPECT_GE(sux[j], 0.0);
+            }
+            else
+            {
+                EXPECT_LE(slx[j], 0.0);
+                EXPECT_LE(sux[j], 0.0);
+            }
+        }
+    }
+    // the reviewer's minimal case: min -x, 0 <= x <= 1, x <= 10: the optimum x = 1 has y = 0, slx = 0, sux = 1
+    MosekCase minimal;
+    minimal.c = {-1.0};
+    minimal.blx = {0.0};
+    minimal.bux = {1.0};
+    minimal.blc = {-INFINITY};
+    minimal.buc = {10.0};
+    minimal.a = {{0, 0, 1.0}};
+    minimal.bardim = {};
+    minimal.bara = {};
+    minimal.barc = {};
+    minimal.cfix = 0.0;
+    write_mosek(dir + "/mosek_minimal.mat", false, minimal, "minimize", false);
+    const ProblemData p = io::read_problem(dir + "/mosek_minimal.mat", IoOptions());
+    EXPECT_EQ(cones_string(p.cones), "l3 ");  // x', the bound slack s, the row slack t
+    ASSERT_EQ(p.num_constraints(), 2);        // x' + t = 10, x' + s = 1
+    SolveResult r = fake_result(p);
+    r.best.X = {1.0, 0.0, 9.0};
+    r.best.y = {0.0, -1.0}; // the bound row is active: its multiplier gives S_x' = -1 - (-1) = 0, S_s = 1
+    r.best.S = {0.0, 1.0, 0.0};
+    io::write_solution(dir + "/mosek_minimal_sol.mat", p, r);
+    MatFile f(dir + "/mosek_minimal_sol.mat", MAT_ACC_RDONLY);
+    MatVar res = read_variable(f, "res");
+    const matvar_t *itr = struct_field(struct_field(res.get(), "sol", "res"), "itr", "res.sol");
+    EXPECT_EQ(numeric_values(struct_field(itr, "xx", "itr"), "xx"), (std::vector<double>{1.0}));
+    EXPECT_EQ(numeric_values(struct_field(itr, "y", "itr"), "y"), (std::vector<double>{0.0}));
+    EXPECT_EQ(numeric_values(struct_field(itr, "slx", "itr"), "slx"), (std::vector<double>{0.0}));
+    EXPECT_EQ(numeric_values(struct_field(itr, "sux", "itr"), "sux"), (std::vector<double>{1.0}));
 #endif
 }
 

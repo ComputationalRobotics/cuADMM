@@ -126,6 +126,31 @@ Inside `cuADMM-reorg/src/legacy/` (the copied `SDPSolver`), the CLI and the test
   `cuadmm_io_bench` (synthetic 1e8-nonzero problems and read rates). Build options `CUADMM_WITH_HDF5`,
   `CUADMM_WITH_MATIO`, `CUADMM_WITH_ZLIB` (AUTO/ON/OFF); `cuadmm_exe --formats` lists the formats compiled in.
 
+## Phase 2b review fixes (2026-10-21)
+
+- **Native format**: string attributes and `/meta/report` are read with the stored character set, so files
+  written by h5py (variable-length UTF-8 strings, its default) and by MATLAB (fixed-length ASCII) both load;
+  svec indices of `/At/rowind`, `/b/index`, `/C/index` are range-checked before anything else touches them (a
+  malformed file used to crash the simplification scan); a missing `sense` attribute is an error unless
+  `io.sense` is given (DECISIONS 35); `/solution` and `/start` are in the layout of the file's blocks, with
+  `/solution/blocks` (DECISIONS 34); the HDF5 files are closed explicitly and a failed close is an error; the
+  code builds against HDF5 1.10 as well as 1.12+ (`H5Dvlen_reclaim` / `H5Treclaim`).
+- **MOSEK solution writer**: `slx` / `sux` of ranged variables come from the dual slacks of `x'` and of the bound
+  slack `s` (`slx - sux = S_x' - S_s = c - a'y`), and those of eliminated fixed variables from `c_j - a_j'y`
+  (`SourceInfo` keeps the bound-slack positions, the costs and the columns of the fixed variables; the `.h5`
+  metadata too); every variable kind now satisfies MOSEK's dual constraint, for maximizations with MOSEK's
+  non-positive sign convention (DECISIONS 32).
+- **MOSEK reader**: quadratic terms (`qosubi/qosubj/qoval`, `qcsubk/qcsubi/qcsubj/qcval`) are rejected instead of
+  being ignored.
+- `.cbf` / `.cbf.gz` input is rejected by name ("CBF comes with Phase 9"); read errors on an SDPA text source are
+  errors, not an end of file; the SDPA report counts a block as touched only by nonzero entries; the SDPA JSON
+  sidecar and `certificate.txt` streams are checked; `solution_blocks.txt` accompanies the TXT solution.
+- **Per-iteration values are in the solver's own sense.** The history CSV, the iteration log and
+  `SolveResult::best.pobj / dobj` hold `<C, X>` and `b'y` of the minimization the engine solves, without the
+  offset (as today, `result.h`); the final `pobj` / `dobj` of the summary and of the solution files are in the
+  file's sense with the offset (`sign * value + offset`, sign -1 for SDPA `.dat-s` input and MOSEK
+  maximizations). The two differ by that sign and offset only.
+
 ## Phase 3 (2026-10-21): thin core
 
 - **One set of checks (B15)**: `src/core/check.h` defines `CUADMM_CHECK_CUDA/CUBLAS/CUSOLVER/CUSPARSE`,

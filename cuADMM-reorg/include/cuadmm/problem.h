@@ -77,6 +77,14 @@ struct SourceInfo
     std::vector<double> mosek_var_shift;          // x_file = shift + sign * X[position]  (a fixed variable: x_file = shift)
     std::vector<double> mosek_var_sign;
     std::vector<std::int64_t> mosek_row_position; // per row of the file: constraint index, or -1 when the row was dropped
+    std::vector<std::int64_t> mosek_var_slack;    // per scalar variable: svec index of the bound slack of a ranged variable, else -1
+    std::vector<double> mosek_var_cost;           // per scalar variable: c_j of the file (the dual of an eliminated fixed variable)
+    std::vector<std::int64_t> mosek_fixed_colptr; // per scalar variable (n + 1 entries): the column of `a` of a fixed variable
+    std::vector<std::int64_t> mosek_fixed_rowind; //   (file rows, 0-based) and values; empty ranges for the other variables
+    std::vector<double> mosek_fixed_val;
+    // native .h5 input: the file's own /blocks (cone b <-> block b before the simplifications), the layout of /solution and /start
+    std::vector<char> h5_block_kinds;
+    std::vector<std::int64_t> h5_block_sizes;
 };
 } // namespace io
 

@@ -73,6 +73,25 @@ struct OriginalBlockValues
 };
 std::vector<OriginalBlockValues> expand_to_original_blocks(const ProblemData &problem, const std::vector<double> &v);
 
+/// @brief A block layout of the file for solution vectors in svec form: every cone sits in one block at an offset
+/// (a simplified cone covers the diagonal of its block, split cones of an SDPT3 group are consecutive).
+struct BlockLayout
+{
+    std::vector<char> kinds;                 // of the file's blocks
+    std::vector<std::int64_t> sizes;
+    std::vector<std::int64_t> offsets;       // svec offset of each block (sizes.size() + 1 entries)
+    std::vector<std::int64_t> cone_block;    // per cone: its block
+    std::vector<std::int64_t> cone_offset;   // per cone: position of its first row/column inside the block
+    std::int64_t vec_len() const { return offsets.back(); }
+};
+/// @brief The layout of the file's blocks: the native file's own /blocks for .h5 input, else the original blocks of
+/// the reader (cones without one become blocks of their own, in order).
+BlockLayout file_block_layout(const ProblemData &problem);
+/// @brief A solver vector (cones) written into the layout's svec vector (exact copies; a simplified cone fills the
+/// diagonal), and the reverse (entries outside the diagonal of a simplified cone are dropped).
+std::vector<double> to_file_layout(const ProblemData &problem, const BlockLayout &layout, const std::vector<double> &v);
+std::vector<double> from_file_layout(const ProblemData &problem, const BlockLayout &layout, const std::vector<double> &v);
+
 /// @brief `path` is the file when it ends with one of the extensions, else a directory receiving solution.<ext>.
 std::string solution_file_path(const std::string &path, const std::vector<std::string> &extensions, const std::string &default_name);
 
@@ -88,6 +107,7 @@ void write_h5_warm_start(const std::string &path, const WarmStart &warm_start);
 void write_problem_h5(const std::string &path, const ProblemData &problem, int compression);
 /// @brief Reads back /solution of a native file (tests, tools).
 void read_h5_solution(const std::string &path, std::vector<double> &X, std::vector<double> &y, std::vector<double> &S, double *pobj, double *dobj);
+void read_h5_solution_blocks(const std::string &path, std::vector<char> &kinds, std::vector<std::int64_t> &sizes);
 
 // text helpers
 std::string format_double(double v); // shortest round-trip decimal

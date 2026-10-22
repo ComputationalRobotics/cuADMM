@@ -29,6 +29,8 @@ Options: `CUADMM_BUILD_CLI`, `CUADMM_BUILD_TESTS`, `CUADMM_BUILD_BENCH`, `CUADMM
                                                                # today's flags are accepted as aliases
     # <problem>: a TXT directory, a native .h5 file, SDPA .dat-s[.gz], or a SeDuMi / SDPT3 / MOSEK prob .mat file
     # (--formats lists the formats compiled in; --format, --sense, --simplify, --save-format: plan Section 12)
+    # per-iteration values (history CSV, log) are the engine's minimization values without the offset; the final
+    # pobj/dobj of the summary and of the solution files are in the file's sense with the offset (SDPA, MOSEK max)
     build/cuadmm-convert <input> <output.h5 | directory>       # any input to the native HDF5 file or a TXT directory
     build/cuadmm_io_bench generate|read ...                    # synthetic problems and read rates of the formats
     build/cuadmm_exe --print-options [markdown]                # the option table

@@ -217,6 +217,48 @@ Not done / not verified:
 - Second-order cones (`K.q`, `blk 'q'`, `prob.cones`/`accs`), CBF, complex data: rejected with a message (Phase 9).
 - The MEX gateway is not built (no MATLAB); it still takes the in-memory arrays of Phase 2.
 
+### Phase 2b review fixes (2026-10-21, commits on `reorg-io` after eb3ee06)
+
+Independent review of the merged tree (findings against plan Section 12): fixed 1-5, 7-9, 11, 13; 6, 10, 12 are
+documented (DECISIONS 32-35, CHANGES "Phase 2b review fixes"). Each fix has a test:
+
+- A. clean build without `HDF5_ROOT` found the system HDF5 1.10.5, which lacks `H5Treclaim`: `h5.cc` now uses
+  `H5Treclaim` from 1.12 and `H5Dvlen_reclaim` before (`H5_VERSION_GE`).
+- 1. string attributes / `/meta/report` read with the stored character set (h5py's variable-length UTF-8, fixed
+  ASCII, variable ASCII, fixed UTF-8; int32 datasets): `tools/io/make_h5_testfiles.py` -> `test/data/h5_*.h5`,
+  `IoH5.FilesWrittenByH5pyAndMatlabStyle`.
+- 2. MOSEK `slx`/`sux` of ranged and fixed variables (`SourceInfo::mosek_var_slack/var_cost/fixed_*`, also in the
+  `.h5` metadata): `IoMat.MosekWrittenDualsSatisfyTheDualConstraint` (c - a'y = slx - sux for every variable
+  kind, slc - suc = y, sign conventions, min and max; the reviewer's minimal case gives y = 0, slx = 0, sux = 1).
+- 3. `/At/rowind`, `/b/index`, `/C/index` range-checked before the simplification scan:
+  `IoH5.MalformedIndicesAreRejectedBeforeTheSimplification` (2^40, 5, -1, C index 2^40; simplify on and off).
+- 4. `/solution` and `/start` in the file's block layout with `/solution/blocks` (`file_block_layout`,
+  `to_file_layout`, `from_file_layout` in `simplify.cc`); `solution_blocks.txt` with the TXT convention:
+  `IoH5.SolutionAndWarmStartInTheFileBlockLayout`, `IoSimplify.TxtSolutionWriterAndFormatDispatch`.
+- 5. missing `sense` attribute rejected unless `io.sense`: `IoH5.MissingSenseAttributeNeedsIoSense`.
+- 7. `.cbf` / `.cbf.gz` -> "CBF comes with Phase 9": `IoSimplify.TxtSolutionWriterAndFormatDispatch`.
+- 8. MOSEK quadratic terms rejected: `IoMat.MosekBoundsRangesSenseAndRejections`.
+- 9. SDPA text source read errors are errors: `IoSdpa.ExplicitZerosDoNotTouchABlockAndReadErrorsAreReported`
+  (a directory opened as a file), which also covers 13 (a block touched by an explicit zero only is untouched).
+- 11. HDF5 files closed explicitly with the status checked; the SDPA JSON sidecar, `certificate.txt` and
+  `solution_blocks.txt` streams checked.
+
+Builds and tests after the fixes (CPU node holy8a26208):
+
+    tools/build.sh ~/cuadmm-builds/reorg-io -DCUADMM_WITH_HDF5=ON -DCUADMM_WITH_MATIO=ON -DCUADMM_WITH_ZLIB=ON -DHDF5_ROOT=... -DMATIO_ROOT=... -DZLIB_ROOT=...
+      -- cuADMM-reorg: HDF5 TRUE (1.14.6), matio TRUE (1.5.30), zlib TRUE (1.3.2);  build exit code: 0
+      ./cuadmm_cpu_tests: 39 tests from 8 test suites ran. [ PASSED ] 39 tests.   --formats: txt sdpa sdpa.gz h5 sedumi sdpt3 mosek
+    tools/build.sh ~/cuadmm-builds/reorg-io-nodeps -DCUADMM_WITH_HDF5=OFF -DCUADMM_WITH_MATIO=OFF -DCUADMM_WITH_ZLIB=OFF
+      -- cuADMM-reorg: HDF5 FALSE (), matio FALSE (), zlib FALSE ();  build exit code: 0
+      ./cuadmm_cpu_tests: 39 tests ran. [ PASSED ] 23 tests. [ SKIPPED ] 16 tests.   --formats: txt sdpa
+    tools/build.sh ~/cuadmm-builds/reorg-io-auto        (clean configure, no HDF5_ROOT, the environment of ~/cuadmm-tools/env.sh)
+      -- cuADMM-reorg: HDF5 TRUE (1.10.5), matio FALSE (), zlib TRUE (1.2.11)   (/usr/lib64/libhdf5.so, /usr/lib64/libz.so);  build exit code: 0
+      ./cuadmm_cpu_tests: 39 tests ran. [ PASSED ] 32 tests. [ SKIPPED ] 7 tests.   --formats: txt sdpa sdpa.gz h5
+
+The reviewer's probe files (`~/cuadmm-builds/reorg-io/io_test_tmp/review_probe/`) with the io-env build: the four
+string variants and the int32 file convert; `huge_idx.h5`, `huge_C_idx.h5`, `vlen_utf8_oob.h5`, `vlen_utf8_neg.h5`
+are rejected with "/At/rowind[2] = 1099511627776 outside [0, 5)" and the like (exit 1, no crash).
+
 ## Phase 3: thin core
 
 Status: implemented (with Phase 4 in one commit); GPU evidence pending.

@@ -145,6 +145,9 @@ void write_solution_sdpa(const std::string &path, const ProblemData &problem, co
       << ", \"status\": " << report::json_string(name_of(result.status)) << ", \"iterations\": " << result.iterations
       << ", \"eta_p\": " << report::json_number(result.eta_p) << ", \"eta_d\": " << report::json_number(result.eta_d)
       << ", \"eta_g\": " << report::json_number(result.eta_g) << ", \"layout\": \"x = -y_cuADMM; 1: X_SDPA = S_cuADMM, 2: Y_SDPA = X_cuADMM (upper triangles)\"}\n";
+    j.close();
+    if (!j.good())
+        throw std::runtime_error("could not write " + json_path);
 }
 
 #ifdef CUADMM_HAVE_MATIO
@@ -216,45 +219,55 @@ void write_solution_mosek(const std::string &path, const ProblemData &problem, c
             row_position.push_back(i);
     }
     const std::size_t n = var_position.size();
+    const std::size_t m = row_position.size();
+    // MOSEK's duals: y = sgn * y_cuADMM per file row (0 for a dropped row); slc - suc = y
+    std::vector<double> y(m, 0.0), slc(m, 0.0), suc(m, 0.0);
+    auto split = [&](double t, double &lower, double &upper)
+    {
+        // lower - upper = t with both non-negative (minimization) or both non-positive (maximization)
+        if (sgn > 0)
+        {
+            lower = std::max(t, 0.0);
+            upper = std::max(-t, 0.0);
+        }
+        else
+        {
+            lower = std::min(t, 0.0);
+            upper = std::min(-t, 0.0);
+        }
+    };
+    for (std::size_t i = 0; i < m; i++)
+    {
+        if (row_position[i] < 0)
+            continue;
+        y[i] = sgn * result.best.y[static_cast<std::size_t>(row_position[i])];
+        split(y[i], slc[i], suc[i]);
+    }
+    // the scalar variables: xx from the mapping; slx - sux = c_j - a_j' y (MOSEK's dual constraint), from the dual
+    // slacks of the columns the reader created (a ranged variable has two: x' and its bound slack s, with
+    // c_j - a_j' y = S_x' - S_s), or from the data for an eliminated fixed variable
     std::vector<double> xx(n, 0.0), slx(n, 0.0), sux(n, 0.0);
+    const bool have_slack = s.mosek_var_slack.size() == n, have_fixed = s.mosek_var_cost.size() == n && s.mosek_fixed_colptr.size() == n + 1;
     for (std::size_t j = 0; j < n; j++)
     {
         if (var_position[j] < 0)
         {
             xx[j] = var_shift[j];
+            if (!have_fixed)
+                continue;
+            double t = s.mosek_var_cost[j];
+            for (std::int64_t k = s.mosek_fixed_colptr[j]; k < s.mosek_fixed_colptr[j + 1]; k++)
+                t -= s.mosek_fixed_val[static_cast<std::size_t>(k)] * y[static_cast<std::size_t>(s.mosek_fixed_rowind[static_cast<std::size_t>(k)])];
+            split(t, slx[j], sux[j]);
             continue;
         }
         xx[j] = var_shift[j] + var_sign[j] * result.best.X[static_cast<std::size_t>(var_position[j])];
-        const double t = sgn * var_sign[j] * result.best.S[static_cast<std::size_t>(var_position[j])]; // slx - sux
-        if (sgn > 0)
-        {
-            slx[j] = std::max(t, 0.0);
-            sux[j] = std::max(-t, 0.0);
-        }
-        else
-        {
-            slx[j] = std::min(t, 0.0);
-            sux[j] = std::min(-t, 0.0);
-        }
-    }
-    const std::size_t m = row_position.size();
-    std::vector<double> y(m, 0.0), slc(m, 0.0), suc(m, 0.0);
-    for (std::size_t i = 0; i < m; i++)
-    {
-        if (row_position[i] < 0)
-            continue;
-        const double t = sgn * result.best.y[static_cast<std::size_t>(row_position[i])];
-        y[i] = t;
-        if (sgn > 0)
-        {
-            slc[i] = std::max(t, 0.0);
-            suc[i] = std::max(-t, 0.0);
-        }
-        else
-        {
-            slc[i] = std::min(t, 0.0);
-            suc[i] = std::min(-t, 0.0);
-        }
+        double t = sgn * var_sign[j] * result.best.S[static_cast<std::size_t>(var_position[j])];
+        if (have_slack && s.mosek_var_slack[j] >= 0)
+            t -= sgn * result.best.S[static_cast<std::size_t>(s.mosek_var_slack[j])]; // minus the dual of the bound slack s
+        // split by sign: at an optimum at most one of the two multipliers is nonzero, so this is the exact pair
+        // (S_x', S_s) there, and the sign convention holds at every iterate
+        split(t, slx[j], sux[j]);
     }
     // bar variables: the original 's' blocks, lower triangles column by column
     std::vector<OriginalBlockValues> X = expand_to_original_blocks(problem, result.best.X);

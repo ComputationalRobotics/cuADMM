@@ -254,6 +254,115 @@ std::vector<OriginalBlockValues> expand_to_original_blocks(const ProblemData &pr
     return out;
 }
 
+BlockLayout file_block_layout(const ProblemData &problem)
+{
+    const SourceInfo &s = problem.source;
+    BlockLayout L;
+    const std::size_t B = problem.cones.size();
+    L.cone_block.assign(B, -1);
+    L.cone_offset.assign(B, 0);
+    if (!s.h5_block_kinds.empty() && s.h5_block_kinds.size() == B)
+    {
+        // the native file's own blocks: cone b is block b
+        L.kinds = s.h5_block_kinds;
+        L.sizes = s.h5_block_sizes;
+        for (std::size_t b = 0; b < B; b++)
+            L.cone_block[b] = static_cast<std::int64_t>(b);
+    }
+    else
+    {
+        // the reader's original blocks, in order of first appearance; cones without one become blocks of their own
+        std::vector<std::int64_t> block_of_original(s.original_block_sizes.size(), -1), filled(s.original_block_sizes.size(), 0);
+        for (std::size_t b = 0; b < B; b++)
+        {
+            const int o = b < s.original_block_of.size() ? s.original_block_of[b] : -1;
+            if (o >= 0 && static_cast<std::size_t>(o) < s.original_block_sizes.size())
+            {
+                if (block_of_original[static_cast<std::size_t>(o)] < 0)
+                {
+                    block_of_original[static_cast<std::size_t>(o)] = static_cast<std::int64_t>(L.kinds.size());
+                    L.kinds.push_back(s.original_block_kinds[static_cast<std::size_t>(o)]);
+                    L.sizes.push_back(s.original_block_sizes[static_cast<std::size_t>(o)]);
+                }
+                L.cone_block[b] = block_of_original[static_cast<std::size_t>(o)];
+                L.cone_offset[b] = filled[static_cast<std::size_t>(o)];
+                filled[static_cast<std::size_t>(o)] += problem.cones[b].size;
+            }
+            else
+            {
+                L.cone_block[b] = static_cast<std::int64_t>(L.kinds.size());
+                L.kinds.push_back(cone_code(problem.cones[b].kind));
+                L.sizes.push_back(problem.cones[b].size);
+            }
+        }
+    }
+    L.offsets.assign(L.kinds.size() + 1, 0);
+    for (std::size_t k = 0; k < L.kinds.size(); k++)
+        L.offsets[k + 1] = L.offsets[k] + (L.kinds[k] == 's' ? L.sizes[k] * (L.sizes[k] + 1) / 2 : L.sizes[k]);
+    for (std::size_t b = 0; b < B; b++)
+    {
+        const std::int64_t blk = L.cone_block[b];
+        const bool psd_block = L.kinds[static_cast<std::size_t>(blk)] == 's';
+        if (L.cone_offset[b] + problem.cones[b].size > L.sizes[static_cast<std::size_t>(blk)] || (!psd_block && problem.cones[b].kind == ConeKind::Psd))
+            throw std::invalid_argument("file_block_layout: cone " + std::to_string(b) + " does not fit block " + std::to_string(blk) + " of the file");
+    }
+    return L;
+}
+
+std::vector<double> to_file_layout(const ProblemData &problem, const BlockLayout &layout, const std::vector<double> &v)
+{
+    if (static_cast<std::int64_t>(v.size()) != problem.vec_len())
+        throw std::invalid_argument("to_file_layout: the vector has " + std::to_string(v.size()) + " entries, the problem " + std::to_string(problem.vec_len()));
+    const std::vector<std::int64_t> off = cone_offsets(problem.cones);
+    std::vector<double> out(static_cast<std::size_t>(layout.vec_len()), 0.0);
+    for (std::size_t b = 0; b < problem.cones.size(); b++)
+    {
+        const ConeSpec &c = problem.cones[b];
+        const std::int64_t blk = layout.cone_block[b], base = layout.cone_offset[b], o = layout.offsets[static_cast<std::size_t>(blk)];
+        if (layout.kinds[static_cast<std::size_t>(blk)] == 's')
+        {
+            if (c.kind == ConeKind::Psd)
+                for (std::int64_t l = 0; l < c.size; l++)
+                    for (std::int64_t k = 0; k <= l; k++)
+                        out[static_cast<std::size_t>(svec_index(o, base + k, base + l))] = v[static_cast<std::size_t>(off[b] + l * (l + 1) / 2 + k)];
+            else // a simplified cone: the diagonal of its block
+                for (std::int64_t k = 0; k < c.size; k++)
+                    out[static_cast<std::size_t>(svec_index(o, base + k, base + k))] = v[static_cast<std::size_t>(off[b] + k)];
+        }
+        else
+            for (std::int64_t k = 0; k < c.size; k++)
+                out[static_cast<std::size_t>(o + base + k)] = v[static_cast<std::size_t>(off[b] + k)];
+    }
+    return out;
+}
+
+std::vector<double> from_file_layout(const ProblemData &problem, const BlockLayout &layout, const std::vector<double> &v)
+{
+    if (static_cast<std::int64_t>(v.size()) != layout.vec_len())
+        throw std::invalid_argument("from_file_layout: the vector has " + std::to_string(v.size()) + " entries, the file's blocks " + std::to_string(layout.vec_len()));
+    const std::vector<std::int64_t> off = cone_offsets(problem.cones);
+    std::vector<double> out(static_cast<std::size_t>(problem.vec_len()), 0.0);
+    for (std::size_t b = 0; b < problem.cones.size(); b++)
+    {
+        const ConeSpec &c = problem.cones[b];
+        const std::int64_t blk = layout.cone_block[b], base = layout.cone_offset[b], o = layout.offsets[static_cast<std::size_t>(blk)];
+        if (layout.kinds[static_cast<std::size_t>(blk)] == 's')
+        {
+            if (c.kind == ConeKind::Psd)
+                for (std::int64_t l = 0; l < c.size; l++)
+                    for (std::int64_t k = 0; k <= l; k++)
+                        out[static_cast<std::size_t>(off[b] + l * (l + 1) / 2 + k)] = v[static_cast<std::size_t>(svec_index(o, base + k, base + l))];
+            else
+                for (std::int64_t k = 0; k < c.size; k++)
+                    out[static_cast<std::size_t>(off[b] + k)] = v[static_cast<std::size_t>(svec_index(o, base + k, base + k))];
+        }
+        else
+            for (std::int64_t k = 0; k < c.size; k++)
+                out[static_cast<std::size_t>(off[b] + k)] = v[static_cast<std::size_t>(o + base + k)];
+    }
+    return out;
+}
+
 std::string solution_file_path(const std::string &path, const std::vector<std::string> &extensions, const std::string &default_name)
 {
     const std::string l = lower(path);

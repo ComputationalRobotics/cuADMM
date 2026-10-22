@@ -108,12 +108,23 @@ void write_solution_txt(const std::string &path, const ProblemData &problem, con
     write_vector(path + "/X.txt", result.best.X);
     write_vector(path + "/y.txt", result.best.y);
     write_vector(path + "/S.txt", result.best.S);
+    // the block layout of X.txt and S.txt (the solver's cones: for a non-TXT input with simplifications they are
+    // not the file's blocks; solution_blocks.txt names them)
+    {
+        std::ofstream blocks(path + "/solution_blocks.txt");
+        for (const ConeSpec &c : problem.cones)
+            blocks << cone_code(c.kind) << " " << c.size << "\n";
+        if (!blocks.good())
+            throw std::runtime_error("could not write " + path + "/solution_blocks.txt");
+    }
     std::ofstream f(path + "/certificate.txt");
     f << std::setprecision(17) << "# b_y = " << result.dobj << "\n"
       << "# block type size lambda_min c_b   (C - A^T y, original units; lower bound = b_y + sum_b R_b c_b)\n";
     for (std::size_t b = 0; b < problem.cones.size() && b < result.dual_block_min.size(); b++)
         f << b << " " << cone_code(problem.cones[b].kind) << " " << problem.cones[b].size << " " << result.dual_block_min[b] << " "
           << result.dual_cone_coef[b] << "\n";
+    if (!f.good())
+        throw std::runtime_error("could not write " + path + "/certificate.txt");
 }
 } // namespace detail
 
