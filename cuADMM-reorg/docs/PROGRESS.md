@@ -112,8 +112,9 @@ Status: implemented; GPU evidence recorded below (b44596b: 49 of 49 identical on
 
 ## Phase 2b: input and output formats
 
-Status: implemented on branch `reorg-io` (commits listed below); CPU acceptance run; the GPU acceptance (published
-objectives from every format, `tools/baselines/cases_formats.json`) is for the parent run.
+Status: implemented on branch `reorg-io` (commits listed below), merged into `reorg` (b64cc18); CPU acceptance run;
+GPU acceptance run on the MIG configuration (below); an independent review found three correctness bugs and one
+build break, being fixed on `reorg-io` for a second merge (listed at the end of this section).
 
 Done (2026-10-21), plan Section 12, developer prompt "References for the readers (Phase 2b)":
 
@@ -190,12 +191,21 @@ Acceptance (CPU node holy8a26208, 2026-10-21 21:19, build directories above):
   simplification scan (commit below) the same read took 1.5 s (1 GB/s).
 - `docs/OPTIONS.md` regenerated (`cuadmm_exe --print-options markdown`); the io options are "now".
 
-GPU acceptance (for the parent): `tools/baselines/cases_formats.json` lists trto1, mater-1 and buck3 from `.dat-s`,
-from `.h5` (`$HOME/cuadmm-data/plato_h5/`, converted with `cuadmm-convert --compress 1`), from the TXT reference,
-and buck3 from the SeDuMi `.mat` and its `.h5` conversion (policy fixed, sigma0 1, max_iter 20000, tol 1e-4, with
-the published objective and the sign that relates the summary's pobj to it); `tools/io/check_published_objectives.py
-<cuadmm_exe> $HOME/cuadmm-data <out dir>` runs them and reports the relative deviation. Not run here (no GPU in
-this allocation).
+GPU acceptance (run by the parent on the MIG configuration, 22:05-22:20, working tree at 4640e8a):
+`tools/baselines/cases_formats.json` as written (fixed sigma = 1, 20,000 iterations, the Kocvara-page values) cannot
+pass: 20,000 iterations converge none of the three instances, and the page's value for trto1 (1.1045) is 1000x the
+optimum of the file as solved (the strict-validated runs of the sigma study and the PLATO campaign give
+-1104.50028 in the TXT minimization; mater-1 and buck3 agree with the page: -143.4654, 607.6055). The acceptance
+was therefore run with `tools/baselines/cases_formats_gpu.json` and `tools/io/check_formats.py <cuadmm_exe>
+$HOME/cuadmm-data <out dir>`: (a) objective: trto1 (fixed sigma = 1, tolerance 1e-4: converged at 38,474 iterations)
+and mater-1 (residual_balancing: converged at 8,850) from TXT, `.dat-s` and `.h5` give sign * pobj and sign * dobj
+within 1.4e-4 of the validated references (1104.50028, -143.4653137) in the file's own sense; (b) cross-format: the
+17-digit histories of the `.dat-s` and `.h5` runs are bit for bit those of the TXT runs (trto1 38,474 iterations,
+mater-1 8,850, buck3 3,000), and buck3 from the SeDuMi `.mat` (544 block read as `l`) and from its `.h5` conversion
+are bit for bit the TXT run too. buck3's published objective needs an H200-length run (the campaign ran 364,000
+iterations in 1,800 s without reaching the strict stage): not checked. 11 of 11 cases pass; outputs in
+`$HOME/cuadmm-baselines/a100-40gb-mig3g20gb_cuda12.9_gcc12.2_ss7.10.1_t8/dev_36e8552/formats3/` (`report.json`,
+`reevaluation.log`). The same session ran the full GPU test suite of the merged tree: 101 ran, 101 passed.
 
 Not done / not verified:
 
@@ -295,6 +305,28 @@ over one hour).
 - Submitted: smoke test (array 54488454, two short runs, both finished in 13 s); comparators array 54489077 (63 tasks,
   24 at a time) and Stage 1 array 54489148 (324 tasks, 40 at a time), 2026-10-21 21:16. Projected cost: at most
   about 20 core-hours for Stage 1 if every run hit the cap, less in practice.
+- Stage 1 and comparators: all 387 runs finished (21:16-21:53, 32 core-hours of 1-core cascadelake tasks including
+  queue overlap; results `results/stage1_{runs,settings}.csv`, `results/stage1_report.md` in the screen directory).
+  Comparators at the 200,000 cap: fixed sigma = 1 solves trto1 (60,150) and buck1 (119,850); the old rule
+  (legacy_adaptive) solves vibra1, mater-1, mater-2 at every sigma_0 (sigma_0 = 1: 68,650 / 99,850 / 43,550, through
+  Monitor1 jumps of sigma to 100 on vibra1); residual_balancing solves mater-1 and mater-2 (16,300 / 36,650); nobody
+  solves trto2, buck2, vibra2, shmup1. Shifted geometric means of the estimated H200 time (unsolved runs censored at
+  the cap): fixed 132 s, residual_balancing 109-111 s, old 114-132 s; spikes >= 10x after a change: old 71-74 per
+  sigma_0 (Monitor1), residual_balancing 2 at sigma_0 = 0.5, none otherwise.
+  balance_freeze: `freeze_iteration` never matters (every run froze long before 10,000: by ping-pong around
+  iteration 1,000-1,250 with the constant step, by the "step" rule at 150-200 with halve_on_reversal), so the twelve
+  settings collapse to four. factor 1.2 + halve_on_reversal: solves trto1, buck1, mater-1, mater-2 at every sigma_0
+  (40-42k, 93-116k, 15.5-16.1k, 46-49k iterations), total variation <= 9.4, largest spike 2.6x, shifted geometric
+  mean 89.7-91.9 s (better than both comparators: G4 yes), but loses vibra1 (G1 no). factor 2 + halve_on_reversal:
+  the same four problems, 110-113 s (G4 no). factor 2 + constant: loses vibra1 and, at sigma_0 = 1, trto1
+  (115-125 s). factor 1.2 + constant: loses buck1 and vibra1 (98-110 s). G2 and G3 hold for every setting (all
+  runs frozen or solved, no spike >= 10x). vibra1 is the problem of the plan's Table 2 remark (the duality gap
+  dominates and the best fixed sigma is 10-39x above the rule's late average): every balance_freeze run froze at
+  sigma in [0.47, 2.4] and did not reach the strict stage within 200,000 iterations (best long-horizon error 6e-4
+  with factor 1.2 + halve), while fixed sigma = 1 does not solve it within the cap either.
+- Stage 2 (freeze_value {band centre, last} x freeze_bias {1, 2, 4} for the two best Stage-1 settings,
+  factor 1.2 + halve_on_reversal and factor 2 + halve_on_reversal, at sigma_0 = 1; 90 runs, array 54498335 submitted
+  21:55): recorded below when complete.
 - GPU gates (plan: G0-G3, at most 12.6 H200-hours): prepared, not submitted. `tools/sigma_screen/gpu_gates.sh
   <cuadmm_exe> "<flags of the chosen setting>"` writes one sbatch file per gate (partition `gpu_h200`,
   `--gres=gpu:nvidia_h200:1`, 16 cores, 96-128 GB; the campaign protocol: tolerance 1e-4, validation every 50
@@ -333,8 +365,7 @@ over one hour).
 - 92dca50 (d6720b6 + the Phase 4b preparation), `build_and_compare.sh 92dca50 phase4b ... reorg` (21:22-21:35,
   MIG configuration): 53 of 53 identical, 0 different, 0 failed runs; tests 101 ran, 101 passed.
 - 92dca50 on the full A100 (`compare_build.sh ... phase4b reorg` in the same allocation 54480621, 21:28-21:50):
-  53 of 53 identical, 0 different, 0 failed runs (the test summary of that run is recorded with the Milestone 1
-  report).
+  53 of 53 identical, 0 different, 0 failed runs; tests 101 ran, 101 passed (21:41).
 - Note on the summary comparison of `compare_runs.py`: the `options` object of the new CLI's summary was invalid
   JSON from Phase 2 until the fix recorded in CHANGES.md ("Phase 2b follow-up"), and the tool skipped the unreadable
   summary silently; the summary comparison is informational, the acceptance (histories and solutions, bit for bit)
