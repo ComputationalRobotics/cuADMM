@@ -196,3 +196,17 @@ implementation, deviations from its letter, and open questions, each with its re
     the cap, which favours the comparators (they are censored on more problems); the chosen setting ties it within
     0.4% at sigma_0 = 1. The screen therefore recommends factor 1.2, halve_on_reversal, bias 4, band centre; the
     promotion to the default waits for the GPU gates (G0-G3, prepared, not submitted), per the user's instruction.
+
+37. **`balance_freeze` is not promoted to the default after the H200 gates.** With the CPU screen's setting
+    (factor 1.2, halve_on_reversal, bias 4) the candidate passes G0 and all four parts of G1 on the H200 (no problem
+    lost, bounded variation, no spike, shifted geometric mean 89 s against 183 s for residual_balancing and 225 s
+    for fixed sigma = 1), but it fails G2 (pendulum N=80: no validated solution within 900 s at sigma_0 = 1, 548 s
+    at sigma_0 = 100, against 124 s for the old rule, 252-285 s for residual_balancing and 622 s for fixed sigma = 1)
+    and G3 (mater-4 and mater-5 unsolved within 1800 s where the old rule solves them; mater-3 7x slower than the
+    adaptive rules): the step freeze fixes sigma within the first 1,800 iterations at a value that the larger
+    problems and the pendulum outgrow. The plan's fallback ("adopt the one that loses the fewest problems") would
+    trade the losses on G2 and G3 for the guarantees; the maintainers decide. Until then `penalty.policy` stays
+    `residual_balancing` (which had 21 spikes >= 10x over the gate runs and never froze), and the freeze design is a
+    Milestone 2 planning item (O2, O8): a freeze time or bias that scales with the problem, or a freeze only after
+    the practical stage. Evidence: docs/phase4b_gates_report.md, the gate runs under
+    `$HOME/cuadmm-experiments/2026-10-21_phase4b_screen/gpu_gates/`.

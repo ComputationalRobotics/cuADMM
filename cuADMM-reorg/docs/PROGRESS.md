@@ -25,8 +25,9 @@ lands). Branches `reorg` (HEAD: this commit) and `reorg-io` are pushed; the pull
 short: every verified commit is bit for bit the references on the 53 baseline cases on both pinned configurations
 (last: f10e149, 101 of 101 GPU tests, 51 CPU tests); the readers reach the validated objectives from every
 format with bitwise cross-format histories; the screen's recommendation for `balance_freeze` is factor 1.2,
-halve_on_reversal, freeze bias 4 (DECISIONS 36), the default policy unchanged. Awaiting the user: approval of
-the GPU gates (H200, 6-12.6 hours, `gpu_gates/` job files) and the go-ahead for Milestone 2. Not verifiable here:
+halve_on_reversal, freeze bias 4 (DECISIONS 36), the default policy unchanged. The GPU gates ran on 2026-10-22 (5.73
+H200-hours; section "Phase 4b GPU gates"): G0 and G1 pass, G2 and G3 fail; the default policy stays
+`residual_balancing`. Awaiting the user: the go-ahead for Milestone 2. Not verifiable here:
 MATLAB (MEX, SPOT recovery), MOSEK dual signs against a MOSEK run, buck3's published objective, performance and
 peak memory beyond the summaries' fields.
 
@@ -68,6 +69,40 @@ Submissions and results are appended here as they come (`gpu_gates/submissions.t
   campaign's job scripts excluded this node); 41 s of H200 time. The outputs are kept in
   `runs/G1_attempt1_failed/`; G1 resubmitted 14:08 with `--exclude=holygpu8a12204` (job id in
   `submissions.txt`); `gpu_gates.sh` now excludes that node by default.
+- G1 (job 54689882, holygpu8a12603, 14:08-15:37, 1.49 h), G2 (54688318, holygpu8a12201, 13:59-14:59, 1.01 h), G3
+  (54688319, holygpu8a12204, 13:59-16:56, 2.94 h) completed; the analysis (`tools/sigma_screen/gates_analyze.py`,
+  CPU job 54707952) is in `docs/phase4b_gates_report.md` (copy of `gpu_gates/gates_report.md`; raw runs in
+  `gpu_gates/runs/`, logs in `gpu_gates/logs/`, references in `tools/sigma_screen/gates_references.json`).
+  **Total 5.73 H200-hours** (approved at most 12.58; expected 6-9.5), every allocation released (all jobs COMPLETED).
+- Results (candidate = balance_freeze, factor 1.2, halve_on_reversal, bias 4; residual_balancing with its explicit
+  parameters; fixed sigma = 1 and the old rule from the campaign's H200 runs, trto1/buck1 fixed from G0):
+  - G1 (sigma_0 = 1, strict-stage times): trto1 candidate 38.5 s, residual_balancing none within 600 s, fixed 24.5 s,
+    old none; buck1 67.8 / none / 70.1 / none; vibra1 47.5 / 200 / 556 / 39.5; mater-1 23.6 / 5.4 / 124 / 32.3;
+    mater-2 61.3 / 13.5 / 433 / 16.6; shmup1 none for every policy (1800 s). The candidate's iteration counts
+    are exactly the CPU replica's (97,750; 121,900; 80,800; 73,300; 163,100), as are residual_balancing's (vibra1
+    342,300; mater-1 16,300; mater-2 36,650). G1a no problem lost: **pass**; G1b changes stop (every run frozen
+    by the step rule at 151-1801, total variation <= 11.4): **pass**; G1c no change followed by a >= 10x rise of the
+    validated error: **pass** (largest 7.4x); G1d shifted geometric mean of the strict time: candidate 89 s,
+    residual_balancing 183 s, fixed 225 s, old rule 173 s: **pass**.
+  - G2 (pendulum N=80, 900 s caps, validated 1e-4 stage): sigma_0 = 1: candidate not reached (frozen at sigma 7.7
+    at iteration 131; 299,319 iterations), residual_balancing 84,390 iterations / 252 s; sigma_0 = 100: candidate
+    187,198 / 548 s, residual_balancing 96,395 / 285 s (5 spikes >= 10x). References: old rule 45,393 / 124 s,
+    fixed sigma = 1 230,315 / 622 s. No run reached the strict stage within 900 s. **Fail**: the candidate is the
+    slowest policy on this instance and misses the cap at sigma_0 = 1; sensitivity to sigma_0 is large.
+  - G3 (1800 s caps): mater-3 candidate strict at 1,167,250 iterations / 643 s, residual_balancing 188,000 / 102 s,
+    old rule 231,000 / 88 s, fixed none; mater-4 candidate none (practical at 330,496, 398 s), residual_balancing
+    652,000 / 774 s (6 spikes >= 10x), old 769,500 / 498 s; mater-5 candidate none (practical 582,619, 1290 s),
+    residual_balancing none (practical 61,548, 143 s; 5 spikes), old 890,000 / 1039 s; mater-6 nobody (candidate
+    not even practical; residual_balancing practical at 88,414, 403 s; old practical at 86,415). **Fail** against
+    the old rule on mater-4 and mater-5 and 7x slower on mater-3: the step freeze fixes sigma at 0.04-0.10 within
+    the first 1,800 iterations, while the adaptive rules keep moving (hundreds of changes) and reach the strict
+    stage. The candidate had no spike >= 10x anywhere (residual_balancing: 21 over its runs).
+- Implication for the planned default: the candidate passes the small-problem gate G1 outright (and it is the only
+  policy with bounded variation and no spikes), but it fails G2 and G3 against both comparators because its freeze
+  comes too early at a value the larger problems outgrow. On this evidence the promotion of `balance_freeze` to
+  the default is not justified; `penalty.policy` stays `residual_balancing`, and the freeze design (freeze time
+  scaled with the problem, or a freeze only after the practical stage) goes to the Milestone 2 planning as O2/O8
+  (DECISIONS 37). The Phase 5 milestone boundary stays in place.
 
 ## Phase 0: skeleton and safety net
 
