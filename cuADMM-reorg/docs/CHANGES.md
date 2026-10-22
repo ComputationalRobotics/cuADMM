@@ -128,3 +128,15 @@ Inside `cuADMM-reorg/src/legacy/` (the copied `SDPSolver`), the CLI and the test
 - **Best-iterate ranking with validations (B23)**: unchanged in this phase (the validated snapshots are ranked by
   `ValidationResult::better_than`: practical merit first, then `max_abs_dimacs` in the strict stage); the DIMACS-based
   ranking of plan B23 for the non-strict validation mode is recorded as pending in `docs/PROGRESS.md`.
+
+## Phase 4b (2026-10-21): screen tools and two output-format fixes
+
+- `report::json_number` prints integral values below 1e16 in fixed notation (`"sigma_max": 1000000`, previously
+  `1e+06` from the shortest round-trip form); other values are unchanged (`1e-06`, `1.35`). Affects the JSON
+  summary only (`sigma_policy_parameters`, `options`, timings that happen to be integral); histories and sigma logs
+  keep 17 significant digits. Numerical results unchanged (d6720b6).
+- `tools/sigma_screen/`: the CPU replica of plain ADMM (v1.2 = the sigma study's v1.1 plus the `balance_freeze`
+  rule), its tests, the C++/replica cross-check generator, the screen driver and analysis (no solver change).
+- Tests: `HybridSwitchCli.SgsIterationsOption` parses sigma and tau from the history CSV instead of matching the
+  17-digit text; `PenaltyPolicy.BalanceFreezeAgreesWithTheReplicaOn{PsdFree,Mater1}` added with
+  `test/data/golden/balance_freeze_cases_*.csv`.

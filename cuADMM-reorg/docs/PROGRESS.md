@@ -97,7 +97,7 @@ Status: implemented (commits 75eb6ed Pre-0, f8de01f Phase 1); GPU evidence below
 
 ## Phase 2: options and front-ends
 
-Status: implemented; GPU evidence pending.
+Status: implemented; GPU evidence recorded below (b44596b: 49 of 49 identical on the MIG configuration).
 
 - `include/cuadmm/{options,problem,result,solver,io,cuadmm}.h`, `src/options/options.cc` (option table, setter,
   getter, validation, documentation), `src/io/{problem_data,txt,io}.cc`, `src/report/writers.{h,cc}`,
@@ -125,7 +125,8 @@ Status: implemented (with Phase 4 in one commit); GPU evidence pending.
 
 ## Phase 4: algorithm layer
 
-Status: implemented; GPU evidence pending.
+Status: implemented; GPU evidence on the MIG configuration recorded below (59e943a: 53 of 53 identical); the
+second configuration (full A100) is in progress.
 
 - `src/admm/{admm_state,iteration_scheme,penalty_policy,admm_solver}`, `src/termination/{stopping_rule,
   best_iterate_tracker}`, `src/report/observers`; the engine's `solve()` is a wrapper over `AdmmSolver::run`
@@ -145,9 +146,60 @@ Status: implemented; GPU evidence pending.
 
 ## Phase 4b: CPU screen of `balance_freeze`
 
-Status: not started. The validated sigma-study replica is available locally
-(`$HOME/cuadmm-experiments/2026-10-19_sigma_rule_check/emu-run/cuadmm_emu.py`, v1.1, with its results and
-cross-check reports); it will be copied into `tools/sigma_screen/` for the screen.
+Status: the CPU screen is running (Stage 1 and the comparators submitted on 2026-10-21 at 21:16); results are
+recorded below as they complete. The GPU gates are prepared as commands only (they need approval: H200, or jobs
+over one hour).
+
+- The validated sigma-study replica (plan: "ask the maintainers for it") is in this account:
+  `$HOME/cuadmm-experiments/2026-10-19_sigma_rule_check/emu-run/cuadmm_emu.py`, v1.1 (2026-10-19), sha256
+  `f213e9c6875900491af0eddce14e1c818a20416ab32ec534585a6e63cb40db18`, with its cross-check against the GPU
+  (`emu-run/results/crosscheck.md`), its rule comparison (`emu-run/results/rule_comparison.md`) and the report
+  (`report/`). `tools/sigma_screen/cuadmm_emu.py` is that file plus the `balance_freeze` rule (v1.2, sha256
+  `b0a5814e684d1a4b01366742838ce0cb6439bb2b91c236353635f44258f3af6b`): `BalanceFreezeState`, a transcription of
+  `ResidualBalancingPenalty` with the freeze enabled (`src/admm/penalty_policy.cc`), selected as
+  `--rule balance_freeze[:key=value,...]` with the option names of `penalty.*`; checkpoints carry the freeze state;
+  `summary.json` gains `freeze_iteration` and `freeze_reason` (DECISIONS 19).
+- The replica is unchanged for the other rules: the sigma study's v1.1 suite (`emu-run/test_emu_rules.py`, run
+  against `tools/sigma_screen/` on the CPU node) passes, so v1.2 = v1.1 (= v1.0) on its cases.
+  `tools/sigma_screen/test_balance_freeze.py` (7 tests: the rule parser, the freeze at K_f, ping-pong with the
+  +,+,-,- pattern and the band centre, the last value and the bias, halve-on-reversal for three factors, the sigma_0
+  clamp, the emulator against the state object on trto1, the checkpoint round trip on vibra1) passes on the CPU node.
+- Cross-check of the C++ policy against the replica: `tools/sigma_screen/replay_policy.py` drives
+  `BalanceFreezeState` with the residual sequences of the golden histories (PSD_Free residual_balancing, 6000
+  iterations; mater-1 legacy_adaptive, 8117 iterations) for 15 parameter cases and writes
+  `test/data/golden/balance_freeze_cases_{PSD_Free,mater-1}.csv` (sigma after every iteration, shortest round-trip
+  decimals, and the names of the log entries); `PenaltyPolicy.BalanceFreezeAgreesWithTheReplicaOn{PsdFree,Mater1}`
+  replay them through `make_penalty_policy` and compare every sigma and every log entry exactly: pass
+  (`cuadmm_cpu_tests`: 15 tests pass on the CPU node). Cases on PSD_Free at sigma_0 = 100: the defaults (ping-pong
+  freeze at 1000); `freeze_iteration=3000,pingpong_min_iter=100000` (K_f); `factor=1.2,step_schedule=halve_on_reversal`
+  (step freeze at 121); `step_schedule=halve_on_reversal,pingpong_min_iter=100000,freeze_iteration=100000` (step
+  freeze at 141); `freeze_value=last,freeze_bias=2`; `freeze_bias=4,pingpong_window=12`;
+  `pingpong_window=6,pingpong_net=0`; sigma_0 = 5000 (clamped to 1000); sigma_0 = 1e-4 with
+  `sigma_min=1e-2,sigma_max=1e2,factor=1.5`; `freeze_iteration=5000,pingpong_min_iter=100000,freeze_bias=0.5,
+  freeze_value=band_centre`; `factor=1.2,freeze_iteration=20000,pingpong_window=12`. On mater-1 at sigma_0 = 1: the
+  defaults; `factor=1.2,step_schedule=halve_on_reversal`; `freeze_iteration=20000,pingpong_window=12`;
+  `freeze_iteration=50000,pingpong_window=8,pingpong_net=2,freeze_bias=2,freeze_value=last`.
+- Screen design (plan Table 2, fractional): Stage 1 = factor {2, 1.2} x step_schedule {constant, halve_on_reversal}
+  x K_f {1e4, 2e4, 5e4} (12 settings) at sigma_0 in {0.5, 1, 2} on the nine small PLATO problems (trto1, trto2,
+  buck1, buck2, vibra1, vibra2, mater-1, mater-2, shmup1): 324 runs. Comparators: old (legacy_adaptive) and new
+  (residual_balancing) at the three sigma_0 values, fixed sigma = 1: 63 runs. Stage 2 = freeze_value {band centre,
+  last} x freeze_bias {1, 2, 4} for the two best Stage-1 settings at sigma_0 = 1 (90 runs), then the best two of
+  Stage 2 at sigma_0 in {0.5, 2}. Protocol of the sigma study: tolerance 1e-4, validation every 50 iterations,
+  strict stage max|DIMACS| <= 1e-6, iteration cap 200,000 (DECISIONS 18). Driver `tools/sigma_screen/screen.sh`:
+  one 1-core Slurm array task per run (seas_compute, cascadelake nodes as in the sigma study, 15 minutes, checkpoints
+  every 120 s, resumes on a second call); outputs outside the repository in
+  `$HOME/cuadmm-experiments/2026-10-21_phase4b_screen/` (the pinned replica copy and its sha256, `runs/`, `logs/`,
+  `results/`, `specs/*.pending.*`). Gates and tables: `tools/sigma_screen/analyze.py` (G1 no problem lost against
+  fixed sigma = 1 and the old rule at the same sigma_0; G2 the changes stop; G3 no change followed by a >= 10x rise
+  of the validated error; G4 a better shifted geometric mean (shift 10 s) of the estimated GPU time than both
+  residual_balancing and fixed sigma = 1; G5 robust across sigma_0).
+- Commands (from `cuADMM-reorg/tools/sigma_screen`, Python = `~/cuadmm-analysis-env/bin/python -B`):
+  `make_specs.py stage1 specs/stage1.txt`; `make_specs.py comparators specs/comparators.txt`;
+  `SCREEN_ROOT=$HOME/cuadmm-experiments/2026-10-21_phase4b_screen ./screen.sh specs/comparators.txt 24 00:15:00`;
+  `... ./screen.sh specs/stage1.txt 40 00:15:00`; `srun -c 1 ... analyze.py specs/stage1.txt specs/comparators.txt`.
+- Submitted: smoke test (array 54488454, two short runs, both finished in 13 s); comparators array 54489077 (63 tasks,
+  24 at a time) and Stage 1 array 54489148 (324 tasks, 40 at a time), 2026-10-21 21:16. Projected cost: at most
+  about 20 core-hours for Stage 1 if every run hit the cap, less in practice.
 
 ### GPU evidence of the Pre-0/Phase 1 and Phase 2 commits (clean per-commit builds, MIG configuration)
 
@@ -163,3 +215,17 @@ cross-check reports); it will be copied into `tools/sigma_screen/` for the scree
   0 different, 0 failed runs; tests 101 ran, 99 passed, the same 2 formatting expectations failed (the commit's tests
   still expected the 17-digit form in one place and the shortest form in the other; both fixed in the working tree
   that the Phase 4 commit carries, where `cuadmm_cpu_tests` and the CLI tests use the shortest round-trip form).
+- 59e943a (Phase 3 + 4), `build_and_compare.sh 59e943a phase4 ... reorg` (20:50-21:00): 53 of 53 identical, 0
+  different, 0 failed runs (fixed 21 against 2d8a755, legacy_adaptive 10 against 9bb4ba5, residual_balancing 10
+  against 2d8a755, sGS 12 against 2d8a755-sgs: 8 fixed-sigma sGS cases, the sGS-phase adaptive rule on PSD_Free,
+  two hybrid cases with the switch at 101 and 301, and one sGS run to tolerance 1e-5 with the reduction rule on).
+  Tests: 101 ran, 99 passed, 2 failed, the same two CLI formatting expectations as before
+  (`FixedSigmaCli.BackwardCompatibleAndNewFlags` expected `"sigma_max": 1000000` where `std::to_chars` wrote `1e+06`;
+  `HybridSwitchCli.SgsIterationsOption` expected `1.618` in the history CSV, which prints 17 significant digits).
+  Both fixed in d6720b6 (`json_number` prints integral values in fixed notation; the hybrid test parses tau;
+  CHANGES.md Phase 4b): the two tests pass on the MIG with the rebuilt working tree (21:17); the clean per-commit
+  GPU run of the Phase 4b commits is recorded below when done.
+- Second configuration `a100-sxm4-80gb_cuda12.9_gcc12.2_ss7.10.1_t16` (partition `gpu`, job 54480621, from 21:08,
+  `tools/slurm/full_a100_session.sh 54480621 59e943a phase4 reorg`): Phase 0 baselines 59 of 59 identical
+  (6 self-checks and the 53 reference cases, 16 threads); the comparison of 59e943a is in progress and is recorded
+  here when it completes.

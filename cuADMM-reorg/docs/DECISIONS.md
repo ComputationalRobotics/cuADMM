@@ -95,3 +95,23 @@ implementation, deviations from its letter, and open questions, each with its re
     with the plan's behaviour as the default of the C++ API (`sgs_tau = tau`, no reduction). The CLI chooses main's
     values for today's flags (`--scheme sgs_admm`, `--sgs-iterations`) unless `--tau`/`--sgs-tau` are given, so that
     the published command lines keep their iterates. Recorded in `CHANGES.md`.
+
+18. **Phase-4b CPU screen protocol.** The screen keeps the sigma study's protocol (tolerance 1e-4, validation every
+    50 iterations, strict stage max|DIMACS| <= 1e-6) but caps every run at 200,000 iterations instead of 500,000: the
+    study's runs show that the set of problems the comparators solve is the same at both caps (fixed sigma = 1:
+    trto1 at 60,150 and buck1 at 119,850; the old rule: mater-2 at 43,550, vibra1 at 68,650, mater-1 at 99,850;
+    mater-1 under fixed sigma = 1 at 389,800 and vibra1 under the new rule at 342,300 are solved by another
+    comparator within 200,000), and the four problems no rule solves (trto2, buck2, vibra2, shmup1) cost 2.5x less
+    per run. The comparators are re-run with the v1.2 replica at the same cap rather than reused from the study, so
+    that every run of the screen shares one code and one cap. The "time" of the gates is the H200 estimate of the
+    iteration count (iterations x seconds per iteration + snapshots x seconds per snapshot of the PLATO cold-start
+    stage-3 fixed-sigma runs), not the replica's CPU seconds, which depend on the node; unsolved runs enter the
+    shifted geometric mean censored at the cap's estimate. Stage 2 runs at sigma_0 = 1 first, then the best two
+    settings at sigma_0 in {0.5, 2}.
+19. **The replica's `balance_freeze` follows the C++ policy, not the reverse.** `BalanceFreezeState` mirrors
+    `ResidualBalancingPenalty` (vote in the division form `feasratio < 1`, the counters incremented before the
+    check of the same iteration, the freeze tests after the check at every iteration, `freeze_iteration < 0` meaning
+    1e4 as in the option default, `sigma_0` clamped at reset), so that the cross-check compares two transcriptions
+    of the plan's pseudocode; the rule spec uses the option names of `penalty.*` for the same reason. The screen
+    runs a pinned copy of the replica (sha256 recorded next to it); `screen.sh` warns when the repository copy
+    differs.
