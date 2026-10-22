@@ -4,11 +4,13 @@
 
     The legacy TXT directory, read exactly as today's Problem::from_txt (src/legacy/problem.cu) reads it: the same
     files, parsing, index checks and warnings, and the same arrays (the CSC of At as COO_to_CSC sorts it, b and C in
-    file order). Never simplified (plan Section 12). Also the TXT warm start and the TXT solution writer.
+    file order). Never simplified (plan Section 12). Also the TXT warm start and the TXT solution writer
+    (detail::write_solution_txt, reached through io::write_solution).
 
 */
 
 #include "cuadmm/io.h"
+#include "io/readers.h"
 
 #include <cstdint>
 #include <filesystem>
@@ -98,10 +100,10 @@ void write_vector(const std::string &filename, const std::vector<double> &v)
 }
 } // namespace
 
-void write_solution(const std::string &path, const ProblemData &problem, const SolveResult &result)
+namespace detail
 {
-    if (problem.source.format != "txt" && !problem.source.format.empty())
-        throw std::invalid_argument("writing solutions in the " + problem.source.format + " convention comes with Phase 2b");
+void write_solution_txt(const std::string &path, const ProblemData &problem, const SolveResult &result)
+{
     std::filesystem::create_directories(path);
     write_vector(path + "/X.txt", result.best.X);
     write_vector(path + "/y.txt", result.best.y);
@@ -113,6 +115,7 @@ void write_solution(const std::string &path, const ProblemData &problem, const S
         f << b << " " << cone_code(problem.cones[b].kind) << " " << problem.cones[b].size << " " << result.dual_block_min[b] << " "
           << result.dual_cone_coef[b] << "\n";
 }
+} // namespace detail
 
 } // namespace io
 } // namespace cuadmm

@@ -24,8 +24,44 @@ message(STATUS "cuADMM-reorg: CUDA architectures ${CMAKE_CUDA_ARCHITECTURES}, bu
 option(CUADMM_BUILD_CLI "Build the cuadmm command-line executable" ON)
 option(CUADMM_BUILD_TESTS "Build the test runner" ON)
 option(CUADMM_BUILD_MATLAB "Build the MATLAB MEX gateway (needs MATLAB)" OFF)
-option(CUADMM_WITH_HDF5 "HDF5 reader and writer (Phase 2b)" OFF)
-option(CUADMM_WITH_MATIO "MATLAB .mat readers through matio (Phase 2b)" OFF)
+option(CUADMM_BUILD_BENCH "Build the benchmarks (bench/)" ON)
+# Optional input/output dependencies (plan Section 12): AUTO enables a format when its library is found
+# (-DHDF5_ROOT=<prefix>, -DMATIO_ROOT=<prefix>, -DZLIB_ROOT=<prefix>), ON requires it, OFF leaves it out.
+set(CUADMM_WITH_HDF5 AUTO CACHE STRING "Native HDF5 problem format (AUTO, ON, OFF)")
+set(CUADMM_WITH_MATIO AUTO CACHE STRING "SeDuMi, SDPT3 and MOSEK .mat files through matio (AUTO, ON, OFF)")
+set(CUADMM_WITH_ZLIB AUTO CACHE STRING "gzip-compressed SDPA files (.dat-s.gz) through zlib (AUTO, ON, OFF)")
+set_property(CACHE CUADMM_WITH_HDF5 CUADMM_WITH_MATIO CUADMM_WITH_ZLIB PROPERTY STRINGS AUTO ON OFF)
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
+
+# resolves an AUTO/ON/OFF option against a find_package result: CUADMM_HAVE_<name> is TRUE or FALSE afterwards
+function(cuadmm_resolve_optional option_name found_var feature)
+  set(value "${${option_name}}")
+  string(TOUPPER "${value}" value)
+  if(value STREQUAL "OFF" OR value STREQUAL "0" OR value STREQUAL "FALSE" OR value STREQUAL "NO")
+    set(${option_name}_RESOLVED FALSE PARENT_SCOPE)
+  elseif(${found_var})
+    set(${option_name}_RESOLVED TRUE PARENT_SCOPE)
+  elseif(value STREQUAL "AUTO")
+    message(STATUS "cuADMM-reorg: ${feature} not found, ${option_name} is OFF")
+    set(${option_name}_RESOLVED FALSE PARENT_SCOPE)
+  else()
+    message(FATAL_ERROR "${option_name}=ON but ${feature} was not found")
+  endif()
+endfunction()
+
+if(NOT CUADMM_WITH_HDF5 STREQUAL "OFF")
+  find_package(HDF5Lib)
+endif()
+cuadmm_resolve_optional(CUADMM_WITH_HDF5 HDF5Lib_FOUND "HDF5 (set HDF5_ROOT)")
+if(NOT CUADMM_WITH_MATIO STREQUAL "OFF")
+  find_package(Matio)
+endif()
+cuadmm_resolve_optional(CUADMM_WITH_MATIO Matio_FOUND "matio (set MATIO_ROOT)")
+if(NOT CUADMM_WITH_ZLIB STREQUAL "OFF")
+  find_package(ZLIB)
+endif()
+cuadmm_resolve_optional(CUADMM_WITH_ZLIB ZLIB_FOUND "zlib (set ZLIB_ROOT)")
+message(STATUS "cuADMM-reorg: HDF5 ${CUADMM_WITH_HDF5_RESOLVED} (${HDF5LIB_VERSION}), matio ${CUADMM_WITH_MATIO_RESOLVED} (${MATIO_VERSION}), zlib ${CUADMM_WITH_ZLIB_RESOLVED} (${ZLIB_VERSION_STRING})")
 
 add_compile_options($<$<COMPILE_LANGUAGE:CUDA>:-Wno-deprecated-gpu-targets>)
 
@@ -91,6 +127,18 @@ set(CUADMM_SOURCES
   src/io/problem_data.cc
   src/io/txt.cc
   src/io/io.cc
+  src/io/csc_builder.cc
+  src/io/text_source.cc
+  src/io/sha256.cc
+  src/io/simplify.cc
+  src/io/sdpa.cc
+  src/io/h5.cc
+  src/io/mat_common.cc
+  src/io/sedumi.cc
+  src/io/sdpt3.cc
+  src/io/mosek.cc
+  src/io/solution_writers.cc
+  src/io/txt_writer.cc
   src/report/writers.cc
   src/solver/solver_facade.cu)
 add_library(cuadmm SHARED ${CUADMM_LEGACY_SOURCES} ${CUADMM_SOURCES})
@@ -103,6 +151,19 @@ target_link_libraries(cuadmm PUBLIC
   ${CMAD_LIB} ${CCOLAMD_LIB} ${CHOLMOD_LIB}
   ${LAPACK_LIBRARIES} ${BLAS_LIBRARIES}
   cuadmm_psd_kernels)
+# the optional formats (plan Section 12): the readers that are not compiled in fail with a clear message
+if(CUADMM_WITH_HDF5_RESOLVED)
+  target_compile_definitions(cuadmm PRIVATE CUADMM_HAVE_HDF5=1)
+  target_link_libraries(cuadmm PRIVATE cuadmm::hdf5)
+endif()
+if(CUADMM_WITH_MATIO_RESOLVED)
+  target_compile_definitions(cuadmm PRIVATE CUADMM_HAVE_MATIO=1)
+  target_link_libraries(cuadmm PRIVATE cuadmm::matio)
+endif()
+if(CUADMM_WITH_ZLIB_RESOLVED)
+  target_compile_definitions(cuadmm PRIVATE CUADMM_HAVE_ZLIB=1)
+  target_link_libraries(cuadmm PRIVATE ZLIB::ZLIB)
+endif()
 
 # ---------------------------------------------------------------------------------------------- executables
 if(CUADMM_BUILD_CLI)
@@ -114,6 +175,12 @@ if(CUADMM_BUILD_CLI)
   # generator of the known-optimum TXT problems (test/regression_problems.hpp), for the reference comparisons
   add_executable(cuadmm_gen_problems apps/cli/gen_problems.cpp)
   target_include_directories(cuadmm_gen_problems PRIVATE test)
+  # cuadmm-convert: any supported input format to the native HDF5 file or a TXT directory (plan Section 12)
+  add_executable(cuadmm_convert apps/cli/cuadmm_convert.cc)
+  set_target_properties(cuadmm_convert PROPERTIES OUTPUT_NAME cuadmm-convert)
+  target_link_libraries(cuadmm_convert PRIVATE cuadmm)
+  target_include_directories(cuadmm_convert PRIVATE src ${CMAKE_BINARY_DIR}/generated)
+  add_dependencies(cuadmm_convert cuadmm_version)
   # the option table as documentation (docs/OPTIONS.md is committed; `make cuadmm_options_md` regenerates it)
   add_custom_target(cuadmm_options_md
     COMMAND cuadmm_exe --print-options markdown > ${CMAKE_CURRENT_SOURCE_DIR}/docs/OPTIONS.md
@@ -123,6 +190,13 @@ endif()
 
 if(CUADMM_BUILD_MATLAB)
   add_subdirectory(matlab)
+endif()
+
+# ---------------------------------------------------------------------------------------------- benchmarks
+if(CUADMM_BUILD_BENCH)
+  # reading rate of the problem formats (plan Phase 2b acceptance: 1e8 nonzeros from .h5 limited by the disk)
+  add_executable(cuadmm_io_bench bench/io_read_bench.cc)
+  target_link_libraries(cuadmm_io_bench PRIVATE cuadmm)
 endif()
 
 # ---------------------------------------------------------------------------------------------- tests
@@ -145,7 +219,26 @@ if(CUADMM_BUILD_TESTS)
   add_executable(cuadmm_cpu_tests test/cpu_tests.cpp)
   target_include_directories(cuadmm_cpu_tests PRIVATE test src)
   target_link_libraries(cuadmm_cpu_tests PRIVATE GTest::gtest_main cuadmm)
-  target_compile_definitions(cuadmm_cpu_tests PRIVATE CUADMM_TEST_DATA_DIR="${CMAKE_CURRENT_SOURCE_DIR}/test/data")
+  # external data of the format tests (skipped when absent): the PLATO/Kocvara instances in several formats under
+  # CUADMM_EXTERNAL_DATA_DIR (plato_sdpa/, plato_sedumi/, plato_kocvara/txt/) and the SPOT samples (MOSEK/, TXT/)
+  set(CUADMM_EXTERNAL_DATA_DIR "$ENV{HOME}/cuadmm-data" CACHE PATH "Directory of the external test data (PLATO, Kocvara)")
+  set(CUADMM_SPOT_DATA_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../examples/SPOT/data" CACHE PATH "Directory of the SPOT sample data (MOSEK/, TXT/)")
+  target_compile_definitions(cuadmm_cpu_tests PRIVATE
+    CUADMM_TEST_DATA_DIR="${CMAKE_CURRENT_SOURCE_DIR}/test/data"
+    CUADMM_EXTERNAL_DATA_DIR="${CUADMM_EXTERNAL_DATA_DIR}"
+    CUADMM_SPOT_DATA_DIR="${CUADMM_SPOT_DATA_DIR}")
+  if(CUADMM_WITH_HDF5_RESOLVED)
+    target_compile_definitions(cuadmm_cpu_tests PRIVATE CUADMM_HAVE_HDF5=1)
+    target_link_libraries(cuadmm_cpu_tests PRIVATE cuadmm::hdf5)
+  endif()
+  if(CUADMM_WITH_MATIO_RESOLVED)
+    target_compile_definitions(cuadmm_cpu_tests PRIVATE CUADMM_HAVE_MATIO=1)
+    target_link_libraries(cuadmm_cpu_tests PRIVATE cuadmm::matio)
+  endif()
+  if(CUADMM_WITH_ZLIB_RESOLVED)
+    target_compile_definitions(cuadmm_cpu_tests PRIVATE CUADMM_HAVE_ZLIB=1)
+    target_link_libraries(cuadmm_cpu_tests PRIVATE ZLIB::ZLIB)
+  endif()
   gtest_discover_tests(cuadmm_cpu_tests DISCOVERY_MODE PRE_TEST)
   set(CUADMM_REGRESSION_DATA_DIR "${CMAKE_BINARY_DIR}/regression_data" CACHE PATH
       "Directory of the TXT problems generated by the RegressionSolver tests")

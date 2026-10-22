@@ -121,7 +121,8 @@ void append_summary_json(const std::string &path, const std::string &problem_pat
     const std::string status = r.converged ? "converged" : (r.status == Status::TimeLimit ? "time_limit" : (r.status == Status::NonFinite ? "non_finite" : "max_iter"));
     f << std::setprecision(17)
       << "{\"problem\": " << json_string(problem_path) << ", \"tag\": " << json_string(o.output.tag)
-      << ", \"format\": " << json_string(problem.source.format) << ", \"sense\": " << json_string(name_of(problem.sense))
+      << ", \"format\": " << json_string(problem.source.format) << ", \"source_path\": " << json_string(problem.source.path)
+      << ", \"sense\": " << json_string(name_of(problem.sense))
       << ", \"objective_offset\": " << json_number(problem.objective_offset)
       << ", \"vec_len\": " << problem.vec_len() << ", \"con_num\": " << problem.num_constraints() << ", \"blocks\": " << problem.cones.size()
       << ", \"stop_tol\": " << json_number(o.algorithm.tol) << ", \"max_iter\": " << o.algorithm.max_iter
@@ -176,6 +177,10 @@ void append_summary_json(const std::string &path, const std::string &problem_pat
     if (o.certificate.trace_bound_scale >= 0)
         f << ", \"certified_lower_bound_scaled\": " << json_number(r.certified_lower_bound_scaled);
     f << ", \"certificate_conditional_on_free_bounds\": " << B(r.certificate_conditional_on_free_bounds)
+      << ", \"conversion_report\": [";
+    for (std::size_t k = 0; k < problem.source.report.size(); k++)
+        f << (k ? ", " : "") << json_string(problem.source.report[k]);
+    f << "]"
       << ", \"options\": " << options_json(o)
       << ", \"build_project\": " << json_string(CUADMM_BUILD_PROJECT) << ", \"build_commit\": " << json_string(CUADMM_BUILD_COMMIT)
       << ", \"build_dirty\": " << B(CUADMM_BUILD_DIRTY)
