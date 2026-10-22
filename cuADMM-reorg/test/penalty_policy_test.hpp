@@ -11,19 +11,26 @@
       - balance_freeze: freeze at freeze_iteration, ping-pong detection with the +,+,-,- pattern (net movement, not a
         reversal count), band-centre value, bias, halve_on_reversal, sigma_0 clamp, no change after the freeze, the
         state round trip;
-      - residual_balancing and balance_freeze agree before any freeze with the same parameters.
+      - residual_balancing and balance_freeze agree before any freeze with the same parameters;
+      - balance_freeze agrees bit for bit with the CPU replica of the Phase-4b screen (tools/sigma_screen/cuadmm_emu.py
+        v1.2, BalanceFreezeState) on the residual sequences of the golden histories for a set of parameter combinations
+        (test/data/golden/balance_freeze_cases_*.csv, written by tools/sigma_screen/replay_policy.py): every returned
+        sigma and every sigma-log entry.
 
 */
 
 #include <gtest/gtest.h>
 
 #include <cmath>
+#include <cstdlib>
+#include <memory>
 #include <fstream>
 #include <sstream>
 #include <string>
 #include <vector>
 
 #include "admm/penalty_policy.h"
+#include "cuadmm/options.h"
 
 #ifndef CUADMM_TEST_DATA_DIR
 #define CUADMM_TEST_DATA_DIR "test/data"
@@ -387,6 +394,115 @@ TEST(PenaltyPolicy, BalanceFreezeEqualsResidualBalancingBeforeTheFreeze)
     }
     EXPECT_EQ(freeze.log().size(), plain.log().size());
     EXPECT_FALSE(freeze.frozen());
+}
+
+// The cross-check with the Python replica: case,iter,sigma,log rows per case "<sigma0>@balance_freeze[:key=value,...]".
+inline void cross_check_with_replica(const std::string &history_name, const std::string &cases_name, std::size_t expected_rows)
+{
+    const std::vector<Row> rows = read_history(std::string(CUADMM_TEST_DATA_DIR) + "/golden/" + history_name + "_history.csv");
+    ASSERT_EQ(rows.size(), expected_rows) << history_name;
+    std::ifstream in(std::string(CUADMM_TEST_DATA_DIR) + "/golden/" + cases_name);
+    ASSERT_TRUE(in.good()) << cases_name;
+    std::string line;
+    std::getline(in, line);
+    ASSERT_EQ(line, "case,iter,sigma,log") << cases_name;
+    struct Expected
+    {
+        int iter;
+        double sigma;
+        std::string log;
+    };
+    std::vector<std::pair<std::string, std::vector<Expected>>> cases;
+    while (std::getline(in, line))
+    {
+        // case,iter,sigma,log: the case is quoted when its parameter list holds commas; the log field holds
+        // ';'-joined names, never commas
+        std::string name;
+        std::size_t c1;
+        if (!line.empty() && line[0] == '"')
+        {
+            const std::size_t q = line.find('"', 1);
+            ASSERT_NE(q, std::string::npos) << line;
+            name = line.substr(1, q - 1);
+            c1 = q + 1;
+            ASSERT_EQ(line[c1], ',') << line;
+        }
+        else
+        {
+            c1 = line.find(',');
+            name = line.substr(0, c1);
+        }
+        const std::size_t c2 = line.find(',', c1 + 1), c3 = line.find(',', c2 + 1);
+        ASSERT_NE(c3, std::string::npos) << line;
+        if (cases.empty() || cases.back().first != name)
+            cases.emplace_back(name, std::vector<Expected>());
+        cases.back().second.push_back({std::stoi(line.substr(c1 + 1, c2 - c1 - 1)), std::strtod(line.substr(c2 + 1, c3 - c2 - 1).c_str(), nullptr),
+                                       line.substr(c3 + 1)});
+    }
+    ASSERT_FALSE(cases.empty()) << cases_name;
+    for (const auto &c : cases)
+    {
+        const std::string &name = c.first;
+        ASSERT_EQ(c.second.size(), rows.size()) << name;
+        const std::size_t at = name.find('@');
+        ASSERT_NE(at, std::string::npos) << name;
+        const double sigma0 = std::strtod(name.substr(0, at).c_str(), nullptr);
+        std::string spec = name.substr(at + 1);
+        ASSERT_EQ(spec.rfind("balance_freeze", 0), 0u) << name;
+        SolverOptions so;
+        so.penalty.policy = PenaltyPolicyKind::BalanceFreeze;
+        if (spec.size() > 15 && spec[14] == ':')
+        {
+            std::stringstream ss(spec.substr(15));
+            std::string item;
+            while (std::getline(ss, item, ','))
+            {
+                const std::size_t eq = item.find('=');
+                ASSERT_NE(eq, std::string::npos) << name;
+                set_option(so, "penalty." + item.substr(0, eq), item.substr(eq + 1));
+            }
+        }
+        std::unique_ptr<PenaltyPolicy> policy = make_penalty_policy(so.penalty);
+        policy->reset(sigma0);
+        double sigma = policy->state().sigma; // sigma_0 clamped into the bounds
+        int mismatches = 0;
+        std::size_t logged = 0;
+        for (std::size_t i = 0; i < rows.size(); i++)
+        {
+            const Row &row = rows[i];
+            const Expected &e = c.second[i];
+            ASSERT_EQ(row.iter, e.iter) << name;
+            KktResiduals r;
+            r.eta_p = row.eta_p;
+            r.eta_d = row.eta_d;
+            r.eta_g = row.eta_g;
+            r.pobj = row.pobj;
+            r.dobj = row.dobj;
+            sigma = policy->update(row.iter, r, sigma, false);
+            std::string names;
+            for (; logged < policy->log().size(); logged++)
+                names += (names.empty() ? "" : ";") + policy->log()[logged].rule;
+            if (sigma != e.sigma || names != e.log)
+            {
+                if (mismatches++ == 0)
+                    ADD_FAILURE() << name << ": first mismatch at iteration " << row.iter << ": policy sigma " << sigma << " log '" << names
+                                  << "', replica sigma " << e.sigma << " log '" << e.log << "'";
+            }
+        }
+        EXPECT_EQ(mismatches, 0) << name;
+        printf("[ REPLICA  ] %s: %zu iterations, %zu log entries, frozen %s at %d (%s), final sigma %.17g\n", name.c_str(), rows.size(),
+               policy->log().size(), policy->frozen() ? "true" : "false", policy->freeze_iteration(), policy->freeze_reason().c_str(), sigma);
+    }
+}
+
+TEST(PenaltyPolicy, BalanceFreezeAgreesWithTheReplicaOnPsdFree)
+{
+    cross_check_with_replica("PSD_Free_residual_balancing_s100_i6000", "balance_freeze_cases_PSD_Free.csv", 6000);
+}
+
+TEST(PenaltyPolicy, BalanceFreezeAgreesWithTheReplicaOnMater1)
+{
+    cross_check_with_replica("mater-1_legacy_adaptive_s1_tol1e-4", "balance_freeze_cases_mater-1.csv", 8117);
 }
 
 TEST(PenaltyPolicy, FactoryAndParameters)

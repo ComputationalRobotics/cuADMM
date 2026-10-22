@@ -1,0 +1,3 @@
+# smoke test of the screen driver: two short runs
+smoke_bf-f2-const-K10000_s1 trto1 balance_freeze:factor=2,step_schedule=constant,freeze_iteration=10000 1 3000 50
+smoke_new_s1 buck1 new 1 2000 50
