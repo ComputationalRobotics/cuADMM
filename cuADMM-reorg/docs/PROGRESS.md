@@ -30,6 +30,30 @@ the GPU gates (H200, 6-12.6 hours, `gpu_gates/` job files) and the go-ahead for 
 MATLAB (MEX, SPOT recovery), MOSEK dual signs against a MOSEK run, buck3's published objective, performance and
 peak memory beyond the summaries' fields.
 
+## Phase 4b GPU gates (approved 2026-10-22, in progress)
+
+The user approved the H200 gates G0-G3 on 2026-10-22 (at most 12.58 H200-hours in total, expected 6-9.5; G0 first,
+G1-G3 only after the fixed-sigma reproduction holds; the comparators with every parameter explicit; nothing beyond
+the plan's runs). Preparation on the CPU: the final commit f10e149 built for sm_90 (`CUADMM_CUDA_ARCH=90-real
+tools/build.sh ~/cuadmm-builds/reorg-f10e149-sm90`, RelWithDebInfo, cubin sm_90; `cuadmm_exe` sha256
+`927c0308f6783da655a68dc7790350c47846aba9b301eae9eefb6d59cf7a5d37`); the exact command lines parsed and read
+their problems in a dry run on the CPU node (they stop at the CUDA initialization there). Job files regenerated
+by `tools/sigma_screen/gpu_gates.sh` into `$HOME/cuadmm-experiments/2026-10-21_phase4b_screen/gpu_gates/`
+(the first version kept in `prepared_v1/`): every policy parameter explicit (`residual_balancing`: factor 2,
+win ratio 1.35, guard on, residual weight 1, bounds [1e-3, 1e3]; the candidate: factor 1.2, halve_on_reversal,
+bias 4, band centre, K_f 10000, W 8, net 2, k_min 1000, the default schedule, the same bounds; `fixed`: sigma 1),
+the campaign protocol (plain ADMM, tau 1.618, tol 1e-4, validation every 50 at 1e-4 with 8 threads, strict 1e-6,
+caps on the iteration time, 15 streams, LOBPCG on). The fixed-sigma and old-rule comparators of G1 and G3 are
+the campaign's H200 runs (9bb4ba5, same protocol, 1800 s caps; `gpu_gates/references.json`), re-run only where
+G0 reproduces them (trto1, buck1), to avoid duplicate submissions; the pendulum comparators are the pendulum
+experiments' runs (fixed sigma = 1: 230,315 iterations, 622 s solve / 625 s end to end; old rule: 45,393
+iterations, 124.0 s). Caps: G0 0.58 h, G1 4.67 h, G2 1.0 h, G3 4.0 h (10.25 h; job limits 11.25 h).
+Submissions and results are appended here as they come (`gpu_gates/submissions.txt`, `logs/`, `runs/`,
+`gates_report.md` from `tools/sigma_screen/gates_analyze.py`).
+
+- G0 submitted 2026-10-22 13:38 as job 54683287 (gpu_h200, 0:45 limit): trto1, buck1 (600 s caps) and pendulum
+  N=80 (900 s) at fixed sigma = 1.
+
 ## Phase 0: skeleton and safety net
 
 Status: skeleton built; GPU acceptance pending (see below).
