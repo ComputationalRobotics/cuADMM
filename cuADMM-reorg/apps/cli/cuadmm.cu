@@ -6,8 +6,10 @@
     include/cuadmm/options.h (`--print-options` lists it; today's flags are accepted as aliases for one release).
 
     usage: cuadmm_exe <problem> [--option value ...]
-      <problem>: a legacy TXT directory (blk.txt, At.txt, b.txt, C.txt, con_num.txt); the other formats come with
-      Phase 2b (io.format).
+      <problem>: a legacy TXT directory (blk.txt, At.txt, b.txt, C.txt, con_num.txt), a native .h5 file, an SDPA
+      .dat-s / .dat-s.gz file, or a SeDuMi / SDPT3 / MOSEK prob .mat file (plan Section 12; --formats lists what
+      this build reads; --format forces one). The conversion report of the reader is printed and goes into the
+      summary.
 
 */
 
@@ -33,12 +35,17 @@ namespace
 
 void print_usage(const char *exe)
 {
+    std::string formats;
+    for (const std::string &f : io::available_formats())
+        formats += (formats.empty() ? "" : ", ") + f;
     std::cerr << "usage: " << exe << " <problem> [options]\n"
-              << "  <problem>: a legacy TXT directory (blk.txt, At.txt, b.txt, C.txt, con_num.txt)" << "\n"
+              << "  <problem>: a TXT directory (blk.txt, At.txt, b.txt, C.txt, con_num.txt), a native .h5 file, an SDPA .dat-s[.gz] file,\n"
+              << "             or a SeDuMi / SDPT3 / MOSEK prob .mat file; formats compiled in: " << formats << "\n"
               << "options (--flag value; booleans take 0/1; every option of the table, with today's flags as aliases):\n"
               << option_table_help()
               << "\n  --help                     this text\n"
               << "  --print-options [markdown] the option table (plain or as a Markdown table)\n"
+              << "  --formats                  the input formats compiled into this build\n"
               << "  --version                  the build commit\n";
 }
 
@@ -114,6 +121,12 @@ int main(int argc, char *argv[])
             std::cout << CUADMM_BUILD_PROJECT << " " << CUADMM_BUILD_COMMIT << (CUADMM_BUILD_DIRTY ? " (local changes)" : "") << std::endl;
             return 0;
         }
+        if (a == "--formats")
+        {
+            for (const std::string &f : io::available_formats())
+                std::cout << f << "\n";
+            return 0;
+        }
         if (a == "--print-options")
         {
             const bool markdown = i + 1 < argc && std::string(argv[i + 1]) == "markdown";
@@ -141,17 +154,31 @@ int main(int argc, char *argv[])
         bool has_warm = false;
         if (o.io.warm_start)
         {
-            warm = io::read_txt_warm_start(p.problem, problem);
+            warm = io::read_warm_start(p.problem, problem);
             has_warm = true;
         }
         else if (!o.io.warm_start_dir.empty())
         {
-            warm = io::read_txt_warm_start(o.io.warm_start_dir, problem);
+            warm = io::read_warm_start(o.io.warm_start_dir, problem);
             has_warm = true;
         }
         const double t_load_s = std::chrono::duration<double>(std::chrono::steady_clock::now() - t_load).count();
-        if (!problem.source.dimacs_kinds.empty())
-            std::cout << " DIMACS block kinds from dimacs_blocks.txt (" << problem.source.dimacs_kinds.size() << " blocks)" << std::endl;
+        if (o.output.verbosity > 0)
+        {
+            if (problem.source.format != "txt") // the TXT reader prints its own summary (as today)
+                std::cout << "Loaded " << problem.source.format << " problem from " << problem.source.path << " in " << t_load_s << " s\n"
+                          << "              vector length: " << problem.vec_len() << "\n"
+                          << "      number of constraints: " << problem.num_constraints() << "\n"
+                          << "           number of blocks: " << problem.cones.size() << "\n"
+                          << "  number of non-zeros in At: " << problem.At.nnz() << "\n"
+                          << "  number of non-zeros in  b: " << problem.b.nnz() << "\n"
+                          << "  number of non-zeros in  C: " << problem.C.nnz() << "\n"
+                          << "            objective sense: " << name_of(problem.sense) << ", offset " << problem.objective_offset << std::endl;
+            for (const std::string &line : problem.source.report)
+                std::cout << "  [io] " << line << std::endl;
+            if (!problem.source.dimacs_kinds.empty())
+                std::cout << " DIMACS block kinds of the original data (" << problem.source.dimacs_kinds.size() << " blocks)" << std::endl;
+        }
 
         const auto t_cuda = std::chrono::steady_clock::now();
         if (cudaSetDevice(o.gpu_device) != cudaSuccess || cudaFree(0) != cudaSuccess) // CUDA context creation, timed separately
@@ -178,7 +205,7 @@ int main(int argc, char *argv[])
         if (!o.output.sigma_log.empty())
             report::write_sigma_log_csv(o.output.sigma_log, result);
         if (!o.io.save_dir.empty())
-            io::write_solution(o.io.save_dir, problem, result);
+            io::write_solution(o.io.save_dir, problem, result, o.io.save_format);
     }
     catch (const std::exception &e)
     {

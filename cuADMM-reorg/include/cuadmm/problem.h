@@ -71,6 +71,12 @@ struct SourceInfo
     std::vector<int> original_block_of;      // for each cone, the index of the original block (-1: new block)
     std::vector<std::int64_t> original_block_sizes;
     std::vector<char> original_block_kinds;
+    std::string mat_version;                 // .mat input: "5" or "7.3" (the solution writer keeps the version)
+    // MOSEK prob: how the file's scalar variables and rows map onto the problem (plan Section 12), for the writer
+    std::vector<std::int64_t> mosek_var_position; // per scalar variable of the file: svec index, or -1 when it was fixed
+    std::vector<double> mosek_var_shift;          // x_file = shift + sign * X[position]  (a fixed variable: x_file = shift)
+    std::vector<double> mosek_var_sign;
+    std::vector<std::int64_t> mosek_row_position; // per row of the file: constraint index, or -1 when the row was dropped
 };
 } // namespace io
 

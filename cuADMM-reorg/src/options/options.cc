@@ -240,13 +240,13 @@ const std::vector<OptionSpec> &option_table()
         {"validation.final_save_dir", "--final-save-dir", {"--save-final-dir"}, "string", "", "none", "save the final snapshot of a solve that ends at a safety limit", ""},
         {"validation.history_file", "--validation-history", {}, "string", "", "none", "one CSV line per external validation", ""},
         // io
-        {"io.format", "--format", {}, "enum", "auto, h5, sdpa, sedumi, sdpt3, mosek, txt", "auto", "input format (auto: from the extension and the .mat variables)", "2b"},
-        {"io.sense", "--sense", {}, "enum", "min, max", "from the file", "objective sense (required for MOSEK files without a sense variable)", "2b"},
-        {"io.simplify", "--simplify", {}, "bool", "", "true", "1x1 and diagonal-only PSD blocks become l blocks (reported); never for TXT input", "2b"},
+        {"io.format", "--format", {}, "enum", "auto, h5, sdpa, sedumi, sdpt3, mosek, txt", "auto", "input format (auto: from the extension and the .mat variables)", ""},
+        {"io.sense", "--sense", {}, "enum", "min, max", "from the file", "objective sense (required for MOSEK files without a sense variable)", ""},
+        {"io.simplify", "--simplify", {}, "bool", "", "true", "1x1 and diagonal-only PSD blocks become l blocks (reported); never for TXT input", ""},
         {"io.warm_start_dir", "--warm-start-dir", {}, "string", "", "none", "read X.txt, y.txt, S.txt (dense, one value per line) from this directory", ""},
         {"io.warm_start", "--warm-start", {}, "bool", "", "false", "read X.txt, y.txt, S.txt from the problem directory (TXT input)", ""},
         {"io.save_dir", "--save-dir", {"--save-solution"}, "string", "", "none", "write the returned X, y, S (and certificate.txt) in the input's convention", ""},
-        {"io.save_format", "--save-format", {}, "string", "", "input's", "convention of the written solution", "2b"},
+        {"io.save_format", "--save-format", {}, "string", "", "input's", "convention of the written solution: txt, h5, sdpa, sedumi, sdpt3, mosek (default: the input's)", ""},
         // output
         {"output.verbosity", "--verbosity", {}, "int", "", "1", "0: quiet, 1: the iteration table, 2: details", ""},
         {"output.history", "--history", {}, "string", "", "none", "per-iteration CSV (17 significant digits)", ""},
@@ -691,8 +691,9 @@ void SolverOptions::validate() const
          !validation.history_file.empty() || validation.strict_dimacs_tol != 0.0 || !validation.final_save_dir.empty()))
         fail("validation.interval", "validation.tol, .threads, .strict_dimacs_tol, .checkpoint_iterations, .checkpoint_dir, .final_save_dir and .history_file need validation.interval > 0");
 
-    if (!io.save_format.empty())
-        fail("io.save_format", "comes with Phase 2b");
+    if (!io.save_format.empty() && io.save_format != "txt" && io.save_format != "h5" && io.save_format != "sdpa" && io.save_format != "sedumi" &&
+        io.save_format != "sdpt3" && io.save_format != "mosek")
+        fail("io.save_format", "must be one of txt, h5, sdpa, sedumi, sdpt3, mosek (got '" + io.save_format + "')");
     if (io.warm_start && !io.warm_start_dir.empty())
         fail("io.warm_start", "use either io.warm_start or io.warm_start_dir");
 

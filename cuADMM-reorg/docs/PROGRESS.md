@@ -112,7 +112,100 @@ Status: implemented; GPU evidence recorded below (b44596b: 49 of 49 identical on
 
 ## Phase 2b: input and output formats
 
-Status: not started.
+Status: implemented on branch `reorg-io` (commits listed below); CPU acceptance run; the GPU acceptance (published
+objectives from every format, `tools/baselines/cases_formats.json`) is for the parent run.
+
+Done (2026-10-21), plan Section 12, developer prompt "References for the readers (Phase 2b)":
+
+- Readers: native HDF5 schema 1 (`src/io/h5.cc`, also the writer, `/solution` and `/start`), SDPA sparse
+  `.dat-s` / `.dat-s.gz` with the checks of `sdpa_to_cuadmm.py` (`src/io/sdpa.cc`, `text_source.cc`), SeDuMi,
+  SDPT3 and MOSEK `prob` `.mat` through matio, v5 and v7.3 (`sedumi.cc`, `sdpt3.cc`, `mosek.cc`, `mat_common.cc`);
+  the legacy TXT reader untouched. Every reader fills the CSC of At directly through `CscBuilder` (in-place bucket
+  sort, duplicates merged or rejected per format, zeros dropped; `csc_builder.cc`), reports what it did
+  (`source.report`), keeps the DIMACS kinds and the mapping to the file's blocks (`original_block_*`), and applies
+  the exact simplifications of `io.simplify` (`simplify.cc`).
+- Detection (`io.cc`): extension, file signature, and the variables of a `.mat` file; `io.format` overrides.
+- Writers: `write_solution` in the input's convention or `io.save_format` (`solution_writers.cc`), the TXT problem
+  writer (`txt_writer.cc`), `write_problem` (HDF5, chunked, optional deflate, `source_sha256` by `sha256.cc`).
+- Tools: `cuadmm-convert` (`apps/cli/cuadmm_convert.cc`), `cuadmm_io_bench` (`bench/io_read_bench.cc`),
+  `tools/io/make_sdpt3_testfiles.py` (the SDPT3 test files of `test/data`, v5 by scipy and v7.3 by h5py).
+- CMake: `CUADMM_WITH_HDF5`, `CUADMM_WITH_MATIO`, `CUADMM_WITH_ZLIB` (AUTO/ON/OFF; `cmake/FindHDF5Lib.cmake`,
+  `cmake/FindMatio.cmake`); `--formats` of the CLI lists what is compiled in; absent readers fail with a message.
+- Tests (CPU, `test/io_*_test.hpp` included from `test/cpu_tests.cpp`): builder/svec/sha256, SDPA edge cases and the
+  PLATO instances against the reference TXT conversions, simplifications and the mapping back, TXT and SDPA
+  writers, HDF5 round trips (problem, solution, warm start, malformed files, detection), hand-made SeDuMi / SDPT3 /
+  MOSEK files in v5 and v7.3 (A vs At and N = m, asymmetric PSD storage, K.q rejected, an `s` entry with several
+  sizes, `l`/`u` blocks, MOSEK bounds and ranges, missing sense, maximization, cones rejected), the Python-written
+  SDPT3 files, buck3 SeDuMi vs SDPA, the three SPOT MOSEK files vs TXT, and the MOSEK/SeDuMi/SDPT3 solution writers
+  read back through matio. Tests of a format that is not compiled in skip (GTEST_SKIP).
+
+Data prepared (read-only inputs untouched): `$HOME/cuadmm-data/plato_sdpa/` (`buck1`, `buck3`, `trto1`, `trto2`,
+`mater-1`, `mater-2` `.dat-s` extracted from the Kocvara zips, plus `trto1.dat-s.gz`), `$HOME/cuadmm-data/plato_sedumi/buck3.mat`
+(from `https://plato.asu.edu/ftp/sdp/buck3.mat.gz`; `trto1.mat.gz` and `mater-1.mat.gz` do not exist there: 404),
+`$HOME/cuadmm-data/plato_h5/` (conversions for the GPU cases).
+
+Builds (CPU node holy8a26208, job 54419762):
+
+    BUILD_JOBS=8 tools/build.sh $HOME/cuadmm-builds/reorg-io -DCUADMM_WITH_HDF5=ON -DCUADMM_WITH_MATIO=ON -DCUADMM_WITH_ZLIB=ON \
+        -DHDF5_ROOT=$HOME/cuadmm-io-env -DMATIO_ROOT=$HOME/cuadmm-io-env -DZLIB_ROOT=$HOME/cuadmm-io-env
+    -- cuADMM-reorg: HDF5 TRUE (1.14.6), matio TRUE (1.5.30), zlib TRUE (1.3.2)   ...   build exit code: 0
+    BUILD_JOBS=6 tools/build.sh $HOME/cuadmm-builds/reorg-io-nodeps -DCUADMM_WITH_HDF5=OFF -DCUADMM_WITH_MATIO=OFF -DCUADMM_WITH_ZLIB=OFF
+    -- cuADMM-reorg: HDF5 FALSE (), matio FALSE (), zlib FALSE ()   ...   build exit code: 0
+
+Acceptance (CPU node holy8a26208, 2026-10-21 21:19, build directories above):
+
+- `./cuadmm_cpu_tests` with HDF5 + matio + zlib: `33 tests from 8 test suites ran. [ PASSED ] 33 tests.`
+  Without the libraries (`reorg-io-nodeps`): `33 tests ... [ PASSED ] 22 tests. [ SKIPPED ] 11 tests` (the gz, HDF5
+  and .mat tests skip; the "reader not compiled in" messages are checked by hand below).
+- The TXT reader gives the same ProblemData as today: `src/io/txt.cc` is unchanged (the reader body is the Phase 2
+  one over the verbatim `Problem::from_txt`); `IoSimplify.TxtWriterRoundTrip` and the PLATO comparisons read it.
+- Cross-format checks printed by the tests (`max|diff| / max|ref|` over the entries of At, b and C; 0 = bitwise):
+
+      trto1 / mater-1 / buck3 .dat-s vs the reference TXT conversion (sdpa_to_cuadmm.py):  0 / 0 / 0  (bitwise, same blocks and DIMACS kinds)
+      trto1 .dat-s.gz vs .dat-s:                                                            0 (bitwise)
+      buck3 SeDuMi .mat vs .dat-s (plan: <= 2e-16; blocks s 320, s 321, l 544):             0 (bitwise; the 544 block is reported as simplified)
+      PushBox_N=30_MOMENT MOSEK vs TXT (plan: <= 6e-17):   At 5.551e-17, b 0, C 5.551e-17  (374258 entries; most entries bitwise, the rest limited by the 16-decimal TXT)
+      PushBox_N=30_SOS (maximization) MOSEK vs TXT:        At 3.925e-17, b 4.163e-17, C 0
+      PushT_N=10_MOMENT MOSEK vs TXT:                      At 5.551e-17, b 0, C 4.930e-17
+      HDF5 round trips (plain, deflate 4, after /solution was added, trto1 .dat-s -> .h5): 0 (bitwise, metadata equal)
+      SDPT3 v5 (matio) vs v7.3 (matio), and the scipy-written v5 / h5py-written v7.3 files of test/data: same arrays
+
+- Formats listed by the CLI: `txt sdpa sdpa.gz h5 sedumi sdpt3 mosek` (with the libraries) and `txt sdpa`
+  (without); a `.mat`, `.h5` or `.dat-s.gz` input of the second build fails with
+  "reading .mat files (SeDuMi, SDPT3, MOSEK) needs matio, which is not compiled into this build (CUADMM_WITH_MATIO)",
+  "the native HDF5 format is not compiled into this build (CUADMM_WITH_HDF5)", "... is gzip-compressed, and this
+  build has no zlib (CUADMM_WITH_ZLIB): decompress the file first".
+- HDF5 read rate (`cuadmm_io_bench`, node-local /tmp of holy8a26208, 1e8 nonzeros: 100 PSD blocks of side 1000,
+  m = 100000, 1000 entries per column, 1539 MB uncompressed; page cache warm, which is the best a disk can do):
+
+      generate (write)                    0.85 s   1801 MB/s
+      read .h5                            0.71 s   2158 MB/s   140 Mnnz/s   (three runs: 0.711-0.775 s)
+      read .h5, deflate level 1 (846 MB)  6.9-7.3 s  115-123 MB/s  14 Mnnz/s  (decompression-bound)
+      read the TXT conversion (2470 MB)   33.8 s   73 MB/s     2.96 Mnnz/s  (the legacy reader, as the plan's 3.5e6/s)
+      dd of the .h5 file from the page cache: 5.2 GB/s
+
+  Reading is 23 x faster per nonzero than the TXT parser and reaches 2.2 GB/s, above the bandwidth of the node's
+  local disk and of the network file systems here; the remaining cost is the copy out of the page cache plus the
+  structure checks (sorted columns, ranges, finiteness), i.e. no parsing. Before the early exit of the
+  simplification scan (commit below) the same read took 1.5 s (1 GB/s).
+- `docs/OPTIONS.md` regenerated (`cuadmm_exe --print-options markdown`); the io options are "now".
+
+GPU acceptance (for the parent): `tools/baselines/cases_formats.json` lists trto1, mater-1 and buck3 from `.dat-s`,
+from `.h5` (`$HOME/cuadmm-data/plato_h5/`, converted with `cuadmm-convert --compress 1`), from the TXT reference,
+and buck3 from the SeDuMi `.mat` and its `.h5` conversion (policy fixed, sigma0 1, max_iter 20000, tol 1e-4, with
+the published objective and the sign that relates the summary's pobj to it); `tools/io/check_published_objectives.py
+<cuadmm_exe> $HOME/cuadmm-data <out dir>` runs them and reports the relative deviation. Not run here (no GPU in
+this allocation).
+
+Not done / not verified:
+
+- The solution output read back by SPOT's `recover_mosek_sol_blk.m`: no MATLAB here; the writer's `barx` / `bars`
+  layout (lower triangles column by column, in `bardim` order, `xx` / `slx` for the scalar block) is checked by
+  `IoMat.MosekSolutionWriterReadBack` and on PushT_N=10_MOMENT through matio instead.
+- MOSEK dual signs of a maximization (DECISIONS 25) are the documented MOSEK convention, not compared with a
+  MOSEK run.
+- Second-order cones (`K.q`, `blk 'q'`, `prob.cones`/`accs`), CBF, complex data: rejected with a message (Phase 9).
+- The MEX gateway is not built (no MATLAB); it still takes the in-memory arrays of Phase 2.
 
 ## Phase 3: thin core
 

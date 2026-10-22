@@ -93,6 +93,39 @@ Inside `cuADMM-reorg/src/legacy/` (the copied `SDPSolver`), the CLI and the test
 - **Reported objectives** carry the file's sense and offset (`pobj = sign * <C, X> + offset`); for TXT input (always a
   minimization without offset) nothing changes.
 
+## Phase 2b (2026-10-21): input and output formats (plan Section 12; B27, B28, B29)
+
+- **New input formats**, all producing the same `ProblemData` (64-bit sizes, CSC of At filled directly, a
+  conversion report in `source.report` printed by the CLI and stored in the summary as `conversion_report`):
+  native HDF5 `.h5` (schema version 1), SDPA sparse `.dat-s` / `.dat-s.gz` (the checks of the PLATO converter
+  `sdpa_to_cuadmm.py`: duplicates, non-finite values, indices out of range and empty constraint matrices reject the
+  file; explicit zeros are dropped; lower-triangle entries are mirrored), and through matio SeDuMi, SDPT3 and MOSEK
+  `prob` `.mat` files (MATLAB v5 and v7.3). Detection from the extension or the file signature and, for `.mat`,
+  from the variables present; `io.format` (`--format`) forces one. The legacy TXT reader is unchanged (bitwise).
+- **Objective sense and offset of the file** (`ProblemData::sense`, `objective_offset`): SDPA files are read as the
+  maximization of `<F_0, Y>` that the published values refer to, so the reported `pobj`/`dobj` of a `.dat-s` run
+  equal the published optimal value, whereas the TXT conversion of the same file (a minimization of `<-F_0, Y>`)
+  reports its negative, as today. SeDuMi and SDPT3 files are minimizations. MOSEK files take the sense from a
+  variable `sense` saved next to `prob` or from `io.sense` (`--sense min|max`) and are rejected without one; `cfix`
+  and the bound shifts go to the offset. B28 is fixed: every scalar bound (free, nonnegative, shifted, negated,
+  ranged, fixed) and every row kind (equality, one-sided, ranged, free) is handled.
+- **Exact simplifications at read time** (`io.simplify`, `--simplify`, default on, never for TXT): 1x1 PSD blocks
+  and PSD blocks whose A and C data touch only the diagonal (including untouched blocks) become `l` blocks; each is
+  reported, and solutions are mapped back to the file's blocks. This changes the block structure (and so the
+  iteration history) of problems read from `.mat`, `.dat-s` or `.h5` relative to a TXT conversion that kept the
+  blocks: PushT_N=10_MOMENT (SPOT) goes from 6015 PSD blocks to 1202 PSD + 4813 `l` blocks; `--simplify 0` keeps
+  the file's blocks.
+- **Solution output in the input's convention** (`--save-dir`, `io.save_format` / `--save-format` to force one):
+  TXT (as today), `.h5` (group `/solution`), SDPA (sparse initial-point layout, `x = -y`, `X_SDPA = S`,
+  `Y_SDPA = X`, plus a JSON with `objValPrimal` / `objValDual`), SeDuMi (`x`, `y`, `z` full vectors), SDPT3
+  (`X`, `y`, `Z` cell arrays, `obj`), MOSEK (`res.sol.itr` with `barx`, `bars` lower triangles, `xx`, `slx`,
+  `sux`, `y`, `slc`, `suc`, `pobjval`, `dobjval`; for a maximization MOSEK's dual variables are negated). B29 is
+  fixed: `l` blocks are written in every convention.
+- **Warm starts** from a `.h5` file (`/start`) as well as a TXT directory (`io::read_warm_start`).
+- **Tools**: `cuadmm-convert <input> <output.h5 | directory>` (any input to the native file or a TXT directory),
+  `cuadmm_io_bench` (synthetic 1e8-nonzero problems and read rates). Build options `CUADMM_WITH_HDF5`,
+  `CUADMM_WITH_MATIO`, `CUADMM_WITH_ZLIB` (AUTO/ON/OFF); `cuadmm_exe --formats` lists the formats compiled in.
+
 ## Phase 3 (2026-10-21): thin core
 
 - **One set of checks (B15)**: `src/core/check.h` defines `CUADMM_CHECK_CUDA/CUBLAS/CUSOLVER/CUSPARSE`,
