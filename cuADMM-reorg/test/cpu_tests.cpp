@@ -2,6 +2,7 @@
 #include <gtest/gtest.h>
 
 #include "options_test.hpp"
+#include "penalty_policy_test.hpp"
 
 int main(int argc, char **argv)
 {

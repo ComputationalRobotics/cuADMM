@@ -116,14 +116,50 @@ Status: not started.
 
 ## Phase 3: thin core
 
-Status: not started.
+Status: implemented (with Phase 4 in one commit); GPU evidence pending.
+
+- `src/core/check.h` (one set of macros, `cuadmm::Error`; the legacy and vendored headers map onto it, B15),
+  `src/core/device_buffer.h`, `src/core/gpu_context.{h,cu}`. The ported engine keeps its streams and handles until
+  Phase 6b (stream pool, arena).
+- Acceptance: bitwise (checked with Phase 4 below).
 
 ## Phase 4: algorithm layer
 
-Status: not started.
+Status: implemented; GPU evidence pending.
+
+- `src/admm/{admm_state,iteration_scheme,penalty_policy,admm_solver}`, `src/termination/{stopping_rule,
+  best_iterate_tracker}`, `src/report/observers`; the engine's `solve()` is a wrapper over `AdmmSolver::run`
+  (DECISIONS 16); the facade runs the loop with observers (`Solver::add_observer`).
+- CPU tests (`cuadmm_cpu_tests`, 13 tests, pass on the CPU node): `PenaltyPolicy.*` replay the reference histories of
+  `test/data/golden/` through the policies and reproduce every sigma exactly: `PSD_Free` legacy_adaptive 6000
+  iterations (136 changes), `mater-1` legacy_adaptive to tolerance 1e-4 (8117 iterations, 141 changes, 2 Monitor1
+  corrections), `PSD_Free` residual_balancing 6000 iterations (135 changes); `balance_freeze` on scripted sequences
+  (freeze at the iteration, ping-pong by net movement with the +,+,-,- pattern, band centre, bias, halve-on-reversal,
+  sigma_0 clamp, state round trip, equality with residual_balancing before a freeze).
+- Acceptance (plan): bitwise for ADMM with each existing policy; sGS-ADMM with FixedPenalty and tau = 1.95 against
+  the 2d8a755 build without `CUADMM_PLAIN_ADMM_ONLY` at fixed sigma and tolerance 1e-300. The case lists gained the
+  sGS-phase adaptive rule, two hybrid cases and one sGS case to tolerance with the reduction rule on. The GPU run is
+  recorded below when it completes.
+- Pending: the DIMACS-based best-iterate ranking of B23 for the non-strict validation mode (today's `better_than`
+  ranking is kept; see CHANGES.md).
 
 ## Phase 4b: CPU screen of `balance_freeze`
 
 Status: not started. The validated sigma-study replica is available locally
 (`$HOME/cuadmm-experiments/2026-10-19_sigma_rule_check/emu-run/cuadmm_emu.py`, v1.1, with its results and
 cross-check reports); it will be copied into `tools/sigma_screen/` for the screen.
+
+### GPU evidence of the Pre-0/Phase 1 and Phase 2 commits (clean per-commit builds, MIG configuration)
+
+- f8de01f (Phase 1), `tools/slurm/build_and_compare.sh f8de01f phase1 ... legacy@pre0` (16:39-16:59): comparison with
+  the references on every baseline case 49 of 49 identical, 0 different, 0 failed runs (fixed 21 against 2d8a755,
+  legacy_adaptive 10 against 9bb4ba5, residual_balancing 10 against 2d8a755, sGS 8 against 2d8a755-sgs). Tests:
+  101 ran, 99 passed, 2 failed: `FixedSigmaCli.BackwardCompatibleAndNewFlags` and `HybridSwitchCli.SgsIterationsOption`,
+  both expectation mismatches of that commit's own CLI output format (the 17-digit printing writes `1.3500000000000001`
+  and `1.6180000000000001` where the tests expect `1.35` and `1.618`); the golden test `FixedSigma.
+  LegacyAdaptiveAndPlainAdmmUnchanged` passes (B14 fixed by Pre-0). The formatting is fixed from Phase 2 on by the
+  shortest round-trip printing (`std::to_chars`).
+- b44596b (Phase 2), `build_and_compare.sh b44596b phase2 ... reorg` (the new CLI, 16:43-17:03): 49 of 49 identical,
+  0 different, 0 failed runs; tests 101 ran, 99 passed, the same 2 formatting expectations failed (the commit's tests
+  still expected the 17-digit form in one place and the shortest form in the other; both fixed in the working tree
+  that the Phase 4 commit carries, where `cuadmm_cpu_tests` and the CLI tests use the shortest round-trip form).

@@ -8,7 +8,7 @@
 
     Option mapping (today's CLI, src/legacy/main.cu of main):
       algorithm.scheme admm / sgs_admm        -> switch_admm 0 / INT_MAX; scheme_switch_iteration n -> switch_admm n
-      algorithm.tau                           -> the engine's fixed 1.618 (ADMM) and 1.95 (sGS) until Phase 4
+      algorithm.tau                           -> the step length of both schemes (the references used 1.618 / 1.95)
       penalty.*                               -> sigma_policy, sig, penalty_factor, penalty_sigma_min/max, the sGS rule
       psd.large.warmup none                   -> initial = final = EIG_FP64; the low-rank analysis (LOBPCG phase)
                                                  starts at psd.lowrank.start_iter (switch_proj_max_iter = start - 1,
@@ -32,8 +32,12 @@
 #include <sstream>
 #include <stdexcept>
 
+#include "admm/admm_solver.h"
 #include "cuadmm_legacy/solver.h"
+#include "report/observers.h"
 #include "report/writers.h"
+#include "termination/best_iterate_tracker.h"
+#include "termination/stopping_rule.h"
 
 namespace cuadmm
 {
@@ -58,6 +62,8 @@ struct Solver::Impl
     int switch_admm = 0;
     int switch_proj_max_iter = 0;
     double switch_proj_tol = 0.0;
+    std::vector<std::shared_ptr<report::IterationObserver>> observers;
+    std::unique_ptr<admm::PenaltyPolicy> penalty; // built at setup from the options; reset at every solve
 };
 
 namespace
@@ -71,6 +77,8 @@ int checked_int(std::int64_t v, const char *what)
     return static_cast<int>(v);
 }
 
+// the engine's own policy field (read by its summary helpers); balance_freeze is a ResidualBalancingPenalty with the
+// freeze options and has no engine value
 SigmaPolicy to_engine_policy(PenaltyPolicyKind k)
 {
     switch (k)
@@ -79,10 +87,8 @@ SigmaPolicy to_engine_policy(PenaltyPolicyKind k)
         return SigmaPolicy::FIXED;
     case PenaltyPolicyKind::LegacyAdaptive:
         return SigmaPolicy::LEGACY_ADAPTIVE;
-    case PenaltyPolicyKind::ResidualBalancing:
-        return SigmaPolicy::RESIDUAL_BALANCING;
     default:
-        throw std::invalid_argument("penalty.policy balance_freeze comes with Phase 4 (the algorithm layer)");
+        return SigmaPolicy::RESIDUAL_BALANCING;
     }
 }
 
@@ -117,16 +123,6 @@ std::string validation_csv(const SDPSolver &s)
     return f.str();
 }
 
-std::string parameters_json(const SigmaPolicyParameters &p)
-{
-    std::ostringstream o;
-    o << "{\"factor\": " << report::json_number(p.factor) << ", \"sigma_min\": " << report::json_number(p.sigma_min)
-      << ", \"sigma_max\": " << report::json_number(p.sigma_max) << ", \"win_ratio\": " << report::json_number(p.win_ratio)
-      << ", \"guard\": " << (p.guard ? "true" : "false") << ", \"residual_weight\": " << report::json_number(p.residual_weight)
-      << ", \"monitor1\": " << (p.monitor1 ? "true" : "false") << ", \"sgs_rule\": " << report::json_string(p.sgs_rule) << "}";
-    return o.str();
-}
-
 } // namespace
 
 Solver::Solver(SolverOptions options) : impl_(new Impl)
@@ -138,6 +134,8 @@ Solver::Solver(SolverOptions options) : impl_(new Impl)
 Solver::~Solver() = default;
 
 const SolverOptions &Solver::options() const { return impl_->options; }
+
+void Solver::add_observer(std::shared_ptr<report::IterationObserver> observer) { impl_->observers.push_back(std::move(observer)); }
 
 std::string Solver::linsys_backend() const
 {
@@ -151,13 +149,7 @@ void Solver::setup(const ProblemData &problem)
     Impl &im = *impl_;
     const SolverOptions &o = im.options;
     problem.validate();
-    to_engine_policy(o.penalty.policy); // rejects balance_freeze until Phase 4
-    const double expected_tau = o.algorithm.scheme == SchemeKind::SgsAdmm ? 1.95 : 1.618;
-    if (o.algorithm.tau != expected_tau)
-        throw std::invalid_argument("algorithm.tau: until Phase 4 the ported engine uses 1.618 for admm and 1.95 for sgs_admm (got " +
-                                    std::to_string(o.algorithm.tau) + ")");
-    if (o.algorithm.scheme_switch_iteration > 0 && o.algorithm.tau != 1.618)
-        throw std::invalid_argument("algorithm.tau: the hybrid mode uses the engine's 1.95 / 1.618 until Phase 4");
+    im.penalty = admm::make_penalty_policy(o.penalty); // validates the policy parameters
 
     // 32-bit arrays of the engine
     im.vec_len = checked_int(problem.vec_len(), "vec_len");
@@ -219,6 +211,7 @@ void Solver::setup(const ProblemData &problem)
     e.penalty_factor = o.penalty.factor;
     e.penalty_sigma_min = o.penalty.sigma_min;
     e.penalty_sigma_max = o.penalty.sigma_max;
+    e.legacy_sgs_tau_reduction = o.algorithm.sgs_tau_reduction;
     e.time_limit = o.algorithm.time_limit;
     e.validation.interval = o.validation.interval;
     e.validation.tol = ValidationTolerances::all(o.validation.tol > 0 ? o.validation.tol : o.algorithm.tol);
@@ -280,8 +273,34 @@ SolveResult Solver::solve(const WarmStart *warm_start)
     }
     im.first_solve = false;
 
-    e.solve(o.algorithm.max_iter, o.algorithm.tol, o.penalty.sgs_update_threshold, o.penalty.sgs_update_stage_1,
-            o.penalty.sgs_update_stage_2, im.switch_admm, im.switch_proj_max_iter, im.switch_proj_tol, o.penalty.sgs_factor, !rescale);
+    // the components of the algorithm layer (plan Section 7) on the engine's data
+    e.stop_tol = o.algorithm.tol;
+    e.switch_admm = im.switch_admm;
+    admm::AdmmState state(e);
+    termination::BestIterateTracker tracker(e);
+    std::unique_ptr<termination::StoppingRule> rule;
+    if (o.validation.interval > 0)
+        rule.reset(new termination::ValidatedRule(e, o.algorithm.tol, o.algorithm.time_limit));
+    else
+        rule.reset(new termination::InternalKktRule(o.algorithm.tol, o.algorithm.time_limit));
+    report::ObserverSet observers;
+    observers.add(std::make_shared<report::ConsoleObserver>(o.output.verbosity));
+    std::shared_ptr<report::HistoryObserver> history = std::make_shared<report::HistoryObserver>();
+    observers.add(history);
+    for (const std::shared_ptr<report::IterationObserver> &ob : im.observers)
+        observers.add(ob);
+    admm::RunConfig cfg;
+    cfg.max_iter = o.algorithm.max_iter;
+    cfg.tol = o.algorithm.tol;
+    cfg.switch_admm = im.switch_admm;
+    cfg.tau_admm = o.algorithm.tau;
+    cfg.tau_sgs = o.algorithm.sgs_tau >= 0 ? o.algorithm.sgs_tau : o.algorithm.tau;
+    cfg.legacy_sgs_tau_reduction = o.algorithm.sgs_tau_reduction;
+    cfg.switch_proj_max_iter = im.switch_proj_max_iter;
+    cfg.switch_proj_tol = im.switch_proj_tol;
+    cfg.verbose = o.output.verbosity >= 1;
+    admm::AdmmSolver loop(state, *im.penalty, *rule, tracker, observers, cfg);
+    loop.run(e.sig, rescale);
 
     SolveResult r;
     r.stop_reason = e.stop_reason;
@@ -307,7 +326,6 @@ SolveResult Solver::solve(const WarmStart *warm_start)
     r.best.eta_g = e.relgap;
     r.best.pobj = e.pobj;
     r.best.dobj = e.dobj;
-    r.best.iteration = e.info_iter_num;
     r.final = r.best; // the engine keeps only the returned iterate (Phase 4: BestIterateTracker keeps both)
     r.eta_p = e.errRp;
     r.eta_d = e.errRd;
@@ -317,15 +335,16 @@ SolveResult Solver::solve(const WarmStart *warm_start)
     r.dobj = sign * e.dobj + im.objective_offset;
     r.cone_violation_X = e.errPSD_X;
     r.cone_violation_S = e.errPSD_S;
-    r.iterations = e.info_iter_num;
     r.y_solves = e.y_solves;
     r.setup_time_s = e.init_time;
     r.solve_time_s = e.solve_time;
     r.total_time_s = e.total_time;
     r.validation_time_s = e.validation_time_s;
     r.peak_gpu_memory_bytes = e.peak_gpu_mem_bytes;
-    r.penalty_policy = sigma_policy_name(e.sigma_policy);
-    r.penalty_parameters_json = parameters_json(e.sigma_policy_parameters());
+    r.penalty_policy = std::string(im.penalty->name());
+    r.penalty_parameters_json = im.penalty->parameters_json();
+    r.freeze_iteration = im.penalty->freeze_iteration();
+    r.freeze_reason = im.penalty->freeze_reason();
     r.sigma0 = e.sigma0;
     r.sigma_final = e.sig;
     r.sigma0_original = e.sigma0 * e.bscale / e.Cscale;
@@ -378,24 +397,11 @@ SolveResult Solver::solve(const WarmStart *warm_start)
     r.lobpcg_fallbacks = e.lobpcg_fallbacks;
     r.composite_fallbacks = e.composite_fallbacks;
     r.jacobi_not_converged = e.jacobi_not_converged;
-    // history of this solve: the last info_iter_num entries of the engine's arrays
-    const std::size_t first = e.info_pobj_arr.size() - static_cast<std::size_t>(e.info_iter_num);
-    r.history.reserve(e.info_iter_num);
-    for (int k = 0; k < e.info_iter_num; k++)
-    {
-        HistoryRow row;
-        row.iteration = k + 1;
-        row.time_s = e.info_time_arr[first + k];
-        row.pobj = e.info_pobj_arr[first + k];
-        row.dobj = e.info_dobj_arr[first + k];
-        row.eta_p = e.info_errRp_arr[first + k];
-        row.eta_d = e.info_errRd_arr[first + k];
-        row.eta_g = e.info_relgap_arr[first + k];
-        row.sigma = e.info_sig_arr[first + k];
-        row.tau = e.info_tau_arr[first + k];
-        row.sgs = k + 1 < im.switch_admm;
-        r.history.push_back(row);
-    }
+    // history of this solve, from the observer
+    r.history = history->take();
+    r.iterations = static_cast<int>(r.history.size());
+    r.best.iteration = r.iterations;
+    r.final.iteration = r.iterations;
     return r;
 }
 

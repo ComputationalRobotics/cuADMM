@@ -10,8 +10,10 @@
         solver.setup(problem);                  // scale, factorize, plan the cones, check memory
         cuadmm::SolveResult result = solver.solve();   // resets the penalty-policy state
 
-    Phase 2: the facade drives the ported SDPSolver (src/legacy/) and reproduces its iterates bit for bit for
-    equivalent options; Phase 4 replaces the loop by AdmmSolver and adds observers.
+    Phase 2 drove the ported SDPSolver (src/legacy/) through its solve(); since Phase 4 the facade builds the
+    components of the algorithm layer (AdmmState, IterationScheme, PenaltyPolicy, StoppingRule, BestIterateTracker,
+    observers) and runs AdmmSolver on the engine's data; the iterates are bit for bit those of the references for
+    equivalent options.
 
 */
 
@@ -26,6 +28,10 @@
 
 namespace cuadmm
 {
+namespace report
+{
+class IterationObserver;
+}
 
 class Solver
 {
@@ -44,6 +50,9 @@ public:
     SolveResult solve(const WarmStart *warm_start = nullptr);
 
     const SolverOptions &options() const;
+
+    // Observers receive every iteration's post-step residuals (plan Section 7.5); they never influence the iteration.
+    void add_observer(std::shared_ptr<report::IterationObserver> observer);
 
     // Setup summary (after setup()): the normal-equation backend chosen and the factorization statistics.
     std::string linsys_backend() const;

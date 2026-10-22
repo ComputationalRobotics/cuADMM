@@ -80,3 +80,18 @@ implementation, deviations from its letter, and open questions, each with its re
     (bitwise with 9bb4ba5 and 2d8a755). An explicit value that contradicts a reference rule (a win ratio other than
     1.35, a changed schedule, `guard` off for `residual_balancing`, a factor other than 2 for `legacy_adaptive`) is
     rejected, so that no option silently changes meaning.
+
+16. **The legacy `SDPSolver::solve()` stays as a wrapper over the new loop.** The copied GPU tests of main drive
+    `SDPSolver` directly (`init()`, `solve()`, the `info_*` arrays, `validation_history`, ...). Rewriting all of them
+    in Milestone 1 would cost more than it protects; the wrapper builds the Phase 4 components from the engine's
+    fields and runs `AdmmSolver`, so one loop serves the facade, the CLI and the old tests. The engine's bookkeeping
+    fields are filled by a `LegacyInfoObserver` and by the loop's finish step. Phase 5+ removes them with the tests'
+    migration to the facade.
+
+17. **`algorithm.sgs_tau` and `algorithm.sgs_tau_reduction`.** The plan removes the hidden tau rules of the sGS
+    branch and makes `tau` one validated option. The hybrid mode of main (kept "until Q5") used 1.95 in its sGS
+    phase and 1.618 after the switch, and the sGS histories of main (the golden cases of the copied tests, stopping
+    at a tolerance) depend on the reduction rule. Both are therefore explicit options that reproduce main when set,
+    with the plan's behaviour as the default of the C++ API (`sgs_tau = tau`, no reduction). The CLI chooses main's
+    values for today's flags (`--scheme sgs_admm`, `--sgs-iterations`) unless `--tau`/`--sgs-tau` are given, so that
+    the published command lines keep their iterates. Recorded in `CHANGES.md`.

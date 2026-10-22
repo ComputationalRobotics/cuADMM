@@ -1,59 +1,30 @@
 /*
 
-    check.h
+    psd_projection/check.h  (cuADMM-reorg: mapped onto core/check.h)
 
-    Defines CHECK functions for CUDA, cuBLAS, cuSOLVER, and cuSPARSE.
-    These are used to check the return status of CUDA API calls.
+    The submodule's CHECK_* macros only printed; here they are the throwing checks of cuADMM-reorg (plan B15: one set
+    of macros, one include guard). The vendored kernels therefore fail with cuadmm::Error like the rest of the solver.
 
 */
 
-#ifndef CUADMM_CHECK_H
-#define CUADMM_CHECK_H
+#ifndef PSD_PROJECTION_CHECK_H
+#define PSD_PROJECTION_CHECK_H
 
-#include <cuda_runtime_api.h>
-#include <cusparse.h>
 #include <iostream>
 
-// Check if the function returns a CUDA error
-#define CHECK_CUDA(func)                                                       \
-do {                                                                           \
-    cudaError_t status = (func);                                               \
-    if (status != cudaSuccess) {                                               \
-        printf("CUDA API failed at %s:%d with error: %s (%d)",                 \
-               __FILE__, __LINE__, cudaGetErrorString(status), status);        \
-        std::cout << std::endl;                                                \
-    }                                                                          \
-} while (0) // wrap it in a do-while loop to be called with a semicolon
+#include "core/check.h"
 
-// Check if the function returns a cuBLAS error
-#define CHECK_CUBLAS(func)                                                     \
-do {                                                                           \
-    cublasStatus_t status = (func);                                            \
-    if (status != CUBLAS_STATUS_SUCCESS) {                                     \
-        printf("cuBLAS error %d at %s:%d", status, __FILE__, __LINE__);        \
-        std::cout << std::endl;                                                \
-    }                                                                          \
-} while (0)
+#ifndef CHECK_CUDA
+#define CHECK_CUDA(func) CUADMM_CHECK_CUDA(func)
+#endif
+#ifndef CHECK_CUBLAS
+#define CHECK_CUBLAS(func) CUADMM_CHECK_CUBLAS(func)
+#endif
+#ifndef CHECK_CUSOLVER
+#define CHECK_CUSOLVER(func) CUADMM_CHECK_CUSOLVER(func)
+#endif
+#ifndef CHECK_CUSPARSE
+#define CHECK_CUSPARSE(func) CUADMM_CHECK_CUSPARSE(func)
+#endif
 
-// Check if the function returns a cuSPARSE error
-#define CHECK_CUSOLVER(func)                                                   \
-do {                                                                           \
-    cusolverStatus_t status = (func);                                          \
-    if (status != CUSOLVER_STATUS_SUCCESS) {                                   \
-        printf("cuSOLVER error %d at %s:%d", status, __FILE__, __LINE__);      \
-        std::cout << std::endl;                                                \
-    }                                                                          \
-} while (0)
-
-// Check if the function returns a cuSPARSE error
-#define CHECK_CUSPARSE(func)                                                   \
-{                                                                              \
-    cusparseStatus_t status = (func);                                          \
-    if (status != CUSPARSE_STATUS_SUCCESS) {                                   \
-        printf("cuSPARSE error %s (%d) at %s:%d",                              \
-              cusparseGetErrorString(status), status, __FILE__, __LINE__);     \
-        std::cout << std::endl;                                                \
-    }                                                                          \
-}
-
-#endif // CUADMM_CHECK_H
+#endif // PSD_PROJECTION_CHECK_H

@@ -67,7 +67,7 @@ add_library(cuadmm_psd_kernels SHARED
   third_party/psd_projection/src/lanczos.cu
   third_party/psd_projection/src/lobpcg.cu
   third_party/psd_projection/src/utils.cu)
-target_include_directories(cuadmm_psd_kernels PUBLIC third_party/psd_projection/include)
+target_include_directories(cuadmm_psd_kernels PUBLIC third_party/psd_projection/include PRIVATE src)
 target_link_libraries(cuadmm_psd_kernels PUBLIC CUDA::cudart CUDA::cublas CUDA::cusolver)
 
 # ---------------------------------------------------------------------------------------------- build commit
@@ -92,6 +92,13 @@ set(CUADMM_SOURCES
   src/io/txt.cc
   src/io/io.cc
   src/report/writers.cc
+  src/report/observers.cc
+  src/core/gpu_context.cu
+  src/admm/penalty_policy.cc
+  src/admm/admm_state.cu
+  src/admm/admm_solver.cu
+  src/termination/stopping_rule.cu
+  src/termination/best_iterate_tracker.cu
   src/solver/solver_facade.cu)
 add_library(cuadmm SHARED ${CUADMM_LEGACY_SOURCES} ${CUADMM_SOURCES})
 target_include_directories(cuadmm

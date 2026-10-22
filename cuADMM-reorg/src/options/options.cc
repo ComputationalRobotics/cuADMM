@@ -183,6 +183,7 @@ const std::vector<OptionSpec> &option_table()
          "iteration scheme: plain two-block ADMM, or sGS-ADMM (one extra normal-equation solve per iteration); the alias "
          "--algorithm accepts admm and sgs", ""},
         {"algorithm.tau", "--tau", {}, "double", "", "1.618", "multiplier step length, in (0, 2); the legacy sGS path used 1.95", ""},
+        {"algorithm.sgs_tau", "--sgs-tau", {}, "double", "", "tau", "step length of the sGS iterations of the hybrid mode (the sGS phase of main used 1.95, then 1.618); tau: the same as algorithm.tau", ""},
         {"algorithm.scheme_switch_iteration", "--scheme-switch-iteration", {"--switch-admm"}, "int", "", "0",
          "hybrid mode (plan Q5): sGS-ADMM for the iterations before this one, then plain ADMM from the same X, y, S; 0: off", ""},
         {"algorithm.sgs_iterations", "--sgs-iterations", {}, "int", "", "0",
@@ -190,6 +191,8 @@ const std::vector<OptionSpec> &option_table()
         {"algorithm.max_iter", "--max-iter", {}, "int", "", "1000000", "maximum number of iterations", ""},
         {"algorithm.time_limit", "--time-limit", {}, "double", "", "inf", "seconds of iterations after which the solve stops, returning the best iterate", ""},
         {"algorithm.tol", "--tol", {}, "double", "", "1e-4", "internal stopping tolerance on eta = max(eta_p, eta_d, eta_g)", ""},
+        {"algorithm.sgs_tau_reduction", "--sgs-tau-reduction", {}, "bool", "", "false",
+         "today's hidden sGS rule, tau = max(1.618, tau / 1.1) at sGS iterations whose incoming eta_d is below tol; off: tau is the option (plan)", ""},
         // penalty
         {"penalty.policy", "--policy", {"--sigma-policy"}, "enum", "fixed, legacy_adaptive, residual_balancing, balance_freeze", "residual_balancing",
          "fixed: sigma_k = sigma0; legacy_adaptive: the rule of 9bb4ba5 (no guard, factor 2, [1e-6, 1e6], Monitor1); "
@@ -385,6 +388,7 @@ void set_option(SolverOptions &o, const std::string &path, const std::string &va
             o.algorithm.scheme = value == "sgs" ? SchemeKind::SgsAdmm : parse_scheme(value);
         }
         else if (p == "algorithm.tau") o.algorithm.tau = parse_double(value);
+        else if (p == "algorithm.sgs_tau") o.algorithm.sgs_tau = value == "tau" ? -1.0 : parse_double(value);
         else if (p == "algorithm.scheme_switch_iteration") o.algorithm.scheme_switch_iteration = parse_int(value);
         else if (p == "algorithm.sgs_iterations")
         {
@@ -396,6 +400,7 @@ void set_option(SolverOptions &o, const std::string &path, const std::string &va
         else if (p == "algorithm.max_iter") o.algorithm.max_iter = parse_int(value);
         else if (p == "algorithm.time_limit") o.algorithm.time_limit = parse_double(value);
         else if (p == "algorithm.tol") o.algorithm.tol = parse_double(value);
+        else if (p == "algorithm.sgs_tau_reduction") o.algorithm.sgs_tau_reduction = parse_bool(value);
         else if (p == "penalty.policy") o.penalty.policy = parse_penalty_policy(value);
         else if (p == "penalty.sigma0") o.penalty.sigma0 = parse_double(value);
         else if (p == "penalty.sigma_min") o.penalty.sigma_min = value == "policy" ? -1.0 : parse_double(value);
@@ -498,11 +503,13 @@ std::string get_option(const SolverOptions &o, const std::string &p)
         throw std::invalid_argument("unknown option '" + p + "'");
     if (p == "algorithm.scheme") return name_of(o.algorithm.scheme);
     if (p == "algorithm.tau") return fmt(o.algorithm.tau);
+    if (p == "algorithm.sgs_tau") return o.algorithm.sgs_tau < 0 ? "tau" : fmt(o.algorithm.sgs_tau);
     if (p == "algorithm.scheme_switch_iteration") return fmt(o.algorithm.scheme_switch_iteration);
     if (p == "algorithm.sgs_iterations") return fmt(o.algorithm.scheme_switch_iteration > 1 ? o.algorithm.scheme_switch_iteration - 1 : 0);
     if (p == "algorithm.max_iter") return fmt(o.algorithm.max_iter);
     if (p == "algorithm.time_limit") return fmt(o.algorithm.time_limit);
     if (p == "algorithm.tol") return fmt(o.algorithm.tol);
+    if (p == "algorithm.sgs_tau_reduction") return fmt(o.algorithm.sgs_tau_reduction);
     if (p == "penalty.policy") return name_of(o.penalty.policy);
     if (p == "penalty.sigma0") return fmt(o.penalty.sigma0);
     if (p == "penalty.sigma_min") return o.penalty.sigma_min < 0 ? "policy" : fmt(o.penalty.sigma_min);
@@ -591,6 +598,8 @@ void SolverOptions::validate() const
 
     if (!(algorithm.tau > 0.0 && algorithm.tau < 2.0))
         fail("algorithm.tau", "must be in (0, 2), got " + fmt(algorithm.tau));
+    if (algorithm.sgs_tau >= 0.0 && !(algorithm.sgs_tau > 0.0 && algorithm.sgs_tau < 2.0))
+        fail("algorithm.sgs_tau", "must be in (0, 2), got " + fmt(algorithm.sgs_tau));
     if (algorithm.scheme_switch_iteration < 0)
         fail("algorithm.scheme_switch_iteration", "must be non-negative");
     if (algorithm.scheme == SchemeKind::SgsAdmm && algorithm.scheme_switch_iteration > 0)

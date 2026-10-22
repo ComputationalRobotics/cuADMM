@@ -110,11 +110,14 @@ class Build:
             raise ValueError("the legacy CLI cannot set tau (its %s uses %g)" % (case["scheme"], implied_tau))
         cmd = [self.exe, case["problem"],
                "--sigma-policy", table[case["policy"]], "--sig", repr(float(case["sigma0"])),
-               "--max-iter", str(int(case["max_iter"])), "--tol", repr(float(case["tol"])),
-               "--algorithm", "sgs" if case["scheme"] == "sgs_admm" else "admm",
-               "--streams", str(int(case.get("streams", 15))), "--lobpcg", "1" if case.get("lobpcg", True) else "0",
-               "--switch-proj-iter", str(int(case.get("switch_proj_iter", 0))),
-               "--switch-proj-tol", repr(float(case.get("switch_proj_tol", 1e-2)))]
+               "--max-iter", str(int(case["max_iter"])), "--tol", repr(float(case["tol"]))]
+        if case.get("switch_iteration"):
+            cmd += ["--switch-admm", str(int(case["switch_iteration"]))]  # the hybrid: sGS before, ADMM from there
+        else:
+            cmd += ["--algorithm", "sgs" if case["scheme"] == "sgs_admm" else "admm"]
+        cmd += ["--streams", str(int(case.get("streams", 15))), "--lobpcg", "1" if case.get("lobpcg", True) else "0",
+                "--switch-proj-iter", str(int(case.get("switch_proj_iter", 0))),
+                "--switch-proj-tol", repr(float(case.get("switch_proj_tol", 1e-2)))]
         cmd += factor_args
         if case.get("time_limit") is not None:
             cmd += ["--time-limit", repr(float(case["time_limit"]))]
@@ -128,16 +131,24 @@ class Build:
             raise ValueError("unknown policy " + case["policy"])
         cmd = [self.exe, case["problem"],
                "--policy", case["policy"], "--sigma0", repr(float(case["sigma0"])),
-               "--max-iter", str(int(case["max_iter"])), "--tol", repr(float(case["tol"])),
-               "--scheme", case["scheme"],
-               "--psd-medium-streams", str(int(case.get("streams", 15))),
-               "--psd-lowrank-enabled", "1" if case.get("lobpcg", True) else "0",
-               "--psd-warmup-switch-iter", str(int(case.get("switch_proj_iter", 0))),
-               "--psd-warmup-switch-tol", repr(float(case.get("switch_proj_tol", 1e-2)))]
+               "--max-iter", str(int(case["max_iter"])), "--tol", repr(float(case["tol"]))]
+        hybrid = bool(case.get("switch_iteration"))
+        if hybrid:
+            cmd += ["--scheme-switch-iteration", str(int(case["switch_iteration"]))]
+        else:
+            cmd += ["--scheme", case["scheme"]]
+        cmd += ["--psd-medium-streams", str(int(case.get("streams", 15))),
+                "--psd-lowrank-enabled", "1" if case.get("lobpcg", True) else "0",
+                "--psd-warmup-switch-iter", str(int(case.get("switch_proj_iter", 0))),
+                "--psd-warmup-switch-tol", repr(float(case.get("switch_proj_tol", 1e-2)))]
+        if case.get("sgs_tau_reduction"):
+            cmd += ["--sgs-tau-reduction", "1"]  # today's hidden sGS tau rule, for the legacy histories only
         if case.get("tau") is not None:
             cmd += ["--tau", repr(float(case["tau"]))]
-        elif case["scheme"] == "sgs_admm":
+        elif case["scheme"] == "sgs_admm" and not hybrid:
             cmd += ["--tau", "1.95"]  # the legacy sGS step length (plan Phase 4 criterion)
+        if hybrid:
+            cmd += ["--sgs-tau", "1.95"]  # the hybrid of main: 1.95 before the switch, 1.618 after
         if case.get("factor") is not None and case["policy"] != "fixed":
             cmd += ["--factor", repr(float(case["factor"]))]
         if case.get("time_limit") is not None:

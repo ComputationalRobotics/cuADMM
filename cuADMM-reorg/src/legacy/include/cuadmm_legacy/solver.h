@@ -384,6 +384,9 @@ public:
     double sigmin;
     double sigscale;                 // factor of the sGS-phase sigma rule (--sigscale)
     double penalty_factor = 2.0;     // factor of the RESIDUAL_BALANCING schedule rule (plan option penalty.factor)
+    // today's hidden sGS rule tau = max(1.618, tau / 1.1) at iterations whose incoming eta_d < stop_tol (plan: removed;
+    // kept for the golden histories of main, algorithm.sgs_tau_reduction of the facade, default on in this legacy API)
+    bool legacy_sgs_tau_reduction = true;
     double penalty_sigma_min = -1.0; // |- bounds of the adaptive updates; < 0: the policy's own bounds
     double penalty_sigma_max = -1.0; // |  ([1e-6, 1e6] for LEGACY_ADAPTIVE, [1e-3, 1e3] for RESIDUAL_BALANCING)
 
@@ -467,8 +470,7 @@ public:
     std::vector<double> host_At_vals, host_b_vals, host_C_vals;
     std::vector<char> host_blk_types;
     std::unique_ptr<ExternalValidator> external_validator;
-    // snapshot of the current iterate, external validation, best-iterate bookkeeping (see ValidationConfig)
-    ValidationRecord validate_current_iterate(int iter, double time_s, const std::string &trigger, bool checkpoint);
+    // (validate_current_iterate moved to cuadmm::termination::ValidatedRule in Phase 4)
     std::vector<double> info_time_arr; // seconds since the start of the iterations, after each iteration
 
     /* sGS-ADMM */

@@ -9,6 +9,7 @@
 #ifndef CUADMM_MONITORS_H
 #define CUADMM_MONITORS_H
 
+#include <iostream>
 #include <deque>
 #include <optional>
 #include <algorithm>

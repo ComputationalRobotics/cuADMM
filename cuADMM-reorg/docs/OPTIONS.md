@@ -6,11 +6,13 @@ Generated from the option table of `src/options/options.cc` (`cuadmm --print-opt
 |---|---|---|---|---|---|
 | `algorithm.scheme` | `--scheme` (`--algorithm`) | enum (admm, sgs_admm) | `admm` | now | iteration scheme: plain two-block ADMM, or sGS-ADMM (one extra normal-equation solve per iteration); the alias --algorithm accepts admm and sgs |
 | `algorithm.tau` | `--tau` | double | `1.618` | now | multiplier step length, in (0, 2); the legacy sGS path used 1.95 |
+| `algorithm.sgs_tau` | `--sgs-tau` | double | `tau` | now | step length of the sGS iterations of the hybrid mode (the sGS phase of main used 1.95, then 1.618); tau: the same as algorithm.tau |
 | `algorithm.scheme_switch_iteration` | `--scheme-switch-iteration` (`--switch-admm`) | int | `0` | now | hybrid mode (plan Q5): sGS-ADMM for the iterations before this one, then plain ADMM from the same X, y, S; 0: off |
 | `algorithm.sgs_iterations` | `--sgs-iterations` | int | `0` | now | hybrid mode as a count: exactly n sGS-ADMM iterations, then plain ADMM (= scheme_switch_iteration n + 1); 0: plain ADMM |
 | `algorithm.max_iter` | `--max-iter` | int | `1000000` | now | maximum number of iterations |
 | `algorithm.time_limit` | `--time-limit` | double | `inf` | now | seconds of iterations after which the solve stops, returning the best iterate |
 | `algorithm.tol` | `--tol` | double | `1e-4` | now | internal stopping tolerance on eta = max(eta_p, eta_d, eta_g) |
+| `algorithm.sgs_tau_reduction` | `--sgs-tau-reduction` | bool | `false` | now | today's hidden sGS rule, tau = max(1.618, tau / 1.1) at sGS iterations whose incoming eta_d is below tol; off: tau is the option (plan) |
 | `penalty.policy` | `--policy` (`--sigma-policy`) | enum (fixed, legacy_adaptive, residual_balancing, balance_freeze) | `residual_balancing` | now | fixed: sigma_k = sigma0; legacy_adaptive: the rule of 9bb4ba5 (no guard, factor 2, [1e-6, 1e6], Monitor1); residual_balancing: the October 13 rule of 2d8a755 (guard, factor, [1e-3, 1e3]); balance_freeze: residual balancing that freezes sigma (plan Section 3.5; Phase 4) |
 | `penalty.sigma0` | `--sigma0` (`--sig`) | double | `100` | now | initial sigma (scaled units) |
 | `penalty.sigma_min` | `--sigma-min` | double | `policy` | now | lower bound of the adaptive updates (policy: the policy's own) |

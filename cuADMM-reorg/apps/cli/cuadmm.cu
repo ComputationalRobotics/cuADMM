@@ -88,8 +88,11 @@ Parsed parse(int argc, char *argv[])
         throw std::invalid_argument("--sgs-iterations cannot be combined with --scheme-switch-iteration/--switch-admm or --scheme/--algorithm");
     if (switch_given && scheme_given)
         throw std::invalid_argument("use either --scheme/--algorithm or --scheme-switch-iteration/--switch-admm, not both");
+    // the step lengths of main for the sGS paths unless given: 1.95 for pure sGS-ADMM, 1.95 then 1.618 for the hybrid
     if (p.options.algorithm.scheme == SchemeKind::SgsAdmm && p.given.count("algorithm.tau") == 0)
-        p.options.algorithm.tau = 1.95; // the engine's sGS step length until Phase 4 (plan Phase 4 criterion)
+        p.options.algorithm.tau = 1.95;
+    if (p.options.algorithm.scheme_switch_iteration > 1 && p.given.count("algorithm.sgs_tau") == 0)
+        p.options.algorithm.sgs_tau = 1.95;
     p.options.validate();
     return p;
 }

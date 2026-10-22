@@ -92,3 +92,39 @@ Inside `cuADMM-reorg/src/legacy/` (the copied `SDPSolver`), the CLI and the test
   is replaced by `matlab/cuadmm_mex.cu`.
 - **Reported objectives** carry the file's sense and offset (`pobj = sign * <C, X> + offset`); for TXT input (always a
   minimization without offset) nothing changes.
+
+## Phase 3 (2026-10-21): thin core
+
+- **One set of checks (B15)**: `src/core/check.h` defines `CUADMM_CHECK_CUDA/CUBLAS/CUSOLVER/CUSPARSE`,
+  `CUADMM_CHECK_LAUNCH()` and the `_NOTHROW` variants, all throwing `cuadmm::Error` (a `std::runtime_error` with the
+  call site and the failing call). The legacy header and the vendored submodule header map their old names onto
+  them: the vendored kernels (LOBPCG, Lanczos, the FP16 filter) now throw on a library error instead of printing and
+  continuing. Error paths only.
+- `src/core/device_buffer.h` (`DeviceBuffer`, `DeviceSpan`, `PinnedHostBuffer`, host/device copies with `size_t`
+  sizes) and `src/core/gpu_context.{h,cu}` (`GpuContext`: device, properties, main handles with the math mode set
+  explicitly; `ExecContext`). The ported engine still creates its own streams and handles (the stream pool and the
+  arena come with Phase 6b).
+
+## Phase 4 (2026-10-21): algorithm layer
+
+- `SDPSolver::solve()` of main is replaced by `cuadmm::admm::AdmmSolver::run` on `AdmmState` (the steps, moved
+  unchanged), `IterationScheme` (`AdmmScheme`, `SgsAdmmScheme`), `PenaltyPolicy` (`FixedPenalty`, `LegacyPenalty`
+  with Monitor1, `ResidualBalancingPenalty` for `residual_balancing` and `balance_freeze`), `StoppingRule`
+  (`InternalKktRule`, `ValidatedRule` with the strict DIMACS stage), `BestIterateTracker`, and observers (console
+  table, history, the engine's info arrays). The legacy `solve()` signature stays as a wrapper for the copied tests.
+- **`balance_freeze`** is implemented (plan Section 3.5, Table 2: `penalty.freeze_iteration`, `.pingpong_*`,
+  `.freeze_value`, `.freeze_bias`, `.step_schedule`, `.schedule`, `.win_ratio`, `.guard`, `.residual_weight`; `sigma_0`
+  clamped). It is not the default (Phase 4b decides); the sigma log records every change and the freeze
+  (`freeze_<reason>`), the summary the freeze iteration and reason.
+- **The hidden sGS tau rule is an option**: `algorithm.sgs_tau_reduction` (default off) reproduces main's
+  `tau = max(1.618, tau / 1.1)` at sGS iterations whose incoming `eta_d < tol`; off, `tau` is what the option says
+  (plan Section 3.2). The legacy `SDPSolver::solve()` wrapper keeps it on, as main did, for the golden histories of
+  the copied tests.
+- **`algorithm.sgs_tau`**: the step length of the sGS iterations of the hybrid mode (main: 1.95 before the switch,
+  1.618 after); default the same as `algorithm.tau`; the CLI sets 1.95 for `--sgs-iterations`/`--switch-admm` and
+  for `--scheme sgs_admm` unless `--tau`/`--sgs-tau` are given, so that today's command lines give today's iterates.
+- **Non-finite residuals** in the non-validating mode now throw at the end of the iteration that produced them, as
+  before, but after the sigma update of that iteration was skipped (the error message is the same).
+- **Best-iterate ranking with validations (B23)**: unchanged in this phase (the validated snapshots are ranked by
+  `ValidationResult::better_than`: practical merit first, then `max_abs_dimacs` in the strict stage); the DIMACS-based
+  ranking of plan B23 for the non-strict validation mode is recorded as pending in `docs/PROGRESS.md`.

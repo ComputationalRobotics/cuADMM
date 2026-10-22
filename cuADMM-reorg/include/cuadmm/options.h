@@ -40,10 +40,14 @@ struct AlgorithmOptions
 {
     SchemeKind scheme = SchemeKind::Admm; // admm or sgs_admm
     double tau = 1.618;                   // multiplier step length, validated in (0, 2)
+    double sgs_tau = -1.0;                // step length of the sGS iterations of the hybrid mode (< 0: tau); main used 1.95
     int scheme_switch_iteration = 0;      // hybrid mode (until Q5): sGS-ADMM for iterations < this, then ADMM; 0: off
     int max_iter = 1000000;
     double time_limit = std::numeric_limits<double>::infinity(); // seconds of iterations; inf: none
     double tol = 1e-4;                                           // internal stopping tolerance on eta
+    // today's hidden sGS rule (tau = max(1.618, tau / 1.1) at sGS iterations whose incoming eta_d < tol); the plan removes
+    // it (tau is the option); on only to reproduce the sGS histories of main
+    bool sgs_tau_reduction = false;
 };
 
 struct PenaltyOptions
