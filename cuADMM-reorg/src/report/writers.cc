@@ -21,13 +21,15 @@ namespace cuadmm
 namespace report
 {
 
-// the shortest decimal that round-trips exactly (std::to_chars): exact replays, readable values (plan B25)
+// the shortest decimal that round-trips exactly (std::to_chars): exact replays, readable values (plan B25); integral
+// values below 1e16 in fixed notation (1000000, not 1e+06), as Python prints them
 std::string json_number(double x)
 {
     if (!std::isfinite(x))
         return "null";
     char buf[64];
-    const std::to_chars_result r = std::to_chars(buf, buf + sizeof(buf), x);
+    const std::to_chars_result r = (x == std::trunc(x) && std::fabs(x) < 1e16) ? std::to_chars(buf, buf + sizeof(buf), x, std::chars_format::fixed)
+                                                                               : std::to_chars(buf, buf + sizeof(buf), x);
     return std::string(buf, r.ptr);
 }
 

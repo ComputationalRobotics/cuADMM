@@ -308,7 +308,14 @@ TEST(HybridSwitchCli, SgsIterationsOption)
         const bool is_sgs = line.size() > 4 && line.compare(line.size() - 4, 4, ",sgs") == 0;
         sgs += is_sgs;
         EXPECT_EQ(is_sgs, n <= 100) << line;
-        EXPECT_NE(line.find(n <= 100 ? ",1,1.95," : ",1,1.618,"), std::string::npos) << line;
+        // iter,time_s,pobj,dobj,eta_p,eta_d,eta_g,sigma,tau,phase with 17 significant digits: parse sigma and tau
+        std::vector<std::string> cols;
+        std::stringstream ls(line);
+        for (std::string tok; std::getline(ls, tok, ',');)
+            cols.push_back(tok);
+        ASSERT_EQ(cols.size(), 10u) << line;
+        EXPECT_EQ(std::stod(cols[7]), 1.0) << line;
+        EXPECT_EQ(std::stod(cols[8]), n <= 100 ? 1.95 : 1.618) << line;
     }
     EXPECT_EQ(n, 150);
     EXPECT_EQ(sgs, 100);
