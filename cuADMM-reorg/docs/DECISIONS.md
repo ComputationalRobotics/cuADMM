@@ -127,3 +127,27 @@ implementation, deviations from its letter, and open questions, each with its re
 27. **"Relative difference" of the cross-format checks** is `max |a - b| / max |b|` over the entries of At, b and
     C (the 16-decimal TXT files of SPOT limit the agreement to about 5.6e-17 in this measure, matching the plan's
     6e-17; the elementwise relative difference of tiny entries is larger, up to 3e-15, because of the TXT rounding).
+
+## 2026-10-21 (Phase 2b review fixes; numbering continues after the merge of reorg-io into reorg)
+
+32. **MOSEK variables with a finite upper bound only are negated, not sliced.** Plan Section 12 says "other bounds
+    by a shift and, for a finite upper bound, a slack"; the reader maps `(-inf, u]` to `x = u - x'` with `x' >= 0`
+    (one variable, no slack row), which is equivalent and cheaper, and keeps the plan's shift-plus-slack mapping
+    for two finite bounds (`x = l + x'`, `x' + s = u - l`). The writer undoes the negation (`xx = u - x'`) and
+    recovers the duals: the upper-bound multiplier `sux` is the dual slack of `x'` (`slx - sux = c - a'y`
+    holds; review finding 6).
+33. **The `.mat` readers copy each sparse matrix once more** (`mat_common.cc`, `sparse_values` inside
+    `for_each_nonzero`: 64-bit indices and double values, about 16 bytes per nonzero, released when the reader
+    moves on; the SDPT3 reader visits every `At{p}` twice, counting then copying). matio already holds the whole
+    variable, so the transient peak is about 2.5 x the file's sparse data; the plan's "once converted to .h5 for
+    large problems" path has no such copy. Left as is (review finding 10).
+34. **Solutions of native `.h5` input are written in the file's own block layout** (`/solution/X`, `/solution/S`
+    over `/solution/blocks`), and `/start` is accepted in that layout as well as in the solver's: a block the
+    reader simplified holds its diagonal, the rest of its svec entries are zero on output and ignored on input.
+    A standalone `solution.h5` (another input format, or `--save-format h5`) uses the reader's original blocks the
+    same way (split SDPT3 groups recombined, simplified blocks expanded). The TXT convention keeps the solver's
+    cones in `X.txt` / `S.txt` and names them in `solution_blocks.txt` (for TXT input they are the input's
+    `blk.txt`) (review finding 4).
+35. **A native file without a `sense` attribute is rejected** unless `io.sense` supplies it (reported); the
+    schema lists `sense` as required and a silent "min" would solve a different problem for files written by
+    hand (review finding 5).
