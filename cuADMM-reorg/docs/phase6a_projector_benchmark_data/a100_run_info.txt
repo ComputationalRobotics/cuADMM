@@ -1,8 +1,0 @@
-psd_projector_bench (cuADMM-reorg Phase 6a)
-date: 2026-10-22 22:41:51 EDT
-build commit: 89b45004f6f414ab5c9da763491daea82ecc7cb6
-gpu: NVIDIA A100-SXM4-80GB (sm_80, 108 SMs, 81175 MiB, 80746 MiB free at start)
-driver version: 13.3, runtime version: 12.9, cuBLAS 120901, cuSOLVER 11705
-math mode: CUBLAS_DEFAULT_MATH on the handle; filter GEMMs: cublasGemmEx CUBLAS_COMPUTE_32F_FAST_16F
-options: out=/n/home00/yukuanwei/cuadmm-scratch-bench6a/results smoke=0 reps=5 reps_large=3 (n >= 20000) budget_min=40 seed=20261022 sizes=2000,3000,5000,10000,20000 families=full_rank,low_pos_rank,low_neg_rank,clustered,spread
-constants: margin=1.05 norm_slack=0.01 lanczos_steps=20 lanczos_tol=1e-10
