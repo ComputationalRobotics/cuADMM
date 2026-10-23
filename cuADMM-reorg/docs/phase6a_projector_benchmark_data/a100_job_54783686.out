@@ -1,0 +1,76 @@
+name, driver_version, memory.total [MiB]
+NVIDIA A100-SXM4-80GB, 610.57.04, 81920 MiB
+psd_projector_bench (cuADMM-reorg Phase 6a)
+date: 2026-10-22 22:41:51 EDT
+build commit: 89b45004f6f414ab5c9da763491daea82ecc7cb6
+gpu: NVIDIA A100-SXM4-80GB (sm_80, 108 SMs, 81175 MiB, 80746 MiB free at start)
+driver version: 13.3, runtime version: 12.9, cuBLAS 120901, cuSOLVER 11705
+math mode: CUBLAS_DEFAULT_MATH on the handle; filter GEMMs: cublasGemmEx CUBLAS_COMPUTE_32F_FAST_16F
+options: out=/n/home00/yukuanwei/cuadmm-scratch-bench6a/results smoke=0 reps=5 reps_large=3 (n >= 20000) budget_min=40 seed=20261022 sizes=2000,3000,5000,10000,20000 families=full_rank,low_pos_rank,low_neg_rank,clustered,spread
+constants: margin=1.05 norm_slack=0.01 lanczos_steps=20 lanczos_tol=1e-10
+== n = 2000 (5 repetitions after one warm-up), 0.0 min elapsed
+   Xsyevd workspace: device 130295960 bytes = 4.0717 n^2 doubles, host 0 bytes; EVD path 0.186 GiB, composite path 0.100 GiB
+n=2000 full_rank     ok | build 0.1 s | EVD 44.0 ms (ws 4.072 n^2) | composite 6.7 ms (lanczos 3.2, filter 3.4, checks 0.1) | speedup 6.58 | rel err 7.80e-04 (max 7.84e-04) | lambda_min(P16) -1.258e-03 | rejected 0/6 | up/true 1.00300..1.00518 | 1 s
+n=2000 low_pos_rank  ok | build 0.0 s | EVD 39.9 ms (ws 4.072 n^2) | composite 6.7 ms (lanczos 3.2, filter 3.4, checks 0.1) | speedup 5.98 | rel err 1.58e-03 (max 1.59e-03) | lambda_min(P16) -2.408e-04 | rejected 0/6 | up/true 1.00420..1.00583 | 0 s
+n=2000 low_neg_rank  ok | build 0.0 s | EVD 39.8 ms (ws 4.072 n^2) | composite 6.7 ms (lanczos 3.2, filter 3.4, checks 0.1) | speedup 5.97 | rel err 3.32e-04 (max 3.36e-04) | lambda_min(P16) -7.616e-05 | rejected 0/6 | up/true 1.00250..1.00336 | 0 s
+n=2000 clustered     ok | build 0.0 s | EVD 40.1 ms (ws 4.072 n^2) | composite 6.7 ms (lanczos 3.2, filter 3.4, checks 0.1) | speedup 6.01 | rel err 1.16e-03 (max 1.16e-03) | lambda_min(P16) -1.190e-03 | rejected 0/6 | up/true 1.00017..1.00023 | 0 s
+n=2000 spread        ok | build 0.0 s | EVD 38.9 ms (ws 4.072 n^2) | composite 6.7 ms (lanczos 3.2, filter 3.4, checks 0.1) | speedup 5.83 | rel err 1.81e-03 (max 1.84e-03) | lambda_min(P16) -1.765e-03 | rejected 0/6 | up/true 1.00323..1.00878 | 0 s
+== n = 3000 (5 repetitions after one warm-up), 0.0 min elapsed
+   Xsyevd workspace: device 291311896 bytes = 4.0460 n^2 doubles, host 0 bytes; EVD path 0.408 GiB, composite path 0.221 GiB
+n=3000 full_rank     ok | build 0.0 s | EVD 100.6 ms (ws 4.046 n^2) | composite 13.9 ms (lanczos 4.1, filter 9.6, checks 0.2) | speedup 7.25 | rel err 8.12e-04 (max 8.13e-04) | lambda_min(P16) -1.149e-03 | rejected 0/6 | up/true 1.00112..1.00222 | 1 s
+n=3000 low_pos_rank  ok | build 0.0 s | EVD 100.3 ms (ws 4.046 n^2) | composite 13.8 ms (lanczos 4.0, filter 9.6, checks 0.2) | speedup 7.25 | rel err 1.42e-03 (max 1.44e-03) | lambda_min(P16) -2.301e-04 | rejected 0/6 | up/true 1.00233..1.00317 | 1 s
+n=3000 low_neg_rank  ok | build 0.0 s | EVD 100.6 ms (ws 4.046 n^2) | composite 13.8 ms (lanczos 4.0, filter 9.6, checks 0.2) | speedup 7.27 | rel err 3.19e-04 (max 3.20e-04) | lambda_min(P16) -5.790e-05 | rejected 0/6 | up/true 1.00349..1.00391 | 1 s
+n=3000 clustered     ok | build 0.0 s | EVD 100.8 ms (ws 4.046 n^2) | composite 13.9 ms (lanczos 4.1, filter 9.6, checks 0.2) | speedup 7.28 | rel err 1.16e-03 (max 1.16e-03) | lambda_min(P16) -1.212e-03 | rejected 0/6 | up/true 1.00013..1.00015 | 1 s
+n=3000 spread        ok | build 0.0 s | EVD 97.7 ms (ws 4.046 n^2) | composite 13.9 ms (lanczos 4.0, filter 9.6, checks 0.2) | speedup 7.05 | rel err 1.53e-03 (max 1.54e-03) | lambda_min(P16) -1.742e-03 | rejected 0/6 | up/true 0.99972..1.00066 | 1 s
+== n = 5000 (5 repetitions after one warm-up), 0.1 min elapsed
+   Xsyevd workspace: device 805344024 bytes = 4.0267 n^2 doubles, host 0 bytes; EVD path 1.127 GiB, composite path 0.609 GiB
+n=5000 full_rank     ok | build 0.1 s | EVD 344.3 ms (ws 4.027 n^2) | composite 44.4 ms (lanczos 8.1, filter 35.9, checks 0.4) | speedup 7.76 | rel err 7.84e-04 (max 7.86e-04) | lambda_min(P16) -1.034e-03 | rejected 0/6 | up/true 1.00304..1.00363 | 3 s
+n=5000 low_pos_rank  ok | build 0.1 s | EVD 343.1 ms (ws 4.027 n^2) | composite 44.4 ms (lanczos 8.2, filter 35.9, checks 0.4) | speedup 7.73 | rel err 1.37e-03 (max 1.38e-03) | lambda_min(P16) -2.363e-04 | rejected 0/6 | up/true 1.00226..1.00450 | 3 s
+n=5000 low_neg_rank  ok | build 0.1 s | EVD 343.6 ms (ws 4.027 n^2) | composite 44.4 ms (lanczos 8.1, filter 35.9, checks 0.4) | speedup 7.74 | rel err 3.37e-04 (max 3.37e-04) | lambda_min(P16) -5.803e-05 | rejected 0/6 | up/true 1.00322..1.00437 | 3 s
+n=5000 clustered     ok | build 0.1 s | EVD 344.7 ms (ws 4.027 n^2) | composite 44.5 ms (lanczos 8.2, filter 36.0, checks 0.4) | speedup 7.74 | rel err 1.17e-03 (max 1.17e-03) | lambda_min(P16) -1.228e-03 | rejected 0/6 | up/true 1.00017..1.00019 | 3 s
+n=5000 spread        ok | build 0.1 s | EVD 334.9 ms (ws 4.027 n^2) | composite 44.5 ms (lanczos 8.1, filter 36.0, checks 0.4) | speedup 7.53 | rel err 1.70e-03 (max 1.70e-03) | lambda_min(P16) -1.939e-03 | rejected 0/6 | up/true 1.00134..1.00569 | 3 s
+== n = 10000 (5 repetitions after one warm-up), 0.3 min elapsed
+   Xsyevd workspace: device 3210423960 bytes = 4.0130 n^2 doubles, host 0 bytes; EVD path 4.482 GiB, composite path 2.426 GiB
+n=10000 full_rank     ok | build 0.4 s | EVD 1827.5 ms (ws 4.013 n^2) | composite 228.2 ms (lanczos 22.7, filter 204.3, checks 1.1) | speedup 8.01 | rel err 7.77e-04 (max 7.78e-04) | lambda_min(P16) -1.061e-03 | rejected 0/6 | up/true 1.00260..1.00313 | 14 s
+n=10000 low_pos_rank  ok | build 0.4 s | EVD 1823.3 ms (ws 4.013 n^2) | composite 227.8 ms (lanczos 22.7, filter 203.9, checks 1.1) | speedup 8.00 | rel err 1.39e-03 (max 1.40e-03) | lambda_min(P16) -2.320e-04 | rejected 0/6 | up/true 1.00253..1.00292 | 14 s
+n=10000 low_neg_rank  ok | build 0.4 s | EVD 1827.0 ms (ws 4.013 n^2) | composite 227.8 ms (lanczos 22.7, filter 203.9, checks 1.1) | speedup 8.02 | rel err 3.29e-04 (max 3.30e-04) | lambda_min(P16) -5.764e-05 | rejected 0/6 | up/true 1.00242..1.00287 | 14 s
+n=10000 clustered     ok | build 0.4 s | EVD 1828.6 ms (ws 4.013 n^2) | composite 228.2 ms (lanczos 22.7, filter 204.0, checks 1.1) | speedup 8.01 | rel err 1.16e-03 (max 1.16e-03) | lambda_min(P16) -1.223e-03 | rejected 0/6 | up/true 1.00016..1.00019 | 14 s
+n=10000 spread        ok | build 0.4 s | EVD 1777.0 ms (ws 4.013 n^2) | composite 228.4 ms (lanczos 22.8, filter 204.3, checks 1.1) | speedup 7.78 | rel err 1.81e-03 (max 1.81e-03) | lambda_min(P16) -2.002e-03 | rejected 0/6 | up/true 1.00254..1.00597 | 14 s
+== n = 20000 (3 repetitions after one warm-up), 1.5 min elapsed
+   Xsyevd workspace: device 12820583832 bytes = 4.0064 n^2 doubles, host 0 bytes; EVD path 17.902 GiB, composite path 9.688 GiB
+n=20000 full_rank     ok | build 2.6 s | EVD 12359.3 ms (ws 4.006 n^2) | composite 1616.6 ms (lanczos 78.4, filter 1533.4, checks 4.3) | speedup 7.65 | rel err 8.02e-04 (max 8.02e-04) | lambda_min(P16) -1.222e-03 | rejected 0/4 | up/true 1.00251..1.00289 | 69 s
+n=20000 low_pos_rank  ok | build 2.6 s | EVD 12331.0 ms (ws 4.006 n^2) | composite 1614.9 ms (lanczos 78.3, filter 1532.4, checks 4.3) | speedup 7.64 | rel err 1.49e-03 (max 1.50e-03) | lambda_min(P16) -2.403e-04 | rejected 0/4 | up/true 1.00232..1.00293 | 69 s
+n=20000 low_neg_rank  ok | build 2.6 s | EVD 12356.6 ms (ws 4.006 n^2) | composite 1610.5 ms (lanczos 78.4, filter 1527.9, checks 4.3) | speedup 7.67 | rel err 3.35e-04 (max 3.35e-04) | lambda_min(P16) -6.543e-05 | rejected 0/4 | up/true 1.00308..1.00358 | 69 s
+n=20000 clustered     ok | build 2.7 s | EVD 12375.1 ms (ws 4.006 n^2) | composite 1613.4 ms (lanczos 78.4, filter 1530.8, checks 4.3) | speedup 7.67 | rel err 1.16e-03 (max 1.16e-03) | lambda_min(P16) -1.232e-03 | rejected 0/4 | up/true 1.00017..1.00018 | 69 s
+n=20000 spread        ok | build 2.6 s | EVD 11983.8 ms (ws 4.006 n^2) | composite 1614.4 ms (lanczos 78.4, filter 1531.7, checks 4.3) | speedup 7.42 | rel err 1.71e-03 (max 1.71e-03) | lambda_min(P16) -1.999e-03 | rejected 0/4 | up/true 1.00155..1.00257 | 67 s
+
+| n | family | FullEvd ms | Composite ms | Lanczos ms | filter ms | speedup | rel. Frobenius err (median / max) | lambda_min(P_fp16) | rejected | Lanczos up / true (min..max) | w_evd / n^2 | EVD mem GiB | composite mem GiB |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 2000 | full_rank | 44.0 | 6.7 | 3.2 | 3.4 | 6.58 | 7.80e-04 / 7.84e-04 | -1.26e-03 | 0/6 | 1.0030..1.0052 | 4.072 | 0.19 | 0.10 |
+| 2000 | low_pos_rank | 39.9 | 6.7 | 3.2 | 3.4 | 5.98 | 1.58e-03 / 1.59e-03 | -2.41e-04 | 0/6 | 1.0042..1.0058 | 4.072 | 0.19 | 0.10 |
+| 2000 | low_neg_rank | 39.8 | 6.7 | 3.2 | 3.4 | 5.97 | 3.32e-04 / 3.36e-04 | -7.62e-05 | 0/6 | 1.0025..1.0034 | 4.072 | 0.19 | 0.10 |
+| 2000 | clustered | 40.1 | 6.7 | 3.2 | 3.4 | 6.01 | 1.16e-03 / 1.16e-03 | -1.19e-03 | 0/6 | 1.0002..1.0002 | 4.072 | 0.19 | 0.10 |
+| 2000 | spread | 38.9 | 6.7 | 3.2 | 3.4 | 5.83 | 1.81e-03 / 1.84e-03 | -1.77e-03 | 0/6 | 1.0032..1.0088 | 4.072 | 0.19 | 0.10 |
+| 3000 | full_rank | 100.6 | 13.9 | 4.1 | 9.6 | 7.25 | 8.12e-04 / 8.13e-04 | -1.15e-03 | 0/6 | 1.0011..1.0022 | 4.046 | 0.41 | 0.22 |
+| 3000 | low_pos_rank | 100.3 | 13.8 | 4.0 | 9.6 | 7.25 | 1.42e-03 / 1.44e-03 | -2.30e-04 | 0/6 | 1.0023..1.0032 | 4.046 | 0.41 | 0.22 |
+| 3000 | low_neg_rank | 100.6 | 13.8 | 4.0 | 9.6 | 7.27 | 3.19e-04 / 3.20e-04 | -5.79e-05 | 0/6 | 1.0035..1.0039 | 4.046 | 0.41 | 0.22 |
+| 3000 | clustered | 100.8 | 13.9 | 4.1 | 9.6 | 7.28 | 1.16e-03 / 1.16e-03 | -1.21e-03 | 0/6 | 1.0001..1.0001 | 4.046 | 0.41 | 0.22 |
+| 3000 | spread | 97.7 | 13.9 | 4.0 | 9.6 | 7.05 | 1.53e-03 / 1.54e-03 | -1.74e-03 | 0/6 | 0.9997..1.0007 | 4.046 | 0.41 | 0.22 |
+| 5000 | full_rank | 344.3 | 44.4 | 8.1 | 35.9 | 7.76 | 7.84e-04 / 7.86e-04 | -1.03e-03 | 0/6 | 1.0030..1.0036 | 4.027 | 1.13 | 0.61 |
+| 5000 | low_pos_rank | 343.1 | 44.4 | 8.2 | 35.9 | 7.73 | 1.37e-03 / 1.38e-03 | -2.36e-04 | 0/6 | 1.0023..1.0045 | 4.027 | 1.13 | 0.61 |
+| 5000 | low_neg_rank | 343.6 | 44.4 | 8.1 | 35.9 | 7.74 | 3.37e-04 / 3.37e-04 | -5.80e-05 | 0/6 | 1.0032..1.0044 | 4.027 | 1.13 | 0.61 |
+| 5000 | clustered | 344.7 | 44.5 | 8.2 | 36.0 | 7.74 | 1.17e-03 / 1.17e-03 | -1.23e-03 | 0/6 | 1.0002..1.0002 | 4.027 | 1.13 | 0.61 |
+| 5000 | spread | 334.9 | 44.5 | 8.1 | 36.0 | 7.53 | 1.70e-03 / 1.70e-03 | -1.94e-03 | 0/6 | 1.0013..1.0057 | 4.027 | 1.13 | 0.61 |
+| 10000 | full_rank | 1827.5 | 228.2 | 22.7 | 204.3 | 8.01 | 7.77e-04 / 7.78e-04 | -1.06e-03 | 0/6 | 1.0026..1.0031 | 4.013 | 4.48 | 2.43 |
+| 10000 | low_pos_rank | 1823.3 | 227.8 | 22.7 | 203.9 | 8.00 | 1.39e-03 / 1.40e-03 | -2.32e-04 | 0/6 | 1.0025..1.0029 | 4.013 | 4.48 | 2.43 |
+| 10000 | low_neg_rank | 1827.0 | 227.8 | 22.7 | 203.9 | 8.02 | 3.29e-04 / 3.30e-04 | -5.76e-05 | 0/6 | 1.0024..1.0029 | 4.013 | 4.48 | 2.43 |
+| 10000 | clustered | 1828.6 | 228.2 | 22.7 | 204.0 | 8.01 | 1.16e-03 / 1.16e-03 | -1.22e-03 | 0/6 | 1.0002..1.0002 | 4.013 | 4.48 | 2.43 |
+| 10000 | spread | 1777.0 | 228.4 | 22.8 | 204.3 | 7.78 | 1.81e-03 / 1.81e-03 | -2.00e-03 | 0/6 | 1.0025..1.0060 | 4.013 | 4.48 | 2.43 |
+| 20000 | full_rank | 12359.3 | 1616.6 | 78.4 | 1533.4 | 7.65 | 8.02e-04 / 8.02e-04 | -1.22e-03 | 0/4 | 1.0025..1.0029 | 4.006 | 17.90 | 9.69 |
+| 20000 | low_pos_rank | 12331.0 | 1614.9 | 78.3 | 1532.4 | 7.64 | 1.49e-03 / 1.50e-03 | -2.40e-04 | 0/4 | 1.0023..1.0029 | 4.006 | 17.90 | 9.69 |
+| 20000 | low_neg_rank | 12356.6 | 1610.5 | 78.4 | 1527.9 | 7.67 | 3.35e-04 / 3.35e-04 | -6.54e-05 | 0/4 | 1.0031..1.0036 | 4.006 | 17.90 | 9.69 |
+| 20000 | clustered | 12375.1 | 1613.4 | 78.4 | 1530.8 | 7.67 | 1.16e-03 / 1.16e-03 | -1.23e-03 | 0/4 | 1.0002..1.0002 | 4.006 | 17.90 | 9.69 |
+| 20000 | spread | 11983.8 | 1614.4 | 78.4 | 1531.7 | 7.42 | 1.71e-03 / 1.71e-03 | -2.00e-03 | 0/4 | 1.0016..1.0026 | 4.006 | 17.90 | 9.69 |
+
+total 7.2 min
+bench exit 0
