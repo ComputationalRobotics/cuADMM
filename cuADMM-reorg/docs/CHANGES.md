@@ -220,3 +220,15 @@ Inside `cuADMM-reorg/src/legacy/` (the copied `SDPSolver`), the CLI and the test
   check (since replaced by `tools/io/check_formats.py`), which parses the summary. `Options.OptionsJsonIsValidJson` checks the defaults and set values with a small JSON
   scanner. `tools/compare_runs.py` now prints a warning for a summary it cannot parse instead of skipping the
   (informational) summary comparison silently; the acceptance comparisons (histories, solutions) were never affected.
+
+## Phase 7 (backends, branch reorg-linsys, 2026-10-22)
+
+No behavior change: the new backends (`DenseCusolverSolver`, `CudssSolver`), `NormalSystem` and the presolve are
+standalone components with their own tests and are not wired into the y-step; the engine's CHOLMOD path, the facade
+and the existing tests are unchanged.
+
+- New build option `CUADMM_WITH_CUDSS` (AUTO, ON, OFF; `-DCUDSS_ROOT=<prefix>`; `cmake/FindCUDSS.cmake`, minimum
+  cuDSS 1.0): with AUTO the library links `libcudss.so[.1]` when found, which adds `libcudss.so.1`, `libcublas.so.12`
+  and `libnvrtc.so.12` to the runtime dependencies of `libcuadmm.so`; OFF leaves cuDSS out and `CudssSolver` does not
+  exist (`CUADMM_HAVE_CUDSS` undefined).
+- New test executables `cuadmm_linsys_tests` (GPU) and `cuadmm_presolve_tests` (CPU) under `CUADMM_BUILD_TESTS`.
