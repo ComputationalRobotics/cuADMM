@@ -207,6 +207,7 @@ REGRESSION_SOLVER_TEST(SmallBatch_Free, 1e2, -1)
 REGRESSION_SOLVER_TEST(Medium_Free, 1e2, -1)
 REGRESSION_SOLVER_TEST(Large_LowRankX, 1e2, LargeProjectionMode::LOBPCG_NEGATIVE)
 REGRESSION_SOLVER_TEST(Large_LowRankS, 1e-4, LargeProjectionMode::LOBPCG_POSITIVE)
+REGRESSION_SOLVER_TEST(Large_Free, 1e-4, LargeProjectionMode::LOBPCG_POSITIVE) // plan Section 9.3: free variables on the LOBPCG path
 REGRESSION_SOLVER_TEST(Large_HalfRank, 1e2, LargeProjectionMode::FULL)
 
 #undef REGRESSION_SOLVER_TEST

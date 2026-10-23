@@ -173,8 +173,22 @@ void append_summary_json(const std::string &path, const std::string &problem_pat
       << ", \"composite_fallbacks\": " << r.composite_fallbacks << ", \"jacobi_not_converged\": " << r.jacobi_not_converged
       << ", \"final_sig\": " << json_number(r.sigma_final)
       << ", \"trace_bound\": " << json_number(o.certificate.trace_bound);
-    if (o.certificate.trace_bound >= 0)
+    if (o.certificate.trace_bound >= 0 || !o.certificate.block_bounds.empty())
         f << ", \"certified_lower_bound\": " << json_number(r.certified_lower_bound);
+    if (!o.certificate.block_bounds.empty())
+    {
+        f << ", \"certificate_block_bounds\": [";
+        for (std::size_t b = 0; b < o.certificate.block_bounds.size(); b++)
+            f << (b ? ", " : "") << json_number(o.certificate.block_bounds[b]);
+        f << "]";
+    }
+    if (!r.certificate_missing_bounds.empty())
+    {
+        f << ", \"certificate_missing_bounds\": [";
+        for (std::size_t b = 0; b < r.certificate_missing_bounds.size(); b++)
+            f << (b ? ", " : "") << r.certificate_missing_bounds[b];
+        f << "], \"certificate_note\": " << json_string(r.certificate_note);
+    }
     f << ", \"trace_bound_scale\": " << json_number(o.certificate.trace_bound_scale);
     if (o.certificate.trace_bound_scale >= 0)
         f << ", \"certified_lower_bound_scaled\": " << json_number(r.certified_lower_bound_scaled);

@@ -189,7 +189,14 @@ int main(int argc, char *argv[])
         solver.setup(problem);
         const SolveResult result = solver.solve(has_warm ? &warm : nullptr);
 
-        if (o.certificate.trace_bound >= 0)
+        if (!o.certificate.block_bounds.empty())
+        {
+            if (result.certificate_missing_bounds.empty())
+                printf(" certified lower bound (per-block bounds): %.10e\n", result.certified_lower_bound);
+            else
+                printf(" certified lower bound (per-block bounds): %s\n", result.certificate_note.c_str());
+        }
+        else if (o.certificate.trace_bound >= 0)
             printf(" certified lower bound (trace bound R = %g): %.10e\n", o.certificate.trace_bound, result.certified_lower_bound);
         if (o.certificate.trace_bound_scale >= 0)
             printf(" certified lower bound (R_b = %g * n_b, valid if tr(X_b) <= R_b for every block): %.10e\n", o.certificate.trace_bound_scale,

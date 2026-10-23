@@ -147,6 +147,15 @@ set(CUADMM_SOURCES
   src/admm/admm_solver.cu
   src/termination/stopping_rule.cu
   src/termination/best_iterate_tracker.cu
+  src/cone/cone.cu
+  src/cone/cone_registry.cc
+  src/cone/slice_table.cu
+  src/cone/free_cone.cu
+  src/cone/nonnegative_cone.cu
+  src/cone/cone_product.cu
+  src/cone/psd/psd_cone.cu
+  src/cone/psd/svec_pack.cu
+  src/termination/certificate.cu
   src/solver/solver_facade.cu)
 add_library(cuadmm SHARED ${CUADMM_LEGACY_SOURCES} ${CUADMM_SOURCES})
 target_include_directories(cuadmm

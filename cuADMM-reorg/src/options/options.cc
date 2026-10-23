@@ -228,7 +228,7 @@ const std::vector<OptionSpec> &option_table()
         {"linsys.memory_fraction", "--memory-fraction", {}, "double", "", "0.25", "budget of a dense or cuDSS factor as a fraction of free memory", "7"},
         {"linsys.autotune", "--autotune", {}, "bool", "", "false", "time the two best backends and keep the faster", "7"},
         // certificate
-        {"certificate.block_bounds", "--block-bounds", {}, "double_list", "", "none", "per-block bounds R_b of the certified lower bound (comma-separated, one per block)", ""},
+        {"certificate.block_bounds", "--block-bounds", {}, "double_list", "", "none", "per-block bounds R_b of the certified lower bound (comma-separated, one per block; a negative entry: no bound for that block, the bound is then unavailable)", ""},
         {"certificate.trace_bound", "--trace-bound", {}, "double", "", "none", "the same bound R for every block (paper eq. 30)", ""},
         {"certificate.trace_bound_scale", "--trace-bound-scale", {}, "double", "", "none", "R_b = f n_b for PSD blocks of size n_b, f for the entries of l and u blocks", ""},
         // validation
@@ -673,8 +673,8 @@ void SolverOptions::validate() const
     if (certificate.trace_bound_scale >= 0.0 && !std::isfinite(certificate.trace_bound_scale))
         fail("certificate.trace_bound_scale", "must be finite");
     for (double r : certificate.block_bounds)
-        if (!(r >= 0.0) || !std::isfinite(r))
-            fail("certificate.block_bounds", "bounds must be finite and non-negative");
+        if (std::isnan(r) || r == std::numeric_limits<double>::infinity())
+            fail("certificate.block_bounds", "bounds must be finite (a negative entry means: no bound for that block)");
 
     if (validation.interval < 0)
         fail("validation.interval", "must be non-negative");

@@ -15,6 +15,8 @@
 #include <string>
 
 #include "admm/penalty_policy.h" // KktResiduals
+#include "cone/cone_product.h"
+#include "core/gpu_context.h"
 
 class SDPSolver;
 
@@ -26,12 +28,12 @@ namespace admm
 class AdmmState
 {
 public:
-    explicit AdmmState(SDPSolver &engine);
+    AdmmState(SDPSolver &engine, cone::ConeProduct &cones);
 
     // (2): rhsy = Rp / sigma - A (S - C); y = (AA^T)^{-1} rhsy (CHOLMOD on the CPU, or the dense factor on the GPU)
     void y_step(double sigma);
-    // (3): Aty = A^T y; Rd1 = Aty - C; Xinput = -(Rd1 + X / sigma); S = Pi_K*(Xinput) through the PSD tiers (with
-    // the large-block schedule of iteration k), the nonnegative and the free blocks
+    // (3): Aty = A^T y; Rd1 = Aty - C; Xinput = -(Rd1 + X / sigma); S = Pi_K*(Xinput) through the product cone (the
+    // PSD tiers with the large-block schedule of iteration k, the nonnegative and the free blocks)
     void cone_step(double sigma, int k);
     // SmC = S - C (read by the next y-step)
     void update_smc();
@@ -58,10 +60,13 @@ public:
     void reset_counters() { y_solves_ = 0; }
     SDPSolver &engine() { return engine_; }
     const SDPSolver &engine() const { return engine_; }
+    cone::ConeProduct &cones() { return cones_; }
+    core::ExecContext &context() { return ctx_; }
 
 private:
-    void project_psd_tiers(int k);
     SDPSolver &engine_;
+    cone::ConeProduct &cones_;
+    core::ExecContext ctx_; // Phase 5: the legacy default stream and the engine's handles
     long y_solves_ = 0;
 };
 

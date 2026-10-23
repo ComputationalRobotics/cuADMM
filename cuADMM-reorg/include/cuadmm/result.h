@@ -80,7 +80,9 @@ struct SolveResult
     std::vector<double> dual_block_min, dual_cone_coef;
     double certified_lower_bound = 0.0; // with certificate.trace_bound (NaN if none)
     double certified_lower_bound_scaled = 0.0; // with certificate.trace_bound_scale (NaN if none)
-    bool certificate_conditional_on_free_bounds = false; // B24: a free block had no explicit bound
+    bool certificate_conditional_on_free_bounds = false; // B24: a free block's bound is in force (valid only if |X_u| <= R_u)
+    std::vector<int> certificate_missing_bounds;           // blocks without a bound (negative entry of certificate.block_bounds)
+    std::string certificate_note;                          // "unavailable: ..." when a bound is missing
     // external validation
     bool externally_validated = false, practical_validated = false, strict_validated = false;
     int first_validated_iteration = -1, first_practical_iteration = -1, first_strict_iteration = -1;

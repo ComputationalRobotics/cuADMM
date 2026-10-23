@@ -9,6 +9,8 @@
 
 #include "admm/admm_solver.h"
 
+#include "termination/certificate.h"
+
 #include <chrono>
 #include <cmath>
 #include <cstdio>
@@ -270,17 +272,12 @@ void AdmmSolver::finish(const termination::StopDecision &stop, double solve_time
     // the best internal iterate if it is strictly better than the returned one
     e.returned_best_iterate = tracker_.restore_if_better();
 
-    /* Cone violations of the returned X and S over all blocks, and certificate of C - A^T y */
-    std::vector<double> block_min, bound_coef;
-    double min_X = 0.0, min_S = 0.0;
-    e.cone_measures(e.X, block_min, bound_coef);
-    for (size_t b = 0; b < e.blk_info.size(); b++)
-        if (e.blk_info[b].type != 'u')
-            min_X = std::min(min_X, block_min[b]);
-    e.cone_measures(e.S, block_min, bound_coef);
-    for (size_t b = 0; b < e.blk_info.size(); b++)
-        if (e.blk_info[b].type != 'u')
-            min_S = std::min(min_S, block_min[b]);
+    /* Cone violations of the returned X and S over all blocks, and certificate of C - A^T y (Phase 5: through the
+       product cone's measures) */
+    cone::ConeProduct &cones = state_.cones();
+    core::ExecContext &ctx = state_.context();
+    const double min_X = cones.measure(core::DeviceSpan<const double>(e.X.vals, e.vec_len), cone::Side::Primal, ctx).min_block_min_psd_nonneg();
+    const double min_S = cones.measure(core::DeviceSpan<const double>(e.S.vals, e.vec_len), cone::Side::Dual, ctx).min_block_min_psd_nonneg();
     // scale them back and make them relative to 1 + ||b|| and 1 + ||C||
     e.errPSD_X = -min_X * e.bscale / e.norm_borg;
     e.errPSD_S = -min_S * e.Cscale / e.norm_Corg;
@@ -291,14 +288,10 @@ void AdmmSolver::finish(const termination::StopDecision &stop, double solve_time
     CHECK_CUDA(cudaMemcpy(e.Rd1.vals, e.Aty.vals, sizeof(double) * e.vec_len, D2D));
     dense_vector_negate(e.Rd1);
     axpby_cusparse(e.cusparseH, e.C, e.Rd1, 1.0, 1.0);
-    e.cone_measures(e.Rd1, e.dual_block_min, e.dual_cone_coef);
-    double dual_cone_coef_sum = 0.0;
-    for (size_t b = 0; b < e.blk_info.size(); b++)
-    {
-        e.dual_block_min[b] *= e.Cscale;
-        e.dual_cone_coef[b] *= e.Cscale;
-        dual_cone_coef_sum += e.dual_cone_coef[b];
-    }
+    const termination::CertificateResult cert = termination::Certificate::measure(cones, core::DeviceSpan<const double>(e.Rd1.vals, e.vec_len), e.Cscale, ctx);
+    e.dual_block_min = cert.dual_block_min;
+    e.dual_cone_coef = cert.dual_cone_coef;
+    const double dual_cone_coef_sum = cert.coef_sum;
 
     float milliseconds = 0.0f;
     cudaEventRecord(e.stop);

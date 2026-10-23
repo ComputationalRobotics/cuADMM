@@ -23,6 +23,7 @@
 #include "psd_projection/lobpcg.h"
 #include "psd_projection/lanczos.h"
 #include "psd_projection/utils.h"
+#include "cone/cone_product.h"
 
 #include <algorithm>
 #include <stdio.h>
@@ -1119,7 +1120,8 @@ void SDPSolver::solve(
     po.sgs_factor = sigscale;
     std::unique_ptr<admm::PenaltyPolicy> penalty = admm::make_penalty_policy(po);
 
-    admm::AdmmState state(*this);
+    cone::ConeProduct cones(this->host_blk_types, this->host_blk_sizes, cone::ConeBuildContext{this->vec_len, this});
+    admm::AdmmState state(*this, cones);
     termination::BestIterateTracker tracker(*this);
     std::unique_ptr<termination::StoppingRule> rule;
     if (this->validation.interval > 0)

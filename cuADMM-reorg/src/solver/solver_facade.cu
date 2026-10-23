@@ -22,6 +22,9 @@
 
 #include "cuadmm/solver.h"
 
+#include "cone/cone_product.h"
+#include "termination/certificate.h"
+
 #include <chrono>
 #include <cmath>
 #include <cstring>
@@ -64,6 +67,7 @@ struct Solver::Impl
     double switch_proj_tol = 0.0;
     std::vector<std::shared_ptr<report::IterationObserver>> observers;
     std::unique_ptr<admm::PenaltyPolicy> penalty; // built at setup from the options; reset at every solve
+    std::unique_ptr<cone::ConeProduct> cones;      // the product cone of the problem (Phase 5), on the engine's tiers
 };
 
 namespace
@@ -207,6 +211,7 @@ void Solver::setup(const ProblemData &problem)
            initial, ProjectionMethod::EIG_FP64,
            nullptr, nullptr, nullptr, // the warm start is handed over by solve()
            o.penalty.sigma0, o.psd.lowrank_enabled);
+    im.cones.reset(new cone::ConeProduct(im.blk_types, im.blk_sizes, cone::ConeBuildContext{im.vec_len, &e}));
     e.sigma_policy = to_engine_policy(o.penalty.policy);
     e.penalty_factor = o.penalty.factor;
     e.penalty_sigma_min = o.penalty.sigma_min;
@@ -276,7 +281,7 @@ SolveResult Solver::solve(const WarmStart *warm_start)
     // the components of the algorithm layer (plan Section 7) on the engine's data
     e.stop_tol = o.algorithm.tol;
     e.switch_admm = im.switch_admm;
-    admm::AdmmState state(e);
+    admm::AdmmState state(e, *im.cones);
     termination::BestIterateTracker tracker(e);
     std::unique_ptr<termination::StoppingRule> rule;
     if (o.validation.interval > 0)
@@ -363,21 +368,22 @@ SolveResult Solver::solve(const WarmStart *warm_start)
     r.switch_iteration = e.switch_iteration;
     r.dual_block_min = e.dual_block_min;
     r.dual_cone_coef = e.dual_cone_coef;
-    r.certified_lower_bound = std::numeric_limits<double>::quiet_NaN();
-    r.certified_lower_bound_scaled = std::numeric_limits<double>::quiet_NaN();
-    if (!o.certificate.block_bounds.empty())
-        r.certified_lower_bound = e.certified_lower_bound(o.certificate.block_bounds);
-    else if (o.certificate.trace_bound >= 0)
-        r.certified_lower_bound = e.certified_lower_bound(o.certificate.trace_bound);
-    if (o.certificate.trace_bound_scale >= 0)
+    // the certificate (Phase 5: termination::Certificate on the product cone's measures, explicit per-block bounds, B24)
     {
-        std::vector<double> bounds(im.num_blocks);
-        for (std::size_t b = 0; b < im.num_blocks; b++)
-            bounds[b] = im.blk_types[b] == 's' ? o.certificate.trace_bound_scale * im.blk_sizes[b] : o.certificate.trace_bound_scale;
-        r.certified_lower_bound_scaled = e.certified_lower_bound(bounds);
+        const std::vector<ConeKind> &kinds = im.cones->kinds();
+        termination::CertificateResult cert;
+        cert.dual_block_min = e.dual_block_min;
+        cert.dual_cone_coef = e.dual_cone_coef;
+        termination::Certificate::evaluate(cert, e.dobj, termination::Certificate::bounds_from_options(o.certificate, kinds, im.blk_sizes, false), kinds);
+        r.certified_lower_bound = cert.lower_bound;
+        r.certificate_missing_bounds = cert.missing_bounds;
+        r.certificate_note = cert.note;
+        termination::CertificateResult cert_scaled = cert;
+        termination::Certificate::evaluate(cert_scaled, e.dobj, termination::Certificate::bounds_from_options(o.certificate, kinds, im.blk_sizes, true), kinds);
+        r.certified_lower_bound_scaled = cert_scaled.lower_bound;
+        // B24: with a free block the bound is valid only if |X_u| <= R_u holds for the bound applied to it
+        r.certificate_conditional_on_free_bounds = cert.conditional_on_free_bounds || cert_scaled.conditional_on_free_bounds;
     }
-    // B24: with a free block the bound is valid only if |X_u| <= R_u holds for the bound applied to it
-    r.certificate_conditional_on_free_bounds = im.has_free_block && (o.certificate.trace_bound >= 0 || o.certificate.trace_bound_scale >= 0);
     r.externally_validated = e.externally_validated_converged;
     r.practical_validated = e.practical_validated;
     r.strict_validated = e.strict_validated;

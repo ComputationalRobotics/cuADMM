@@ -373,6 +373,10 @@ inline ProblemSpec problem_spec(const std::string &name)
         return {{{'u', 6, 0, 0, false}, {'u', 9, 0, 0, false}, {'s', 16, 8, 0, false}}, 0, 12, 1007};
     if (name == "PSD_Nonneg")
         return {{{'s', 16, 8, 0, false}, {'l', 20, 10, 0, false}}, 0, 12, 1008};
+    if (name == "Nonneg_Free") // an LP with free variables (plan Section 9.3): no PSD block
+        return {{{'l', 24, 12, 0, false}, {'u', 10, 0, 0, false}}, 22, 10, 1014}; // 22 = 12 positive entries + 10 free: unique X and y
+    if (name == "Large_Free") // a large PSD block of low rank S* (LOBPCG positive branch) with a free block
+        return {{{'s', 1100, 1097, 10, false}, {'u', 20, 0, 0, false}}, 1000, 8, 1015};
     if (name == "SmallBatch_Free")
     {
         // six 8 x 8 blocks: batched Jacobi path
