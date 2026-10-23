@@ -218,6 +218,12 @@ if(CUADMM_BUILD_BENCH)
   # reading rate of the problem formats (plan Phase 2b acceptance: 1e8 nonzeros from .h5 limited by the disk)
   add_executable(cuadmm_io_bench bench/io_read_bench.cc)
   target_link_libraries(cuadmm_io_bench PRIVATE cuadmm)
+  # Phase 6a: the FP16 composite filter against the exact FP64 EVD on synthetic spectra at n = 2000..20000
+  # (docs/phase6a_projector_benchmark.md); needs only the vendored kernels, not the solver library
+  add_executable(cuadmm_psd_projector_bench bench/psd_projector_bench.cu)
+  target_include_directories(cuadmm_psd_projector_bench PRIVATE src ${CMAKE_BINARY_DIR}/generated)
+  target_link_libraries(cuadmm_psd_projector_bench PRIVATE cuadmm_psd_kernels CUDA::cudart CUDA::cublas CUDA::cusolver)
+  add_dependencies(cuadmm_psd_projector_bench cuadmm_version)
 endif()
 
 # ---------------------------------------------------------------------------------------------- tests
