@@ -151,6 +151,8 @@ set(CUADMM_SOURCES
   src/cone/psd/kernels/lobpcg.cu
   src/cone/psd/kernels/composite_fp16.cu
   src/cone/psd/eig_info.cu
+  src/core/workspace_arena.cu
+  src/core/stream_pool.cu
   src/cone/psd/batched/batch_projectors.cu
   src/cone/psd/large/large_block_policy.cc
   src/cone/psd/large/rank_analyzer.cu

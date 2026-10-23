@@ -4,6 +4,7 @@
 #include "options_test.hpp"
 #include "penalty_policy_test.hpp"
 #include "large_block_policy_test.hpp"
+#include "workspace_arena_test.hpp"
 #include "io_builder_test.hpp"
 #include "io_sdpa_test.hpp"
 #include "io_simplify_test.hpp"

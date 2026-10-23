@@ -31,6 +31,7 @@
 #include "certificate_test.hpp"
 #include "cone_test.hpp"
 #include "psd_strategies_test.hpp"
+#include "core_runtime_test.hpp"
 #include "warm_restart_test.hpp"
 
 #include "regression_solver_test.hpp"
