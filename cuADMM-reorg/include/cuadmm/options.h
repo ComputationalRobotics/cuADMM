@@ -140,7 +140,7 @@ struct PsdOptions
     double jacobi_tol = 1e-16;   // fixed (BatchEigParameter)
     int jacobi_max_sweeps = 15;  // fixed (BatchEigParameter)
     double large_memory_budget = 0.9; // fraction of free memory (Phase 6b)
-    WarmupKind warmup = WarmupKind::None; // composite_fp16 once the Phase 6a benchmark confirms the threshold
+    WarmupKind warmup = WarmupKind::CompositeFp16; // Phase 6a: the FP16 composite filter for the blocks of at least warmup_min_size (DECISIONS 54)
     FinalProductKind large_final_product = FinalProductKind::Syrk;            // Phase 6b: SYRK on the smaller eigen-side (gemm_compat: main's product)
     BatchedProductKind batched_final_product = BatchedProductKind::ScaledGemm; // Phase 6b: Q scaled in place, one strided GEMM (gemm_compat: main's)
     int medium_max_batch = 0; // blocks per batched EVD call (0: the whole size group)

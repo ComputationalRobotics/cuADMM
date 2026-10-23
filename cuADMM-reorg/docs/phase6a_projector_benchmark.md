@@ -36,8 +36,9 @@ first event and `cudaEventSynchronize` on the last; one warm-up run, then the me
 the host wall time of the same region is recorded next to it in `timings.csv` and agrees with the event time.
 Math modes (plan B1): `cublasSetMathMode(CUBLAS_DEFAULT_MATH)` on the one cuBLAS handle, as the engine sets it;
 the filter sets `CUBLAS_COMPUTE_32F_FAST_16F` with `CUBLAS_GEMM_DEFAULT_TENSOR_OP` in each `cublasGemmEx`; the FP64
-GEMMs and GEMVs run under the default mode. The Lanczos start vector of the vendored kernel comes from
-`std::random_device` (plan B8 makes it deterministic in Phase 6a proper), so the estimate, the scale and the FP16
+GEMMs and GEMVs run under the default mode. The Lanczos start vector of the vendored kernel came from
+`std::random_device` when these numbers were taken (the benchmark now links the library's kernels of Phase 6a,
+whose start vector is deterministic per run, B8: a rerun gives one fixed start per composite run), so the estimate, the scale and the FP16
 result differ slightly from run to run; everything else is deterministic.
 
 Spectrum families (eigenvalues of Z, n values each; r = ceil(0.03 n)):

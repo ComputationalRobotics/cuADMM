@@ -246,3 +246,12 @@ Items 40-44 are the Phase 7 backend decisions written on branch `reorg-linsys`; 
 48. **The policy indexes the large blocks in the engine's flat order (size group by size group), not the input
     order.** `PsdCone` and the engine agree on this order (`LargeBlockJob` carries the size-group indices); the
     mapping from an input block is `BlockInfo::size_index` and `same_size_index`. Phase 6b keeps it.
+
+54. **The warm-up default is `composite_fp16` for blocks of at least 5000; 2000 is measured but not the default.**
+    The Phase 6a benchmark (docs/phase6a_projector_benchmark.md) shows the filter 6x faster than the exact EVD at
+    n = 2000 and 7-8x from 3000 up, with a size-independent error of about 1e-3 and no rejection, so the data would
+    support `warmup.min_size` 2000. The plan's threshold 5000 stays the default because the benchmark measures one
+    projection, not the iterations a 1e-3 projection error costs the warm-up phase end to end, and the problems at
+    hand with blocks between 2000 and 5000 (shmup5: 3721) were not run to convergence both ways; lowering the
+    threshold is a one-option change once that is measured (open item). The composite warm-up changes the iterates of
+    runs with such blocks (deterministically, B8); none of the 53 baseline cases has one.

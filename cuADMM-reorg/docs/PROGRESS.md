@@ -33,9 +33,9 @@ peak memory beyond the summaries' fields.
 
 ## Milestone 2: Phase 6a, PSD strategies (in progress)
 
-Status: steps 1 and 2 done (the kernels moved in, 14178fa; the projector classes and the selection policy, the
-commit recorded in the GPU-evidence list below); the benchmark and the warm-up default (step 3) wait for the
-A100 benchmark job of branch `reorg-bench6a`.
+Status: done. Steps 1 and 2 (the kernels moved in, 14178fa; the projector classes and the selection policy,
+684b99f) are verified bit for bit in the GPU-evidence list; step 3 (the benchmark and the warm-up default) follows
+below.
 
 - Step 1 (B8, B10, B11, B15): the FP16 composite filter, the Lanczos norm estimate, LOBPCG and the precision
   helpers of the vendored `third_party/psd_projection` subset moved to `src/cone/psd/kernels/` (namespace
@@ -82,6 +82,14 @@ A100 benchmark job of branch `reorg-bench6a`.
   mixed iteration with per-block products, the switch, the engine's bookkeeping); end to end through the
   facade: the composite warm-up on `Large_LowRankS` and `Large_Two` converges to the generator's optimum and
   reports the switch iteration, repeats bit for bit, and without a warm-up reports none.
+- Step 3, the warm-up default (plan Q2/Q3): the benchmark of branch `reorg-bench6a` (merged; `bench/psd_projector_bench.cu`,
+  `docs/phase6a_projector_benchmark.md`, A100 job 54783686, 0.12 A100-hours, 25 cases, plus a MIG run) measured the
+  FP16 composite filter against the exact FP64 EVD on synthetic spectra at n = 2000, 3000, 5000, 10000, 20000: 6.0x
+  faster at n = 2000, 7.1-7.3x at 3000 and 7.4-8.0x from 5000 to 20000 (A100, median of 5), relative Frobenius
+  error 3e-4 to 2e-3 independent of n, 0 of 140 runs rejected by the norm test, the Lanczos estimate within
+  0.9997-1.0088 of ||Z||_2. The default `psd.large.warmup` becomes `composite_fp16` with `warmup.min_size` 5000
+  (the plan's threshold; 2000 measured as beneficial and documented, DECISIONS 54). No baseline case has a block of
+  5000 or more, so the 53 cases stay bit for bit; the end-to-end warm-up tests of step 2 cover the path.
 - Acceptance of step 2: CPU suite 57 of 57 (sapphire job 54779332); GPU suite 130 of 130 on the clean per-commit
   build (684b99f, MIG), after a first dev-build run of 128 of 130 whose two failures were test-side expectation
   errors (a malformed test spectrum; the engine's size-group order of the large blocks, DECISIONS 48); the exact and

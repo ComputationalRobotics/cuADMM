@@ -257,3 +257,12 @@ Inside `cuADMM-reorg/src/legacy/` (the copied `SDPSolver`), the CLI and the test
   warm-up; -1 without one).
 - The console lines "Switching projection method" and "Number of low rank matrices / Ranks" follow the verbosity
   (`output.verbosity` 0 prints neither); the CLI output is unchanged.
+
+## Phase 6a, step 3 (2026-10-23): the warm-up default
+
+- `psd.large.warmup` defaults to `composite_fp16`: the large blocks of at least `psd.large.warmup.min_size` (5000)
+  are projected with the FP16 composite filter until the KKT residual falls below `warmup.switch_tol` (1e-2) or
+  `warmup.switch_iter` (5000) iterations, then exactly (plan Q2/Q3; the Phase 6a benchmark measured the filter 6-8x
+  faster than the exact EVD from n = 2000 with a 1e-3 projection error and no rejection). Today's CLI and MATLAB
+  never warmed up (`EIG_FP64`); the C++ API warmed up every large block. `--psd-warmup none` restores the exact
+  projections. Runs with blocks of at least 5000 change (deterministically: B8); no baseline case has such a block.

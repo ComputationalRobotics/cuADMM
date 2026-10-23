@@ -94,8 +94,11 @@
 
 #include "core/check.h"
 #include "cuadmm/version.h"
-#include "psd_projection/composite_FP16.h"
-#include "psd_projection/lanczos.h"
+#include "cone/psd/kernels/composite_fp16.h"
+#include "cone/psd/kernels/lanczos.h"
+
+using cuadmm::cone::psd::approximate_two_norm;
+using cuadmm::cone::psd::composite_fp16;
 
 namespace
 {
@@ -104,6 +107,7 @@ namespace
 constexpr double kScaleMargin = 1.05; // COMPOSITE_FP16_SCALE_MARGIN
 constexpr double kNormSlack = 1e-2;   // COMPOSITE_NORM_SLACK
 constexpr int kLanczosSteps = 20;     // approximate_two_norm default, as the engine calls it
+static unsigned long long lanczos_seed = 1; // one start vector per composite run (B8)
 constexpr double kLanczosTol = 1e-10; // idem
 constexpr int kMaxEvdBlock = 32768;   // CUADMM_MAX_EVD_BLOCK_SIZE (B21)
 
@@ -447,12 +451,13 @@ CompositeRun composite_project(Handles &h, int n, double *A, CompositePath &cp, 
     ev.record(0);
     CUADMM_CHECK_CUBLAS(cublasDnrm2(h.blas, nn, A, 1, &r.norm_in));
     ev.record(1);
-    approximate_two_norm(h.blas, h.sol, A, static_cast<std::size_t>(n), &r.lo, &r.up, kLanczosSteps, kLanczosTol);
+    // B8: the deterministic Lanczos start of Phase 6a, seeded per run (the vendored kernel seeded from the clock)
+    approximate_two_norm(h.blas, h.sol, A, static_cast<std::size_t>(n), &r.lo, &r.up, static_cast<unsigned long long>(lanczos_seed++), kLanczosSteps, kLanczosTol);
     ev.record(2);
     r.scale = r.up > 0.0 ? kScaleMargin * r.up : 1.0;
     const double inv_scale = 1.0 / r.scale;
     CUADMM_CHECK_CUBLAS(cublasDscal(h.blas, nn, &inv_scale, A, 1));
-    composite_FP16(h.blas, A, n, cp.fws, cp.hws);
+    composite_fp16(h.blas, A, n, cp.fws, cp.hws);
     CUADMM_CHECK_CUBLAS(cublasDscal(h.blas, nn, &r.scale, A, 1));
     ev.record(3);
     CUADMM_CHECK_CUBLAS(cublasDnrm2(h.blas, nn, A, 1, &r.norm_out));
