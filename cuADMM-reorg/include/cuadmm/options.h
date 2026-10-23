@@ -33,7 +33,8 @@ enum class FreezeValue { Last, BandCentre };
 enum class LinsysBackend { Auto, Cholmod, Cudss, Dense };
 enum class Determinism { Strict, Fast };
 enum class WarmupKind { None, CompositeFp16 };
-enum class FinalProductKind { GemmCompat, Syrk }; // the final product of the large blocks (syrk: Phase 6b)
+enum class FinalProductKind { GemmCompat, Syrk };        // the final product of the large blocks
+enum class BatchedProductKind { ScaledGemm, GemmCompat }; // the final product of the small and medium blocks
 enum class IoFormat { Auto, H5, Sdpa, Sedumi, Sdpt3, Mosek, Txt };
 enum class Sense { Minimize, Maximize };
 
@@ -140,7 +141,9 @@ struct PsdOptions
     int jacobi_max_sweeps = 15;  // fixed (BatchEigParameter)
     double large_memory_budget = 0.9; // fraction of free memory (Phase 6b)
     WarmupKind warmup = WarmupKind::None; // composite_fp16 once the Phase 6a benchmark confirms the threshold
-    FinalProductKind large_final_product = FinalProductKind::GemmCompat; // syrk arrives with Phase 6b
+    FinalProductKind large_final_product = FinalProductKind::Syrk;            // Phase 6b: SYRK on the smaller eigen-side (gemm_compat: main's product)
+    BatchedProductKind batched_final_product = BatchedProductKind::ScaledGemm; // Phase 6b: Q scaled in place, one strided GEMM (gemm_compat: main's)
+    int medium_max_batch = 0; // blocks per batched EVD call (0: the whole size group)
     int warmup_min_size = 5000;
     double warmup_switch_tol = 1e-2;
     int warmup_switch_iter = 5000;
@@ -186,6 +189,7 @@ const char *name_of(FreezeValue v);
 const char *name_of(LinsysBackend v);
 const char *name_of(Determinism v);
 const char *name_of(FinalProductKind v);
+const char *name_of(BatchedProductKind v);
 const char *name_of(WarmupKind v);
 const char *name_of(IoFormat v);
 const char *name_of(Sense v);
@@ -197,6 +201,7 @@ LinsysBackend parse_linsys_backend(const std::string &s);
 Determinism parse_determinism(const std::string &s);
 WarmupKind parse_warmup(const std::string &s);
 FinalProductKind parse_final_product(const std::string &s);
+BatchedProductKind parse_batched_product(const std::string &s);
 IoFormat parse_io_format(const std::string &s);
 Sense parse_sense(const std::string &s);
 

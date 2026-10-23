@@ -32,7 +32,8 @@
 
 #include "cone/cone_product.h"
 #include "cone/psd/psd_cone.h"
-#include "cone/psd/svec_pack.h"
+#include "core/stream_pool.h"
+#include "core/workspace_arena.h"
 #include "core/device_buffer.h"
 #include "cuadmm/solver.h"
 #include "cuadmm_legacy/problem.h"
@@ -190,8 +191,11 @@ protected:
 
     cuadmm::cone::PsdCone &make_cone(const cuadmm::cone::PsdConeConfig &cfg)
     {
-        product.reset(new cuadmm::cone::ConeProduct(blk_types, blk_sizes, cuadmm::cone::ConeBuildContext{vec_len, &engine, &cfg}));
-        return *static_cast<cuadmm::cone::PsdCone *>(product->cone(cuadmm::ConeKind::Psd));
+        product.reset(new cuadmm::cone::ConeProduct(blk_types, blk_sizes, cuadmm::cone::ConeBuildContext{vec_len, &engine, &cfg, &arena, &pool}));
+        arena.commit();
+        cuadmm::cone::PsdCone &cone = *static_cast<cuadmm::cone::PsdCone *>(product->cone(cuadmm::ConeKind::Psd));
+        cone.bind();
+        return cone;
     }
 
     // z <- the svec of the blocks (one dense matrix per PSD block, in input order)
@@ -239,6 +243,8 @@ protected:
     int vec_len = 0;
     cuadmm::core::DeviceBuffer<double> z, s;
     cuadmm::core::ExecContext ctx;
+    cuadmm::core::StreamPool pool{cuadmm::core::StreamPoolConfig{}};
+    cuadmm::core::WorkspaceArena arena;
     std::unique_ptr<cuadmm::cone::ConeProduct> product;
 };
 
@@ -274,7 +280,7 @@ TEST_F(PsdStrategies, RankAnalysisPositiveThenLobpcg)
     EXPECT_EQ(engine.cpu_negative_ranks.vals[0], n - 3);
     EXPECT_NEAR(engine.large_rank_tol[0], 1e-8 * 5.0, 1e-12) << "max(rtol * max|lambda|, 1e-3 * stop_tol)";
     std::vector<double> D(4);
-    CUADMM_CHECK_CUDA(cudaMemcpy(D.data(), engine.lobpcg_W[0].vals, sizeof(double) * 4, cudaMemcpyDeviceToHost));
+    CUADMM_CHECK_CUDA(cudaMemcpy(D.data(), cone.large_tier().D(0), sizeof(double) * 4, cudaMemcpyDeviceToHost));
     EXPECT_NEAR(D[0], 5.0, 1e-9);
     EXPECT_NEAR(D[1], 4.0, 1e-9);
     EXPECT_NEAR(D[2], 3.0, 1e-9);
@@ -304,7 +310,7 @@ TEST_F(PsdStrategies, RankAnalysisNegativeThenLobpcg)
     EXPECT_EQ(engine.large_k[0], 4);
     EXPECT_EQ(engine.cpu_negative_ranks.vals[0], 3);
     std::vector<double> D(4);
-    CUADMM_CHECK_CUDA(cudaMemcpy(D.data(), engine.lobpcg_W[0].vals, sizeof(double) * 4, cudaMemcpyDeviceToHost));
+    CUADMM_CHECK_CUDA(cudaMemcpy(D.data(), cone.large_tier().D(0), sizeof(double) * 4, cudaMemcpyDeviceToHost));
     EXPECT_NEAR(D[0], 5.0, 1e-9) << "the eigenvalues of -A, decreasing";
     EXPECT_NEAR(D[1], 4.0, 1e-9);
     EXPECT_NEAR(D[2], 3.0, 1e-9);
@@ -428,19 +434,19 @@ TEST_F(PsdStrategies, CompositeFilterRejectsByTheNormTestAndRestoresTheInput)
     cuadmm::cone::PsdCone &cone = make_cone(cfg);
 
     // the dense input of the block, as the cone step builds it
-    cuadmm::cone::psd_unpack(z.data(), engine.large_mat.vals, engine.medium_mat.vals, engine.small_mat.vals,
-                             engine.map_B.vals, engine.map_M1.vals, engine.map_M2.vals, vec_len);
+    cone.large_tier().unpack(0, z.data());
     CUADMM_CHECK_CUDA(cudaDeviceSynchronize());
     std::vector<double> before((std::size_t)n * n);
-    CUADMM_CHECK_CUDA(cudaMemcpy(before.data(), engine.large_mat.vals, sizeof(double) * before.size(), cudaMemcpyDeviceToHost));
+    CUADMM_CHECK_CUDA(cudaMemcpy(before.data(), cone.large_tier().M(), sizeof(double) * before.size(), cudaMemcpyDeviceToHost));
 
     cuadmm::cone::psd::CompositeFilterConfig strict;
     strict.norm_slack = -1.0; // every result fails ||P|| <= (1 + slack) ||Z||
-    cuadmm::cone::psd::CompositeFilter filter(strict, engine);
-    EXPECT_FALSE(filter.project(cone.job(0)));
+    cuadmm::cone::psd::CompositeFilter filter(strict, cone.large_tier());
+    EXPECT_FALSE(filter.project(cone.job(0), z.data(), s.data()));
     EXPECT_EQ(engine.composite_fallbacks, 1);
+    CUADMM_CHECK_CUDA(cudaDeviceSynchronize());
     std::vector<double> after((std::size_t)n * n);
-    CUADMM_CHECK_CUDA(cudaMemcpy(after.data(), engine.large_mat.vals, sizeof(double) * after.size(), cudaMemcpyDeviceToHost));
+    CUADMM_CHECK_CUDA(cudaMemcpy(after.data(), cone.large_tier().M(), sizeof(double) * after.size(), cudaMemcpyDeviceToHost));
     std::size_t differences = 0;
     for (std::size_t i = 0; i < before.size(); i++)
         differences += before[i] != after[i];

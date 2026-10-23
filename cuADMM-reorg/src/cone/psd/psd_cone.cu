@@ -2,12 +2,10 @@
 
     cone/psd/psd_cone.cu
 
-    Phase 6a: the tiers of main (Step 3 of SDPSolver::solve(), moved through AdmmState::project_psd_tiers of Phase 4
-    and PsdCone::project_tiers of Phase 5) as named projectors selected per large block by LargeBlockPolicy, on the
-    buffers of the ported engine. Every call sequence is the one of Milestone 1: the exact and LOBPCG paths are bit
-    for bit; the composite path differs by its deterministic Lanczos start (CHANGES.md, Phase 6a step 1).
-    measure() is the PSD part of SDPSolver::cone_measures() of main on the same projectors' decompositions.
-    Phase 6b changes the memory layout (arena, SYRK) within rounding.
+    Phase 6b: the tiers on the cone's own memory (the WorkspaceArena) and the StreamPool, the large blocks through
+    one arena region, the final products by SYRK / scaled GEMM (psd.*.final_product = gemm_compat keeps the
+    products of Milestone 1 bit for bit). measure() is the PSD part of SDPSolver::cone_measures() of main on the
+    tiers' decompositions.
 
 */
 
@@ -18,11 +16,12 @@
 #include <iomanip>
 #include <iostream>
 #include <limits>
+#include <sstream>
 #include <stdexcept>
 #include <string>
 #include <utility>
 
-#include "cone/psd/svec_pack.h"
+#include "core/check.h"
 #include "cuadmm_legacy/solver.h"
 
 #ifndef CUADMM_NO_LAPACK
@@ -84,9 +83,34 @@ std::vector<int> large_sizes(const SDPSolver &e)
     return sizes;
 }
 
-bool exact_strategy(psd::LargeStrategy s)
+psd::LargeBlockPolicyConfig effective_policy(const PsdConeConfig &c, const SDPSolver &e)
 {
-    return s == psd::LargeStrategy::FullEvd || s == psd::LargeStrategy::FullEvdWithRankAnalysis;
+    psd::LargeBlockPolicyConfig p = c.policy;
+    p.lowrank_enabled = p.lowrank_enabled && e.use_lobpcg; // the engine's rank counters exist only with use_lobpcg
+    return p;
+}
+
+psd::LargeTierConfig large_config(const PsdConeConfig &c, const psd::LargeBlockPolicy &policy)
+{
+    psd::LargeTierConfig t;
+    t.gemm_compat = c.gemm_compat;
+    t.lowrank = policy.config().lowrank_enabled;
+    t.lowrank_ratio = c.rank.ratio;
+    t.lowrank_relaxation = c.rank.relaxation;
+    t.composite = policy.any_warm();
+    t.lanczos_steps = c.composite.lanczos_steps;
+    return t;
+}
+
+psd::BatchedTierConfig batched_config(const PsdConeConfig &c)
+{
+    psd::BatchedTierConfig b;
+    b.gemm_compat = c.batched_gemm_compat;
+    b.medium_batch_min = c.medium_batch_min;
+    b.medium_max_batch = c.medium_max_batch;
+    b.jacobi_tol = c.jacobi_tol;
+    b.jacobi_max_sweeps = c.jacobi_max_sweeps;
+    return b;
 }
 } // namespace
 
@@ -112,45 +136,42 @@ PsdConeConfig PsdConeConfig::from_options(const PsdOptions &o, unsigned long lon
     c.composite.norm_slack = o.composite_norm_slack;
     c.composite.seed = seed;
     c.gemm_compat = o.large_final_product == FinalProductKind::GemmCompat;
+    c.batched_gemm_compat = o.batched_final_product == BatchedProductKind::GemmCompat;
+    c.medium_batch_min = o.medium_batch_min;
+    c.medium_max_batch = o.medium_max_batch;
+    c.jacobi_tol = o.jacobi_tol;
+    c.jacobi_max_sweeps = o.jacobi_max_sweeps;
     return c;
 }
 
-PsdCone::PsdCone(std::vector<BlockSlice> blocks, SDPSolver &engine, const PsdConeConfig &config)
-    : blocks_(std::move(blocks)), engine_(engine), config_(config), policy_(config.policy, large_sizes(engine)),
-      analyzer_(config.rank, engine), full_(engine, analyzer_), lobpcg_(config.lobpcg, engine), composite_(config.composite, engine),
-      medium_(engine), small_(engine)
+PsdCone::PsdCone(std::vector<BlockSlice> blocks, SDPSolver &engine, const PsdConeConfig &config, core::WorkspaceArena &arena, core::StreamPool &pool)
+    : blocks_(std::move(blocks)), engine_(engine), config_(config), policy_(effective_policy(config, engine), large_sizes(engine)),
+      large_(engine, large_config(config, policy_), arena, pool), analyzer_(config.rank, large_), full_(large_, analyzer_),
+      lobpcg_(config.lobpcg, large_), composite_(config.composite, large_),
+      medium_(engine, psd::TierKind::Medium, batched_config(config), arena, pool), small_(engine, psd::TierKind::Small, batched_config(config), arena, pool)
 {
     for (const BlockSlice &b : blocks_)
         dimension_ += b.length;
-    if (!config_.gemm_compat)
-        throw std::invalid_argument("PsdCone: psd.large.final_product = syrk arrives with Phase 6b");
+}
+
+void PsdCone::bind()
+{
+    large_.bind();
+    medium_.bind();
+    small_.bind();
+}
+
+std::string PsdCone::memory_text() const
+{
+    std::ostringstream os;
+    os << "  " << large_.memory_text() << "\n  " << medium_.memory_text() << "\n  " << small_.memory_text();
+    return os.str();
 }
 
 psd::LargeBlockJob PsdCone::job(int idx)
 {
-    SDPSolver &e = engine_;
-    if (idx < 0 || idx >= e.sizes.large_mat_num)
-        throw std::out_of_range("PsdCone::job: large block " + std::to_string(idx));
-    int i = 0, j = idx;
-    while (j >= e.sizes.large_mat_nums[i])
-    {
-        j -= e.sizes.large_mat_nums[i];
-        i++;
-    }
-    const bool lowrank = e.use_lobpcg;
-    psd::LargeBlockState st{
-        idx,
-        e.large_mode[idx],
-        e.large_k[idx],
-        e.large_rank_tol[idx],
-        lowrank ? e.lobpcg_k_alloc[idx] : 0,
-        lowrank ? e.positive_ranks.vals + idx : nullptr,
-        lowrank ? e.negative_ranks.vals + idx : nullptr,
-        lowrank ? e.cpu_positive_ranks.vals[idx] : dummy_rank_[0],
-        lowrank ? e.cpu_negative_ranks.vals[idx] : dummy_rank_[1],
-        lowrank ? e.lobpcg_P[idx].vals : nullptr,
-        lowrank ? e.lobpcg_W[idx].vals : nullptr};
-    return psd::LargeBlockJob{i, j, e.sizes.large_mat_sizes[i], e.sizes.large_mat_offset(i, j), e.sizes.large_W_offset(i, j), st};
+    const psd::BlockRef &r = large_.ref(idx);
+    return psd::LargeBlockJob{large_.size_index(idx), large_.index_in_group(idx), r.n, 0, 0, large_.state(idx)};
 }
 
 bool PsdCone::begin_iteration(int k, double eta, bool verbose)
@@ -173,16 +194,11 @@ bool PsdCone::begin_iteration(int k, double eta, bool verbose)
 
 void PsdCone::project_dual(core::DeviceSpan<const double> z, core::DeviceSpan<double> s, core::ExecContext &)
 {
-    SDPSolver &e = engine_;
-    // the matrices of the PSD blocks (svec -> dense, 1/sqrt 2 off the diagonal), as Step 3 of main
-    psd_unpack(z.data, e.large_mat.vals, e.medium_mat.vals, e.small_mat.vals, e.map_B.vals, e.map_M1.vals, e.map_M2.vals, e.vec_len);
-    CHECK_CUDA(cudaDeviceSynchronize());
-    project_tiers();
-    // back to the vector (dense -> svec, sqrt 2 off the diagonal); the other cones write their own entries
-    psd_pack(s.data, e.large_mat_P.vals, e.medium_mat_P.vals, e.small_mat_P.vals, e.map_B.vals, e.map_M1.vals, e.map_M2.vals, e.vec_len);
+    bind();
+    project_tiers(z.data, s.data);
 }
 
-void PsdCone::project_tiers()
+void PsdCone::project_tiers(const double *z, double *s)
 {
     SDPSolver &e = engine_;
     // a cone step without begin_iteration (the tests, a driver of its own): the policy sees the iteration, no
@@ -190,57 +206,39 @@ void PsdCone::project_tiers()
     if (policy_.iteration() != iteration_)
         policy_.begin_iteration(iteration_, std::numeric_limits<double>::infinity());
 
-    /* Step 3.1. The large blocks, one at a time, with the projector the policy selects */
-    const int L = e.sizes.large_mat_num;
+    /* Step 3.1. The large blocks, one at a time through the arena, with the projector the policy selects */
+    const int L = large_.count();
     strategies_.resize(L);
-    // when every large block takes the exact path in this iteration, the blocks of each size group are multiplied
-    // by their eigenvectors with one strided-batched GEMM (bit-identical to the code before the refactor: a
-    // strided-batched GEMM with batch > 1 does not round like per-matrix GEMMs); gemm_compat only (Phase 6b: SYRK)
-    bool group_gemm = config_.gemm_compat;
     bool any_analysis = false;
     for (int idx = 0; idx < L; idx++)
-    {
         strategies_[idx] = policy_.decide(idx, e.large_mode[idx]);
-        group_gemm = group_gemm && exact_strategy(strategies_[idx]);
-    }
-
-    int idx = 0; // flat index of the large block
-    for (int i = 0; i < (int)e.sizes.large_mat_sizes.size(); i++)
+    for (int idx = 0; idx < L; idx++)
     {
-        for (int j = 0; j < e.sizes.large_mat_nums[i]; j++)
+        const psd::LargeBlockJob jb = job(idx);
+        large_.unpack(idx, z);
+        switch (strategies_[idx])
         {
-            const psd::LargeBlockJob jb = job(idx);
-            switch (strategies_[idx])
+        case psd::LargeStrategy::CompositeFilter:
+            if (!composite_.project(jb, z, s))
+                full_.project(jb, false, z, s); // the input is in M again
+            break;
+        case psd::LargeStrategy::FullEvd:
+            full_.project(jb, false, z, s);
+            break;
+        case psd::LargeStrategy::FullEvdWithRankAnalysis:
+            any_analysis = true;
+            full_.project(jb, true, z, s);
+            break;
+        case psd::LargeStrategy::Lobpcg:
+            if (!lobpcg_.project(jb, z, s))
             {
-            case psd::LargeStrategy::CompositeFilter:
-                if (!composite_.project(jb))
-                    full_.project(jb, false, true);
-                break;
-            case psd::LargeStrategy::FullEvd:
-                full_.project(jb, false, !group_gemm);
-                break;
-            case psd::LargeStrategy::FullEvdWithRankAnalysis:
                 any_analysis = true;
-                full_.project(jb, true, !group_gemm);
-                break;
-            case psd::LargeStrategy::Lobpcg:
-                if (!lobpcg_.project(jb))
-                {
-                    any_analysis = true;
-                    full_.project(jb, true, true);
-                }
-                break;
+                full_.project(jb, true, z, s); // M still holds the input
             }
-            idx++;
+            break;
         }
-        if (group_gemm)
-            dense_matrix_mul_trans_batch(
-                e.cublasH,
-                e.large_mat_P, e.large_mat_tmp, e.large_mat,
-                e.sizes.large_mat_sizes[i], e.sizes.large_mat_nums[i],
-                e.sizes.large_mat_offset(i, 0));
     }
-    CHECK_CUDA(cudaDeviceSynchronize());
+    CUADMM_CHECK_CUDA(cudaStreamSynchronize(large_.ctx().stream));
 
     if (any_analysis && L > 0 && verbose_)
     {
@@ -254,36 +252,41 @@ void PsdCone::project_tiers()
     }
 
     /* Step 3.2. The medium blocks */
-    medium_.project();
+    medium_.project(z, s);
 
     /* Step 3.3. The small blocks */
-    small_.project();
+    small_.project(z, s);
 }
 
 ConeMeasures PsdCone::measure(core::DeviceSpan<const double> v, Side, core::ExecContext &)
 {
     SDPSolver &e = engine_;
-    // matrices of the PSD blocks
-    psd_unpack(v.data, e.large_mat.vals, e.medium_mat.vals, e.small_mat.vals, e.map_B.vals, e.map_M1.vals, e.map_M2.vals, e.vec_len);
-    CHECK_CUDA(cudaDeviceSynchronize());
+    bind();
 
     // eigenvalues of every PSD block, with the machinery of the projection (the eigenvectors overwrite the matrices)
-    for (int idx = 0; idx < e.sizes.large_mat_num; idx++)
-        full_.decompose(job(idx), idx, "cusolverDnXsyevd (cone measure)");
-    medium_.decompose("cusolverDnXsyevd (cone measure)", false);
-    small_.decompose("cusolverDnDsyevjBatched (cone measure)", false);
-    CHECK_CUDA(cudaDeviceSynchronize());
+    std::vector<double> large_W_h;
+    for (int idx = 0; idx < large_.count(); idx++)
+    {
+        const int n = large_.size(idx);
+        large_.unpack(idx, v.data);
+        large_.decompose(idx, "cusolverDnXsyevd (cone measure)");
+        std::vector<double> w(n);
+        CUADMM_CHECK_CUDA(cudaMemcpy(w.data(), large_.eigenvalues(), sizeof(double) * n, cudaMemcpyDeviceToHost));
+        large_W_h.insert(large_W_h.end(), w.begin(), w.end());
+    }
+    medium_.unpack(v.data);
+    CUADMM_CHECK_CUDA(cudaStreamSynchronize(nullptr));
+    medium_.decompose("cusolverDnXsyevd (cone measure)", false, false);
+    small_.unpack(v.data);
+    small_.decompose("cusolverDnDsyevjBatched (cone measure)", false, false);
+    CUADMM_CHECK_CUDA(cudaDeviceSynchronize());
 
-    // host copies of the eigenvalues
-    std::vector<double> large_W_h(e.sizes.sum_large_mat_size);
-    std::vector<double> medium_W_h(e.sizes.sum_medium_mat_size);
-    std::vector<double> small_W_h(e.sizes.sum_small_mat_size);
-    if (!large_W_h.empty())
-        CHECK_CUDA(cudaMemcpy(large_W_h.data(), e.large_W.vals, sizeof(double) * large_W_h.size(), D2H));
+    // host copies of the eigenvalues of the batched tiers
+    std::vector<double> medium_W_h(medium_.sum_n()), small_W_h(small_.sum_n());
     if (!medium_W_h.empty())
-        CHECK_CUDA(cudaMemcpy(medium_W_h.data(), e.medium_W.vals, sizeof(double) * medium_W_h.size(), D2H));
+        CUADMM_CHECK_CUDA(cudaMemcpy(medium_W_h.data(), medium_.eigenvalues(), sizeof(double) * medium_W_h.size(), cudaMemcpyDeviceToHost));
     if (!small_W_h.empty())
-        CHECK_CUDA(cudaMemcpy(small_W_h.data(), e.small_W.vals, sizeof(double) * small_W_h.size(), D2H));
+        CUADMM_CHECK_CUDA(cudaMemcpy(small_W_h.data(), small_.eigenvalues(), sizeof(double) * small_W_h.size(), cudaMemcpyDeviceToHost));
 
     ConeMeasures m;
     m.block_min.assign(blocks_.size(), 0.0);

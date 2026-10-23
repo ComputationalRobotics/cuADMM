@@ -21,6 +21,8 @@
 
 #include "cone/cone_product.h"
 #include "cone/psd/psd_cone.h"
+#include "core/stream_pool.h"
+#include "core/workspace_arena.h"
 
 #include <algorithm>
 #include <stdio.h>
@@ -32,31 +34,6 @@
 #include <vector>
 #include <set>
 
-// Copies `count` cuSOLVER info values to the host and throws if an eigendecomposition failed.
-// For cusolverDnDsyevjBatched (jacobi_n = matrix size), info == n + 1 only means that the Jacobi
-// method did not reach its (1e-16) tolerance within the maximum number of sweeps, which still gives
-// machine-precision results: such matrices are counted and returned instead.
-static int check_eig_info(const int *d_info, const int count, const char *what, const int jacobi_n = -1)
-{
-    if (count == 0)
-        return 0;
-    std::vector<int> info(count);
-    CHECK_CUDA(cudaMemcpy(info.data(), d_info, sizeof(int) * count, D2H));
-    int not_converged = 0;
-    for (int l = 0; l < count; l++)
-    {
-        if (info[l] == 0)
-            continue;
-        if (jacobi_n >= 0 && info[l] == jacobi_n + 1)
-        {
-            not_converged++;
-            continue;
-        }
-        throw std::runtime_error(
-            std::string(what) + " failed for matrix " + std::to_string(l) + ": info = " + std::to_string(info[l]));
-    }
-    return not_converged;
-}
 
 SigmaPolicyParameters SDPSolver::sigma_policy_parameters() const
 {
@@ -110,128 +87,8 @@ void SDPSolver::synchronize_gpu0_streams()
     CHECK_CUDA(cudaStreamSynchronize(this->stream_flex[2].stream));
 }
 
-// The large-block projections (exact EVD, LOBPCG, composite filter) are the projector classes of src/cone/psd/large/
-// since Phase 6a; the engine keeps their buffers and counters.
-
-void SDPSolver::cone_measures(DeviceDenseVector<double> &v, std::vector<double> &block_min, std::vector<double> &bound_coef)
-{
-    // matrices of the PSD blocks
-    vector_to_matrices(v, this->large_mat, this->medium_mat, this->small_mat, this->map_B, this->map_M1, this->map_M2);
-    CHECK_CUDA(cudaDeviceSynchronize());
-
-    // eigenvalues of every PSD block, with the machinery of the projection (the eigenvectors overwrite the matrices)
-    int counter = 0;
-    for (int i = 0; i < this->sizes.large_mat_sizes.size(); i++)
-    {
-        for (int j = 0; j < this->sizes.large_mat_nums[i]; j++)
-        {
-            single_eig_cusolver(
-                this->cusolverH_eig_large, eig_param_single,
-                this->large_mat, this->large_W,
-                this->eig_large_buffer, this->cpu_eig_large_buffer, this->large_info,
-                this->sizes.large_mat_sizes[i],
-                this->eig_large_buffer_size[i], this->cpu_eig_large_buffer_size[i],
-                this->sizes.large_mat_offset(i, j), this->sizes.large_W_offset(i, j),
-                this->sizes.large_buffer_offset(i, j, this->eig_large_buffer_size),
-                this->sizes.large_cpu_buffer_offset(i, j, this->cpu_eig_large_buffer_size),
-                counter);
-            check_eig_info(this->large_info.vals + counter, 1, "cusolverDnXsyevd (cone measure)");
-            counter++;
-        }
-    }
-    counter = 0;
-    for (int i = 0; i < this->sizes.medium_mat_sizes.size(); i++)
-    {
-        for (int j = 0; j < this->sizes.medium_mat_nums[i]; j++)
-        {
-            single_eig_cusolver(
-                this->cusolverH_eig_medium_arr[counter % this->eig_stream_num_per_gpu], eig_param_single,
-                this->medium_mat, this->medium_W,
-                this->eig_medium_buffer, this->cpu_eig_medium_buffer, this->medium_info,
-                this->sizes.medium_mat_sizes[i],
-                this->eig_medium_buffer_size[i], this->cpu_eig_medium_buffer_size[i],
-                this->sizes.medium_mat_offset(i, j), this->sizes.medium_W_offset(i, j),
-                this->sizes.medium_buffer_offset(i, j, this->eig_medium_buffer_size),
-                this->sizes.medium_cpu_buffer_offset(i, j, this->cpu_eig_medium_buffer_size),
-                counter);
-            counter++;
-        }
-    }
-    for (int i = 0; i < this->eig_stream_num_per_gpu; i++)
-        CHECK_CUDA(cudaStreamSynchronize(this->eig_medium_stream_arr[i].stream));
-    check_eig_info(this->medium_info.vals, this->sizes.medium_mat_num, "cusolverDnXsyevd (cone measure)");
-    int info_offset = 0;
-    for (int i = 0; i < this->sizes.small_mat_sizes.size(); i++)
-    {
-        batch_eig_cusolver(
-            this->cusolverH_eig_small, this->eig_param_batch,
-            this->small_mat, this->small_W,
-            this->eig_small_buffer, this->small_info,
-            this->sizes.small_mat_sizes[i], this->sizes.small_mat_nums[i],
-            this->eig_small_buffer_size[i],
-            this->sizes.small_mat_offset(i), this->sizes.small_W_offset(i),
-            this->sizes.small_buffer_offset(i, this->eig_small_buffer_size),
-            0, // buffer_host_offset (unused by the batched Jacobi EVD)
-            info_offset);
-        check_eig_info(
-            this->small_info.vals + info_offset, this->sizes.small_mat_nums[i],
-            "cusolverDnDsyevjBatched (cone measure)", this->sizes.small_mat_sizes[i]);
-        info_offset += this->sizes.small_mat_nums[i];
-    }
-    CHECK_CUDA(cudaDeviceSynchronize());
-
-    // host copies of the eigenvalues and of v
-    std::vector<double> large_W_h(this->sizes.sum_large_mat_size);
-    std::vector<double> medium_W_h(this->sizes.sum_medium_mat_size);
-    std::vector<double> small_W_h(this->sizes.sum_small_mat_size);
-    std::vector<double> v_h(this->vec_len);
-    if (!large_W_h.empty())
-        CHECK_CUDA(cudaMemcpy(large_W_h.data(), this->large_W.vals, sizeof(double) * large_W_h.size(), D2H));
-    if (!medium_W_h.empty())
-        CHECK_CUDA(cudaMemcpy(medium_W_h.data(), this->medium_W.vals, sizeof(double) * medium_W_h.size(), D2H));
-    if (!small_W_h.empty())
-        CHECK_CUDA(cudaMemcpy(small_W_h.data(), this->small_W.vals, sizeof(double) * small_W_h.size(), D2H));
-    if (!v_h.empty())
-        CHECK_CUDA(cudaMemcpy(v_h.data(), v.vals, sizeof(double) * v_h.size(), D2H));
-
-    block_min.assign(this->blk_info.size(), 0.0);
-    bound_coef.assign(this->blk_info.size(), 0.0);
-    for (size_t b = 0; b < this->blk_info.size(); b++)
-    {
-        const BlockInfo &blk = this->blk_info[b];
-        if (blk.type == 's')
-        {
-            const double *W = blk.category == MatrixSizeCategory::LARGE ? large_W_h.data() : (blk.category == MatrixSizeCategory::MEDIUM ? medium_W_h.data() : small_W_h.data());
-            double lambda_min = W[blk.W_offset];
-            for (int k = 1; k < blk.size; k++)
-                lambda_min = std::min(lambda_min, W[blk.W_offset + k]);
-            block_min[b] = lambda_min;
-            bound_coef[b] = std::min(0.0, lambda_min);
-        }
-        else if (blk.type == 'l')
-        {
-            double entry_min = v_h[blk.vec_offset], negative_sum = 0.0;
-            for (int k = 0; k < blk.size; k++)
-            {
-                entry_min = std::min(entry_min, v_h[blk.vec_offset + k]);
-                negative_sum += std::min(0.0, v_h[blk.vec_offset + k]);
-            }
-            block_min[b] = entry_min;
-            bound_coef[b] = negative_sum;
-        }
-        else // 'u'
-        {
-            double abs_max = 0.0, abs_sum = 0.0;
-            for (int k = 0; k < blk.size; k++)
-            {
-                abs_max = std::max(abs_max, std::abs(v_h[blk.vec_offset + k]));
-                abs_sum += std::abs(v_h[blk.vec_offset + k]);
-            }
-            block_min[b] = abs_max;
-            bound_coef[b] = -abs_sum;
-        }
-    }
-}
+// The PSD tiers, their projections and their measures are the cone layer's (src/cone/psd/) since Phases 5-6b; the
+// engine keeps the block structure, the per-block scalars of the rank analysis and the counters.
 
 double SDPSolver::certified_lower_bound(const std::vector<double> &trace_bounds) const
 {
@@ -476,17 +333,7 @@ void SDPSolver::init(
         throw std::invalid_argument("PSD block of size " + std::to_string(this->sizes.max_large_mat_size) +
                                     " exceeds the exact-EVD limit of " + std::to_string(CUADMM_MAX_EVD_BLOCK_SIZE) +
                                     " (cusolverDnXsyevd workspace queries fail above it on CUDA 12.9)");
-    const std::vector<int> &map_B_tmp = blk_struct.map_B;   // |
-    const std::vector<int> &map_M1_tmp = blk_struct.map_M1; // |- CPU version
-    const std::vector<int> &map_M2_tmp = blk_struct.map_M2; // |
-
-    // copy to GPU
-    this->map_B.allocate(GPU0, vec_len);  // |
-    this->map_M1.allocate(GPU0, vec_len); // |- GPU version
-    this->map_M2.allocate(GPU0, vec_len); // |
-    CHECK_CUDA(cudaMemcpyAsync(this->map_B.vals, map_B_tmp.data(), sizeof(int) * vec_len, H2D, this->stream_flex[0].stream));
-    CHECK_CUDA(cudaMemcpyAsync(this->map_M1.vals, map_M1_tmp.data(), sizeof(int) * vec_len, H2D, this->stream_flex[1].stream));
-    CHECK_CUDA(cudaMemcpyAsync(this->map_M2.vals, map_M2_tmp.data(), sizeof(int) * vec_len, H2D, this->stream_flex[2].stream));
+    // the svec maps of main are not needed: the PSD tiers of the cone layer convert their own blocks (Phase 6b)
 
     /* Scale (A is already scaled) */
     // move b and C to GPU
@@ -558,104 +405,9 @@ void SDPSolver::init(
     this->dobj = SparseVV_cusparse(this->cusparseH, this->b, this->y, this->SpVV_bty_buffer) * this->objscale;
     this->relgap = abs(this->pobj - this->dobj) / (1 + abs(this->pobj) + abs(this->dobj));
 
-    /* Eigen decomposition for medium matrices */
-    this->medium_mat.allocate(GPU0, this->sizes.total_medium_mat_size);
-    this->medium_W.allocate(GPU0, this->sizes.sum_medium_mat_size);
-    this->medium_info.allocate(GPU0, this->sizes.medium_mat_num);
-
-    // streams and handles for eigen decomposition
-    this->eig_medium_stream_arr = std::vector<DeviceStream>(this->eig_stream_num_per_gpu);
-    this->cusolverH_eig_medium_arr = std::vector<DeviceSolverDnHandle>(this->eig_stream_num_per_gpu);
-    this->cublasH_eig_medium_arr = std::vector<DeviceBlasHandle>(this->eig_stream_num_per_gpu);
-    for (int stream_id = 0; stream_id < this->eig_stream_num_per_gpu; stream_id++)
-    {
-        // ininitialize and activate the streams and handles
-        this->eig_medium_stream_arr[stream_id].set_gpu_id(GPU0);
-        this->eig_medium_stream_arr[stream_id].activate();
-        this->cusolverH_eig_medium_arr[stream_id].set_gpu_id(GPU0);
-        this->cusolverH_eig_medium_arr[stream_id].activate(this->eig_medium_stream_arr[stream_id]);
-        this->cublasH_eig_medium_arr[stream_id].set_gpu_id(GPU0);
-        this->cublasH_eig_medium_arr[stream_id].activate(this->eig_medium_stream_arr[stream_id]);
-    }
-
-    // compute the buffer sizes of the medium matrices eig decomposition
-    this->eig_medium_buffer_size.assign(this->sizes.medium_mat_sizes.size(), 0);
-    this->cpu_eig_medium_buffer_size.assign(this->sizes.medium_mat_sizes.size(), 0);
-
-    this->sizes.medium_buffer_start_indices.push_back(0);
-    this->sizes.medium_cpu_buffer_start_indices.push_back(0);
-    size_t total_eig_medium_buffer_size = 0;
-    size_t total_cpu_eig_medium_buffer_size = 0;
-    for (int i = 0; i < this->sizes.medium_mat_sizes.size(); i++)
-    {
-        single_eig_get_buffersize_cusolver(
-            this->cusolverH_eig_medium_arr[i % this->eig_stream_num_per_gpu], eig_param_single, this->medium_mat, this->medium_W,
-            this->sizes.medium_mat_sizes[i],
-            &this->eig_medium_buffer_size[i],
-            &this->cpu_eig_medium_buffer_size[i],
-            this->sizes.medium_mat_offset(i, 0), this->sizes.medium_W_offset(i, 0)); // buffer size per medium matrix of a given size
-
-        // we need to multiply the buffer size by the number of matrices of this size
-        total_eig_medium_buffer_size += this->eig_medium_buffer_size[i] * this->sizes.medium_mat_nums[i];
-        total_cpu_eig_medium_buffer_size += this->cpu_eig_medium_buffer_size[i] * this->sizes.medium_mat_nums[i];
-
-        this->sizes.medium_buffer_start_indices.push_back(
-            this->sizes.medium_buffer_start_indices[i] + this->sizes.medium_mat_nums[i] * this->eig_medium_buffer_size[i]);
-        this->sizes.medium_cpu_buffer_start_indices.push_back(
-            this->sizes.medium_cpu_buffer_start_indices[i] + this->sizes.medium_mat_nums[i] * this->cpu_eig_medium_buffer_size[i]);
-    }
-
-    // batched EVD of the medium size groups with several matrices
-    this->medium_group_batched.assign(this->sizes.medium_mat_sizes.size(), 0);
-#if defined(CUDA_VERSION) && (CUDA_VERSION >= 12080)
-    {
-        bool any_batched = false;
-        for (int i = 0; i < this->sizes.medium_mat_sizes.size(); i++)
-        {
-            if (this->medium_batch_min_count > 0 && this->sizes.medium_mat_nums[i] >= this->medium_batch_min_count)
-            {
-                this->medium_group_batched[i] = 1;
-                any_batched = true;
-            }
-        }
-        if (any_batched)
-        {
-            this->cusolverH_eig_medium_batch.set_gpu_id(GPU0);
-            this->cusolverH_eig_medium_batch.activate();
-            for (int i = 0; i < this->sizes.medium_mat_sizes.size(); i++)
-            {
-                if (!this->medium_group_batched[i])
-                    continue;
-                const int n = this->sizes.medium_mat_sizes[i];
-                size_t device_size = 0, host_size = 0;
-                CHECK_CUSOLVER(cusolverDnXsyevBatched_bufferSize(
-                    this->cusolverH_eig_medium_batch.cusolver_dn_handle, eig_param_single.param,
-                    eig_param_single.jobz, eig_param_single.uplo,
-                    n, CUDA_R_64F, this->medium_mat.vals + this->sizes.medium_mat_offset(i, 0), n,
-                    CUDA_R_64F, this->medium_W.vals + this->sizes.medium_W_offset(i, 0), CUDA_R_64F,
-                    &device_size, &host_size, this->sizes.medium_mat_nums[i]));
-                this->medium_batch_buffer_size = std::max(this->medium_batch_buffer_size, device_size);
-                this->medium_batch_cpu_buffer_size = std::max(this->medium_batch_cpu_buffer_size, host_size);
-            }
-            this->medium_batch_buffer.allocate_size_t(GPU0, std::max<size_t>(this->medium_batch_buffer_size, 8), true);
-            this->medium_batch_cpu_buffer.allocate(int(std::max<size_t>(this->medium_batch_cpu_buffer_size, 8)), true);
-        }
-    }
-#endif
-
-    // allocate memory for the two buffers, host and device
-    if (total_eig_medium_buffer_size != 0)
-        this->eig_medium_buffer.allocate_size_t(GPU0, total_eig_medium_buffer_size, true);
-    if (total_cpu_eig_medium_buffer_size != 0)
-        this->cpu_eig_medium_buffer.allocate(total_cpu_eig_medium_buffer_size, true);
-
-    /* Eigen decomposition for large matrices */
-    // allocate GPU0 memory for large matrices
-    this->large_mat.allocate(GPU0, this->sizes.total_large_mat_size);
-    this->large_W.allocate(GPU0, this->sizes.sum_large_mat_size);
-    this->large_info.allocate(GPU0, this->sizes.large_mat_num);
-
-    // per large matrix: projection mode and number of LOBPCG eigenpairs (set by the rank analysis)
+    /* The PSD tiers (small, medium, large) live in the cone layer since Phase 6b (src/cone/psd/): their buffers,
+       streams, handles and workspaces come from the WorkspaceArena and the StreamPool of the owner. The engine keeps
+       the per-block scalars of the rank analysis and the counters. */
     this->large_mode = std::vector<int>(this->sizes.large_mat_num, LargeProjectionMode::FULL);
     this->large_k = std::vector<int>(this->sizes.large_mat_num, 0);
     this->large_rank_tol = std::vector<double>(this->sizes.large_mat_num, 0.0);
@@ -665,110 +417,7 @@ void SDPSolver::init(
     this->composite_fallbacks = 0;
     this->jacobi_not_converged = 0;
 
-    this->cusolverH_eig_large.set_gpu_id(GPU0);
-    this->cusolverH_eig_large.activate();
-
-    // compute the buffer sizes of the large matrices eig decomposition
-    this->eig_large_buffer_size.assign(this->sizes.large_mat_sizes.size(), 0);
-    this->cpu_eig_large_buffer_size.assign(this->sizes.large_mat_sizes.size(), 0);
-
-    this->sizes.large_buffer_start_indices.push_back(0);
-    this->sizes.large_cpu_buffer_start_indices.push_back(0);
-    size_t total_eig_large_buffer_size = 0;
-    size_t total_cpu_eig_large_buffer_size = 0;
-    for (int i = 0; i < this->sizes.large_mat_sizes.size(); i++)
-    {
-        // always needed: the exact cuSOLVER EVD is the fallback of every projection method
-        single_eig_get_buffersize_cusolver(
-            this->cusolverH_eig_large, eig_param_single, this->large_mat, this->large_W,
-            this->sizes.large_mat_sizes[i],
-            &this->eig_large_buffer_size[i],
-            &this->cpu_eig_large_buffer_size[i],
-            this->sizes.large_mat_offset(i, 0), this->sizes.large_W_offset(i, 0)); // buffer size per large matrix of a given size
-
-        // we need to multiply the buffer size by the number of matrices of this size
-        total_eig_large_buffer_size += this->eig_large_buffer_size[i] * this->sizes.large_mat_nums[i];
-        total_cpu_eig_large_buffer_size += this->cpu_eig_large_buffer_size[i] * this->sizes.large_mat_nums[i];
-
-        this->sizes.large_buffer_start_indices.push_back(
-            this->sizes.large_buffer_start_indices[i] + this->sizes.large_mat_nums[i] * this->eig_large_buffer_size[i]);
-        this->sizes.large_cpu_buffer_start_indices.push_back(
-            this->sizes.large_cpu_buffer_start_indices[i] + this->sizes.large_mat_nums[i] * this->cpu_eig_large_buffer_size[i]);
-    }
-
-    // allocate memory for the two buffers, host and device
-    if (total_eig_large_buffer_size != 0)
-        this->eig_large_buffer.allocate_size_t(GPU0, total_eig_large_buffer_size, true);
-    if (total_cpu_eig_large_buffer_size != 0)
-        this->cpu_eig_large_buffer.allocate(total_cpu_eig_large_buffer_size, true);
-
-    if (this->sizes.large_mat_sizes.size() > 0 &&
-        (this->initial_proj_method == ProjectionMethod::COMPOSITE_FP16 || this->final_proj_method == ProjectionMethod::COMPOSITE_FP16))
-    {
-        // create a workspace for the composite projection
-        int largest_size = *std::max_element(this->sizes.large_mat_sizes.begin(), this->sizes.large_mat_sizes.end());
-        size_t nn = (size_t)largest_size * largest_size;
-        size_t stride = nn % 4 == 0 ? nn : nn + (4 - nn % 4); // we need to ensure proper memory alignment
-
-        this->float_proj_workspace.allocate_size_t(GPU0, 3 * stride);
-        this->half_proj_workspace.allocate_size_t(GPU0, 3 * stride);
-
-        // create a cuBLAS handle; B1: the math mode is set explicitly to the default (the FP16 filter calls
-        // cublasGemmEx with its own compute type; the plan measured its output bitwise identical under both modes)
-        this->cublasH_composite_proj.set_gpu_id(GPU0);
-        this->cublasH_composite_proj.activate();
-        CHECK_CUBLAS(cublasSetMathMode(this->cublasH_composite_proj.cublas_handle, CUBLAS_DEFAULT_MATH));
-
-        // create a cuSOLVER handle
-        this->cusolverH_composite_proj.set_gpu_id(GPU0);
-        this->cusolverH_composite_proj.activate();
-    }
-
-    this->cublasH_eig_large.set_gpu_id(GPU0);
-    this->cublasH_eig_large.activate();
-
-    /* Eigenvalue decomposition for small matrices */
-    this->cusolverH_eig_small.set_gpu_id(GPU0);
-    this->cusolverH_eig_small.activate();
-    this->small_mat.allocate(GPU0, this->sizes.total_small_mat_size);
-    this->small_W.allocate(GPU0, this->sizes.sum_small_mat_size);
-    this->small_info.allocate(GPU0, this->sizes.small_mat_num);
-    CHECK_CUDA(cudaMemset(this->small_info.vals, 0, sizeof(int) * this->sizes.small_mat_num));
-    this->eig_small_buffer_size.reserve(this->sizes.small_mat_sizes.size());
-
-    this->sizes.small_buffer_start_indices.push_back(0);
-    for (int i = 0; i < this->sizes.small_mat_sizes.size(); i++)
-    {
-        this->eig_small_buffer_size.push_back(
-            batch_eig_get_buffersize_cusolver(
-                this->cusolverH_eig_small, this->eig_param_batch,
-                this->small_mat, this->small_W,
-                this->sizes.small_mat_sizes[i], this->sizes.small_mat_nums[i],
-                this->sizes.small_mat_offset(i), this->sizes.small_W_offset(i)));
-
-        this->sizes.small_buffer_start_indices.push_back(
-            this->sizes.small_buffer_start_indices[i] + this->eig_small_buffer_size[i]);
-    }
-
-    CHECK_CUDA(cudaStreamSynchronize(this->stream_flex[0].stream));
-    // we do not need to multiply the buffer size by the number of matrices,
-    // since it is already done in the function
-    this->eig_small_buffer.allocate_size_t(GPU0, this->sizes.small_buffer_start_indices.back(), true);
-
     /* For the computation of y, X, S */
-    if (this->sizes.medium_mat_num > 0)
-    {
-        this->medium_mat_tmp.allocate(GPU0, this->sizes.total_medium_mat_size);
-        this->medium_mat_P.allocate(GPU0, this->sizes.total_medium_mat_size);
-    }
-    if (this->sizes.large_mat_num > 0)
-    {
-        // large_mat_P is written by every projection method, large_mat_tmp by the exact EVD (the fallback of every method)
-        this->large_mat_tmp.allocate(GPU0, this->sizes.total_large_mat_size);
-        this->large_mat_P.allocate(GPU0, this->sizes.total_large_mat_size);
-    }
-    this->small_mat_tmp.allocate(GPU0, this->sizes.total_small_mat_size);
-    this->small_mat_P.allocate(GPU0, this->sizes.total_small_mat_size);
     this->Rd1.allocate(GPU0, this->vec_len);
     this->Xinput.allocate(GPU0, this->vec_len);
 
@@ -785,32 +434,6 @@ void SDPSolver::init(
         this->negative_ranks.allocate(GPU0, this->sizes.large_mat_num);
         this->cpu_positive_ranks.allocate(this->sizes.large_mat_num);
         this->cpu_negative_ranks.allocate(this->sizes.large_mat_num);
-
-        // we only need the ReLU workspace for one matrix at a time
-        int max_k = std::ceil(this->sizes.max_large_mat_size * this->lobpcg_ratio * this->lobpcg_relaxation);
-        this->lobpcg_W_relu.allocate(GPU0, max_k);
-
-        // allocate one pointer for each large matrix
-        this->lobpcg_W = std::vector<DeviceDenseVector<double>>(this->sizes.large_mat_num);
-        this->lobpcg_P = std::vector<DeviceDenseVector<double>>(this->sizes.large_mat_num);
-        this->lobpcg_k_alloc = std::vector<int>(this->sizes.large_mat_num, 0);
-        int counter = 0;
-        for (int i = 0; i < this->sizes.large_mat_sizes.size(); i++)
-        {
-            for (int j = 0; j < this->sizes.large_mat_nums[i]; j++)
-            {
-                int n = this->sizes.large_mat_sizes[i];
-                int k = std::ceil(n * this->lobpcg_ratio * this->lobpcg_relaxation);
-                this->lobpcg_k_alloc[counter] = k; // upper bound on the number of eigenpairs requested from LOBPCG
-                // allocate space to store warmstarting eigenpairs
-                this->lobpcg_W[counter] = DeviceDenseVector<double>();
-                this->lobpcg_W[counter].allocate(GPU0, k);
-
-                this->lobpcg_P[counter] = DeviceDenseVector<double>();
-                this->lobpcg_P[counter].allocate(GPU0, k * n);
-                counter++;
-            }
-        }
     }
 
     /* others */
@@ -894,7 +517,17 @@ void SDPSolver::solve(
     pc.lobpcg.max_iter = this->lobpcg_maxit;
     pc.lobpcg.tol = this->lobpcg_tol;
     pc.composite.seed = this->lanczos_seed;
-    cone::ConeProduct cones(this->host_blk_types, this->host_blk_sizes, cone::ConeBuildContext{this->vec_len, this, &pc});
+    pc.medium_batch_min = this->medium_batch_min_count;
+    // the C++ API of main reproduces main's arithmetic: the final products of Milestone 1 (DECISIONS 50); the facade's
+    // defaults are the SYRK / scaled products of Phase 6b
+    pc.gemm_compat = true;
+    pc.batched_gemm_compat = true;
+    core::StreamPoolConfig pool_config;
+    pool_config.medium_streams = this->eig_stream_num_per_gpu;
+    core::StreamPool pool(pool_config);
+    core::WorkspaceArena arena;
+    cone::ConeProduct cones(this->host_blk_types, this->host_blk_sizes, cone::ConeBuildContext{this->vec_len, this, &pc, &arena, &pool});
+    arena.commit();
     admm::AdmmState state(*this, cones);
     termination::BestIterateTracker tracker(*this);
     std::unique_ptr<termination::StoppingRule> rule;

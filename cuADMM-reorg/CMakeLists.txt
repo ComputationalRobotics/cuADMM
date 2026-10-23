@@ -145,7 +145,7 @@ set(CUADMM_SOURCES
   src/cone/nonnegative_cone.cu
   src/cone/cone_product.cu
   src/cone/psd/psd_cone.cu
-  src/cone/psd/svec_pack.cu
+  src/cone/psd/psd_kernels.cu
   src/cone/psd/kernels/precision.cu
   src/cone/psd/kernels/lanczos.cu
   src/cone/psd/kernels/lobpcg.cu
@@ -153,8 +153,9 @@ set(CUADMM_SOURCES
   src/cone/psd/eig_info.cu
   src/core/workspace_arena.cu
   src/core/stream_pool.cu
-  src/cone/psd/batched/batch_projectors.cu
+  src/cone/psd/batched/batched_tier.cu
   src/cone/psd/large/large_block_policy.cc
+  src/cone/psd/large/large_tier.cu
   src/cone/psd/large/rank_analyzer.cu
   src/cone/psd/large/projectors/full_evd.cu
   src/cone/psd/large/projectors/lobpcg_projector.cu

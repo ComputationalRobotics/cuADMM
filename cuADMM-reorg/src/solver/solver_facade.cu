@@ -24,6 +24,8 @@
 
 #include "cone/cone_product.h"
 #include "cone/psd/psd_cone.h"
+#include "core/stream_pool.h"
+#include "core/workspace_arena.h"
 #include "termination/certificate.h"
 
 #include <chrono>
@@ -65,6 +67,9 @@ struct Solver::Impl
     // engine call parameters (fixed at setup)
     int switch_admm = 0;
     cone::PsdConeConfig psd_config; // the PSD cone's policy and projector settings (Phase 6a)
+    std::unique_ptr<core::StreamPool> pool;   // the named streams (Phase 6b)
+    core::WorkspaceArena arena;               // the workspace regions of the cones (Phase 6b), committed at setup
+    std::size_t memory_plan_bytes = 0;        // device memory in use after setup (the plan the peak is measured against)
     std::vector<std::shared_ptr<report::IterationObserver>> observers;
     std::unique_ptr<admm::PenaltyPolicy> penalty; // built at setup from the options; reset at every solve
     std::unique_ptr<cone::ConeProduct> cones;      // the product cone of the problem (Phase 5), on the engine's tiers
@@ -207,7 +212,32 @@ void Solver::setup(const ProblemData &problem)
            initial, ProjectionMethod::EIG_FP64,
            nullptr, nullptr, nullptr, // the warm start is handed over by solve()
            o.penalty.sigma0, o.psd.lowrank_enabled);
-    im.cones.reset(new cone::ConeProduct(im.blk_types, im.blk_sizes, cone::ConeBuildContext{im.vec_len, &e, &im.psd_config}));
+    core::StreamPoolConfig pool_config;
+    pool_config.medium_streams = o.psd.medium_streams;
+    im.pool.reset(new core::StreamPool(pool_config));
+    im.arena.reset();
+    im.cones.reset(new cone::ConeProduct(im.blk_types, im.blk_sizes, cone::ConeBuildContext{im.vec_len, &e, &im.psd_config, &im.arena, im.pool.get()}));
+    // the memory plan (plan Section 10.4): the arena against the budget, then its one allocation
+    {
+        std::size_t free_bytes = 0, total_bytes = 0;
+        CHECK_CUDA(cudaMemGetInfo(&free_bytes, &total_bytes));
+        const double mib = 1024.0 * 1024.0;
+        const std::size_t planned = im.arena.planned_bytes();
+        const double budget = o.psd.large_memory_budget * static_cast<double>(free_bytes);
+        std::string tiers;
+        if (cone::Cone *c = im.cones->cone(ConeKind::Psd))
+            tiers = static_cast<cone::PsdCone *>(c)->memory_text();
+        if (static_cast<double>(planned) > budget)
+            throw std::runtime_error("the PSD workspaces need " + std::to_string(planned / mib) + " MiB, above the memory budget of " +
+                                     std::to_string(budget / mib) + " MiB (psd.large.memory_budget " + std::to_string(o.psd.large_memory_budget) +
+                                     " of the " + std::to_string(free_bytes / mib) + " MiB free):\n" + tiers + "\n" + im.arena.plan_text());
+        im.arena.commit();
+        CHECK_CUDA(cudaMemGetInfo(&free_bytes, &total_bytes));
+        im.memory_plan_bytes = total_bytes - free_bytes;
+        if (o.output.verbosity >= 1)
+            std::cout << " PSD memory plan: " << planned / mib << " MiB in the workspace arena (budget " << budget / mib << " MiB)\n"
+                      << tiers << "\n  device memory in use after setup: " << im.memory_plan_bytes / mib << " MiB" << std::endl;
+    }
     e.sigma_policy = to_engine_policy(o.penalty.policy);
     e.penalty_factor = o.penalty.factor;
     e.penalty_sigma_min = o.penalty.sigma_min;
@@ -343,6 +373,7 @@ SolveResult Solver::solve(const WarmStart *warm_start)
     r.total_time_s = e.total_time;
     r.validation_time_s = e.validation_time_s;
     r.peak_gpu_memory_bytes = e.peak_gpu_mem_bytes;
+    r.memory_plan_bytes = im.memory_plan_bytes;
     r.penalty_policy = std::string(im.penalty->name());
     r.penalty_parameters_json = im.penalty->parameters_json();
     r.freeze_iteration = im.penalty->freeze_iteration();

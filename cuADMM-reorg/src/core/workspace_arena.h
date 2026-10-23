@@ -64,6 +64,8 @@ public:
     bool committed() const { return committed_; }
     /// Frees the allocation; the handles stay valid for a new commit() after further requests.
     void release();
+    /// Frees the allocation and forgets every request (a new setup).
+    void reset();
 
     std::size_t bytes(int handle) const;
     std::size_t offset(int handle) const;

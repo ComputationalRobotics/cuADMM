@@ -62,6 +62,7 @@ struct SolveResult
     double setup_time_s = 0.0, solve_time_s = 0.0, total_time_s = 0.0;
     double validation_time_s = 0.0;
     std::size_t peak_gpu_memory_bytes = 0;
+    std::size_t memory_plan_bytes = 0; // device memory in use after setup (the workspace plan; the peak is measured against it)
     // penalty policy
     std::string penalty_policy;
     std::string penalty_parameters_json; // {"factor": ..., ...}

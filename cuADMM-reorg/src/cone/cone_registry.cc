@@ -24,7 +24,9 @@ ConeRegistry::ConeRegistry()
                       {
                           if (ctx.engine == nullptr)
                               throw std::logic_error("ConeRegistry: the PSD cone of Phase 5 needs the engine (ConeBuildContext::engine)");
-                          return std::make_unique<PsdCone>(blocks, *ctx.engine, ctx.psd != nullptr ? *ctx.psd : PsdConeConfig{});
+                          if (ctx.arena == nullptr || ctx.pool == nullptr)
+                              throw std::logic_error("ConeRegistry: the PSD cone needs the workspace arena and the stream pool (ConeBuildContext::arena, pool)");
+                          return std::make_unique<PsdCone>(blocks, *ctx.engine, ctx.psd != nullptr ? *ctx.psd : PsdConeConfig{}, *ctx.arena, *ctx.pool);
                       }});
     table_.push_back({'l', ConeKind::Nonnegative, "nonnegative", true, "",
                       [](const std::vector<BlockSlice> &blocks, const ConeBuildContext &) -> std::unique_ptr<Cone>

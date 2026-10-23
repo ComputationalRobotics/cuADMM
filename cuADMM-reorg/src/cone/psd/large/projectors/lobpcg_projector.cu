@@ -2,8 +2,8 @@
 
     cone/psd/large/projectors/lobpcg_projector.cu
 
-    SDPSolver::large_lobpcg_project of Milestone 1, moved without a change of its calls (the macros
-    LOBPCG_WARMSTART, LOBPCG_MAXIT and LOBPCG_TOL are the configuration now; the warm start is always on).
+    SDPSolver::large_lobpcg_project of Milestone 1 on the tier's regions: the LOBPCG workspace, the scaled
+    eigenvectors and the result P are carved from W (B7); the gemm_compat product keeps the calls of Milestone 1.
 
 */
 
@@ -14,6 +14,9 @@
 #include <vector>
 
 #include "cone/psd/kernels/lobpcg.h"
+#include "cone/psd/large/large_tier.h"
+#include "cone/psd/psd_kernels.h"
+#include "core/check.h"
 #include "cuadmm_legacy/solver.h"
 
 namespace cuadmm
@@ -23,26 +26,29 @@ namespace cone
 namespace psd
 {
 
-Lobpcg::Lobpcg(const LobpcgConfig &config, SDPSolver &engine) : config_(config), engine_(engine) {}
+Lobpcg::Lobpcg(const LobpcgConfig &config, LargeTier &tier) : config_(config), tier_(tier) {}
 
-bool Lobpcg::project(const LargeBlockJob &job)
+bool Lobpcg::project(const LargeBlockJob &job, const double *z, double *s)
 {
-    SDPSolver &e = engine_;
+    SDPSolver &e = tier_.engine();
     const int n = job.n;
     const LargeBlockState &st = job.state;
     const int k = st.k;
-    const int mat_offset = job.mat_offset;
     const bool negative = st.mode == kModeLowRankNegative;
+    const std::size_t nn = static_cast<std::size_t>(n) * n;
     const double one = 1.0;
     const double minus_one = -1.0;
+    const core::ExecContext ctx = tier_.ctx();
+    cublasHandle_t cublasH = ctx.cublas;
 
-    cublasHandle_t cublasH = e.cublasH_eig_large.cublas_handle;
-    double *A = e.large_mat.vals + mat_offset;
-    double *P = e.large_mat_P.vals + mat_offset;
+    double *A = tier_.M();
     double *eigenvectors = st.V;
     double *eigenvalues = st.D;
-    double *relu_eigenvalues = e.lobpcg_W_relu.vals;
-    double *scaled_eigenvectors = e.large_mat_tmp.vals + mat_offset; // n x k workspace
+    // W: P (n^2), the scaled eigenvectors (n x k), the ReLU'd eigenvalues (k), then LOBPCG's workspace
+    double *P = tier_.W();
+    double *scaled_eigenvectors = P + nn;
+    double *relu_eigenvalues = scaled_eigenvectors + static_cast<std::size_t>(n) * k;
+    double *workspace = relu_eigenvalues + k;
 
     if (negative)
     {
@@ -58,10 +64,10 @@ bool Lobpcg::project(const LargeBlockJob &job)
     const int rank = negative ? st.negative_rank : st.positive_rank;
     LobpcgInfo info;
     lobpcg(
-        cublasH, e.cusolverH_eig_large.cusolver_dn_handle,
+        cublasH, ctx.cusolver,
         A, eigenvectors, eigenvalues,
         n, k, true, config_.max_iter, config_.tol, false,
-        &info, rank_tol, std::min(rank, k));
+        &info, rank_tol, std::min(rank, k), workspace);
     e.lobpcg_calls++;
 
     if (negative)
@@ -77,7 +83,7 @@ bool Lobpcg::project(const LargeBlockJob &job)
     // LOBPCG search subspace cannot be detected; the full EVD every reevaluation period and the
     // exact PSD-violation check at termination bound this
     std::vector<double> ritz_values(k);
-    CHECK_CUDA(cudaMemcpy(ritz_values.data(), eigenvalues, sizeof(double) * k, D2H));
+    CHECK_CUDA(cudaMemcpy(ritz_values.data(), eigenvalues, sizeof(double) * k, cudaMemcpyDeviceToHost));
     bool finite = true;
     for (int l = 0; l < k; l++)
         finite = finite && std::isfinite(ritz_values[l]);
@@ -87,31 +93,41 @@ bool Lobpcg::project(const LargeBlockJob &job)
         return false;
     }
 
-    // V diag(max(D, 0))
-    CHECK_CUDA(cudaMemcpy(relu_eigenvalues, eigenvalues, sizeof(double) * k, D2D));
-    max_dense_vector_zero(relu_eigenvalues, k);
-    CHECK_CUBLAS(cublasDdgmm(
-        cublasH, CUBLAS_SIDE_RIGHT, n, k,
-        eigenvectors, n, relu_eigenvalues, 1,
-        scaled_eigenvectors, n));
-
-    // positive case: P = V max(D, 0) V^T
-    // negative case: P = A + V max(-D', 0) V^T = A + proj(-A), where D' are the eigenvalues of -A
-    double beta = 0.0;
-    if (negative)
+    if (tier_.config().gemm_compat)
     {
-        CHECK_CUDA(cudaMemcpy(P, A, sizeof(double) * n * n, D2D));
-        beta = 1.0;
-    }
-    CHECK_CUBLAS(cublasDgemm(
-        cublasH, CUBLAS_OP_N, CUBLAS_OP_T,
-        n, n, k,
-        &one,
-        scaled_eigenvectors, n,
-        eigenvectors, n,
-        &beta,
-        P, n));
+        // V diag(max(D, 0))
+        CHECK_CUDA(cudaMemcpy(relu_eigenvalues, eigenvalues, sizeof(double) * k, cudaMemcpyDeviceToDevice));
+        max_dense_vector_zero(relu_eigenvalues, k, ctx.stream);
+        CHECK_CUBLAS(cublasDdgmm(
+            cublasH, CUBLAS_SIDE_RIGHT, n, k,
+            eigenvectors, n, relu_eigenvalues, 1,
+            scaled_eigenvectors, n));
 
+        // positive case: P = V max(D, 0) V^T
+        // negative case: P = A + V max(-D', 0) V^T = A + proj(-A), where D' are the eigenvalues of -A
+        double beta = 0.0;
+        if (negative)
+        {
+            CHECK_CUDA(cudaMemcpy(P, A, sizeof(double) * n * n, cudaMemcpyDeviceToDevice));
+            beta = 1.0;
+        }
+        CHECK_CUBLAS(cublasDgemm(
+            cublasH, CUBLAS_OP_N, CUBLAS_OP_T,
+            n, n, k,
+            &one,
+            scaled_eigenvectors, n,
+            eigenvectors, n,
+            &beta,
+            P, n));
+        tier_.pack(st.idx, P, s, nullptr);
+        return true;
+    }
+
+    // SYRK: B = V diag(sqrt(max(D, 0))), P = B B^T (the upper triangle); the negative mode adds the input slice while packing
+    const double zero = 0.0;
+    scale_columns(eigenvectors, scaled_eigenvectors, n, 0, k, eigenvalues, SCALE_SQRT_RELU, ctx.stream);
+    CHECK_CUBLAS(cublasDsyrk(cublasH, CUBLAS_FILL_MODE_UPPER, CUBLAS_OP_N, n, k, &one, scaled_eigenvectors, n, &zero, P, n));
+    tier_.pack(st.idx, P, s, negative ? z : nullptr);
     return true;
 }
 

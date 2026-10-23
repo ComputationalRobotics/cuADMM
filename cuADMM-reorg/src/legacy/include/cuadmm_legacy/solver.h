@@ -278,57 +278,22 @@ public:
     std::vector<int> psd_blk_sizes; // sizes of the matrices (without muliplicity)
     std::vector<int> psd_blk_nums;  // number of matrices of each size
     MatrixSizes sizes;
-    DeviceDenseVector<int> map_B;  // |
-    DeviceDenseVector<int> map_M1; // |- maps for vectorization of matrices
-    DeviceDenseVector<int> map_M2; // |    (cached from get_maps())
     DeviceDenseVector<double> Xinput;
 
     /* Medium matrices decomposition */
-    DeviceDenseVector<double> medium_mat;
-    DeviceDenseVector<double> medium_W;
-    DeviceDenseVector<int> medium_info;
-    DeviceDenseVector<double> medium_mat_tmp;
-    DeviceDenseVector<double> medium_mat_P;
-
-    std::vector<size_t> eig_medium_buffer_size;     // one GPU buffer size per unique medium size
-    DeviceDenseVector<double> eig_medium_buffer;    // one GPU buffer per unique medium size
-    std::vector<size_t> cpu_eig_medium_buffer_size; // one CPU buffer size per unique medium size
-    HostDenseVector<double> cpu_eig_medium_buffer;  // one CPU buffer per unique medium size
-    std::vector<DeviceStream> eig_medium_stream_arr;
-    std::vector<DeviceSolverDnHandle> cusolverH_eig_medium_arr; // one handle per stream
     // The medium size groups with at least medium_batch_min_count matrices are decomposed with one batched EVD call
     // (cusolverDnXsyevBatched, CUDA >= 12.8) instead of one cusolverDnXsyevd call per matrix on the streams, which is
     // bound by kernel launches and host synchronizations (pendulum: 26 -> 3 ms per iteration).
     int medium_batch_min_count = 2;                  // set before init(); 0 disables the batched EVD
-    std::vector<char> medium_group_batched;          // per medium size group
-    DeviceSolverDnHandle cusolverH_eig_medium_batch; // on the legacy default stream
-    size_t medium_batch_buffer_size = 0;             // |- workspaces of the batched EVD (shared by the groups,
-    size_t medium_batch_cpu_buffer_size = 0;         // |  which are decomposed one after the other)
-    DeviceDenseVector<double> medium_batch_buffer;   // |
-    HostDenseVector<double> medium_batch_cpu_buffer; // |
-    std::vector<DeviceBlasHandle> cublasH_eig_medium_arr;       // one handle per stream
 
     /* Large matrix decomposition */
-    DeviceDenseVector<double> large_mat;
-    DeviceDenseVector<double> large_W;
-    DeviceDenseVector<int> large_info;
     int eig_stream_num_per_gpu;               // number of streams per GPU
-    DeviceSolverDnHandle cusolverH_eig_large; // single handle for large matrices
-    SingleEigParameter eig_param_single;
-    std::vector<size_t> eig_large_buffer_size;     // one GPU buffer size per unique large size
-    DeviceDenseVector<double> eig_large_buffer;    // one GPU buffer per unique large size
-    std::vector<size_t> cpu_eig_large_buffer_size; // one CPU buffer size per unique large size
-    HostDenseVector<double> cpu_eig_large_buffer;  // one CPU buffer per unique large size
-    DeviceDenseVector<float> float_proj_workspace; // workspace for projection of large matrices
-    DeviceDenseVector<__half> half_proj_workspace; // workspace for projection of large matrices
 
     ProjectionMethod current_proj_method; // projection currently used
     ProjectionMethod initial_proj_method; // projection initially used (low precision)
     ProjectionMethod final_proj_method;   // projection used in the end (high precision)
     bool switched_proj_method;            // whether the projection method has been switched
     int switched_proj_method_iter;        // iteration at which the projection method was switched
-    DeviceBlasHandle cublasH_composite_proj;
-    DeviceSolverDnHandle cusolverH_composite_proj;
 
     bool use_lobpcg;                                 // whether to use LOBPCG
     double lobpcg_tol = 1e-5;                        // LOBPCG convergence tolerance (psd.lowrank.tol; absolute, B13)
@@ -340,12 +305,6 @@ public:
     DeviceDenseVector<int> negative_ranks;           // negative ranks of large matrices
     HostDenseVector<int> cpu_positive_ranks;         // positive ranks of large matrices (CPU copy)
     HostDenseVector<int> cpu_negative_ranks;         // negative ranks of large matrices (CPU copy)
-    std::vector<DeviceDenseVector<double>> lobpcg_W; // eigenvalues of large matrices computed with LOBPCG
-    std::vector<DeviceDenseVector<double>> lobpcg_P; // eigenvectors of large matrices computed with LOBPCG
-    std::vector<int> lobpcg_k_alloc;                 // number of columns allocated in lobpcg_W/lobpcg_P per large matrix
-    DeviceDenseVector<double> lobpcg_W_relu;         // large_W after ReLU
-    DeviceBlasHandle cublasH_eig_large;
-    DeviceBlasHandle cublasH_eig_large_update;
     std::vector<int> large_mode;                     // LargeProjectionMode of each large matrix
     std::vector<int> large_k;                        // number of LOBPCG eigenpairs of each large matrix
     std::vector<double> large_rank_tol;              // rank tolerance of each large matrix (from the last rank analysis)
@@ -356,18 +315,7 @@ public:
     int jacobi_not_converged;                        // number of batched Jacobi EVDs that did not reach their tolerance
 
     /* Small matrices eigen decomposition (batched Jacobi)  */
-    DeviceDenseVector<double> small_mat;
-    DeviceDenseVector<double> small_W;
-    DeviceDenseVector<int> small_info;
-    BatchEigParameter eig_param_batch;
-    DeviceSolverDnHandle cusolverH_eig_small;
-    std::vector<size_t> eig_small_buffer_size;
-    DeviceDenseVector<double> eig_small_buffer;
     /* Projection on PSD cones */
-    DeviceDenseVector<double> large_mat_tmp;
-    DeviceDenseVector<double> small_mat_tmp;
-    DeviceDenseVector<double> large_mat_P;
-    DeviceDenseVector<double> small_mat_P;
 
     /* Other */
     std::vector<DeviceStream> stream_flex;
@@ -580,7 +528,6 @@ public:
     // - bound_coef: c_b such that <v_b, X_b> >= R_b c_b for every X_b with X_b PSD and tr(X_b) <= R_b ('s'),
     //   0 <= X_b <= R_b entrywise ('l') or |X_b| <= R_b entrywise ('u'), i.e. min(0, lambda_min),
     //   sum_i min(0, v_i) and -sum_i |v_i| respectively.
-    void cone_measures(DeviceDenseVector<double> &v, std::vector<double> &block_min, std::vector<double> &bound_coef);
 
     // Certified lower bound on the optimal value (paper eq. 29c-30), valid if an optimal X satisfies the bounds
     // of cone_measures with R_b = trace_bounds[b] (one bound per block, in input order, original units):

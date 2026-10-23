@@ -116,6 +116,15 @@ void WorkspaceArena::release()
     committed_ = false;
 }
 
+void WorkspaceArena::reset()
+{
+    release();
+    entries_.clear();
+    laid_out_ = false;
+    total_ = 0;
+    shared_offset_ = 0;
+}
+
 const WorkspaceArena::Entry &WorkspaceArena::entry(int handle) const
 {
     if (handle < 0 || handle >= static_cast<int>(entries_.size()))

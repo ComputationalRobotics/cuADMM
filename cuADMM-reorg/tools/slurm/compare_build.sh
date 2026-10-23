@@ -15,18 +15,22 @@ SRC_OF_BUILD=$(grep -m1 '^CMAKE_HOME_DIRECTORY' "$BLD/CMakeCache.txt" | cut -d= 
 {
   echo "date: $(date -Is)"; echo "host: $(hostname)"; nvidia-smi -L
   echo "build: $BLD from $SRC_OF_BUILD ($(git -C "$SRC_OF_BUILD" rev-parse HEAD), $(git -C "$SRC_OF_BUILD" status --porcelain -- . | wc -l) local changes)"
-  echo "threads: $OMP_NUM_THREADS"; echo "kind: $KIND"
+  echo "threads: $OMP_NUM_THREADS"; echo "kind: $KIND"; echo "extra_b: ${CUADMM_EXTRA_B:-}"; echo "rtol: ${CUADMM_RTOL:-0}"
 } > "$OUT/config.txt"
 cat "$OUT/config.txt"
 R9=legacy@9bb4ba5:$CUADMM_REF_BUILDS/ref-9bb4ba5/cuadmm_exe
 R2=legacy@2d8a755:$CUADMM_REF_BUILDS/ref-2d8a755/cuadmm_exe
 RS=legacy@2d8a755-sgs:$CUADMM_REF_BUILDS/ref-2d8a755-sgs/cuadmm_exe
 NEW=$KIND:$BLD/cuadmm_exe
+# CUADMM_EXTRA_B: extra CLI flags of the new build (e.g. the compat products of Phase 6b); CUADMM_RTOL: within-rounding comparison
+EXTRA=()
+[ -n "${CUADMM_EXTRA_B:-}" ] && EXTRA+=(--extra-b "$CUADMM_EXTRA_B")
+[ -n "${CUADMM_RTOL:-}" ] && EXTRA+=(--rtol "$CUADMM_RTOL")
 rc=0
-$CMP batch --spec "$HERE/tools/baselines/cases_fixed.json" --problem-root "$CUADMM_DATA" --build-a $R2 --build-b $NEW --out "$OUT/fixed" || rc=1
-$CMP batch --spec "$HERE/tools/baselines/cases_legacy_adaptive.json" --problem-root "$CUADMM_DATA" --build-a $R9 --build-b $NEW --out "$OUT/legacy_adaptive" || rc=1
-$CMP batch --spec "$HERE/tools/baselines/cases_residual_balancing.json" --problem-root "$CUADMM_DATA" --build-a $R2 --build-b $NEW --out "$OUT/residual_balancing" || rc=1
-$CMP batch --spec "$HERE/tools/baselines/cases_sgs.json" --problem-root "$CUADMM_DATA" --build-a $RS --build-b $NEW --out "$OUT/sgs" || rc=1
+$CMP batch --spec "$HERE/tools/baselines/cases_fixed.json" --problem-root "$CUADMM_DATA" --build-a $R2 --build-b $NEW "${EXTRA[@]}" --out "$OUT/fixed" || rc=1
+$CMP batch --spec "$HERE/tools/baselines/cases_legacy_adaptive.json" --problem-root "$CUADMM_DATA" --build-a $R9 --build-b $NEW "${EXTRA[@]}" --out "$OUT/legacy_adaptive" || rc=1
+$CMP batch --spec "$HERE/tools/baselines/cases_residual_balancing.json" --problem-root "$CUADMM_DATA" --build-a $R2 --build-b $NEW "${EXTRA[@]}" --out "$OUT/residual_balancing" || rc=1
+$CMP batch --spec "$HERE/tools/baselines/cases_sgs.json" --problem-root "$CUADMM_DATA" --build-a $RS --build-b $NEW "${EXTRA[@]}" --out "$OUT/sgs" || rc=1
 echo "=== comparison exit $rc ($(date))"
 "$HERE/tools/slurm/run_tests.sh" "$BLD" "$OUT/tests.log"
 echo "=== tests exit $? ($(date))"

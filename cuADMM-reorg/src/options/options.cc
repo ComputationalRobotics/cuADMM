@@ -49,6 +49,7 @@ const char *const kBackendNames[] = {"auto", "cholmod", "cudss", "dense"};
 const char *const kDeterminismNames[] = {"strict", "fast"};
 const char *const kWarmupNames[] = {"none", "composite_fp16"};
 const char *const kFinalProductNames[] = {"gemm_compat", "syrk"};
+const char *const kBatchedProductNames[] = {"scaled_gemm", "gemm_compat"};
 const char *const kFormatNames[] = {"auto", "h5", "sdpa", "sedumi", "sdpt3", "mosek", "txt"};
 const char *const kSenseNames[] = {"min", "max"};
 
@@ -157,6 +158,7 @@ const char *name_of(LinsysBackend v) { return enum_name(v, kBackendNames); }
 const char *name_of(Determinism v) { return enum_name(v, kDeterminismNames); }
 const char *name_of(WarmupKind v) { return enum_name(v, kWarmupNames); }
 const char *name_of(FinalProductKind v) { return enum_name(v, kFinalProductNames); }
+const char *name_of(BatchedProductKind v) { return enum_name(v, kBatchedProductNames); }
 const char *name_of(IoFormat v) { return enum_name(v, kFormatNames); }
 const char *name_of(Sense v) { return enum_name(v, kSenseNames); }
 SchemeKind parse_scheme(const std::string &s) { return enum_parse<SchemeKind>(s, kSchemeNames, "scheme"); }
@@ -167,6 +169,7 @@ LinsysBackend parse_linsys_backend(const std::string &s) { return enum_parse<Lin
 Determinism parse_determinism(const std::string &s) { return enum_parse<Determinism>(s, kDeterminismNames, "determinism"); }
 WarmupKind parse_warmup(const std::string &s) { return enum_parse<WarmupKind>(s, kWarmupNames, "PSD warm-up"); }
 FinalProductKind parse_final_product(const std::string &s) { return enum_parse<FinalProductKind>(s, kFinalProductNames, "large-block final product"); }
+BatchedProductKind parse_batched_product(const std::string &s) { return enum_parse<BatchedProductKind>(s, kBatchedProductNames, "batched-tier final product"); }
 IoFormat parse_io_format(const std::string &s) { return enum_parse<IoFormat>(s, kFormatNames, "input format"); }
 Sense parse_sense(const std::string &s)
 {
@@ -269,7 +272,9 @@ const std::vector<OptionSpec> &option_table()
         {"psd.large.warmup.min_size", "--psd-warmup-min-size", {}, "int", "", "5000", "smallest large block that gets the warm-up", ""},
         {"psd.large.warmup.switch_tol", "--psd-warmup-switch-tol", {"--switch-proj-tol"}, "double", "", "1e-2", "the warm-up ends at the first iteration with eta below this", ""},
         {"psd.large.warmup.switch_iter", "--psd-warmup-switch-iter", {"--switch-proj-iter"}, "int", "", "5000", "or after this many iterations", ""},
-        {"psd.large.final_product", "--psd-final-product", {}, "enum", "gemm_compat, syrk", "gemm_compat", "final product of the large blocks (syrk arrives with Phase 6b)", "6b"},
+        {"psd.large.final_product", "--psd-final-product", {}, "enum", "gemm_compat, syrk", "syrk", "final product of the large blocks: syrk (SYRK on the smaller eigen-side) or gemm_compat (the product of main, bit for bit)", ""},
+        {"psd.batched.final_product", "--psd-batched-final-product", {}, "enum", "scaled_gemm, gemm_compat", "scaled_gemm", "final product of the small and medium blocks: scaled_gemm (Q scaled in place, one strided GEMM) or gemm_compat (the three-buffer product of main, bit for bit)", ""},
+        {"psd.medium.max_batch", "--psd-medium-max-batch", {}, "int", "", "0", "blocks per batched EVD call of a medium size group (0: the whole group)", ""},
         {"psd.lowrank.enabled", "--psd-lowrank-enabled", {"--lobpcg"}, "bool", "", "true", "LOBPCG for large blocks of low positive or negative rank", ""},
         {"psd.lowrank.start_iter", "--psd-lowrank-start-iter", {}, "int", "", "2", "first iteration of the low-rank analysis for blocks without a warm-up (warm-up blocks: the end of the warm-up)", ""},
         {"psd.lowrank.reevaluate", "--psd-lowrank-reevaluate", {}, "int", "", "100", "exact EVD with rank analysis every this many iterations", ""},
@@ -473,6 +478,8 @@ void set_option(SolverOptions &o, const std::string &path, const std::string &va
         else if (p == "psd.large.warmup.switch_tol") o.psd.warmup_switch_tol = parse_double(value);
         else if (p == "psd.large.warmup.switch_iter") o.psd.warmup_switch_iter = parse_int(value);
         else if (p == "psd.large.final_product") o.psd.large_final_product = parse_final_product(value);
+        else if (p == "psd.batched.final_product") o.psd.batched_final_product = parse_batched_product(value);
+        else if (p == "psd.medium.max_batch") o.psd.medium_max_batch = parse_int(value);
         else if (p == "psd.lowrank.enabled") o.psd.lowrank_enabled = parse_bool(value);
         else if (p == "psd.lowrank.start_iter") o.psd.lowrank_start_iter = parse_int(value);
         else if (p == "psd.lowrank.reevaluate") o.psd.lowrank_reevaluate = parse_int(value);
@@ -577,6 +584,8 @@ std::string get_option(const SolverOptions &o, const std::string &p)
     if (p == "psd.large.warmup.switch_tol") return fmt(o.psd.warmup_switch_tol);
     if (p == "psd.large.warmup.switch_iter") return fmt(o.psd.warmup_switch_iter);
     if (p == "psd.large.final_product") return name_of(o.psd.large_final_product);
+    if (p == "psd.batched.final_product") return name_of(o.psd.batched_final_product);
+    if (p == "psd.medium.max_batch") return fmt(o.psd.medium_max_batch);
     if (p == "psd.lowrank.enabled") return fmt(o.psd.lowrank_enabled);
     if (p == "psd.lowrank.start_iter") return fmt(o.psd.lowrank_start_iter);
     if (p == "psd.lowrank.reevaluate") return fmt(o.psd.lowrank_reevaluate);
@@ -715,8 +724,8 @@ void SolverOptions::validate() const
         fail("psd.medium_streams", "must be at least 1 (B17)");
     if (psd.jacobi_tol != 1e-16 || psd.jacobi_max_sweeps != 15)
         fail("psd.jacobi_tol", "the Jacobi parameters are fixed (BatchEigParameter of the engine)");
-    if (psd.large_final_product != FinalProductKind::GemmCompat)
-        fail("psd.large.final_product", "syrk arrives with Phase 6b (gemm_compat is the product of today)");
+    if (psd.medium_max_batch < 0)
+        fail("psd.medium.max_batch", "must be non-negative (0: the whole size group)");
     if (!(psd.large_memory_budget > 0.0 && psd.large_memory_budget <= 1.0))
         fail("psd.large.memory_budget", "must be in (0, 1]");
     if (psd.warmup_min_size < 1)

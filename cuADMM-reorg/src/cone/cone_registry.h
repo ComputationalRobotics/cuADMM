@@ -18,7 +18,16 @@
 
 #include "cone/cone.h"
 
-class SDPSolver; // the ported engine that still owns the PSD tiers (Phase 5; replaced in Phase 6)
+class SDPSolver; // the ported engine (the block structure and the per-block scalars of the PSD tiers, Milestone 2)
+
+namespace cuadmm
+{
+namespace core
+{
+class WorkspaceArena;
+class StreamPool;
+} // namespace core
+} // namespace cuadmm
 
 namespace cuadmm
 {
@@ -27,14 +36,17 @@ namespace cone
 
 struct PsdConeConfig;
 
-/// What a factory receives: the blocks of one kind, the length of the svec vector, the engine whose buffers the
-/// PSD cone's projectors run on (Phases 5-6a), and the PSD cone's configuration (null: the defaults of the options,
-/// with the low-rank path following the engine's use_lobpcg).
+/// What a factory receives: the blocks of one kind, the length of the svec vector, the engine that holds the block
+/// structure and the per-block scalars (Milestone 2), the PSD cone's configuration (null: the defaults of the
+/// options, with the low-rank path following the engine's use_lobpcg), and the arena and stream pool the PSD cone's
+/// tiers run on (Phase 6b; the owner commits the arena after building the product).
 struct ConeBuildContext
 {
     std::int64_t vec_len = 0;
     SDPSolver *engine = nullptr;
     const PsdConeConfig *psd = nullptr;
+    core::WorkspaceArena *arena = nullptr;
+    core::StreamPool *pool = nullptr;
 };
 
 using ConeFactory = std::function<std::unique_ptr<Cone>(const std::vector<BlockSlice> &, const ConeBuildContext &)>;

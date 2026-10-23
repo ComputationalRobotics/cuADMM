@@ -276,7 +276,7 @@ TEST(Options, ValidateRejectsWhatThePlanForbids)
     rejects("linsys.backend", "cudss");
     rejects("scaling.enabled", "0");
     rejects("psd.small_max", "64");     // fixed tier limits
-    rejects("psd.large.final_product", "syrk"); // Phase 6b
+    rejects("psd.medium.max_batch", "-1");
     rejects("psd.lowrank.ratio", "0");
     rejects("psd.composite.margin", "0.5");
     rejects("determinism", "fast");

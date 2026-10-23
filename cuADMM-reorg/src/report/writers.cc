@@ -162,6 +162,7 @@ void append_summary_json(const std::string &path, const std::string &problem_pat
       << ", \"best_max_abs_dimacs\": " << json_number(r.best_max_abs_dimacs)
       << ", \"y_solves\": " << r.y_solves << ", \"y_solves_per_iteration\": " << json_number(r.iterations > 0 ? double(r.y_solves) / r.iterations : 0.0)
       << ", \"peak_gpu_mem_mib\": " << json_number(r.peak_gpu_memory_bytes / 1048576.0)
+      << ", \"memory_plan_mib\": " << json_number(r.memory_plan_bytes / 1048576.0)
       << ", \"linsys_backend\": " << json_string(r.linsys_backend) << ", \"aat_supernodal\": " << B(r.aat_supernodal)
       << ", \"aat_nnz_L\": " << json_number(r.aat_nnz_L) << ", \"aat_tiny_pivots\": " << r.aat_tiny_pivots
       << ", \"aat_nonpositive_pivots\": " << r.aat_nonpositive_pivots

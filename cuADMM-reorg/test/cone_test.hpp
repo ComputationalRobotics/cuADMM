@@ -18,6 +18,8 @@
 #include <vector>
 
 #include "cone/cone_product.h"
+#include "core/stream_pool.h"
+#include "core/workspace_arena.h"
 #include "cone/cone_registry.h"
 #include "cuadmm/cuadmm.h"
 #include "cuadmm_legacy/io.h"
@@ -92,13 +94,16 @@ struct Fixture
 {
     regression::RegressionProblem p;
     SDPSolver solver;
+    core::StreamPool pool{core::StreamPoolConfig{}};
+    core::WorkspaceArena arena;
     std::unique_ptr<cone::ConeProduct> cones;
     core::ExecContext ctx;
     explicit Fixture(const std::string &name, bool use_lobpcg = true)
     {
         p = regression::generate(name);
         solver_setup::init_solver(p, solver, use_lobpcg, 1.0);
-        cones.reset(new cone::ConeProduct(p.blk_types, p.blk_sizes, cone::ConeBuildContext{p.vec_len, &solver}));
+        cones.reset(new cone::ConeProduct(p.blk_types, p.blk_sizes, cone::ConeBuildContext{p.vec_len, &solver, nullptr, &arena, &pool}));
+        arena.commit();
         ctx.stream = nullptr;
         ctx.cublas = solver.cublasH.cublas_handle;
         ctx.cusparse = solver.cusparseH.cusparse_handle;
@@ -225,28 +230,8 @@ TEST(ConeLayer, ProjectionPropertiesMediumTier) { projection_properties("Medium_
 TEST(ConeLayer, ProjectionPropertiesLpOnly) { projection_properties("Nonneg_Free"); }
 TEST(ConeLayer, ProjectionPropertiesFreeOnly) { projection_properties("Free"); }
 
-// The product's measures are bit for bit the engine's cone_measures of main (the same EVDs and loops).
-static void measures_match_engine(const std::string &name)
-{
-    Fixture f(name, false);
-    const std::vector<double> v = random_vector(f.p.vec_len, 3);
-    const cone::ProductMeasures m = f.measure(v, cone::Side::Dual);
-    DeviceDenseVector<double> dv;
-    dv.allocate(0, f.p.vec_len);
-    CHECK_CUDA(cudaMemcpy(dv.vals, v.data(), sizeof(double) * f.p.vec_len, H2D));
-    std::vector<double> block_min, bound_coef;
-    f.solver.cone_measures(dv, block_min, bound_coef);
-    ASSERT_EQ(m.block_min.size(), block_min.size());
-    for (std::size_t b = 0; b < block_min.size(); b++)
-    {
-        EXPECT_EQ(m.block_min[b], block_min[b]) << name << " block " << b;
-        EXPECT_EQ(m.bound_coef[b], bound_coef[b]) << name << " block " << b;
-    }
-}
-
-TEST(ConeLayer, MeasuresMatchTheEngineSmall) { measures_match_engine("Nonneg_Free_PSD"); }
-TEST(ConeLayer, MeasuresMatchTheEngineMedium) { measures_match_engine("Medium_Free"); }
-TEST(ConeLayer, MeasuresMatchTheEngineLarge) { measures_match_engine("Large_LowRankS"); }
+// The engine's cone_measures of main is gone since Phase 6b (the measures are the tiers'); the host reference below
+// checks the device measures.
 
 TEST(ConeLayer, HostReferenceMatchesDeviceMeasure)
 {

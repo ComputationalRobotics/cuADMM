@@ -490,6 +490,9 @@ def main():
             case["problem"] = os.path.abspath(case["problem"])
             case.setdefault("scheme", "admm")
             case.setdefault("tol", 1e-300)
+            # extra flags of the batch apply to every case, after the case's own
+            case["extra_a"] = (case.get("extra_a", "") + " " + args.extra_a).strip()
+            case["extra_b"] = (case.get("extra_b", "") + " " + args.extra_b).strip()
             print("=== case %s" % c["name"])
             report = run_pair(build_a, build_b, case, os.path.join(out, c["name"]), args.rtol, args.dry_run, label=c["name"])
             if args.dry_run:

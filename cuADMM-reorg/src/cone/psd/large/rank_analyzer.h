@@ -3,7 +3,7 @@
     cone/psd/large/rank_analyzer.h
 
     RankAnalyzer (plan Section 10.6, "Rank analysis"): with the eigenvalues lambda_1 <= ... <= lambda_n of a large
-    block (FullEvd just decomposed it),
+    block (LargeTier::decompose just produced them, Q in M),
 
         tol_r = max(rank_rtol * max(|lambda_1|, |lambda_n|), rank_stop_factor * tol),
         r_+ = #{lambda_i > tol_r},  r_- = #{lambda_i < -tol_r},
@@ -12,7 +12,7 @@
     pairs, the largest eigenpairs copied in decreasing order as the LOBPCG warm start), LowRankNegative when
     0 < r_- < ratio * n (the smallest eigenpairs, the eigenvalues negated: LOBPCG runs on -Z), and Dense
     otherwise. The positive test comes first, as in main. The calls are those of SDPSolver::large_full_eig_project
-    of Milestone 1 (bit for bit).
+    of Milestone 1 (bit for bit); the warm start lives in the tier's arena regions since Phase 6b.
 
 */
 
@@ -21,14 +21,14 @@
 
 #include "cone/psd/large/large_block_state.h"
 
-class SDPSolver;
-
 namespace cuadmm
 {
 namespace cone
 {
 namespace psd
 {
+
+class LargeTier;
 
 struct RankAnalyzerConfig
 {
@@ -41,16 +41,16 @@ struct RankAnalyzerConfig
 class RankAnalyzer
 {
 public:
-    RankAnalyzer(const RankAnalyzerConfig &config, SDPSolver &engine);
+    RankAnalyzer(const RankAnalyzerConfig &config, LargeTier &tier);
     /// The rank tolerance of a block from its extreme eigenvalues and the stopping tolerance.
     double rank_tolerance(double lambda_min, double lambda_max, double stop_tol) const;
-    /// After FullEvd::decompose(job): sets the block's ranks, rank tolerance, mode, k and warm start.
+    /// After LargeTier::decompose(idx): sets the block's ranks, rank tolerance, mode, k and warm start.
     void analyze(const LargeBlockJob &job, double stop_tol);
     const RankAnalyzerConfig &config() const { return config_; }
 
 private:
     RankAnalyzerConfig config_;
-    SDPSolver &engine_;
+    LargeTier &tier_;
 };
 
 } // namespace psd

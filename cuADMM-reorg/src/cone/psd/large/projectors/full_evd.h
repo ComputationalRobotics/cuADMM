@@ -2,13 +2,19 @@
 
     cone/psd/large/projectors/full_evd.h
 
-    FullEvd (plan Table "PSD projection strategies"): the exact projection of a large block with
-    cusolverDnXsyevd in place (large_mat <- Q, large_W <- lambda increasing), then P = Q max(lambda, 0) Q^T.
+    FullEvd (plan Table "PSD projection strategies", Section 10.5): the exact projection of a large block with
+    cusolverDnXsyevd in place (M <- Q, the eigenvalues increasing), then the final product into the tier's W:
+
+    - syrk (the default since Phase 6b): with r_+ positive and r_- negative eigenvalues, if r_+ <= r_- the last
+      r_+ columns of Q are scaled in place by sqrt(lambda_i) and P = B B^T comes from one SYRK (the upper triangle,
+      the one the packing reads, as main's map_M1 did);
+      otherwise the first r_- columns are scaled by sqrt(-lambda_i), P' = B B^T, and the result is Z + P', the
+      input slice added while packing. n^2 min(r_+, r_-) flops, no n^2 temporary, only the triangle svec stores.
+    - gemm_compat: today's product, Q max(lambda, 0) into an n^2 temporary and one GEMM (bit for bit the
+      reference on the exact path).
+
     It is the exact phase, the fallback of every large strategy, and the provider of eigenvalues for
-    RankAnalyzer. Phase 6a keeps today's product (psd.large.final_product = gemm_compat): Q max(lambda, 0) into
-    large_mat_tmp with the diagonal-scaling kernel, then one GEMM into large_mat_P, or, when the caller
-    multiplies a whole size group with one strided-batched GEMM, no GEMM here (the batched product does not
-    round like per-matrix GEMMs; Phase 6b replaces both with SYRK, within rounding).
+    RankAnalyzer (the analysis runs before the in-place scaling).
 
 */
 
@@ -18,8 +24,6 @@
 #include "cone/psd/large/large_block_state.h"
 #include "cone/psd/large/rank_analyzer.h"
 
-class SDPSolver;
-
 namespace cuadmm
 {
 namespace cone
@@ -27,19 +31,20 @@ namespace cone
 namespace psd
 {
 
+class LargeTier;
+
 class FullEvd
 {
 public:
-    FullEvd(SDPSolver &engine, RankAnalyzer &analyzer);
-    /// The decomposition alone: large_mat <- eigenvectors, large_W <- eigenvalues (increasing); throws when
-    /// cuSOLVER reports a failure (`what` names the caller in the message; info_offset indexes large_info).
-    void decompose(const LargeBlockJob &job, int info_offset, const char *what);
-    /// The projection into large_mat_P (multiply) or Q max(lambda, 0) into large_mat_tmp for the caller's batched
-    /// product (!multiply); with analyze_rank the RankAnalyzer sets the block's mode and warm start first.
-    void project(const LargeBlockJob &job, bool analyze_rank, bool multiply);
+    FullEvd(LargeTier &tier, RankAnalyzer &analyzer);
+    /// The decomposition of the block in M (M <- Q, the tier's eigenvalues); `what` names the caller in errors.
+    void decompose(const LargeBlockJob &job, const char *what);
+    /// The projection of the block in M into s (its svec slice); with analyze_rank the RankAnalyzer sets the
+    /// block's mode and warm start first. z: the cone-step input (the negative SYRK side adds its slice).
+    void project(const LargeBlockJob &job, bool analyze_rank, const double *z, double *s);
 
 private:
-    SDPSolver &engine_;
+    LargeTier &tier_;
     RankAnalyzer &analyzer_;
 };
 
