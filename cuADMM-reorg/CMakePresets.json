@@ -1,0 +1,70 @@
+{
+  "version": 3,
+  "cmakeMinimumRequired": {
+    "major": 3,
+    "minor": 21,
+    "patch": 0
+  },
+  "configurePresets": [
+    {
+      "name": "base",
+      "hidden": true,
+      "generator": "Unix Makefiles",
+      "cacheVariables": {
+        "CMAKE_CUDA_ARCHITECTURES": "80-real",
+        "CUADMM_BUILD_CLI": "ON",
+        "CUADMM_BUILD_TESTS": "ON",
+        "CUADMM_BUILD_BENCH": "OFF",
+        "CUADMM_WITH_HDF5": "AUTO",
+        "CUADMM_WITH_MATIO": "AUTO",
+        "CUADMM_WITH_ZLIB": "AUTO",
+        "CUADMM_WITH_CUDSS": "AUTO"
+      }
+    },
+    {
+      "name": "release",
+      "displayName": "Release (sm_80, -O3, no debug info): the configuration of the benchmarks and the release",
+      "inherits": "base",
+      "binaryDir": "${sourceDir}/build-release",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release"
+      }
+    },
+    {
+      "name": "relwithdebinfo",
+      "displayName": "RelWithDebInfo (sm_80): the development configuration of the acceptance runs",
+      "inherits": "base",
+      "binaryDir": "${sourceDir}/build",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "RelWithDebInfo",
+        "CUADMM_BUILD_BENCH": "ON"
+      }
+    },
+    {
+      "name": "release-h100",
+      "displayName": "Release for Hopper (sm_90)",
+      "inherits": "release",
+      "binaryDir": "${sourceDir}/build-release-h100",
+      "cacheVariables": {
+        "CMAKE_CUDA_ARCHITECTURES": "90-real"
+      }
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "release",
+      "configurePreset": "release",
+      "jobs": 16
+    },
+    {
+      "name": "relwithdebinfo",
+      "configurePreset": "relwithdebinfo",
+      "jobs": 16
+    },
+    {
+      "name": "release-h100",
+      "configurePreset": "release-h100",
+      "jobs": 16
+    }
+  ]
+}

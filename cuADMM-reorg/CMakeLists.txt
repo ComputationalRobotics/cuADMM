@@ -237,6 +237,19 @@ if(CUADMM_BUILD_MATLAB)
   add_subdirectory(matlab)
 endif()
 
+# ---------------------------------------------------------------------------------------------- documentation
+# `cmake --build <dir> --target cuadmm_docs` renders the API documentation with Doxygen into docs/api/html (plan Phase 10)
+find_package(Doxygen QUIET)
+if(DOXYGEN_FOUND)
+  add_custom_target(cuadmm_docs
+    COMMAND ${DOXYGEN_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/docs/Doxyfile
+    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+    COMMENT "Doxygen: docs/api/html"
+    VERBATIM)
+else()
+  message(STATUS "cuADMM-reorg: Doxygen not found, the target cuadmm_docs is unavailable (run `doxygen docs/Doxyfile` with Doxygen installed)")
+endif()
+
 # ---------------------------------------------------------------------------------------------- benchmarks
 if(CUADMM_BUILD_BENCH)
   # reading rate of the problem formats (plan Phase 2b acceptance: 1e8 nonzeros from .h5 limited by the disk)

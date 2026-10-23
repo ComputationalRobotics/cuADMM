@@ -31,6 +31,63 @@ H200-hours; section "Phase 4b GPU gates"): G0 and G1 pass, G2 and G3 fail; the d
 MATLAB (MEX, SPOT recovery), MOSEK dual signs against a MOSEK run, buck3's published objective, performance and
 peak memory beyond the summaries' fields.
 
+## Milestone 2: Phase 6b, PSD memory model
+
+Status: done (974e373 with the follow-ups; the acceptance below and in the GPU-evidence list).
+
+- `core/WorkspaceArena` (requests at setup, one allocation at commit, the plan text) and `core/StreamPool` (the
+  named roles with their handles and events; in Milestone 2 only the medium streams are streams of their own, the
+  other roles are the legacy default stream the engine runs on: DECISIONS 49).
+- The kernels `lobpcg()` and `approximate_two_norm()` take a caller-provided workspace sized by
+  `lobpcg_workspace_doubles` / `lanczos_workspace_doubles` (B7: nothing is allocated per call; the kernel tests
+  keep the allocating path).
+- `cone/psd/large/LargeTier`: one arena region for the large blocks (M of n_max^2, W = the largest workspace of
+  any strategy at n_max, the eigenvalues, the per-block warm starts V_b, D_b); the blocks are unpacked one at a
+  time from their svec slices (`psd_kernels`: the conversions of main bit for bit, binary search over a block
+  table for the batched tiers) and packed from the lower triangle of the result. `FullEvd` scales the smaller
+  eigen-side of Q in place and forms P with one SYRK (the negative side adds the input slice while packing);
+  `Lobpcg` carves its buffers from W and forms P with a SYRK of the scaled Ritz vectors; `CompositeFilter`
+  carves its FP32/FP16 buffers and Lanczos vectors from W and, on rejection, unpacks the block again instead of
+  keeping an n^2 copy. `psd.large.final_product = gemm_compat` keeps the n^2 temporary and the GEMM of main (bit
+  for bit); the strided-batched product of equal-size large groups is gone (DECISIONS 51; no baseline has one).
+- `cone/psd/batched/BatchedTier`: the small and medium tiers on resident arena buffers (matrices, eigenvalues,
+  results; the third buffer only with `psd.batched.final_product = gemm_compat`, B19), the batched EVD in chunks
+  of `psd.medium.max_batch` blocks, one streamed workspace per stream instead of one per block (B20), one
+  Jacobi workspace per size group. The products: the columns of Q scaled in place by sqrt(max(lambda, 0)) and
+  one strided-batched GEMM per group (`scaled_gemm`), or main's `gemm_compat`.
+- `PsdCone` owns the tiers; the engine lost the tier buffers, streams, handles, maps and `cone_measures` (the
+  measures are the cone's; the copied certificate test drives `ConeProduct::measure`); it keeps the block
+  structure, the per-block scalars of the rank analysis and the counters (DECISIONS 46). The legacy
+  `SDPSolver::solve()` builds a pool and an arena of its own and keeps main's products (DECISIONS 50); the facade
+  commits the arena at setup after the budget check (`psd.large.memory_budget` of the free memory, the breakdown
+  in the error), prints the plan at verbosity >= 1, and reports `memory_plan_bytes` (the device memory in use
+  after setup) next to the measured peak in the result and the summary.
+- Options: `psd.large.final_product` (default `syrk`), `psd.batched.final_product` (default `scaled_gemm`),
+  `psd.medium.max_batch` (default 0: the whole group).
+- Tests: `core_runtime_test` (the arena on the device, the pool's roles, handles, waits, single stream),
+  `workspace_arena_test` (CPU: the layout), `psd_memory_test` (the svec/dense conversions and the batched table
+  bit for bit, the column scalings against the host, FullEvd's SYRK on both eigen-sides and the compat product,
+  LOBPCG's SYRK on both modes, the facade's memory plan: the peak within 5% of the plan and the budget check,
+  the chunked batched EVD and the single-stream mode reproducing the defaults bit for bit, the compat products
+  against the defaults within rounding end to end); the projector tests of Phase 6a on the arena.
+- Acceptance: CPU suite 60 of 60; GPU suite 138 of 138 on the MIG (dev build and the clean per-commit builds).
+  Bit for bit: with the compat products (`--psd-final-product gemm_compat --psd-batched-final-product
+  gemm_compat`) the 53 baseline cases are identical to the references at 364c87e (the per-commit run of 974e373
+  could not pass the flags: its comparison tool predates the batch option; the GPU-evidence list). Within rounding
+  (the defaults, `compare_runs.py --rtol 1e-6`, `docs/phase6b_acceptance_data/within_rounding_53_cases.md`): 47 of
+  53 cases have pobj and dobj within 1e-8 (relative) and eta_p, eta_d, eta_g within 1e-10 (absolute) at every
+  iteration, with identical sigma logs; the 5 `Large_LowRankX` cases (the LOBPCG negative mode) agree to 1e-12
+  until the first LOBPCG step and then differ by up to 2.7e-3 mid-run at the level of LOBPCG's tolerance (1e-5: a
+  rounding-level change of its input moves its iteration count; with `psd.lowrank.enabled 0` the same case agrees to
+  2e-12 over 800 iterations) and reach the same optimum (final objectives within 1e-13); `trto1 legacy_adaptive
+  20000 iterations` keeps the residuals within 1e-8 and the same 155 sigma changes, its objective's relative
+  difference being large only where the objective crosses zero. Memory: the measured peak equals the setup plan
+  within 0.2% on the generator's large cases and on shmup5 (3721), buck5, vibra5, trto5 (1761), shmup4, mater-5
+  (`docs/phase6b_acceptance_data/a100_timing_and_memory.md`; the test `PsdMemoryPlan` on `Large_LowRankS`: 0.00%).
+  Time per iteration (A100, Release builds of 684b99f and 974e373, batch job 54796884 on holygpu8a22104, 200
+  iterations, best of 2): 6b / 6a between 0.85 (Large_LowRankX) and 0.99 (Large_HalfRank), 0.96-0.98 on the PLATO
+  problems, never worse.
+
 ## Milestone 2: Phase 6a, PSD strategies (in progress)
 
 Status: done. Steps 1 and 2 (the kernels moved in, 14178fa; the projector classes and the selection policy,
@@ -651,6 +708,15 @@ over one hour).
 - 684b99f (Phase 6a step 2, the projector classes and the policy), `build_and_compare.sh 684b99f phase6a2 ... reorg`
   (2026-10-22 22:21-22:33, MIG configuration): 53 of 53 identical, 0 different, 0 failed runs; tests 130 ran, 130
   passed (the 12 projector and warm-up tests included).
+- 974e373 (Phase 6b): the clean per-commit runs (`phase6b-compat`, `phase6b-default`, 23:18-23:40) ran no cases
+  (the comparison tool of that commit has no `--extra-b` in batch mode and a `Namespace` error on `extra_a`; fixed
+  in 8998801); tests 138 ran, 138 passed in both.
+- 364c87e (the merge of `reorg-linsys` on 72347eb: Phases 6a step 3 and 6b, the backends not yet wired),
+  `CUADMM_EXTRA_B="--psd-final-product gemm_compat --psd-batched-final-product gemm_compat" build_and_compare.sh
+  364c87e phase6b-compat2 ... reorg` (2026-10-22 23:41-23:57, MIG): 53 of 53 identical, 0 different, 0 failed runs;
+  tests 138 ran, 138 passed. `CUADMM_RTOL=1e-6 ... phase6b-default2` (23:57-00:10): 8 of 53 within 1e-6 on every
+  history field, 45 flagged (the analysis above: 47 within rounding at every iteration, the LOBPCG cases and the
+  near-zero objective explained); tests 138 ran, 138 passed.
 - Note on the summary comparison of `compare_runs.py`: the `options` object of the new CLI's summary was invalid
   JSON from Phase 2 until the fix recorded in CHANGES.md ("Phase 2b follow-up"), and the tool skipped the unreadable
   summary silently; the summary comparison is informational, the acceptance (histories and solutions, bit for bit)

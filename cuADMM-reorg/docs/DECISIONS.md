@@ -291,6 +291,34 @@ implementation, deviations from its letter, and open questions, each with its re
     order.** `PsdCone` and the engine agree on this order (`LargeBlockJob` carries the size-group indices); the
     mapping from an input block is `BlockInfo::size_index` and `same_size_index`. Phase 6b keeps it.
 
+49. **The stream pool's main, small, large and copy roles are the legacy default stream in Milestone 2.** The
+    ported engine's kernels run on the legacy default stream, which synchronizes with blocking streams only; a
+    non-blocking stream for the cone step would need the engine's work ordered explicitly against it (Phase 8,
+    deferred). The pool therefore gives those roles the default stream with handles of their own, and only the
+    medium streams are non-blocking streams (as the engine's medium-tier streams were); `single_stream` maps
+    everything to the main stream. The interface is the plan's, so Phase 8 changes the pool, not its users.
+50. **The C++ API `SDPSolver::solve()` keeps the final products of main; the facade takes the Phase 6b defaults.**
+    The copied tests of main (the golden histories of `fixed_sigma_validation_test`, the regression harness's
+    tight cone-violation bounds) pin main's arithmetic through the C++ API, and the MEX builds on it. The legacy
+    wrapper sets `gemm_compat` for both tiers; the facade and the CLI default to `syrk` / `scaled_gemm`, and the
+    53 baseline cases are verified both ways (bit for bit with the compat products, within rounding with the
+    defaults).
+51. **The strided-batched product of equal-size large groups is gone.** Main multiplied every large block of a
+    size group by its eigenvectors with one strided-batched GEMM when all of them took the exact path (a rounding
+    that per-block GEMMs do not reproduce). With one arena region for the large tier the blocks are projected one
+    at a time; `gemm_compat` therefore means the per-block GEMM of main. No baseline problem has two large blocks
+    of the same size, so the 53 cases stay bit for bit with `gemm_compat`.
+52. **The stream assignment is bit for bit; the chunked batched EVD is within rounding.** `cusolverDnXsyevd` on
+    one stream or on fifteen gives the same bits (each block is decomposed independently), so
+    `psd.medium_streams` is a throughput knob only. `cusolverDnXsyevBatched` on a chunk of a size group rounds
+    differently from the whole group's call (measured: the objectives differ in the last bits, within 1e-9),
+    so `psd.medium.max_batch` keeps its default 0 (the whole group, the call of main) and is a memory knob with
+    within-rounding semantics (PsdMemoryPlan.ChunkedBatchedEvdAndSingleStreamReproduceTheDefaults).
+53. **The memory plan is the device memory in use after setup; the peak is measured against it.** The arena's
+    breakdown is printed and checked against the budget, but the figure the result reports (`memory_plan_bytes`)
+    is the total in use once the arena is committed (the CUDA context, the engine's vectors and factorization,
+    the arena), because that is what the peak during the solve is compared with (plan Section 17: within 5%).
+
 54. **The warm-up default is `composite_fp16` for blocks of at least 5000; 2000 is measured but not the default.**
     The Phase 6a benchmark (docs/phase6a_projector_benchmark.md) shows the filter 6x faster than the exact EVD at
     n = 2000 and 7-8x from 3000 up, with a size-independent error of about 1e-3 and no rejection, so the data would

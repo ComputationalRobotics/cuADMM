@@ -34,12 +34,12 @@ Generated from the option table of `src/options/options.cc` (`cuadmm --print-opt
 | `penalty.sgs_update_stage_2` | `--sgs-update-stage-2` (`--sig-update-stage-2`) | int | `100` | now | sGS-phase rule: period after the threshold |
 | `penalty.sgs_factor` | `--sgs-factor` (`--sigscale`) | double | `2` | now | sGS-phase rule: factor of the updates |
 | `scaling.enabled` | `--scaling` | bool | `true` | now | row normalization of A and the two scalars b_s, C_s (Milestone 1: always on) |
-| `linsys.backend` | `--backend` | enum (auto, cholmod, cudss, dense) | `auto` | 7 | normal-equation backend (Milestone 1: auto = cholmod with today's dense-factor rule) |
-| `linsys.regularization` | `--regularization` | double | `1e-15` | 7 | added to the diagonal of AA^T (Milestone 1: fixed) |
-| `linsys.presolve` | `--presolve` | bool | `false` | 7 | dependent-row removal (Phase 7; off in the bitwise phases) |
-| `linsys.memory_fraction` | `--memory-fraction` | double | `0.25` | 7 | budget of a dense or cuDSS factor as a fraction of free memory |
-| `linsys.autotune` | `--autotune` | bool | `false` | 7 | time the two best backends and keep the faster |
-| `certificate.block_bounds` | `--block-bounds` | double_list | `none` | now | per-block bounds R_b of the certified lower bound (comma-separated, one per block) |
+| `linsys.backend` | `--backend` | enum (auto, cholmod, cudss, dense) | `auto` | now | normal-equation backend: auto = cholmod (CHOLMOD on the host; the dense factor on the GPU by today's rule), dense (cuSOLVER Cholesky on the device), cudss (cuDSS, when compiled in) |
+| `linsys.regularization` | `--regularization` | double | `1e-15` | now | added to the diagonal of AA^T |
+| `linsys.presolve` | `--presolve` | bool | `false` | now | remove dependent constraint rows before the factorization (plan Section 11.7) |
+| `linsys.memory_fraction` | `--memory-fraction` | double | `0.25` | now | budget of a dense factor as a fraction of free memory |
+| `linsys.autotune` | `--autotune` | bool | `false` | 7 | time the two best backends and keep the faster (not implemented: DECISIONS 57) |
+| `certificate.block_bounds` | `--block-bounds` | double_list | `none` | now | per-block bounds R_b of the certified lower bound (comma-separated, one per block; a negative entry: no bound for that block, the bound is then unavailable) |
 | `certificate.trace_bound` | `--trace-bound` | double | `none` | now | the same bound R for every block (paper eq. 30) |
 | `certificate.trace_bound_scale` | `--trace-bound-scale` | double | `none` | now | R_b = f n_b for PSD blocks of size n_b, f for the entries of l and u blocks |
 | `validation.interval` | `--validation-interval` (`--validate-interval`) | int | `0` | now | validation-aware stopping: validate every n iterations on the CPU with the original data and stop only on a validated snapshot (0: off) |
@@ -62,29 +62,32 @@ Generated from the option table of `src/options/options.cc` (`cuadmm --print-opt
 | `output.summary` | `--summary` | string | `none` | now | append a one-line JSON summary of the run |
 | `output.sigma_log` | `--sigma-log` | string | `none` | now | one CSV line per sigma change |
 | `output.tag` | `--tag` | string | `none` | now | label copied to the summary |
-| `psd.small_max` | `--psd-small-max` | int | `32` | 6a | largest small PSD block (batched Jacobi); Milestone 1: fixed |
-| `psd.medium_max` | `--psd-medium-max` | int | `1000` | 6a | largest medium PSD block; Milestone 1: fixed |
+| `psd.small_max` | `--psd-small-max` | int | `32` | now | largest small PSD block (batched Jacobi); fixed |
+| `psd.medium_max` | `--psd-medium-max` | int | `1000` | now | largest medium PSD block; fixed |
 | `psd.medium_batch_min` | `--psd-medium-batch-min` | int | `2` | now | medium size groups with at least this many blocks use the batched EVD (0: never) |
 | `psd.medium_streams` | `--psd-medium-streams` (`--streams`) | int | `15` | now | CUDA streams of the medium eigendecompositions (>= 1) |
-| `psd.jacobi_tol` | `--psd-jacobi-tol` | double | `1e-16` | 6a | tolerance of the batched Jacobi EVD; Milestone 1: fixed |
-| `psd.jacobi_max_sweeps` | `--psd-jacobi-max-sweeps` | int | `15` | 6a | sweeps of the batched Jacobi EVD; Milestone 1: fixed |
+| `psd.jacobi_tol` | `--psd-jacobi-tol` | double | `1e-16` | now | tolerance of the batched Jacobi EVD; fixed |
+| `psd.jacobi_max_sweeps` | `--psd-jacobi-max-sweeps` | int | `15` | now | sweeps of the batched Jacobi EVD; fixed |
 | `psd.large.memory_budget` | `--psd-large-memory-budget` | double | `0.9` | 6b | fraction of free memory for the large tier (Phase 6b) |
-| `psd.large.warmup` | `--psd-warmup` | enum (none, composite_fp16) | `none` | now | low-precision warm-up of the large blocks (composite_fp16 becomes the default in Phase 6a) |
-| `psd.large.warmup.min_size` | `--psd-warmup-min-size` | int | `5000` | 6a | smallest block that gets the warm-up (Milestone 1: the warm-up applies to every large block, as the C++ API did) |
+| `psd.large.warmup` | `--psd-warmup` | enum (none, composite_fp16) | `composite_fp16` | now | low-precision warm-up of the large blocks of at least warmup.min_size (the FP16 composite filter until eta < switch_tol; the Phase 6a benchmark: 6-8x faster than the exact EVD from n = 2000) |
+| `psd.large.warmup.min_size` | `--psd-warmup-min-size` | int | `5000` | now | smallest large block that gets the warm-up (2000 measured as beneficial; 5000 is the plan's default) |
 | `psd.large.warmup.switch_tol` | `--psd-warmup-switch-tol` (`--switch-proj-tol`) | double | `1e-2` | now | the warm-up ends at the first iteration with eta below this |
 | `psd.large.warmup.switch_iter` | `--psd-warmup-switch-iter` (`--switch-proj-iter`) | int | `5000` | now | or after this many iterations |
+| `psd.large.final_product` | `--psd-final-product` | enum (gemm_compat, syrk) | `syrk` | now | final product of the large blocks: syrk (SYRK on the smaller eigen-side) or gemm_compat (the product of main, bit for bit) |
+| `psd.batched.final_product` | `--psd-batched-final-product` | enum (scaled_gemm, gemm_compat) | `scaled_gemm` | now | final product of the small and medium blocks: scaled_gemm (Q scaled in place, one strided GEMM) or gemm_compat (the three-buffer product of main, bit for bit) |
+| `psd.medium.max_batch` | `--psd-medium-max-batch` | int | `0` | now | blocks per batched EVD call of a medium size group (0: the whole group) |
 | `psd.lowrank.enabled` | `--psd-lowrank-enabled` (`--lobpcg`) | bool | `true` | now | LOBPCG for large blocks of low positive or negative rank |
 | `psd.lowrank.start_iter` | `--psd-lowrank-start-iter` | int | `2` | now | first iteration of the low-rank analysis for blocks without a warm-up (warm-up blocks: the end of the warm-up) |
-| `psd.lowrank.reevaluate` | `--psd-lowrank-reevaluate` | int | `100` | 6a | exact EVD with rank analysis every this many iterations; Milestone 1: fixed |
-| `psd.lowrank.ratio` | `--psd-lowrank-ratio` | double | `0.03` | 6a | low-rank threshold as a fraction of n; Milestone 1: fixed |
-| `psd.lowrank.relaxation` | `--psd-lowrank-relaxation` | double | `1.2` | 6a | eigenpairs requested: ceil(relaxation * rank); Milestone 1: fixed |
-| `psd.lowrank.max_iter` | `--psd-lowrank-max-iter` | int | `20` | 6a | LOBPCG iterations; Milestone 1: fixed |
-| `psd.lowrank.tol` | `--psd-lowrank-tol` | double | `1e-5` | 6a | LOBPCG tolerance (absolute today, B13); Milestone 1: fixed |
-| `psd.lowrank.rank_rtol` | `--psd-lowrank-rank-rtol` | double | `1e-8` | 6a | rank tolerance relative to max |lambda|; Milestone 1: fixed |
-| `psd.lowrank.rank_stop_factor` | `--psd-lowrank-rank-stop-factor` | double | `1e-3` | 6a | rank tolerance floor as a fraction of the stopping tolerance; Milestone 1: fixed |
-| `psd.composite.margin` | `--psd-composite-margin` | double | `1.05` | 6a | safety margin on the Lanczos estimate; Milestone 1: fixed |
-| `psd.composite.lanczos_steps` | `--psd-composite-lanczos-steps` | int | `20` | 6a | Lanczos steps of the norm estimate; Milestone 1: fixed |
-| `psd.composite.norm_slack` | `--psd-composite-norm-slack` | double | `1e-2` | 6a | norm test slack of the composite result (B22); Milestone 1: fixed |
+| `psd.lowrank.reevaluate` | `--psd-lowrank-reevaluate` | int | `100` | now | exact EVD with rank analysis every this many iterations |
+| `psd.lowrank.ratio` | `--psd-lowrank-ratio` | double | `0.03` | now | low-rank threshold as a fraction of n |
+| `psd.lowrank.relaxation` | `--psd-lowrank-relaxation` | double | `1.2` | now | eigenpairs requested: ceil(relaxation * rank) |
+| `psd.lowrank.max_iter` | `--psd-lowrank-max-iter` | int | `20` | now | LOBPCG iterations |
+| `psd.lowrank.tol` | `--psd-lowrank-tol` | double | `1e-5` | now | LOBPCG convergence tolerance (absolute; the stopping-tolerance-relative rule of B13 is deferred, DECISIONS 45) |
+| `psd.lowrank.rank_rtol` | `--psd-lowrank-rank-rtol` | double | `1e-8` | now | rank tolerance relative to max |lambda| |
+| `psd.lowrank.rank_stop_factor` | `--psd-lowrank-rank-stop-factor` | double | `1e-3` | now | rank tolerance floor as a fraction of the stopping tolerance |
+| `psd.composite.margin` | `--psd-composite-margin` | double | `1.05` | now | safety margin on the Lanczos estimate of the composite filter |
+| `psd.composite.lanczos_steps` | `--psd-composite-lanczos-steps` | int | `20` | now | Lanczos steps of the norm estimate |
+| `psd.composite.norm_slack` | `--psd-composite-norm-slack` | double | `1e-2` | now | norm test slack of the composite result (B22) |
 | `seed` | `--seed` | int | `0` | now | seed of the deterministic generators (the Lanczos start from Phase 6a) |
 | `determinism` | `--determinism` | enum (strict, fast) | `strict` | now | strict: deterministic SpMV and reductions; fast: opt-in nondeterministic modes (none yet) |
 | `gpu.device` | `--device` | int | `0` | now | CUDA device of the solver |

@@ -277,3 +277,22 @@ and the existing tests are unchanged.
   faster than the exact EVD from n = 2000 with a 1e-3 projection error and no rejection). Today's CLI and MATLAB
   never warmed up (`EIG_FP64`); the C++ API warmed up every large block. `--psd-warmup none` restores the exact
   projections. Runs with blocks of at least 5000 change (deterministically: B8); no baseline case has such a block.
+
+## Phase 6b (2026-10-23): the PSD memory model
+
+- The final products of the PSD projections change within rounding: the large blocks form P = B B^T with one SYRK
+  on the smaller eigen-side (`psd.large.final_product = syrk`, the default; the negative side gives Z + P'), the
+  LOBPCG result likewise, and the small and medium blocks scale the eigenvectors in place by sqrt(max(lambda, 0))
+  and form P with one strided-batched GEMM (`psd.batched.final_product = scaled_gemm`, the default). The products
+  of main are `gemm_compat` for both options (bit for bit the reference); the C++ API `SDPSolver::solve()` keeps
+  them. The strided-batched product of equal-size large groups of main (one GEMM per group when every block
+  took the exact path) is gone: the large blocks are projected one at a time through one arena region.
+- Memory: the large tier holds one block at a time (M, W, the warm starts) instead of three buffers of
+  sum n_b^2 doubles and one EVD workspace per block (B19); the medium tier holds one streamed workspace per
+  stream instead of one per block and decomposes batched groups in chunks (B20); LOBPCG and the Lanczos estimate
+  allocate nothing per call (B7). Setup prints the plan at verbosity >= 1, fails early above
+  `psd.large.memory_budget` of the free memory, and the result / summary carry `memory_plan_bytes`
+  (`memory_plan_mib`) next to the measured peak.
+- New options: `psd.batched.final_product`, `psd.medium.max_batch`. The warm-up blocks rejected by the norm test
+  are unpacked again from the input (no n^2 copy); the termination measures run on the tiers' decompositions
+  (the engine's `cone_measures` is gone).
