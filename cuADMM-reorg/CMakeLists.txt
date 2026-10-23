@@ -32,6 +32,10 @@ set(CUADMM_WITH_HDF5 AUTO CACHE STRING "Native HDF5 problem format (AUTO, ON, OF
 set(CUADMM_WITH_MATIO AUTO CACHE STRING "SeDuMi, SDPT3 and MOSEK .mat files through matio (AUTO, ON, OFF)")
 set(CUADMM_WITH_ZLIB AUTO CACHE STRING "gzip-compressed SDPA files (.dat-s.gz) through zlib (AUTO, ON, OFF)")
 set_property(CACHE CUADMM_WITH_HDF5 CUADMM_WITH_MATIO CUADMM_WITH_ZLIB PROPERTY STRINGS AUTO ON OFF)
+# Optional linear-system backend (plan Section 11.4, Phase 7): NVIDIA cuDSS for CudssSolver, found by
+# cmake/FindCUDSS.cmake (-DCUDSS_ROOT=<prefix> with include/cudss.h and lib/libcudss.so or libcudss.so.1)
+set(CUADMM_WITH_CUDSS AUTO CACHE STRING "NVIDIA cuDSS backend of the y-step, CudssSolver (AUTO, ON, OFF)")
+set_property(CACHE CUADMM_WITH_CUDSS PROPERTY STRINGS AUTO ON OFF)
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 
 # resolves an AUTO/ON/OFF option against a find_package result: CUADMM_HAVE_<name> is TRUE or FALSE afterwards
@@ -67,6 +71,13 @@ message(STATUS "cuADMM-reorg: HDF5 ${CUADMM_WITH_HDF5_RESOLVED} (${HDF5LIB_VERSI
 add_compile_options($<$<COMPILE_LANGUAGE:CUDA>:-Wno-deprecated-gpu-targets>)
 
 find_package(CUDAToolkit 12.8 REQUIRED)
+
+# cuDSS (optional; after the toolkit, since the imported target carries CUDA::cublas and CUDA::nvrtc)
+if(NOT CUADMM_WITH_CUDSS STREQUAL "OFF")
+  find_package(CUDSS 1.0)
+endif()
+cuadmm_resolve_optional(CUADMM_WITH_CUDSS CUDSS_FOUND "cuDSS (set CUDSS_ROOT)")
+message(STATUS "cuADMM-reorg: cuDSS ${CUADMM_WITH_CUDSS_RESOLVED} (${CUDSS_VERSION})")
 
 # SuiteSparse / CHOLMOD (required): -DSUITESPARSE_INCLUDE_DIRECTORIES=... -DCHOLMOD_LIB=... -DCMAD_LIB=... -DCCOLAMD_LIB=...
 find_path(SUITESPARSE_INCLUDE_DIRECTORIES
@@ -161,7 +172,14 @@ set(CUADMM_SOURCES
   src/cone/psd/large/projectors/lobpcg_projector.cu
   src/cone/psd/large/projectors/composite_filter.cu
   src/termination/certificate.cu
-  src/solver/solver_facade.cu)
+  src/solver/solver_facade.cu
+  src/linsys/normal_system.cc
+  src/linsys/direct/dense/dense_cusolver_solver.cu
+  src/problem/presolve.cc)
+# the cuDSS backend (plan Section 11.4) is compiled in only when the library was found
+if(CUADMM_WITH_CUDSS_RESOLVED)
+  list(APPEND CUADMM_SOURCES src/linsys/direct/cudss/cudss_solver.cu)
+endif()
 add_library(cuadmm SHARED ${CUADMM_LEGACY_SOURCES} ${CUADMM_SOURCES})
 target_include_directories(cuadmm
   PUBLIC include ${CMAKE_BINARY_DIR}/generated
@@ -184,6 +202,11 @@ endif()
 if(CUADMM_WITH_ZLIB_RESOLVED)
   target_compile_definitions(cuadmm PRIVATE CUADMM_HAVE_ZLIB=1)
   target_link_libraries(cuadmm PRIVATE ZLIB::ZLIB)
+endif()
+# the optional cuDSS backend (plan Section 11.4): CudssSolver exists only with CUADMM_HAVE_CUDSS
+if(CUADMM_WITH_CUDSS_RESOLVED)
+  target_compile_definitions(cuadmm PRIVATE CUADMM_HAVE_CUDSS=1)
+  target_link_libraries(cuadmm PRIVATE cuadmm::cudss)
 endif()
 
 # ---------------------------------------------------------------------------------------------- executables
@@ -272,4 +295,18 @@ if(CUADMM_BUILD_TESTS)
   gtest_discover_tests(cuadmm_tests
     PROPERTIES ENVIRONMENT "CUADMM_REGRESSION_DATA_DIR=${CUADMM_REGRESSION_DATA_DIR}" TIMEOUT 1800
     DISCOVERY_MODE PRE_TEST)
+  # Phase 7 backends (GPU): NormalSystem, DenseCusolverSolver and, when compiled in, CudssSolver against the CHOLMOD
+  # wrapper of the ported engine (test/linsys_test.hpp)
+  add_executable(cuadmm_linsys_tests test/linsys_tests.cpp)
+  target_include_directories(cuadmm_linsys_tests PRIVATE test src src/legacy/include ${SUITESPARSE_INCLUDE_DIRECTORIES})
+  target_link_libraries(cuadmm_linsys_tests PRIVATE GTest::gtest_main cuadmm)
+  if(CUADMM_WITH_CUDSS_RESOLVED)
+    target_compile_definitions(cuadmm_linsys_tests PRIVATE CUADMM_HAVE_CUDSS=1)
+  endif()
+  gtest_discover_tests(cuadmm_linsys_tests DISCOVERY_MODE PRE_TEST)
+  # Phase 7 presolve (CPU only): dependent constraint rows (test/presolve_test.hpp)
+  add_executable(cuadmm_presolve_tests test/presolve_tests.cpp)
+  target_include_directories(cuadmm_presolve_tests PRIVATE test src)
+  target_link_libraries(cuadmm_presolve_tests PRIVATE GTest::gtest_main cuadmm)
+  gtest_discover_tests(cuadmm_presolve_tests DISCOVERY_MODE PRE_TEST)
 endif()

@@ -659,3 +659,98 @@ over one hour).
   `tools/slurm/full_a100_session.sh 54480621 59e943a phase4 reorg`): Phase 0 baselines 59 of 59 identical
   (6 self-checks and the 53 reference cases, 16 threads); the comparison of 59e943a is in progress and is recorded
   here when it completes.
+
+## Phase 7 backends (branch reorg-linsys, 2026-10-22)
+
+Standalone components of plan Section 11 built on the interface headers of ac9acbb (`src/linsys/normal_system.h`,
+`src/linsys/normal_equation_solver.h`), with their own tests; nothing is wired into the y-step yet (the engine, the
+facade and the existing tests are unchanged; the integration and the selection rule of Section 11.5 follow).
+
+What was built (commits 06dbf79, 8d26142, ca6c4b8, 9c11a0d, 021fd9d):
+
+- `src/linsys/normal_system.cc`: `NormalSystem::lower()` assembles the lower triangle of A A^T + eps I on the host
+  with CHOLMOD from the engine's A^T in CSC (`cholmod_transpose`, then `cholmod_aat` and `cholmod_add` with eps I,
+  as `cuadmm_legacy/cholesky_cpu.h` does on the engine's CSC of A), normalized so that every column starts with its
+  diagonal entry; `apply_host`; `relative_residual_host`; the default `NormalEquationSolver::update()` throws.
+- `src/linsys/direct/dense/dense_cusolver_solver.{h,cu}`: `DenseCusolverSolver`, the dense m x m matrix on the
+  device, `cusolverDnXpotrf`/`Xpotrs` and the `cusolverDnDsytrf`/`Xsytrs` (Bunch-Kaufman) fallback when the Cholesky
+  factorization reports a non-positive leading minor; `analyze()` reports 8 m^2 bytes plus the workspaces and
+  `factorize()` refuses with the numbers when that exceeds the free device memory.
+- `src/linsys/direct/cudss/cudss_solver.{h,cu}` behind `CUADMM_WITH_CUDSS` (AUTO/ON/OFF, `CUDSS_ROOT`,
+  `cmake/FindCUDSS.cmake`, definition `CUADMM_HAVE_CUDSS`): `CudssSolver` on cuDSS 1.0.0 (the PyPI wheel
+  `nvidia-cudss-cu12` 1.0.0.35 under `$HOME/cuadmm-cudss/wheel/nvidia/cu12`; the find module accepts the wheel's
+  `libcudss.so.1`, and linking by its full path records the SONAME and the directory in the RPATH, so no `libcudss.so`
+  symlink was needed). Analysis, factorization and solves on the device, the lower triangle in CSR with
+  `CUDSS_MVIEW_LOWER` and 32-bit indices, `CUDSS_MTYPE_SPD` first and `CUDSS_MTYPE_SYMMETRIC` (LDL^T) when the SPD
+  factorization fails or `CUDSS_DATA_INFO != 0`. The deterministic mode exists in cuDSS 1.0 as the configuration
+  parameter `CUDSS_CONFIG_DETERMINISTIC_MODE` (`cudss_data_types.h`, an int, 0 by default): set to 1 and read back
+  when the solver is constructed with `determinism_strict = true`. The runtime version (`cudssGetProperty`) is
+  checked against the header at construction and printed by `name()` ("cudss 1.0.0") and in `SymbolicInfo::ordering`.
+- `src/problem/presolve.{h,cc}`: `presolve()` for dependent constraint rows (Section 11.7): the pivots of the
+  simplicial LDL^T of A A^T + eps I classify the rows (|D_jj| < 1e-12 max |D|, and the row at which CHOLMOD stops on
+  an exactly zero pivot), refactoring the kept rows until clean; every removed row is then checked to be reproduced by
+  the kept rows (Z = (A_K A_K^T + eps I)^{-1} A_K A_D^T, explicit residual ||a_i - A_K^T z_i|| / ||a_i|| <= 1e-8) and b
+  for consistency (|b_i - z_i^T b_K| <= 1e-8 max(1, ||b||_inf)); rows failing the span check are reinstated; the
+  fallback keeps all rows and reports (or throws with `relax_on_failure = false`). `RowMap` expands a reduced y with
+  zeros on the removed rows. Not wired in; off by default as the plan requires for the bitwise phases.
+- Tests: `test/linsys_test.hpp` from the new runner `cuadmm_linsys_tests` (GPU) and `test/presolve_test.hpp` from
+  `cuadmm_presolve_tests` (CPU); `test/tests.cpp` and `test/cpu_tests.cpp` are untouched. The spec's "vec_len 300,
+  m 2000" cannot have full row rank, so the m = 2000 case uses n = 3000 (density 0.02, the factor is 70% dense).
+
+Builds (CPU job 54779332, `BUILD_JOBS=8`, both exit 0, no warnings reported by the script's filter):
+
+```
+tools/build.sh $HOME/cuadmm-builds/reorg-linsys -DCUADMM_WITH_CUDSS=ON -DCUDSS_ROOT=$HOME/cuadmm-cudss/wheel/nvidia/cu12
+  -- Found CUDSS: /n/home00/yukuanwei/cuadmm-cudss/wheel/nvidia/cu12/lib/libcudss.so.1 (found suitable version "1.0.0", minimum required is "1.0")
+  -- cuADMM-reorg: cuDSS TRUE (1.0.0)
+tools/build.sh $HOME/cuadmm-builds/reorg-linsys-nocudss -DCUADMM_WITH_CUDSS=OFF
+```
+
+GPU tests (gpu_test MIG slice, job 54784979 on holygpu7c26106, `A100-SXM4-40GB`, 21,072,183,296 bytes visible;
+`srun --jobid=54784979 --overlap -n 1 -c 8 bash -c 'source ~/cuadmm-tools/env.sh; .../cuadmm_linsys_tests'`):
+
+- cuDSS build: `9 tests from 3 test suites ran, 9 passed` (NormalSystem 2, DenseCusolver 3, Cudss 4); the build
+  without cuDSS: `5 tests from 2 test suites ran, 5 passed`. `ldd` resolves `libcudss.so.1` from the wheel and
+  `libnvrtc.so.12`, `libcusolver.so.11` from the CUDA 12.9 toolkit.
+- NormalSystem m = 50: the lower triangle (1275 entries) matches the dense A A^T + eps I exactly (max difference 0).
+- DenseCusolver, full rank: m = 50 residuals 5.7e-16 and 6.6e-16, agreement with the CHOLMOD solution 4.5e-16 and
+  5.3e-16, `dense_llt`, pivots in [36.49, 93.61]; m = 2000 (nnz(lower) 1,436,156) residuals 4.4e-15 and 3.8e-15,
+  agreement 3.9e-15 and 3.5e-15, factorization 0.23 s, 32,016,036 device bytes held (8 m^2 = 32,000,000).
+- DenseCusolver, rank-deficient (m = 60, 10 duplicate rows, eps = 1e-15, right-hand sides in range(A)): the natural
+  path falls back by itself (`Xpotrf` reports a non-positive leading minor: pivots about eps, 5 of them negative) to
+  `dense_ldlt`, pivots in [-8.5e-16, 138.5], 10 tiny; residuals 4.5e-16 and 5.2e-16, agreement of A^T y with CHOLMOD
+  4.3e-14 and 2.1e-14; the forced LDL^T path gives the same numbers. Wrong-size right-hand sides are rejected
+  (`std::invalid_argument`) in every case; two different right-hand sides per case.
+- DenseCusolver, memory: m = 200,000 (A^T = I): `analyze()` reports 320,158,650,148 device bytes, `factorize()`
+  throws `std::runtime_error` "needs 320158650148 bytes (298.17 GiB: 8 m^2 = 320000000000 for the matrix plus the
+  cuSOLVER workspace) but only 20730281984 bytes (19.31 GiB) of 21072183296 are free on the device".
+- Cudss: runtime 1.0.0 = header 1.0.0; m = 50 residuals 4.0e-16 and 4.3e-16, agreement 4.5e-16 and 4.7e-16,
+  `cudss_llt`, pivots (the squared `CUDSS_DATA_DIAG`) in [36.49, 93.61], the same range as CHOLMOD's D and the dense
+  solver's; m = 2000 residuals 4.7e-15 and 4.2e-15, agreement 4.1e-15 and 3.9e-15, analysis 0.46 s, factorization
+  0.009 s (warm kernel cache), device estimate 57,716,532 bytes, 74,990,408 held. Rank-deficient: the natural path
+  falls back by itself to `cudss_ldlt` (the SPD factorization reports `CUDSS_DATA_INFO != 0`), pivots in [-1e-13, 1.0]
+  (cuDSS scales the symmetric indefinite matrix and perturbs the tiny pivots to +-CUDSS_CONFIG_PIVOT_EPSILON = 1e-13),
+  10 tiny, residuals 3.7e-16 and 4.9e-16, A^T y agreement 4.3e-14 and 2.1e-14; the forced LDL^T path the same.
+  Deterministic mode (m = 300, n = 900): on, residuals 6.5e-16, agreement 7.8e-16 and 8.6e-16, the same right-hand
+  side solved twice gives identical bits.
+- Observations recorded for the integration: (1) `CUDSS_DATA_DIAG` for SPD is L_jj (the sum of its logs is exactly
+  half of CHOLMOD's log det: 3641.432766 against 7282.865531), so the solver squares it; (2) `CUDSS_DATA_LU_NNZ` is
+  not nnz(L) in the CHOLMOD sense (1636 on the dense 50 x 50 system whose factor has 1275 entries, 3.959e6 on the
+  2000 x 2000 one whose dense factor has 2.001e6), so `SymbolicInfo::nnz_L` of cuDSS is informational only;
+  (3) the first analysis with a cold NVRTC kernel cache took 3.98 s and the first factorization 0.76 s (m = 50) in
+  the first run of the tests, 0.11 s and 0.010 s in the next run (the cache persists on disk); (4) the device memory
+  estimate of the deterministic run was 36.5 MB for m = 300 against 0.25 MB for m = 50 without it: not investigated.
+
+CPU tests (job 54779332): `cuadmm_presolve_tests`: `6 tests from 1 test suite ran, 6 passed` in both builds:
+`presolve: 6 of 36 rows dependent and removed (span residual 2.66e-16, consistency residual 1.33e-16, 2
+factorization(s))` with the first factorization's pivots in [-2.58e-13, 45.9], 6 tiny, 3 nonpositive, and the
+reduced problem untouched by a second presolve; `6 of 36 rows dependent but b is inconsistent with them (residual
+7.62e-02 > 1.00e-08): all 36 rows kept (relaxed)`; `all 40 rows independent`; the row map round trip; `eps = 0: 1 of
+21 rows dependent and removed` (CHOLMOD stops at the exactly zero pivot, `L->minor`); malformed input rejected.
+The existing `cuadmm_cpu_tests` from the cuDSS build: 51 ran, 44 passed, 7 skipped (matio not compiled into this
+build), 0 failed. The full GPU suite `cuadmm_tests` was built in both configurations and not run (unchanged sources).
+
+Not done here: the `Xtrtri` inverse-factor variant of the dense backend (plan Section 11.4), the selection rule and
+`linsys.autotune`, `bench/linsys_bench`, the cuDSS threading layer for the host-side reordering of large systems
+(`libcudss_mtlayer_gomp.so.1` ships with the wheel; `CUDSS_CONFIG_HOST_NTHREADS`), and the integration into the
+y-step (the facade and the engine are untouched on this branch).

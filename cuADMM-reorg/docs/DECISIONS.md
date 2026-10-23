@@ -211,6 +211,52 @@ implementation, deviations from its letter, and open questions, each with its re
     the practical stage. Evidence: docs/phase4b_gates_report.md, the gate runs under
     `$HOME/cuadmm-experiments/2026-10-21_phase4b_screen/gpu_gates/`.
 
+## 2026-10-22 (Phase 7 backends, branch reorg-linsys; numbered from 40 to stay clear of main)
+
+40. **`NormalSystem` keeps the engine's A^T in CSC and assembles the lower triangle on the host with CHOLMOD.**
+    `cholmod_aat` needs A in CSC, which is the transpose of what the engine stores (`cpu_At_csc_*`), so `lower()`
+    transposes first and then follows `cholesky_cpu.h` (`cholmod_aat`, `cholmod_add` with eps I, the lower triangle);
+    the result is normalized with the diagonal first in every column and increasing row indices, and a missing
+    diagonal (eps = 0, an empty row) is inserted as an explicit zero. The CSC lower triangle read as CSR is the upper
+    triangle, so `CudssSolver` transposes it to the CSR lower triangle and passes `CUDSS_MVIEW_LOWER` rather than
+    relabeling the view. A device assembly with `cusparseSpGEMM` (plan Section 11.3) is left for the benchmark.
+
+41. **`DenseCusolverSolver`: Cholesky first, Bunch-Kaufman as the fallback; `analyze()` never refuses, `factorize()`
+    does.** `cusolverDnXpotrf` fails on the pivots of about eps of a rank-deficient A (the test shows negative ones),
+    and `cusolverDnDsytrf`/`Xsytrs` then solves the range(A) right-hand sides to 1e-16; the 32-bit pivots of `Dsytrf`
+    are converted on the device to the 64-bit ones `Xsytrs` reads. `analyze()` reports 8 m^2 bytes plus the
+    workspaces without throwing, so that the selection rule can use it; `factorize()` throws `std::runtime_error` with
+    the numbers when the need exceeds the free device memory (`Options::memory_fraction` for a budget). The solver
+    owns its cuSOLVER handle by default so that setting the stream per solve does not disturb the engine's handle.
+    The `Xtrtri` inverse-factor variant of the plan is not implemented until the benchmark asks for it.
+
+42. **`CudssSolver`: SPD first with a re-analysis as symmetric indefinite on failure; the deterministic mode is
+    `CUDSS_CONFIG_DETERMINISTIC_MODE`; the header hides cuDSS.** A cuDSS matrix object carries its type, so the
+    fallback recreates the data and matrix objects and re-runs the analysis (the device arrays are reused). The
+    failure of the SPD factorization is `CUDSS_DATA_INFO != 0` or a non-success status, as observed on the duplicate
+    rows (the SPD mode does not perturb its way through them; the LDL^T mode does, with its pivot epsilon 1e-13). The
+    deterministic mode is set to 1 and read back when `determinism_strict = true` (it is off by default in cuDSS, as
+    the plan notes). The minimum version is pinned to 1.0, the tested one; a runtime with another major version is
+    refused at construction. `cudss.h` is included only by `cudss_solver.cu` (the handles are forward-declared), so
+    the tests and the facade need only `CUADMM_HAVE_CUDSS`. `CUDSS_DATA_DIAG` was established empirically to be L_jj
+    for SPD (squared for the `FactorInfo` convention) and the scaled, perturbed D_jj for LDL^T; `CUDSS_DATA_LU_NNZ` is
+    reported as is because it is not nnz(L) (docs/PROGRESS.md, Phase 7 backends).
+
+43. **Presolve: pivots to detect, a span check and a consistency check to decide, relax as the fallback.** The
+    pivot test alone would remove a nearly dependent independent row, and the consistency check of b alone cannot
+    validate dependence (b_K = 0 makes any b_D = 0 "consistent"), so every removed row must also be reproduced by the
+    kept rows (explicit residual of a_i - A_K^T z_i, one multiple-right-hand-side solve per batch of 64 rows); a row
+    that is not is reinstated and protected from the pivot test (its tiny pivot stays regularized by eps, as today).
+    Tolerances 1e-8 (span and consistency, relative) because exact dependence (the moment-relaxation duplicates) sits
+    at 1e-16 and a residual of 1e-8 is far below the solver tolerances; the pivot threshold stays 1e-12 relative
+    (`FactorInfo`). An inconsistent b keeps all rows (the ADMM then runs the original problem with the regularization,
+    as today) unless `relax_on_failure = false`. With eps = 0 CHOLMOD stops at the exactly zero pivot and the row at
+    `L->minor` is removed. Off by default and not wired in: the plan keeps it off in the bitwise phases.
+
+44. **Separate test runners for the new components.** `cuadmm_linsys_tests` and `cuadmm_presolve_tests` keep
+    `test/tests.cpp` and `test/cpu_tests.cpp` (and their recorded counts, 101 and 51) untouched; the GPU runner links
+    the CHOLMOD wrapper of the ported engine as the reference. The spec's "vec_len 300, m 2000" cannot have full row
+    rank, so the dense-factor case uses n = 3000.
 38. **An LP with free variables is a slow case for plain ADMM, and the test says so.** The generator's
     `Nonneg_Free` case (24 nonnegative and 10 free variables, 22 constraints, unique solution) needs about 19,000
     iterations at fixed sigma = 1 to reach 1e-6, and neither adaptive rule reaches it within 20,000 (the problem has
@@ -221,8 +267,6 @@ implementation, deviations from its letter, and open questions, each with its re
     AdmmSolver) uses `ConeProduct::measure` and `termination::Certificate`; the copied certificate test of main
     still drives the engine's functions, and `ConeLayer.MeasuresMatchTheEngine*` pins the two to the same values.
     Phase 6 moves the tiers out of the engine and deletes the duplicates.
-
-Items 40-44 are the Phase 7 backend decisions written on branch `reorg-linsys`; they arrive with its merge.
 
 45. **The LOBPCG tolerance stays an absolute option in Phase 6a (B13 deferred).** B13 asks for a tolerance
     proportional to the stopping tolerance, with the constant calibrated on the generator's large-block cases. The
