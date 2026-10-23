@@ -443,6 +443,8 @@ def main():
     p.add_argument("--out", required=True)
     p.add_argument("--only", nargs="*", default=None)
     p.add_argument("--rtol", type=float, default=0.0)
+    p.add_argument("--extra-a", default="", help="extra flags for build A, appended to every case's")
+    p.add_argument("--extra-b", default="", help="extra flags for build B, appended to every case's")
     p.add_argument("--dry-run", action="store_true")
     p.add_argument("--problem-root", default="", help="prefix for relative problem paths of the spec")
 

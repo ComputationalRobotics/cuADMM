@@ -24,8 +24,8 @@ RS=legacy@2d8a755-sgs:$CUADMM_REF_BUILDS/ref-2d8a755-sgs/cuadmm_exe
 NEW=$KIND:$BLD/cuadmm_exe
 # CUADMM_EXTRA_B: extra CLI flags of the new build (e.g. the compat products of Phase 6b); CUADMM_RTOL: within-rounding comparison
 EXTRA=()
-[ -n "${CUADMM_EXTRA_B:-}" ] && EXTRA+=(--extra-b "$CUADMM_EXTRA_B")
-[ -n "${CUADMM_RTOL:-}" ] && EXTRA+=(--rtol "$CUADMM_RTOL")
+if [ -n "${CUADMM_EXTRA_B:-}" ]; then EXTRA+=(--extra-b "$CUADMM_EXTRA_B"); fi
+if [ -n "${CUADMM_RTOL:-}" ]; then EXTRA+=(--rtol "$CUADMM_RTOL"); fi
 rc=0
 $CMP batch --spec "$HERE/tools/baselines/cases_fixed.json" --problem-root "$CUADMM_DATA" --build-a $R2 --build-b $NEW "${EXTRA[@]}" --out "$OUT/fixed" || rc=1
 $CMP batch --spec "$HERE/tools/baselines/cases_legacy_adaptive.json" --problem-root "$CUADMM_DATA" --build-a $R9 --build-b $NEW "${EXTRA[@]}" --out "$OUT/legacy_adaptive" || rc=1
