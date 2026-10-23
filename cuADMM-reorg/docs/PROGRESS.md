@@ -31,6 +31,46 @@ H200-hours; section "Phase 4b GPU gates"): G0 and G1 pass, G2 and G3 fail; the d
 MATLAB (MEX, SPOT recovery), MOSEK dual signs against a MOSEK run, buck3's published objective, performance and
 peak memory beyond the summaries' fields.
 
+## Milestone 2: Phase 7, linear systems
+
+Status: done (ed9d598; the backends of branch `reorg-linsys`, merged, are described in its section "Phase 7
+backends" below); the CHOLMOD path is bit for bit (GPU-evidence list); the benchmark report is
+`docs/phase7_linsys_benchmark.md`.
+
+- `linsys/direct/cholmod/CholmodSolver`: the normal-equation backend of main behind `NormalEquationSolver`:
+  `factorize()` runs the engine's `CholeskySolverCPU` on the normalized A^T (the engine keeps a host copy,
+  `host_At_vals_scaled`, and exposes the system as `SDPSolver::normal_system()`), keeps the factor's permutation on
+  the device, and applies today's rule for the dense-factor variant (m >= 2000, nnz(L) above 0.3 m (m + 1) / 2,
+  8 m^2 bytes within a quarter of the free memory, a simplicial LDL^T: L and D on the device, two cuBLAS
+  triangular solves per y-step); `solve()` is the y-step of main (permute, solve, permute back). The engine's
+  `init()` builds it (`SDPSolver::linsys`), prints the same factorization lines, and `AdmmState`'s y-steps call
+  `linsys->solve()`; `cpu_AAt_solver`, `perm`, `perm_inv`, `rhsy_perm`, `y_perm`, `AAt_L`, `AAt_D`,
+  `AAt_dense_gpu` and `solve_AAt_perm` are gone from the engine.
+- Selection (`linsys.backend`): `auto` and `cholmod` keep the engine's backend (today's rule); `dense`
+  (`DenseCusolverSolver` on the pool's main cuSOLVER handle, `linsys.memory_fraction`) and `cudss` (`CudssSolver`,
+  deterministic mode with `determinism = strict`; a clear error when the build has no cuDSS) factorize the same
+  system at setup and replace it. `linsys.regularization` is honoured (eps of A A^T + eps I; 1e-15 by default).
+  `linsys.autotune` stays rejected (DECISIONS 57). The result and the summary report the backend's name and
+  factorization statistics (`linsys_backend`, `aat_*`).
+- Presolve (`linsys.presolve`, off by default): `problem::presolve()` runs on the host before the engine's setup;
+  when rows are removed the engine is built on the reduced A^T and b, the warm start's y is restricted, and the
+  result's y comes back on the full problem with zeros on the removed rows (`presolve_removed_rows`,
+  `presolve_message` in the result and the summary).
+- Tests (`test/linsys_integration_test.hpp`): the default backend named `cholmod`; the dense backend against
+  CHOLMOD end to end on `PSD_Free`, `Nonneg_Free_PSD`, `Large_LowRankS` (the same optimum within 1e-4, the
+  objectives within 1e-6, the iteration counts within 5%); the cuDSS backend likewise (skipped without cuDSS);
+  the presolve on `PSD_Free` with three duplicated rows (3 rows removed, the solve converges, y of the full
+  problem with zeros on the removed rows; without the presolve the factorization reports the tiny pivots and
+  still converges). The copied dense y-step test (`dense_ystep_test.hpp`) builds the CPU-only backend through the
+  interface. `bench/linsys_bench.cu` (target `cuadmm_linsys_bench`): the factorization time, the time per solve
+  and the residual of every backend on problem directories.
+- Acceptance: CPU suite 60 of 60; GPU suite 142 of 142 on the MIG (dev build with cuDSS: 141 passed and the cuDSS
+  test skipped in `logs/tests_phase7b.log` because the macro was not visible to the suite, then the four integration
+  tests 4 of 4 in `logs/tests_phase7c.log` after the fix; the dense and cuDSS backends reach the same iteration
+  counts as CHOLMOD on every case, objectives within 2e-7). The benchmark: `docs/phase7_linsys_benchmark.md` (MIG
+  run; cuDSS solves 1.5-2.2x faster than CHOLMOD's on mater-5/6, the dense backend the slowest at m = 20463). The
+  CHOLMOD path bit for bit on the 53 cases (ed9d598 with the compat products) is recorded in the GPU-evidence list.
+
 ## Milestone 2: Phase 6b, PSD memory model
 
 Status: done (974e373 with the follow-ups; the acceptance below and in the GPU-evidence list).

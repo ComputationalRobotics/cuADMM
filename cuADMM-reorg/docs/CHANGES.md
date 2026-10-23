@@ -296,3 +296,15 @@ and the existing tests are unchanged.
 - New options: `psd.batched.final_product`, `psd.medium.max_batch`. The warm-up blocks rejected by the norm test
   are unpacked again from the input (no n^2 copy); the termination measures run on the tiers' decompositions
   (the engine's `cone_measures` is gone).
+
+## Phase 7 (2026-10-23): the linear systems
+
+- The y-step runs through the `NormalEquationSolver` interface. `linsys.backend` selects the backend: `auto` and
+  `cholmod` are the CHOLMOD backend of main (host CHOLMOD, or the dense factor on the device by today's rule; bit for
+  bit), `dense` is the cuSOLVER Cholesky on the device, `cudss` the cuDSS backend when the build has it (both within
+  rounding of CHOLMOD: the same optimum, the iteration counts within a few percent). `linsys.regularization` (eps of
+  A A^T + eps I) is honoured; 1e-15 remains the default.
+- `linsys.presolve` removes dependent constraint rows before the factorization (off by default): the reduced
+  problem is solved, y is reported on the full problem with zeros on the removed rows, and the result / summary
+  carry `presolve_removed_rows` and the presolve's message.
+- `linsys.autotune` is rejected (not implemented: DECISIONS 57).

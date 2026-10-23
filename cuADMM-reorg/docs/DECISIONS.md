@@ -327,3 +327,18 @@ implementation, deviations from its letter, and open questions, each with its re
     hand with blocks between 2000 and 5000 (shmup5: 3721) were not run to convergence both ways; lowering the
     threshold is a one-option change once that is measured (open item). The composite warm-up changes the iterates of
     runs with such blocks (deterministically, B8); none of the 53 baseline cases has one.
+
+55. **The CHOLMOD backend keeps the engine's `CholeskySolverCPU` and the dense-factor variant inside `CholmodSolver`.**
+    Bit-for-bit acceptance of the CHOLMOD path means the same CHOLMOD calls on the same host arrays (the normalized
+    A^T the engine copies back from the device), the same permutation kernels and the same cuBLAS triangular solves,
+    so the class wraps the engine's object and today's rule instead of reimplementing them; the dense-factor variant
+    is "cholmod_dense_gpu" of the same backend, not `DenseCusolverSolver` (which factorizes on the device with
+    cuSOLVER and is within rounding only).
+56. **The backends factorize the normalized system from the host.** The engine normalizes A on the device at setup;
+    the interface's `NormalSystem` borrows host arrays, so the engine copies the normalized values back once
+    (`host_At_vals_scaled`, O(nnz) once per setup) and every backend, including cuDSS and the dense one, sees the
+    system the engine solves.
+57. **`linsys.autotune` is not implemented in Phase 7.** The plan's "time the two best backends and keep the faster"
+    needs a factorization of each candidate at setup (seconds for cuDSS's first analysis with a cold kernel cache)
+    and a rule for which two are "best"; the benchmark report gives the numbers to choose by hand, and the option
+    is rejected with a message naming `linsys.backend`. Open item for a later phase.
