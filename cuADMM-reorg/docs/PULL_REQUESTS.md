@@ -55,3 +55,51 @@ await approval.
 
 ---
 Each description ends with: 🤖 Generated with [Claude Code](https://claude.com/claude-code)
+
+# Pull requests of Milestone 2
+
+The same arrangement: the branch `reorg` is linear apart from the merges of `reorg-bench6a` (4dbb110) and
+`reorg-linsys` (364c87e); the release branch `cuADMM-2.0` points at its tip with the tag `v2.0.0-rc1` (pushed with
+the SSH remote; no push to `main`). One PR per range below, or one PR of `cuADMM-2.0` onto `main` with these
+sections as its description. Every commit builds and passes its tests; the GPU evidence per commit is in
+docs/PROGRESS.md.
+
+## PR 7: Phase 5, the cone layer (1cca25e, a9521e2)
+
+`src/cone/`: Cone, ConeRegistry, ConeProduct, FreeCone, NonnegativeCone, SliceTable, PsdCone on the engine's tiers,
+`termination/Certificate` (per-block bounds, B24); AdmmState and the facade on the product; the free-variable
+tests of plan Section 9.3 and the new generator cases. Evidence: 53 of 53 identical, 118 tests.
+
+## PR 8: Phase 6a, the PSD strategies (14178fa, 684b99f, 72347eb, merge 4dbb110)
+
+The composite / Lanczos / LOBPCG kernels moved in with the deterministic Lanczos start (B8, B10, B11, B15), the
+honoured LOBPCG options (DECISIONS 45); the projector classes (JacobiBatchedEvd, BatchedEvd, StreamedEvd, FullEvd,
+Lobpcg, CompositeFilter), RankAnalyzer and LargeBlockPolicy with the per-block warm-up threshold and the honoured
+`psd.*` options (DECISIONS 46-48); the projector benchmark of `reorg-bench6a` and the warm-up default
+`composite_fp16` for blocks of at least 5000 (DECISIONS 54). Evidence: 53 of 53 identical at 14178fa and 684b99f,
+130 tests; no baseline case has a block of 5000.
+
+## PR 9: Phase 6b, the PSD memory model (02991f1, 4cd46a5, 974e373, 8998801)
+
+WorkspaceArena and StreamPool; LOBPCG and Lanczos on caller-provided workspaces (B7); LargeTier (one arena region,
+the SYRK products, the warm starts), BatchedTier (B19, B20, the chunked batched EVD), PsdCone owning the tiers, the
+memory plan at setup with the budget check and the reported peak; the compat products of main as options and in
+the C++ API (DECISIONS 49-53); the comparison tooling for extra flags and tolerances. Evidence (at 364c87e): 53 of
+53 identical with the compat products; within rounding with the defaults (47 of 53 at every iteration, the LOBPCG
+cases at the level of its tolerance); the peak within 0.2% of the plan; A100 time per iteration 0.85-0.99 of 6a;
+138 tests.
+
+## PR 10: Phase 7, the linear systems (merge 364c87e of `reorg-linsys`, ed9d598)
+
+The backends of `reorg-linsys` (NormalSystem, DenseCusolverSolver, CudssSolver, presolve, DECISIONS 40-44) and
+their integration: CholmodSolver wrapping the engine's y-step bit for bit, the backend selection (`linsys.backend
+auto / cholmod / dense / cudss`), the presolve wiring, the benchmark `cuadmm_linsys_bench` and its report
+(DECISIONS 55-57). Evidence: 53 of 53 identical with the compat products at ed9d598; dense and cuDSS end to end
+with the same iteration counts as CHOLMOD; 142 tests.
+
+## PR 11: Phase 10, the documents and the release (0a29158, 8e483f8 and the final docs commit)
+
+README for 2.0, `docs/MIGRATION.md`, `docs/OPTIONS.md` regenerated, `examples/`, `CMakePresets.json`,
+`docs/Doxyfile` with the `cuadmm_docs` target, PROGRESS / CHANGES / DECISIONS complete with the Milestone 2
+status, the open items (the freeze redesign of DECISIONS 37, `linsys.autotune`, the warm-up threshold) and the
+deferred Phases 8 and 9; the tag `v2.0.0-rc1` on `cuADMM-2.0`.

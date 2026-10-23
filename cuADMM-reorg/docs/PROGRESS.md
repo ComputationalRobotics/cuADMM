@@ -31,6 +31,31 @@ H200-hours; section "Phase 4b GPU gates"): G0 and G1 pass, G2 and G3 fail; the d
 MATLAB (MEX, SPOT recovery), MOSEK dual signs against a MOSEK run, buck3's published objective, performance and
 peak memory beyond the summaries' fields.
 
+## Milestone 2 status (2026-10-23)
+
+Phases 5, 6a, 6b and 7 are done and verified on the MIG configuration (Phase 5 1cca25e, Phase 6a 14178fa /
+684b99f / 72347eb, Phase 6b 974e373 with the follow-ups, Phase 7 ed9d598; the GPU-evidence list below), and the
+Phase 10 documents are in place (README, `docs/MIGRATION.md`, `docs/OPTIONS.md`, `examples/`, `CMakePresets.json`,
+`docs/Doxyfile` with the target `cuadmm_docs`). The release branch `cuADMM-2.0` carries this tree with the tag
+`v2.0.0-rc1` (the push is recorded in `docs/PULL_REQUESTS.md`). Every exact path is bit for bit the references on
+the 53 baseline cases with `--psd-warmup none` and the compat products; the 2.0 defaults (the composite warm-up
+for blocks of at least 5000, the SYRK / scaled products) are within rounding of them, as the Phase 6b section
+quantifies.
+
+Open and deferred, as the plan requires them stated:
+
+- The freeze redesign of the penalty rule (plan Section 3.5, DECISIONS 37): `balance_freeze` with the Phase 4b
+  screen's setting passed G0 and G1 and failed G2 (pendulum) and G3 (mater-4/5) on the H200; `residual_balancing`
+  stays the default; the rule remains an option for a later redesign.
+- Phase 8 (the ported engine's remaining vectors, scaling, histories and streams: `src/legacy/` is still the
+  owner of the iterate, the y-step data and the console table) and Phase 9 (the second-order, rotated, exponential
+  and power cones, rejected at setup with a message) are deferred as the authorization specifies.
+- `linsys.autotune` is not implemented (DECISIONS 57); `psd.large.warmup.min_size` stays at the plan's 5000 although
+  the benchmark supports 2000 (DECISIONS 54); the LOBPCG tolerance stays absolute (DECISIONS 45).
+- Not verifiable here: MATLAB (the `+cuadmm` package and the MEX gateway build only with MATLAB), the H200 numbers
+  of the 2.0 defaults (no further H200 approval), the full-A100 comparison of the Milestone 2 commits (the `gpu`
+  queue; the MIG configuration covers every commit, the A100 covers the Phase 6b timing run).
+
 ## Milestone 2: Phase 7, linear systems
 
 Status: done (ed9d598; the backends of branch `reorg-linsys`, merged, are described in its section "Phase 7
@@ -128,7 +153,7 @@ Status: done (974e373 with the follow-ups; the acceptance below and in the GPU-e
   iterations, best of 2): 6b / 6a between 0.85 (Large_LowRankX) and 0.99 (Large_HalfRank), 0.96-0.98 on the PLATO
   problems, never worse.
 
-## Milestone 2: Phase 6a, PSD strategies (in progress)
+## Milestone 2: Phase 6a, PSD strategies
 
 Status: done. Steps 1 and 2 (the kernels moved in, 14178fa; the projector classes and the selection policy,
 684b99f) are verified bit for bit in the GPU-evidence list; step 3 (the benchmark and the warm-up default) follows
@@ -757,6 +782,11 @@ over one hour).
   tests 138 ran, 138 passed. `CUADMM_RTOL=1e-6 ... phase6b-default2` (23:57-00:10): 8 of 53 within 1e-6 on every
   history field, 45 flagged (the analysis above: 47 within rounding at every iteration, the LOBPCG cases and the
   near-zero objective explained); tests 138 ran, 138 passed.
+- ed9d598 (Phase 7, the y-step through the backend interface), `CUADMM_EXTRA_B="--psd-final-product gemm_compat
+  --psd-batched-final-product gemm_compat" build_and_compare.sh ed9d598 phase7-compat ... reorg` (2026-10-23
+  00:10-00:23, MIG): 53 of 53 identical, 0 different, 0 failed runs; tests 142 ran, 141 passed, 1 skipped (the cuDSS
+  end-to-end test: the clean build configures cuDSS as AUTO without `CUDSS_ROOT`; it passes on the dev build with
+  cuDSS, Phase 7 section).
 - Note on the summary comparison of `compare_runs.py`: the `options` object of the new CLI's summary was invalid
   JSON from Phase 2 until the fix recorded in CHANGES.md ("Phase 2b follow-up"), and the tool skipped the unreadable
   summary silently; the summary comparison is informational, the acceptance (histories and solutions, bit for bit)
