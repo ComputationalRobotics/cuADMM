@@ -31,6 +31,43 @@ H200-hours; section "Phase 4b GPU gates"): G0 and G1 pass, G2 and G3 fail; the d
 MATLAB (MEX, SPOT recovery), MOSEK dual signs against a MOSEK run, buck3's published objective, performance and
 peak memory beyond the summaries' fields.
 
+## Milestone 2: Phase 5, cone layer
+
+Status: done (commit 1cca25e, verified bit for bit); authorized on 2026-10-22 with Phases 6a, 6b, 7 and 10
+(docs/PLAN_M2.md).
+
+- `src/cone/`: `Cone` (plan Section 8.1: kind, dimension, self-duality, `project_dual`, `project_primal` with the
+  Moreau default, `measure`, scaling compatibility, host reference measure), `ConeRegistry` (input codes to
+  kinds and factories; 'q', 'r', exponential and power cones rejected with their phase), `ConeProduct` (one object
+  per kind present, the cone step `project_dual(z, s, k)`, the per-block measures in input order), `FreeCone`
+  (S_u = 0, identity primal projection, measures max |v|, -sum |v|), `NonnegativeCone` (max(z, 0), min entry,
+  sum of the negative entries), `SliceTable` (the blocks of a kind as device arrays: one launch per cone, binary
+  search over the blocks, until Phase 8 makes the slices contiguous), `psd/PsdCone` (the three tiers of main moved
+  from `AdmmState::project_psd_tiers` without a change, on the engine's buffers; `psd/svec_pack` unpacks and packs
+  only the PSD entries), `termination/Certificate` (the coefficients of C - A^T y through `Cone::measure`, the
+  lower bound with explicit per-block bounds; a negative entry of `certificate.block_bounds` means no bound and
+  the bound is reported unavailable with the blocks listed: B24).
+- `AdmmState` takes the product; `AdmmSolver::finish` takes the cone violations and the certificate from it; the
+  facade builds the product after the engine's setup and evaluates the certificate variants (block bounds, trace
+  bound, trace bound scale) through `Certificate`; the legacy `SDPSolver::solve()` wrapper builds a product too.
+  The engine's `cone_measures` stays (the copied certificate test of main drives it; Phase 6 removes it with the
+  tiers).
+- Tests (`test/cone_test.hpp`): the registry; the projection properties of plan Section 8.3 (membership,
+  idempotence, Moreau decomposition, orthogonality, nonexpansiveness; the free entries exactly 0, the nonnegative
+  ones exactly max(z, 0)) on the small, batched-small, medium, LP-only and free-only problems; the product's
+  measures bit for bit the engine's `cone_measures` (small, medium, large tiers); the host reference measures
+  against the device measures; the free-variable tests of Section 9.3: an LP with free variables (new generator
+  case `Nonneg_Free`: 24 nonnegative, 10 free, 22 constraints; plain ADMM needs about 19,000 iterations at fixed
+  sigma = 1 and the adaptive rules do not reach 1e-6 within 20,000, DECISIONS 38), free only with non-unique X_u
+  (`Free`, 30 free, 15 constraints, with the validator), a warm start with S_u != 0, sGS-ADMM with free blocks, a
+  large block with free variables on the LOBPCG path (new case `Large_Free` through the regression harness:
+  converged in 149 iterations with the positive LOBPCG mode), the certificate with per-block bounds (a valid lower
+  bound) and with a missing bound (unavailable, the block named, the wrong count rejected). "Free blocks with
+  dependent rows (presolve)" comes with Phase 7; "PushBox_N=30_SOS against MOSEK" needs MOSEK reference solutions
+  that are not on the machines: not run.
+- Acceptance: GPU suite 118 of 118 on the MIG (dev build), CPU 51 of 51; the clean per-commit comparison of
+  1cca25e (53 of 53 identical, 118 tests) is recorded in the GPU-evidence list below.
+
 ## Phase 4b GPU gates (approved 2026-10-22, in progress)
 
 The user approved the H200 gates G0-G3 on 2026-10-22 (at most 12.58 H200-hours in total, expected 6-9.5; G0 first,
@@ -542,6 +579,9 @@ over one hour).
   holygpu8a22206): 53 of 53 identical, 0 different; tests 101 ran, 101 passed; the format acceptance with the
   matio build 11 of 11 (SDPA, HDF5 and SeDuMi histories bit for bit the TXT runs). Both pinned configurations
   therefore cover the final Milestone 1 commit.
+- 1cca25e (Phase 5, the cone layer), `build_and_compare.sh 1cca25e phase5 ... reorg` (2026-10-22 21:24-21:36, MIG
+  configuration): 53 of 53 identical, 0 different, 0 failed runs; tests 118 ran, 118 passed (the 17 cone-layer tests
+  included).
 - Note on the summary comparison of `compare_runs.py`: the `options` object of the new CLI's summary was invalid
   JSON from Phase 2 until the fix recorded in CHANGES.md ("Phase 2b follow-up"), and the tool skipped the unreadable
   summary silently; the summary comparison is informational, the acceptance (histories and solutions, bit for bit)

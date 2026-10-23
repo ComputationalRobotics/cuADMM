@@ -220,3 +220,16 @@ Inside `cuADMM-reorg/src/legacy/` (the copied `SDPSolver`), the CLI and the test
   check (since replaced by `tools/io/check_formats.py`), which parses the summary. `Options.OptionsJsonIsValidJson` checks the defaults and set values with a small JSON
   scanner. `tools/compare_runs.py` now prints a warning for a summary it cannot parse instead of skipping the
   (informational) summary comparison silently; the acceptance comparisons (histories, solutions) were never affected.
+
+## Phase 5 (2026-10-22): cone layer
+
+- The cone step runs through the product cone (`src/cone/`): the PSD cone projects the PSD entries with the
+  unchanged tiers, the nonnegative and free cones their own entries with exact elementwise kernels (max(z, 0),
+  0). Results unchanged (bitwise acceptance).
+- Certificate (B24): `certificate.block_bounds` accepts a negative entry meaning "no bound for this block"; the
+  certified lower bound is then unavailable (NaN) and the summary lists `certificate_missing_bounds` and a
+  `certificate_note`; the summary also prints `certificate_block_bounds` and the bound computed from them.
+  `certificate_conditional_on_free_bounds` is now set whenever a free block's bound is in force (also with explicit
+  block bounds), not only with `trace_bound` / `trace_bound_scale`.
+- `ConeRegistry` rejects the cones of Phase 9 ('q', 'r') and the exponential and power cones with a message naming
+  the phase, before any cone object is built.

@@ -210,3 +210,14 @@ implementation, deviations from its letter, and open questions, each with its re
     Milestone 2 planning item (O2, O8): a freeze time or bias that scales with the problem, or a freeze only after
     the practical stage. Evidence: docs/phase4b_gates_report.md, the gate runs under
     `$HOME/cuadmm-experiments/2026-10-21_phase4b_screen/gpu_gates/`.
+
+38. **An LP with free variables is a slow case for plain ADMM, and the test says so.** The generator's
+    `Nonneg_Free` case (24 nonnegative and 10 free variables, 22 constraints, unique solution) needs about 19,000
+    iterations at fixed sigma = 1 to reach 1e-6, and neither adaptive rule reaches it within 20,000 (the problem has
+    no strongly convex block); the facade test runs it at fixed sigma = 1 with a budget of 30,000 and the regression
+    harness (5,000 iterations) does not include it. The behavior is the solver's, not the cone layer's: the same
+    runs come from the Milestone 1 build.
+39. **The engine keeps `cone_measures` and the certificate helpers until Phase 6.** The new path (facade,
+    AdmmSolver) uses `ConeProduct::measure` and `termination::Certificate`; the copied certificate test of main
+    still drives the engine's functions, and `ConeLayer.MeasuresMatchTheEngine*` pins the two to the same values.
+    Phase 6 moves the tiers out of the engine and deletes the duplicates.
