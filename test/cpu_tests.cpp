@@ -1,4 +1,4 @@
-// CPU-only tests of cuADMM-reorg (no GPU needed: options, penalty policies on scripted residuals, readers and writers)
+// CPU-only tests of cuADMM (no GPU needed: options, penalty policies on scripted residuals, readers and writers)
 #include <gtest/gtest.h>
 
 #include "options_test.hpp"

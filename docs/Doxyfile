@@ -1,7 +1,8 @@
-# Doxygen configuration of cuADMM-reorg (plan Phase 10). Run `doxygen docs/Doxyfile` from the project directory,
+# Doxygen configuration of cuADMM 2.0. Run `doxygen docs/Doxyfile` from the project directory,
 # or build the CMake target `cuadmm_docs` when Doxygen is found; the HTML lands in docs/api/html.
 PROJECT_NAME           = "cuADMM"
-PROJECT_BRIEF          = "GPU ADMM solver for semidefinite programs: the reorganized solver (2.0)"
+PROJECT_NUMBER         = 2.0.0
+PROJECT_BRIEF          = "GPU ADMM solver for semidefinite programs"
 OUTPUT_DIRECTORY       = docs/api
 CREATE_SUBDIRS         = NO
 INPUT                  = include src README.md docs/MIGRATION.md docs/OPTIONS.md docs/CHANGES.md

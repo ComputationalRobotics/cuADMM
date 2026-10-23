@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Markdown tables of docs/phase6a_projector_benchmark.md from the results.csv of cuadmm_psd_projector_bench.
+"""Markdown tables of the projector benchmark report from the results.csv of cuadmm_psd_projector_bench.
 
 usage: python -B bench/psd_projector_table.py RESULTS_DIR [--timings]
 Prints (1) the per-case table (time per projection, speedup, relative error, eigenvalue violation, rejections,

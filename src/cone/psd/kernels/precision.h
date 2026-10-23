@@ -5,7 +5,7 @@
     Helpers of the large-block projectors (plan Section 10.6, B10: one copy of each): FP64 <-> FP32 <-> FP16
     conversions, symmetrization in FP32, identity addition, column reversal and extraction, and the deterministic
     start vector of the Lanczos estimate and of LOBPCG (B8: a counter-based generator, seeded by the caller).
-    Moved in from the frozen psd_projection submodule (b566590) under the CUADMM checks.
+    Moved in from the psd_projection repository (b566590) under the CUADMM checks.
 
 */
 

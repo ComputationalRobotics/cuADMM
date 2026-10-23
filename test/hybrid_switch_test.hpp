@@ -8,7 +8,7 @@
         from the same (X, y, S): the test fails if the state were reinitialized at the switch or if the wrong update
         ran on either side (negative controls show that the comparison discriminates);
       - the phase bookkeeping (iteration counts, switch iteration, phase times, sigma and tau per phase);
-      (the hybrid-only policy fixed_sgs_then_legacy_admm of main is not kept in cuADMM-reorg: docs/CHANGES.md);
+      (the hybrid-only policy fixed_sgs_then_legacy_admm of main is not kept in cuADMM 2.0: docs/CHANGES.md);
       - the --sgs-iterations command-line option.
     Uses the helpers of fixed_sigma_validation_test.hpp (included before this file).
 

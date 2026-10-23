@@ -2,7 +2,7 @@
 
     cone/psd/kernels/lobpcg.cu
 
-    lobpcg() of the frozen psd_projection submodule (b566590), moved in unchanged apart from the checks and the
+    lobpcg() of the psd_projection repository (b566590), moved in unchanged apart from the checks and the
     namespace.
 
 */

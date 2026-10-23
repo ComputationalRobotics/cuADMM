@@ -2,7 +2,7 @@
 
     cuadmm.h
 
-    Umbrella header of the public API of cuADMM-reorg.
+    Umbrella header of the public API of cuADMM 2.0.
 
 */
 

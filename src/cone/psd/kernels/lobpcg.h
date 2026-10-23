@@ -3,7 +3,7 @@
     cone/psd/kernels/lobpcg.h
 
     Warm-started LOBPCG for the k largest eigenpairs of a dense symmetric matrix (plan Section 10.4: the Lobpcg
-    projector of the large tier). Moved in from the frozen psd_projection submodule (b566590); the buffers are still
+    projector of the large tier). Moved in from the psd_projection repository (b566590); the buffers are still
     allocated per call (B7: Phase 6b).
 
 */

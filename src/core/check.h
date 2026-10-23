@@ -2,7 +2,7 @@
 
     core/check.h
 
-    The one set of error checks of cuADMM-reorg (plan Section 14, B15): CUADMM_CHECK_CUDA / CUBLAS / CUSOLVER /
+    The one set of error checks of cuADMM (plan Section 14, B15): CUADMM_CHECK_CUDA / CUBLAS / CUSOLVER /
     CUSPARSE throw cuadmm::Error with the call site and a context string; CUADMM_CHECK_LAUNCH() follows every kernel
     launch (B16); the _NOTHROW variants are for destructors. The legacy header cuadmm_legacy/check.h maps its old
     macro names onto these, so every component throws the same exception.

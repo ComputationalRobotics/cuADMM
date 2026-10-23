@@ -7,7 +7,8 @@
     The metrics are recomputed on the CPU, in double precision (long double accumulation), from the ORIGINAL problem
     data given to SDPSolver::init() and the UNSCALED iterate. They use none of the solver's GPU residuals or
     eigendecompositions. The definitions are those of the standalone validator
-    (experiments/2026-09-27_paper_replication_2xh200/validator/validate.cpp), plus the per-block X-cone criterion:
+    (validate.cpp of the paper-replication experiment of 2026-09-27, outside the repository), plus the per-block
+    X-cone criterion:
 
         primal residual     ||A(X) - b|| / (1 + ||b||)
         dual residual       ||A^T(y) + S - C|| / (1 + ||C||)

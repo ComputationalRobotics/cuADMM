@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """
-compare_runs.py: bitwise comparison of cuADMM runs (reorg-plan/developer_prompt.md, "Comparison script").
+compare_runs.py: bitwise comparison of cuADMM runs (the "Comparison script" of the reorganization's developer
+prompt, reorg-plan/ in the history of main).
 
 Runs a reference build and the new build (or any two builds) with equivalent options on one TXT problem, or compares
 two existing run directories, and reports the first iteration and field that differ.
@@ -18,9 +19,9 @@ Builds are named KIND:EXE where KIND is
                       (tools/reference/sgs_no_plain_only.patch)
     legacy@c23e67e    the main commit the reorganization starts from (Phase 0 copy): only `fixed` is comparable,
                       its adaptive rule (factor 1.2) is neither reference policy
-    legacy@pre0       the copied CLI of cuADMM-reorg after Pre-0 (policies fixed, legacy_adaptive, residual_balancing
-                      under their plan names; --penalty-factor), until the new CLI of Phase 2 replaces it
-    reorg             the new command-line interface of cuADMM-reorg (Phase 2 and later)
+    legacy@pre0       the copied CLI of the early reorganization after Pre-0 (policies fixed, legacy_adaptive,
+                      residual_balancing under their plan names; --penalty-factor); history only
+    reorg             the command-line interface of cuADMM 2.0 (cuadmm_exe; Phase 2 and later)
 The legacy CLIs take the old flag names; `reorg` takes the new ones (today's flags are accepted as aliases).
 
 Run directory layout (both CLIs write it): history.csv, summary.json, solution/{X,y,S}.txt, sigma_log.csv,

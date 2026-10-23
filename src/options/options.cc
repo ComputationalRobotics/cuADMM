@@ -760,7 +760,7 @@ void SolverOptions::validate() const
 std::string option_table_markdown()
 {
     std::ostringstream o;
-    o << "# Options of cuADMM-reorg\n\nGenerated from the option table of `src/options/options.cc` (`cuadmm --print-options`). "
+    o << "# Options of cuADMM 2.0\n\nGenerated from the option table of `src/options/options.cc` (`cuadmm --print-options`). "
          "Every front-end uses the same table; unknown names are errors.\n\n"
          "| Option | CLI flag (aliases) | Type | Default | Phase | Meaning |\n|---|---|---|---|---|---|\n";
     for (const OptionSpec &s : option_table())

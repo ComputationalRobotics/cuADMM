@@ -2,7 +2,7 @@
 
     cone/psd/kernels/composite_fp16.cu
 
-    composite_FP16 of the frozen psd_projection submodule (b566590), moved in unchanged apart from the checks, the
+    composite_FP16 of the psd_projection repository (b566590), moved in unchanged apart from the checks, the
     namespace, the coefficient table taken from the header and the removal of the commented-out variants.
 
 */

@@ -4,8 +4,8 @@
 
     The Lanczos estimate of ||A||_2 of the composite filter (plan Section 10.6): max_iter steps on A^T A from a
     deterministic start vector (B8), lo = sqrt(theta), up = sqrt(theta + ||A^T A y - theta y||) for the largest Ritz
-    pair (not a certified bound: the caller applies the safety margin). Moved in from the frozen psd_projection
-    submodule (b566590); the WIP eigenpair routines of the submodule stay there (plan Section 10.6, item 1).
+    pair (not a certified bound: the caller applies the safety margin). Moved in from the psd_projection
+    repository (b566590); the WIP eigenpair routines of that repository stay there (plan Section 10.6, item 1).
 
 */
 

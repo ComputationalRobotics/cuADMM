@@ -14,7 +14,7 @@
 
     usage: cuadmm_linsys_bench <out.csv> <problem dir> [<problem dir> ...]  (--solves N, --eps X before the dirs)
     The CSV has one row per (problem, backend): problem,m,n,nnz,backend,kind,factor_s,ms_per_solve,rel_residual,
-    device_bytes,host_bytes,nnz_L,error. docs/phase7_linsys_benchmark.md holds the table of the recorded run.
+    device_bytes,host_bytes,nnz_L,error. The recorded run of Phase 7 is in the development history.
 
 */
 
@@ -141,7 +141,7 @@ int main(int argc, char **argv)
     CUADMM_CHECK_CUSOLVER(cusolverDnCreate(&cusolver));
     std::ofstream csv(out);
     csv << "problem,m,n,nnz,backend,kind,factor_s,ms_per_solve,rel_residual,device_bytes,host_bytes,nnz_L,error\n";
-    std::printf("cuADMM-reorg linsys benchmark, %d solves per backend, eps %g\n", solves, eps);
+    std::printf("cuADMM linsys benchmark, %d solves per backend, eps %g\n", solves, eps);
     std::printf("| problem | m | nnz(A) | backend | kind | factor s | ms / solve | rel. residual | device MiB |\n|---|---|---|---|---|---|---|---|---|\n");
     std::mt19937 gen(20261023);
     for (const std::string &dir : dirs)

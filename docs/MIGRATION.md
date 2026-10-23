@@ -1,6 +1,6 @@
-# Migrating from cuADMM main to 2.0
+# Migrating from cuADMM 1.x (main) to 2.0
 
-What changes for a user of the solver of `main` (c23e67e): the entry points, the option names, and the defaults
+What changes for a user of the 1.x solver (`main` at c23e67e): the entry points, the option names, and the defaults
 that moved. `docs/CHANGES.md` lists every behavior change with the option that restores the old behavior;
 `docs/OPTIONS.md` is the option table.
 
@@ -59,5 +59,5 @@ are deferred.
 ## Verifying a migration
 
 The reference builds of main reproduce the 2.0 runs bit for bit with `--psd-warmup none --psd-final-product
-gemm_compat --psd-batched-final-product gemm_compat` on the baseline cases (`tools/compare_runs.py`,
-`docs/PROGRESS.md`); with the 2.0 defaults the histories agree within rounding (`compare_runs.py ... --rtol 1e-6`).
+gemm_compat --psd-batched-final-product gemm_compat` on the baseline cases (`tools/compare_runs.py`, `tools/slurm/compare_build.sh`;
+the evidence is in the development history, branch `reorg`, tag `v2.0.0-rc1`); with the 2.0 defaults the histories agree within rounding (`compare_runs.py ... --rtol 1e-6`).

@@ -2,7 +2,7 @@
 
     options.h
 
-    SolverOptions: the single source of defaults of cuADMM-reorg (plan Section 15, Table 5; PSD options of
+    SolverOptions: the single source of defaults of cuADMM (plan Section 15, Table 5; PSD options of
     Section 9.9). Every front-end (CLI, MATLAB, C++) builds one of these; the CLI flags and the MATLAB fields are
     generated from the option table of option_table() (options.cc), which also prints the documentation.
 

@@ -1,4 +1,4 @@
-# Options of cuADMM-reorg
+# Options of cuADMM 2.0
 
 Generated from the option table of `src/options/options.cc` (`cuadmm --print-options`). Every front-end uses the same table; unknown names are errors.
 

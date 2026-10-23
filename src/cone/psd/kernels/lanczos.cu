@@ -2,7 +2,7 @@
 
     cone/psd/kernels/lanczos.cu
 
-    approximate_two_norm of the frozen psd_projection submodule (b566590), moved in unchanged apart from the checks,
+    approximate_two_norm of the psd_projection repository (b566590), moved in unchanged apart from the checks,
     the namespace and the deterministic start vector (B8). The buffers are still allocated per call (B7: Phase 6b).
 
 */

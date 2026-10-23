@@ -1,12 +1,11 @@
 cmake_minimum_required(VERSION 3.18)
 
-# cuADMM-reorg: the reorganized cuADMM solver, built as a self-contained project (reorg-plan/developer_prompt.md).
-# Nothing here includes or links the parent tree. Phase 0 (plan Section 17): the sources of main at c23e67e are
-# copied verbatim into src/legacy/ (and, until Phase 6a, the subset of the frozen submodule b566590 that the solver
-# uses, now src/cone/psd/kernels/), with the original tests; later phases move the code into the target layout of
-# plan Section 6.1.
+# cuADMM 2.0: a GPU ADMM solver for semidefinite programs, built as a self-contained project (the cuadmm library, the
+# command-line interface, the MATLAB gateway, the tests and the benchmarks). The ported engine of cuADMM 1.x lives in
+# src/legacy/ behind the facade cuadmm::Solver; the PSD kernels of src/cone/psd/kernels/ come from the psd_projection
+# repository (b566590, formerly a submodule). Layout: plan Section 6.1 (reorg-plan/ in the history of main).
 
-project(cuadmm_reorg LANGUAGES CXX CUDA)
+project(cuADMM VERSION 2.0.0 LANGUAGES CXX CUDA)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -20,7 +19,7 @@ endif()
 if(NOT DEFINED CMAKE_CUDA_ARCHITECTURES OR CMAKE_CUDA_ARCHITECTURES STREQUAL "")
   set(CMAKE_CUDA_ARCHITECTURES 80-real CACHE STRING "CUDA architectures" FORCE)
 endif()
-message(STATUS "cuADMM-reorg: CUDA architectures ${CMAKE_CUDA_ARCHITECTURES}, build type ${CMAKE_BUILD_TYPE}")
+message(STATUS "cuADMM: CUDA architectures ${CMAKE_CUDA_ARCHITECTURES}, build type ${CMAKE_BUILD_TYPE}")
 
 option(CUADMM_BUILD_CLI "Build the cuadmm command-line executable" ON)
 option(CUADMM_BUILD_TESTS "Build the test runner" ON)
@@ -47,7 +46,7 @@ function(cuadmm_resolve_optional option_name found_var feature)
   elseif(${found_var})
     set(${option_name}_RESOLVED TRUE PARENT_SCOPE)
   elseif(value STREQUAL "AUTO")
-    message(STATUS "cuADMM-reorg: ${feature} not found, ${option_name} is OFF")
+    message(STATUS "cuADMM: ${feature} not found, ${option_name} is OFF")
     set(${option_name}_RESOLVED FALSE PARENT_SCOPE)
   else()
     message(FATAL_ERROR "${option_name}=ON but ${feature} was not found")
@@ -66,7 +65,7 @@ if(NOT CUADMM_WITH_ZLIB STREQUAL "OFF")
   find_package(ZLIB)
 endif()
 cuadmm_resolve_optional(CUADMM_WITH_ZLIB ZLIB_FOUND "zlib (set ZLIB_ROOT)")
-message(STATUS "cuADMM-reorg: HDF5 ${CUADMM_WITH_HDF5_RESOLVED} (${HDF5LIB_VERSION}), matio ${CUADMM_WITH_MATIO_RESOLVED} (${MATIO_VERSION}), zlib ${CUADMM_WITH_ZLIB_RESOLVED} (${ZLIB_VERSION_STRING})")
+message(STATUS "cuADMM: HDF5 ${CUADMM_WITH_HDF5_RESOLVED} (${HDF5LIB_VERSION}), matio ${CUADMM_WITH_MATIO_RESOLVED} (${MATIO_VERSION}), zlib ${CUADMM_WITH_ZLIB_RESOLVED} (${ZLIB_VERSION_STRING})")
 
 add_compile_options($<$<COMPILE_LANGUAGE:CUDA>:-Wno-deprecated-gpu-targets>)
 
@@ -77,7 +76,7 @@ if(NOT CUADMM_WITH_CUDSS STREQUAL "OFF")
   find_package(CUDSS 1.0)
 endif()
 cuadmm_resolve_optional(CUADMM_WITH_CUDSS CUDSS_FOUND "cuDSS (set CUDSS_ROOT)")
-message(STATUS "cuADMM-reorg: cuDSS ${CUADMM_WITH_CUDSS_RESOLVED} (${CUDSS_VERSION})")
+message(STATUS "cuADMM: cuDSS ${CUADMM_WITH_CUDSS_RESOLVED} (${CUDSS_VERSION})")
 
 # SuiteSparse / CHOLMOD (required): -DSUITESPARSE_INCLUDE_DIRECTORIES=... -DCHOLMOD_LIB=... -DCMAD_LIB=... -DCCOLAMD_LIB=...
 find_path(SUITESPARSE_INCLUDE_DIRECTORIES
@@ -106,7 +105,7 @@ if(NOT LAPACK_LIBRARIES)
 endif()
 
 # ---------------------------------------------------------------------------------------------- psd kernels
-# The PSD kernels of the frozen psd_projection submodule (b566590) live in src/cone/psd/kernels/ since Phase 6a.
+# The PSD kernels (psd_projection b566590) are part of the cuadmm library: src/cone/psd/kernels/.
 
 # ---------------------------------------------------------------------------------------------- build commit
 # generated/cuadmm/version.h holds the commit of the source tree (plan Pre-0: policy, parameters and build commit in the
@@ -114,9 +113,9 @@ endif()
 set(CUADMM_VERSION_HEADER "${CMAKE_BINARY_DIR}/generated/cuadmm/version.h")
 add_custom_target(cuadmm_version ALL
   COMMAND ${CMAKE_COMMAND} -DSOURCE_DIR=${CMAKE_CURRENT_SOURCE_DIR} -DOUTPUT=${CUADMM_VERSION_HEADER}
-          -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/GitVersion.cmake
+          -DVERSION=${PROJECT_VERSION} -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/GitVersion.cmake
   BYPRODUCTS ${CUADMM_VERSION_HEADER}
-  COMMENT "cuADMM-reorg: recording the build commit")
+  COMMENT "cuADMM: recording the build commit")
 
 # ---------------------------------------------------------------------------------------------- solver library
 file(GLOB CUADMM_LEGACY_SOURCES
@@ -230,7 +229,7 @@ if(CUADMM_BUILD_CLI)
   add_custom_target(cuadmm_options_md
     COMMAND cuadmm_exe --print-options markdown > ${CMAKE_CURRENT_SOURCE_DIR}/docs/OPTIONS.md
     DEPENDS cuadmm_exe
-    COMMENT "cuADMM-reorg: writing docs/OPTIONS.md from the option table")
+    COMMENT "cuADMM: writing docs/OPTIONS.md from the option table")
 endif()
 
 if(CUADMM_BUILD_MATLAB)
@@ -247,7 +246,7 @@ if(DOXYGEN_FOUND)
     COMMENT "Doxygen: docs/api/html"
     VERBATIM)
 else()
-  message(STATUS "cuADMM-reorg: Doxygen not found, the target cuadmm_docs is unavailable (run `doxygen docs/Doxyfile` with Doxygen installed)")
+  message(STATUS "cuADMM: Doxygen not found, the target cuadmm_docs is unavailable (run `doxygen docs/Doxyfile` with Doxygen installed)")
 endif()
 
 # ---------------------------------------------------------------------------------------------- benchmarks
@@ -255,13 +254,12 @@ if(CUADMM_BUILD_BENCH)
   # reading rate of the problem formats (plan Phase 2b acceptance: 1e8 nonzeros from .h5 limited by the disk)
   add_executable(cuadmm_io_bench bench/io_read_bench.cc)
   target_link_libraries(cuadmm_io_bench PRIVATE cuadmm)
-  # Phase 6a: the FP16 composite filter against the exact FP64 EVD on synthetic spectra at n = 2000..20000
-  # (docs/phase6a_projector_benchmark.md); the kernels are the library's since Phase 6a step 1
+  # the FP16 composite filter against the exact FP64 EVD on synthetic spectra at n = 2000..20000
   add_executable(cuadmm_psd_projector_bench bench/psd_projector_bench.cu)
   target_include_directories(cuadmm_psd_projector_bench PRIVATE src ${CMAKE_BINARY_DIR}/generated)
   target_link_libraries(cuadmm_psd_projector_bench PRIVATE cuadmm CUDA::cudart CUDA::cublas CUDA::cusolver)
   add_dependencies(cuadmm_psd_projector_bench cuadmm_version)
-  # Phase 7: the normal-equation backends on the systems of problem directories (docs/phase7_linsys_benchmark.md)
+  # the normal-equation backends on the systems of problem directories
   add_executable(cuadmm_linsys_bench bench/linsys_bench.cu)
   target_include_directories(cuadmm_linsys_bench PRIVATE src src/legacy/include ${CMAKE_BINARY_DIR}/generated ${SUITESPARSE_INCLUDE_DIRECTORIES})
   target_link_libraries(cuadmm_linsys_bench PRIVATE cuadmm CUDA::cudart CUDA::cublas CUDA::cusolver)
@@ -294,7 +292,7 @@ if(CUADMM_BUILD_TESTS)
   # external data of the format tests (skipped when absent): the PLATO/Kocvara instances in several formats under
   # CUADMM_EXTERNAL_DATA_DIR (plato_sdpa/, plato_sedumi/, plato_kocvara/txt/) and the SPOT samples (MOSEK/, TXT/)
   set(CUADMM_EXTERNAL_DATA_DIR "$ENV{HOME}/cuadmm-data" CACHE PATH "Directory of the external test data (PLATO, Kocvara)")
-  set(CUADMM_SPOT_DATA_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../examples/SPOT/data" CACHE PATH "Directory of the SPOT sample data (MOSEK/, TXT/)")
+  set(CUADMM_SPOT_DATA_DIR "${CMAKE_CURRENT_SOURCE_DIR}/examples/SPOT/data" CACHE PATH "Directory of the SPOT sample data (MOSEK/, TXT/)")
   target_compile_definitions(cuadmm_cpu_tests PRIVATE
     CUADMM_TEST_DATA_DIR="${CMAKE_CURRENT_SOURCE_DIR}/test/data"
     CUADMM_EXTERNAL_DATA_DIR="${CUADMM_EXTERNAL_DATA_DIR}"

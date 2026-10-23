@@ -2,7 +2,7 @@
 
     cuadmm.cu
 
-    The command-line front-end of cuADMM-reorg (plan Phase 2): every flag comes from the option table of
+    The command-line front-end of cuADMM 2.0 (plan Phase 2): every flag comes from the option table of
     include/cuadmm/options.h (`--print-options` lists it; today's flags are accepted as aliases for one release).
 
     usage: cuadmm_exe <problem> [--option value ...]

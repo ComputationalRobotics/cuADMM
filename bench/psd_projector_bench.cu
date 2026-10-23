@@ -1,7 +1,7 @@
 /*
 
-    psd_projector_bench.cu  (Phase 6a; plan Section "PSD cone projection", Scope item of "Integrating the composite
-    polynomial filter"; docs/PLAN_M2.md Phase 6a; results in docs/phase6a_projector_benchmark.md)
+    psd_projector_bench.cu  (plan Section "PSD cone projection", "Integrating the composite polynomial filter"; the
+    recorded run of Phase 6a is in the development history)
 
     The FP16 composite polynomial filter (CompositeFilter) against the exact FP64 eigendecomposition (FullEvd) on
     synthetic dense symmetric blocks of size n in {2000, 3000, 5000, 10000, 20000}, called as the engine calls them
@@ -762,7 +762,7 @@ void write_run_info(const Options &o, const std::string &path)
     char stamp[64];
     std::strftime(stamp, sizeof stamp, "%Y-%m-%d %H:%M:%S %Z", std::localtime(&now));
     std::ostringstream s;
-    s << "psd_projector_bench (cuADMM-reorg Phase 6a)\n"
+    s << "psd_projector_bench (cuADMM 2.0)\n"
       << "date: " << stamp << "\n"
       << "build commit: " << CUADMM_BUILD_COMMIT << (CUADMM_BUILD_DIRTY ? " (dirty)" : "") << "\n"
       << "gpu: " << prop.name << " (sm_" << prop.major << prop.minor << ", " << prop.multiProcessorCount << " SMs, "

@@ -3,6 +3,11 @@
 Settled directions (plan D1-D8, Q1-Q9) are followed as written. This file records the choices the plan leaves to the
 implementation, deviations from its letter, and open questions, each with its reason. Entries are dated.
 
+> Written during the reorganization (branch `reorg`, tag `v2.0.0-rc1`), when the project lived in `cuADMM-reorg/`
+> beside the 1.x tree: `cuADMM-reorg/<path>` is today's `<path>`. The working records named below (`docs/PROGRESS.md`,
+> the phase reports `docs/phase*.md` with their data, `tools/sigma_screen/`, `tools/slurm/build_and_compare.sh` and the
+> other campaign scripts) were removed from the tree by the 2.0 cleanup and remain in the history at `v2.0.0-rc1`.
+
 ## 2026-10-21
 
 1. **Phase 0 copies the current solver into `cuADMM-reorg/src/legacy/`.** The plan's Phase 0 edits `main` in

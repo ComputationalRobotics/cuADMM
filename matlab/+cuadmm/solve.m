@@ -1,5 +1,5 @@
 function [X, y, S, info] = solve(varargin)
-%CUADMM.SOLVE  Solve a conic program with cuADMM-reorg.
+%CUADMM.SOLVE  Solve a conic program with cuADMM 2.0.
 %   [X, y, S, info] = cuadmm.solve(At, b, C, K, opts)
 %     At (vec_len x m, sparse), b (m x 1), C (vec_len x 1) in svec form; K the cones (fields f, l, s in that
 %     order, or fields types and sizes for an arbitrary order); opts a struct of nested option paths

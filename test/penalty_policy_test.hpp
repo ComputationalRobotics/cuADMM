@@ -12,9 +12,10 @@
         reversal count), band-centre value, bias, halve_on_reversal, sigma_0 clamp, no change after the freeze, the
         state round trip;
       - residual_balancing and balance_freeze agree before any freeze with the same parameters;
-      - balance_freeze agrees bit for bit with the CPU replica of the Phase-4b screen (tools/sigma_screen/cuadmm_emu.py
-        v1.2, BalanceFreezeState) on the residual sequences of the golden histories for a set of parameter combinations
-        (test/data/golden/balance_freeze_cases_*.csv, written by tools/sigma_screen/replay_policy.py): every returned
+      - balance_freeze agrees bit for bit with the CPU replica of the Phase-4b screen (cuadmm_emu.py v1.2,
+        BalanceFreezeState; tools/sigma_screen/ in the history at v2.0.0-rc1) on the residual sequences of the golden
+        histories for a set of parameter combinations (test/data/golden/balance_freeze_cases_*.csv, written by
+        replay_policy.py of the same screen): every returned
         sigma and every sigma-log entry.
 
 */

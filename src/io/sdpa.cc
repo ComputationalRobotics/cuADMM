@@ -3,7 +3,8 @@
     sdpa.cc
 
     SDPA sparse format (.dat-s, .dat-s.gz), plan Section 12, with the checks of the reference converter
-    experiments/2026-09-29_plato_cold_plain_admm_sigma/scripts/sdpa_to_cuadmm.py:
+    sdpa_to_cuadmm.py of the PLATO campaign (experiments/2026-09-29_plato_cold_plain_admm_sigma/scripts/ in the
+    history of main):
 
         SDPA pair:    (P) min c^T x  s.t.  X = sum_i F_i x_i - F_0 >= 0;   (D) max <F_0, Y>  s.t.  <F_i, Y> = c_i, Y >= 0
         cuADMM:       min <C, X>  s.t.  <A_i, X> = b_i, X in K

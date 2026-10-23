@@ -1,5 +1,5 @@
 #!/bin/bash
-# usage: tools/build.sh <build_dir> [extra cmake args]   -- configure (once) and build cuADMM-reorg
+# usage: tools/build.sh <build_dir> [extra cmake args]   -- configure (once) and build cuADMM
 # Pinned configuration of tools/reference/pinned_config.md: paths come from the environment, with the FASRC defaults.
 #   CUADMM_SUITESPARSE_DIR  prefix with include/suitesparse and lib/{libcholmod,libcamd,libccolamd}.so  [$HOME/cuadmm-env]
 #   CUADMM_BLAS             BLAS library (OpenBLAS provides LAPACK too)                                  [$CUADMM_SUITESPARSE_DIR/lib/libblas.so]
@@ -11,7 +11,7 @@ SRC=$(cd "$(dirname "$0")/.." && pwd)
 BLD=$1; shift
 SS=${CUADMM_SUITESPARSE_DIR:-$HOME/cuadmm-env}
 BLAS=${CUADMM_BLAS:-$SS/lib/libblas.so}
-GT=${CUADMM_GTEST_SRC:-/n/home00/yukuanwei/cuADMM/build/_deps/googletest-src}
+GT=${CUADMM_GTEST_SRC:-$HOME/cuADMM/build/_deps/googletest-src}
 GTARG=""
 [ -d "$GT" ] && GTARG="-DFETCHCONTENT_SOURCE_DIR_GOOGLETEST=$GT"
 if [ ! -f "$BLD/CMakeCache.txt" ]; then

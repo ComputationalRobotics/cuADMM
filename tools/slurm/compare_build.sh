@@ -1,13 +1,13 @@
 #!/bin/bash
-# Bitwise comparison of a cuADMM-reorg build with the three reference builds on every baseline case (plan "bitwise"
+# Bitwise comparison of a cuADMM 2.0 build with the three reference builds of 1.x on every baseline case (plan "bitwise"
 # acceptance of the structural phases), then the test suite of that build. Run on the GPU node.
 # usage: compare_build.sh <build dir> <config name> <tag> [kind]
-#   kind: how tools/compare_runs.py drives the build's CLI: legacy@pre0 (the copied CLI from Pre-0 on) or reorg (Phase 2+)
+#   kind: how tools/compare_runs.py drives the build's CLI: reorg (the 2.0 CLI, the default) or legacy@pre0 (history only)
 # Outputs: $CUADMM_BASELINES/<config>/compare/<tag>/{fixed,legacy_adaptive,residual_balancing,sgs}/, tests.log
 set -u
 HERE=$(cd "$(dirname "$0")/../.." && pwd)
 source "$HERE/tools/slurm/gpu_env.sh"
-BLD=$1; CONFIG=$2; TAG=$3; KIND=${4:-legacy@pre0}
+BLD=$1; CONFIG=$2; TAG=$3; KIND=${4:-reorg}
 OUT=$CUADMM_BASELINES/$CONFIG/compare/$TAG
 mkdir -p "$OUT"
 CMP="$PYTHON -B $HERE/tools/compare_runs.py"

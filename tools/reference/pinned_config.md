@@ -1,8 +1,8 @@
 # Pinned configuration for the bitwise comparisons
 
-Bitwise results hold for one configuration only (plan Section 17). Every reference build and every cuADMM-reorg
-build compared with it uses this configuration; `tools/slurm/phase0_baselines.sh` records the live values of each
-GPU job in `$CUADMM_BASELINES/<config>/config.txt`.
+Bitwise results hold for one configuration only (plan Section 17). Every reference build (cuADMM 1.x) and every
+2.0 build compared with it uses this configuration; `tools/slurm/compare_build.sh` records the live values of each
+GPU job in `$CUADMM_BASELINES/<config>/compare/<tag>/config.txt`.
 
 | Item | Value |
 |---|---|
@@ -23,8 +23,8 @@ GPU job in `$CUADMM_BASELINES/<config>/config.txt`.
 ## Reference builds
 
 Worktrees under `$HOME/cuadmm-worktrees/`, built into `$HOME/cuadmm-builds/<name>/` with
-`$HOME/cuadmm-tools/build_ref.sh` (same CMake arguments as `tools/build.sh`; the references set
-`CUDA_ARCHITECTURES OFF`, so the architecture is passed through `CMAKE_CUDA_FLAGS`).
+the same CMake arguments as `tools/build.sh` (the references set `CUDA_ARCHITECTURES OFF`, so the architecture
+is passed through `CMAKE_CUDA_FLAGS`).
 
 | Name | Commit | Submodule | Patches applied (reference worktrees only) | Used for |
 |---|---|---|---|---|
@@ -44,5 +44,6 @@ Both patches were applied with `sed` on 2026-10-21 and recorded with `git diff` 
 
 - Generator problems: `cuadmm_gen_problems $CUADMM_DATA/generated` (deterministic, `std::mt19937` raw outputs); the
   SHA-256 of the written files is recorded next to each baseline (`generated_sha256.txt`).
-- PLATO: `trto1` and `mater-1` TXT directories converted by
-  `experiments/2026-09-29_plato_cold_plain_admm_sigma/scripts/sdpa_to_cuadmm.py` (`$CUADMM_DATA/plato_kocvara/txt/`).
+- PLATO: `trto1` and `mater-1` TXT directories (`$CUADMM_DATA/plato_kocvara/txt/`), converted from SDPA by
+  `sdpa_to_cuadmm.py` of the PLATO campaign (`experiments/2026-09-29_plato_cold_plain_admm_sigma/scripts/` in the
+  history of `main`; `cuadmm-convert` reads SDPA directly).

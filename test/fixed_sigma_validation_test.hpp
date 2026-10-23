@@ -6,8 +6,8 @@
     solve() (ValidationConfig, ExternalValidator):
       - fixed sigma is exactly constant for the whole solve, in pure sGS and in plain ADMM;
       - the legacy adaptive policy (and plain ADMM) reproduces the histories of the pre-change solver 290660f
-        (test/data/legacy_golden.txt, generated on an H200 by
-        experiments/2026-09-28_fixed_sigma_to_tolerance/scripts/gen_legacy_golden.cu; regenerate it on another GPU
+        (test/data/legacy_golden.txt, generated on an H200 by gen_legacy_golden.cu of the fixed-sigma campaign,
+        experiments/2026-09-28_fixed_sigma_to_tolerance/scripts/ in the history of main; regenerate it on another GPU
         architecture, whose rounding may differ);
       - pure sGS never takes a plain ADMM step;
       - validation continues beyond iteration 10000, the solve stops on the validated accuracy, not on the internal
