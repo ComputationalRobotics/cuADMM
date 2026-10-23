@@ -22,6 +22,7 @@
 #include "cone/cone_product.h"
 #include "cone/psd/psd_cone.h"
 #include "core/stream_pool.h"
+#include "linsys/direct/cholmod/cholmod_solver.h"
 #include "core/workspace_arena.h"
 
 #include <algorithm>
@@ -206,73 +207,32 @@ void SDPSolver::init(
     CHECK_CUDA(cudaMemcpyAsync(this->A_csr.col_ids, this->At_csc.row_ids, sizeof(int) * At_nnz, D2D, this->stream_flex[1].stream));
     CHECK_CUDA(cudaMemcpyAsync(this->A_csr.vals, this->At_csc.vals, sizeof(double) * At_nnz, D2D, this->stream_flex[2].stream));
 
-    /* Initialize the AAt solver on CPU */
-    const auto factorization_start = std::chrono::steady_clock::now();
-    this->cpu_AAt_solver.get_A(
-        this->At_csr.row_ptrs, this->At_csr.col_ids, this->At_csr.vals,
-        this->At_csr.col_size, this->At_csr.row_size, this->At_csr.nnz,
-        true, 1e-15);
-    this->cpu_AAt_solver.factorize();
-    printf("\n factorization of AA^T + 1e-15 I: %s, nnz(L) = %.3e, %.1f s\n",
-           this->cpu_AAt_solver.supernodal_used ? "supernodal LL^T -> simplicial LDL^T" : "simplicial LDL^T",
-           this->cpu_AAt_solver.cc.lnz,
-           std::chrono::duration<double>(std::chrono::steady_clock::now() - factorization_start).count());
-    printf("   pivots in [%.2e, %.2e], %d tiny (< 1e-12 max) and %d nonpositive%s\n",
-           this->cpu_AAt_solver.min_pivot, this->cpu_AAt_solver.max_pivot,
-           this->cpu_AAt_solver.tiny_pivots, this->cpu_AAt_solver.nonpositive_pivots,
-           this->cpu_AAt_solver.tiny_pivots > 0 ? ": A does not have full row rank (dependent constraints)" : "");
-    // With a dense factor (few constraints, e.g. neosfrbr25: nnz(L) = m^2/2 = 1e8, 119 ms per CPU solve), the y-step
-    // solves are two dense triangular solves on the GPU (4 ms), with the same factor. Sparse factors stay on the CPU:
-    // cuSPARSE triangular solves were measured slower than CHOLMOD's there (0.1-1.3x).
+    /* The normal equations (plan Section 11): the CHOLMOD backend of main through the linear-system interface */
     {
-        size_t free_mem = 0, total_mem = 0;
-        CHECK_CUDA(cudaMemGetInfo(&free_mem, &total_mem));
-        const double m = con_num;
-        const cholmod_factor *F = this->cpu_AAt_solver.chol_fac_L;
-        this->AAt_dense_gpu = con_num >= 2000 && m * m <= double(std::numeric_limits<int>::max()) &&
-                              8.0 * m * m <= 0.25 * double(free_mem) &&
-                              this->cpu_AAt_solver.cc.lnz > 0.3 * m * (m + 1) / 2 &&
-                              !F->is_super && !F->is_ll;
-        if (this->AAt_dense_gpu)
-        {
-            // simplicial LDL^T: column j holds D_jj first, then the entries L(i, j), i > j (Lnz[j] entries in all)
-            const int *Lp = (const int *)F->p, *Li = (const int *)F->i, *Lnz = (const int *)F->nz;
-            const double *Lx = (const double *)F->x;
-            std::vector<double> L_dense(size_t(con_num) * con_num, 0.0), D(con_num);
-            for (int j = 0; j < con_num; j++)
-            {
-                if (Lnz[j] < 1 || Li[Lp[j]] != j)
-                    throw std::runtime_error("unexpected layout of the CHOLMOD factor: the diagonal is not first");
-                D[j] = Lx[Lp[j]];
-                L_dense[size_t(j) * con_num + j] = 1.0;
-                for (int k = Lp[j] + 1; k < Lp[j] + Lnz[j]; k++)
-                    L_dense[size_t(j) * con_num + Li[k]] = Lx[k];
-            }
-            this->AAt_L.allocate(GPU0, con_num * con_num);
-            this->AAt_D.allocate(GPU0, con_num);
-            CHECK_CUDA(cudaMemcpy(this->AAt_L.vals, L_dense.data(), sizeof(double) * L_dense.size(), H2D));
-            CHECK_CUDA(cudaMemcpy(this->AAt_D.vals, D.data(), sizeof(double) * con_num, H2D));
-        }
-        if (this->AAt_dense_gpu)
-            printf("   y-step solves: dense triangular solves on the GPU (%.2f GB)\n", 8.0 * m * m / 1e9);
+        // the backends read the normalized A^T from the host (the device CSC holds A after get_normA)
+        this->host_At_vals_scaled.resize(At_nnz);
+        CHECK_CUDA(cudaDeviceSynchronize());
+        CHECK_CUDA(cudaMemcpy(this->host_At_vals_scaled.data(), this->At_csc.vals, sizeof(double) * At_nnz, D2H));
+        std::unique_ptr<cuadmm::linsys::CholmodSolver> chol(new cuadmm::linsys::CholmodSolver(this->cublasH.cublas_handle));
+        this->linsys_factor = chol->factorize(this->normal_system());
+        this->linsys_nnz_L = chol->symbolic_info().nnz_L;
+        printf("\n factorization of AA^T + %g I: %s, nnz(L) = %.3e, %.1f s\n",
+               this->linsys_regularization,
+               this->linsys_factor.supernodal ? "supernodal LL^T -> simplicial LDL^T" : "simplicial LDL^T",
+               this->linsys_nnz_L, this->linsys_factor.seconds);
+        printf("   pivots in [%.2e, %.2e], %d tiny (< 1e-12 max) and %d nonpositive%s\n",
+               this->linsys_factor.min_pivot, this->linsys_factor.max_pivot,
+               this->linsys_factor.tiny_pivots, this->linsys_factor.nonpositive_pivots,
+               this->linsys_factor.tiny_pivots > 0 ? ": A does not have full row rank (dependent constraints)" : "");
+        if (chol->dense_gpu())
+            printf("   y-step solves: dense triangular solves on the GPU (%.2f GB)\n", 8.0 * double(con_num) * double(con_num) / 1e9);
         else
             printf("   y-step solves: CHOLMOD on the CPU\n");
+        this->linsys = std::move(chol);
     }
-    // retrieve permutation of the L factor
-    this->perm.allocate(GPU0, con_num);
-    CHECK_CUDA(cudaMemcpyAsync(this->perm.vals, this->cpu_AAt_solver.chol_fac_L->Perm, sizeof(int) * con_num, H2D, this->stream_flex[0].stream));
     // allocate memory of right-hand side vector
     this->rhsy.allocate(GPU0, con_num);
     CHECK_CUDA(cudaMemset(this->rhsy.vals, 0, sizeof(double) * con_num)); // SpMV output, see Aty below
-    this->rhsy_perm.allocate(GPU0, con_num);
-    this->y_perm.allocate(GPU0, con_num);
-    // compute inverse permutation
-    std::vector<int> perm_tmp(con_num, 0);
-    std::vector<int> perm_inv_tmp;
-    memcpy(perm_tmp.data(), this->cpu_AAt_solver.chol_fac_L->Perm, sizeof(int) * con_num);
-    this->perm_inv.allocate(GPU0, con_num);
-    get_inverse_permutation(perm_inv_tmp, perm_tmp);
-    CHECK_CUDA(cudaMemcpyAsync(this->perm_inv.vals, perm_inv_tmp.data(), sizeof(int) * con_num, H2D, this->stream_flex[1].stream));
 
     /* Initialize b, C, X, y, S, sig on GPU */
     this->b.allocate(GPU0, con_num, b_nnz);
@@ -551,33 +511,11 @@ void SDPSolver::solve(
     loop.run(this->sig, !if_first);
 }
 
-void SDPSolver::solve_AAt_perm()
+cuadmm::linsys::NormalSystem SDPSolver::normal_system() const
 {
-    if (this->AAt_dense_gpu)
-    {
-        // y_perm <- L^{-T} D^{-1} L^{-1} rhsy_perm (cuBLAS and the kernels run on the default stream)
-        CHECK_CUDA(cudaMemcpy(this->y_perm.vals, this->rhsy_perm.vals, sizeof(double) * this->con_num, D2D));
-        CHECK_CUBLAS(cublasDtrsv(
-            this->cublasH.cublas_handle, CUBLAS_FILL_MODE_LOWER, CUBLAS_OP_N, CUBLAS_DIAG_UNIT,
-            this->con_num, this->AAt_L.vals, this->con_num, this->y_perm.vals, 1));
-        dense_vector_div_dense_vector_mul_scalar(this->y_perm, this->AAt_D, 1.0);
-        CHECK_CUBLAS(cublasDtrsv(
-            this->cublasH.cublas_handle, CUBLAS_FILL_MODE_LOWER, CUBLAS_OP_T, CUBLAS_DIAG_UNIT,
-            this->con_num, this->AAt_L.vals, this->con_num, this->y_perm.vals, 1));
-        return;
-    }
-    CHECK_CUDA(cudaDeviceSynchronize());
-    CHECK_CUDA(cudaMemcpyAsync(
-        this->cpu_AAt_solver.chol_dn_rhs->x, this->rhsy_perm.vals,
-        sizeof(double) * this->con_num, D2H, this->stream_flex[0].stream));
-    CHECK_CUDA(cudaStreamSynchronize(this->stream_flex[0].stream));
-    this->cpu_AAt_solver.solve();
-    CHECK_CUDA(cudaMemcpyAsync(
-        this->y_perm.vals, this->cpu_AAt_solver.chol_dn_res->x,
-        sizeof(double) * this->con_num, H2D, this->stream_flex[0].stream));
-    CHECK_CUDA(cudaStreamSynchronize(this->stream_flex[0].stream));
+    return cuadmm::linsys::NormalSystem(this->con_num, this->vec_len, this->host_At_col_ptrs.data(), this->host_At_row_ids.data(),
+                                        this->host_At_vals_scaled.data(), this->linsys_regularization);
 }
-
 SDPSolver::~SDPSolver()
 {
     // the events live as long as the solver, so that solve() can be called again and nothing leaks if it throws

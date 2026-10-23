@@ -26,6 +26,12 @@
 #include "cone/psd/psd_cone.h"
 #include "core/stream_pool.h"
 #include "core/workspace_arena.h"
+#include "linsys/direct/cholmod/cholmod_solver.h"
+#include "linsys/direct/dense/dense_cusolver_solver.h"
+#ifdef CUADMM_HAVE_CUDSS
+#include "linsys/direct/cudss/cudss_solver.h"
+#endif
+#include "problem/presolve.h"
 #include "termination/certificate.h"
 
 #include <chrono>
@@ -70,6 +76,10 @@ struct Solver::Impl
     std::unique_ptr<core::StreamPool> pool;   // the named streams (Phase 6b)
     core::WorkspaceArena arena;               // the workspace regions of the cones (Phase 6b), committed at setup
     std::size_t memory_plan_bytes = 0;        // device memory in use after setup (the plan the peak is measured against)
+    std::string linsys_name;                  // the normal-equation backend in use (Phase 7)
+    std::unique_ptr<problem::RowMap> row_map; // the presolve's row map when rows were removed (Phase 7)
+    int presolve_removed = 0;
+    std::string presolve_message;
     std::vector<std::shared_ptr<report::IterationObserver>> observers;
     std::unique_ptr<admm::PenaltyPolicy> penalty; // built at setup from the options; reset at every solve
     std::unique_ptr<cone::ConeProduct> cones;      // the product cone of the problem (Phase 5), on the engine's tiers
@@ -150,7 +160,7 @@ std::string Solver::linsys_backend() const
 {
     if (!impl_->is_setup)
         return "";
-    return impl_->engine->AAt_dense_gpu ? "cholmod_dense_gpu" : "cholmod";
+    return impl_->linsys_name;
 }
 
 void Solver::setup(const ProblemData &problem)
@@ -190,6 +200,39 @@ void Solver::setup(const ProblemData &problem)
 
     // scheme and projection schedule
     im.switch_admm = o.algorithm.scheme == SchemeKind::SgsAdmm ? std::numeric_limits<int>::max() : o.algorithm.scheme_switch_iteration;
+    // the presolve (plan Section 11.7): dependent constraint rows removed before the factorization, off by default
+    im.row_map.reset();
+    im.presolve_removed = 0;
+    im.presolve_message.clear();
+    if (o.linsys.presolve)
+    {
+        std::vector<double> b_dense(im.con_num, 0.0);
+        for (std::size_t i = 0; i < im.b_index.size(); i++)
+            b_dense[im.b_index[i]] = im.b_val[i];
+        problem::PresolveOptions po;
+        po.eps = o.linsys.regularization;
+        const problem::PresolveResult pr = problem::presolve(im.con_num, im.vec_len, im.at_colptr.data(), im.at_rowind.data(), im.at_val.data(), b_dense.data(), po);
+        im.presolve_message = pr.message;
+        if (o.output.verbosity >= 1)
+            std::cout << " presolve: " << pr.message << std::endl;
+        if (pr.changed())
+        {
+            im.at_colptr = pr.at_colptr;
+            im.at_rowind = pr.at_rowind;
+            im.at_val = pr.at_val;
+            im.b_index.clear();
+            im.b_val.clear();
+            for (int i = 0; i < pr.m; i++)
+                if (pr.b[i] != 0.0)
+                {
+                    im.b_index.push_back(i);
+                    im.b_val.push_back(pr.b[i]);
+                }
+            im.con_num = pr.m;
+            im.presolve_removed = pr.removed_rows;
+            im.row_map.reset(new problem::RowMap(pr.map));
+        }
+    }
     // the warm-up workspaces of the engine are allocated when some large block (n > psd.medium_max) gets the warm-up
     // (n >= psd.large.warmup.min_size); the per-block schedule is the PSD cone's LargeBlockPolicy
     bool any_warm_block = false;
@@ -202,6 +245,7 @@ void Solver::setup(const ProblemData &problem)
     im.engine.reset(new SDPSolver());
     SDPSolver &e = *im.engine;
     e.medium_batch_min_count = o.psd.medium_batch_min;
+    e.linsys_regularization = o.linsys.regularization;
     e.lobpcg_ratio = o.psd.lowrank_ratio; // sizes the LOBPCG warm start at init
     e.lobpcg_relaxation = o.psd.lowrank_relaxation;
     e.init(o.psd.medium_streams, im.vec_len, im.con_num,
@@ -273,6 +317,37 @@ void Solver::setup(const ProblemData &problem)
                 throw std::runtime_error("could not write the checkpoint " + dir); // reported and counted by the engine
         };
     }
+    // the normal-equation backend (plan Section 11.5): auto and cholmod keep the engine's CHOLMOD backend (today's rule
+    // for the dense-factor variant); dense and cudss factorize the same system and replace it
+    im.linsys_name = std::string(e.linsys->name());
+    if (o.linsys.backend == LinsysBackend::Dense || o.linsys.backend == LinsysBackend::Cudss)
+    {
+        std::unique_ptr<linsys::NormalEquationSolver> alt;
+        if (o.linsys.backend == LinsysBackend::Dense)
+        {
+            linsys::DenseCusolverSolver::Options d;
+            d.memory_fraction = o.linsys.memory_fraction;
+            alt.reset(new linsys::DenseCusolverSolver(im.pool->context(core::StreamRole::Main).cusolver, d));
+        }
+        else
+        {
+#ifdef CUADMM_HAVE_CUDSS
+            linsys::CudssSolver::Options c;
+            c.determinism_strict = o.determinism == Determinism::Strict;
+            alt.reset(new linsys::CudssSolver(c));
+#else
+            throw std::runtime_error("linsys.backend = cudss: this build has no cuDSS (configure with CUADMM_WITH_CUDSS=ON and CUDSS_ROOT)");
+#endif
+        }
+        const linsys::NormalSystem sys = e.normal_system();
+        alt->analyze(sys);
+        e.linsys_factor = alt->factorize(sys);
+        e.linsys_nnz_L = 0.0;
+        im.linsys_name = std::string(alt->name());
+        e.linsys = std::move(alt);
+        if (o.output.verbosity >= 1)
+            std::cout << " normal equations: " << im.linsys_name << " (" << e.linsys_factor.kind << ", " << e.linsys_factor.seconds << " s)" << std::endl;
+    }
     im.is_setup = true;
     im.first_solve = true;
 }
@@ -289,10 +364,16 @@ SolveResult Solver::solve(const WarmStart *warm_start)
     if (warm_start)
     {
         if (static_cast<int>(warm_start->X.size()) != im.vec_len || static_cast<int>(warm_start->S.size()) != im.vec_len ||
-            static_cast<int>(warm_start->y.size()) != im.con_num)
+            static_cast<int>(warm_start->y.size()) != (im.row_map ? im.row_map->m_full : im.con_num))
             throw std::invalid_argument("warm start sizes do not match the problem");
         CHECK_CUDA(cudaMemcpy(e.X.vals, warm_start->X.data(), sizeof(double) * im.vec_len, cudaMemcpyHostToDevice));
-        CHECK_CUDA(cudaMemcpy(e.y.vals, warm_start->y.data(), sizeof(double) * im.con_num, cudaMemcpyHostToDevice));
+        if (im.row_map)
+        {
+            const std::vector<double> reduced = im.row_map->restrict(warm_start->y);
+            CHECK_CUDA(cudaMemcpy(e.y.vals, reduced.data(), sizeof(double) * im.con_num, cudaMemcpyHostToDevice));
+        }
+        else
+            CHECK_CUDA(cudaMemcpy(e.y.vals, warm_start->y.data(), sizeof(double) * im.con_num, cudaMemcpyHostToDevice));
         CHECK_CUDA(cudaMemcpy(e.S.vals, warm_start->S.data(), sizeof(double) * im.vec_len, cudaMemcpyHostToDevice));
         rescale = true; // original units: solve() scales them and recomputes the residuals
         e.sig = warm_start->sigma > 0 ? warm_start->sigma : o.penalty.sigma0;
@@ -352,6 +433,8 @@ SolveResult Solver::solve(const WarmStart *warm_start)
     r.returned_best_iterate = e.returned_best_iterate || e.returned_best_external;
     r.best.X = device_to_host(e.X);
     r.best.y = device_to_host(e.y);
+    if (im.row_map) // the presolve: y of the full problem, zeros on the removed rows
+        r.best.y = im.row_map->expand(r.best.y);
     r.best.S = device_to_host(e.S);
     r.best.eta_p = e.errRp;
     r.best.eta_d = e.errRd;
@@ -423,10 +506,12 @@ SolveResult Solver::solve(const WarmStart *warm_start)
     if (!e.validation_history.empty())
         r.validation_history_csv = validation_csv(e);
     r.linsys_backend = linsys_backend();
-    r.aat_supernodal = e.cpu_AAt_solver.supernodal_used;
-    r.aat_nnz_L = e.cpu_AAt_solver.cc.lnz;
-    r.aat_tiny_pivots = e.cpu_AAt_solver.tiny_pivots;
-    r.aat_nonpositive_pivots = e.cpu_AAt_solver.nonpositive_pivots;
+    r.aat_supernodal = e.linsys_factor.supernodal;
+    r.aat_nnz_L = e.linsys_nnz_L;
+    r.aat_tiny_pivots = e.linsys_factor.tiny_pivots;
+    r.aat_nonpositive_pivots = e.linsys_factor.nonpositive_pivots;
+    r.presolve_removed_rows = im.presolve_removed;
+    r.presolve_message = im.presolve_message;
     r.lobpcg_calls = e.lobpcg_calls;
     r.lobpcg_fallbacks = e.lobpcg_fallbacks;
     r.composite_fallbacks = e.composite_fallbacks;

@@ -228,11 +228,11 @@ const std::vector<OptionSpec> &option_table()
         // scaling
         {"scaling.enabled", "--scaling", {}, "bool", "", "true", "row normalization of A and the two scalars b_s, C_s (Milestone 1: always on)", ""},
         // linsys
-        {"linsys.backend", "--backend", {}, "enum", "auto, cholmod, cudss, dense", "auto", "normal-equation backend (Milestone 1: auto = cholmod with today's dense-factor rule)", "7"},
-        {"linsys.regularization", "--regularization", {}, "double", "", "1e-15", "added to the diagonal of AA^T (Milestone 1: fixed)", "7"},
-        {"linsys.presolve", "--presolve", {}, "bool", "", "false", "dependent-row removal (Phase 7; off in the bitwise phases)", "7"},
-        {"linsys.memory_fraction", "--memory-fraction", {}, "double", "", "0.25", "budget of a dense or cuDSS factor as a fraction of free memory", "7"},
-        {"linsys.autotune", "--autotune", {}, "bool", "", "false", "time the two best backends and keep the faster", "7"},
+        {"linsys.backend", "--backend", {}, "enum", "auto, cholmod, cudss, dense", "auto", "normal-equation backend: auto = cholmod (CHOLMOD on the host; the dense factor on the GPU by today's rule), dense (cuSOLVER Cholesky on the device), cudss (cuDSS, when compiled in)", ""},
+        {"linsys.regularization", "--regularization", {}, "double", "", "1e-15", "added to the diagonal of AA^T", ""},
+        {"linsys.presolve", "--presolve", {}, "bool", "", "false", "remove dependent constraint rows before the factorization (plan Section 11.7)", ""},
+        {"linsys.memory_fraction", "--memory-fraction", {}, "double", "", "0.25", "budget of a dense factor as a fraction of free memory", ""},
+        {"linsys.autotune", "--autotune", {}, "bool", "", "false", "time the two best backends and keep the faster (not implemented: DECISIONS 57)", "7"},
         // certificate
         {"certificate.block_bounds", "--block-bounds", {}, "double_list", "", "none", "per-block bounds R_b of the certified lower bound (comma-separated, one per block; a negative entry: no bound for that block, the bound is then unavailable)", ""},
         {"certificate.trace_bound", "--trace-bound", {}, "double", "", "none", "the same bound R for every block (paper eq. 30)", ""},
@@ -672,14 +672,10 @@ void SolverOptions::validate() const
 
     if (!scaling.enabled)
         fail("scaling.enabled", "Milestone 1: the ported engine always scales (false is not implemented yet)");
-    if (linsys.backend != LinsysBackend::Auto && linsys.backend != LinsysBackend::Cholmod)
-        fail("linsys.backend", std::string(name_of(linsys.backend)) + " comes with Phase 7; Milestone 1 offers auto (= cholmod)");
-    if (linsys.regularization != 1e-15)
-        fail("linsys.regularization", "is fixed at 1e-15 until Phase 7");
-    if (linsys.presolve)
-        fail("linsys.presolve", "comes with Phase 7 (off in the bitwise phases)");
+    if (!(linsys.regularization >= 0.0) || linsys.regularization > 1e-3)
+        fail("linsys.regularization", "must be in [0, 1e-3]");
     if (linsys.autotune)
-        fail("linsys.autotune", "comes with Phase 7");
+        fail("linsys.autotune", "not implemented: choose the backend with linsys.backend (DECISIONS 57)");
     if (!(linsys.memory_fraction > 0.0 && linsys.memory_fraction <= 1.0))
         fail("linsys.memory_fraction", "must be in (0, 1]");
 

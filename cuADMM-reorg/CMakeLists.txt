@@ -174,6 +174,7 @@ set(CUADMM_SOURCES
   src/termination/certificate.cu
   src/solver/solver_facade.cu
   src/linsys/normal_system.cc
+  src/linsys/direct/cholmod/cholmod_solver.cu
   src/linsys/direct/dense/dense_cusolver_solver.cu
   src/problem/presolve.cc)
 # the cuDSS backend (plan Section 11.4) is compiled in only when the library was found
@@ -247,6 +248,14 @@ if(CUADMM_BUILD_BENCH)
   target_include_directories(cuadmm_psd_projector_bench PRIVATE src ${CMAKE_BINARY_DIR}/generated)
   target_link_libraries(cuadmm_psd_projector_bench PRIVATE cuadmm CUDA::cudart CUDA::cublas CUDA::cusolver)
   add_dependencies(cuadmm_psd_projector_bench cuadmm_version)
+  # Phase 7: the normal-equation backends on the systems of problem directories (docs/phase7_linsys_benchmark.md)
+  add_executable(cuadmm_linsys_bench bench/linsys_bench.cu)
+  target_include_directories(cuadmm_linsys_bench PRIVATE src src/legacy/include ${CMAKE_BINARY_DIR}/generated ${SUITESPARSE_INCLUDE_DIRECTORIES})
+  target_link_libraries(cuadmm_linsys_bench PRIVATE cuadmm CUDA::cudart CUDA::cublas CUDA::cusolver)
+  if(CUADMM_WITH_CUDSS_RESOLVED)
+    target_compile_definitions(cuadmm_linsys_bench PRIVATE CUADMM_HAVE_CUDSS=1)
+  endif()
+  add_dependencies(cuadmm_linsys_bench cuadmm_version)
 endif()
 
 # ---------------------------------------------------------------------------------------------- tests
@@ -302,6 +311,7 @@ if(CUADMM_BUILD_TESTS)
   target_link_libraries(cuadmm_linsys_tests PRIVATE GTest::gtest_main cuadmm)
   if(CUADMM_WITH_CUDSS_RESOLVED)
     target_compile_definitions(cuadmm_linsys_tests PRIVATE CUADMM_HAVE_CUDSS=1)
+    target_compile_definitions(cuadmm_tests PRIVATE CUADMM_HAVE_CUDSS=1) # the end-to-end cuDSS test of the main suite
   endif()
   gtest_discover_tests(cuadmm_linsys_tests DISCOVERY_MODE PRE_TEST)
   # Phase 7 presolve (CPU only): dependent constraint rows (test/presolve_test.hpp)

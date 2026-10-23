@@ -165,6 +165,7 @@ void append_summary_json(const std::string &path, const std::string &problem_pat
       << ", \"memory_plan_mib\": " << json_number(r.memory_plan_bytes / 1048576.0)
       << ", \"linsys_backend\": " << json_string(r.linsys_backend) << ", \"aat_supernodal\": " << B(r.aat_supernodal)
       << ", \"aat_nnz_L\": " << json_number(r.aat_nnz_L) << ", \"aat_tiny_pivots\": " << r.aat_tiny_pivots
+      << ", \"presolve_removed_rows\": " << r.presolve_removed_rows
       << ", \"aat_nonpositive_pivots\": " << r.aat_nonpositive_pivots
       << ", \"errRp\": " << json_number(r.eta_p) << ", \"errRd\": " << json_number(r.eta_d) << ", \"relgap\": " << json_number(r.eta_g)
       << ", \"eta_p\": " << json_number(r.eta_p) << ", \"eta_d\": " << json_number(r.eta_d) << ", \"eta_g\": " << json_number(r.eta_g)

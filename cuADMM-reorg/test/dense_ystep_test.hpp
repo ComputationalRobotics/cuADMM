@@ -16,6 +16,7 @@
 #include <vector>
 
 #include "cone/cone_product.h"
+#include "linsys/direct/cholmod/cholmod_solver.h"
 #include "cone/psd/psd_cone.h"
 #include "core/stream_pool.h"
 #include "core/workspace_arena.h"
@@ -34,8 +35,16 @@ TEST(DenseYStep, MatchesCpuSolves)
         SDPSolver dense, cpu;
         ASSERT_NO_THROW(solver_setup::init_solver(p, dense));
         ASSERT_NO_THROW(solver_setup::init_solver(p, cpu));
-        ASSERT_TRUE(dense.AAt_dense_gpu) << "nnz(L) = " << dense.cpu_AAt_solver.cc.lnz;
-        cpu.AAt_dense_gpu = false; // same factor, CHOLMOD solves on the CPU
+        ASSERT_TRUE(static_cast<cuadmm::linsys::CholmodSolver *>(dense.linsys.get())->dense_gpu()) << "nnz(L) = " << dense.linsys_nnz_L;
+        {
+            // the same factor, CHOLMOD solves on the CPU: a backend without the dense-factor variant
+            cuadmm::linsys::CholmodSolver::Options no_dense;
+            no_dense.dense_gpu_auto = false;
+            std::unique_ptr<cuadmm::linsys::CholmodSolver> chol(new cuadmm::linsys::CholmodSolver(cpu.cublasH.cublas_handle, no_dense));
+            cpu.linsys_factor = chol->factorize(cpu.normal_system());
+            ASSERT_FALSE(chol->dense_gpu());
+            cpu.linsys = std::move(chol);
+        }
         ASSERT_NO_THROW(dense.solve(300, 1e-12, 500, 50, 100, switch_admm, 0));
         ASSERT_NO_THROW(cpu.solve(300, 1e-12, 500, 50, 100, switch_admm, 0));
         ASSERT_EQ(dense.info_iter_num, cpu.info_iter_num);

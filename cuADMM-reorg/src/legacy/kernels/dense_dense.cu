@@ -157,14 +157,21 @@ void dense_vector_mul_dense_vector_mul_scalar(
 
 // vec1 <-- vec1 / vec2 * scalar
 void dense_vector_div_dense_vector_mul_scalar(
+    double *vec1_vals, const double *vec2_vals, const double scalar, int size,
+    const cudaStream_t &stream, int block_size)
+{
+    const int num_block = (size + block_size - 1) / block_size;
+    dense_vector_div_dense_vector_mul_scalar_kernel<<<num_block, block_size, 0, stream>>>(
+        vec1_vals, const_cast<double *>(vec2_vals), scalar, size);
+    CHECK_KERNEL_LAUNCH();
+    return;
+}
+
+void dense_vector_div_dense_vector_mul_scalar(
     DeviceDenseVector<double> &vec1, const DeviceDenseVector<double> &vec2,
     const double scalar, const cudaStream_t &stream, int block_size)
 {
-    const int size = vec1.size;
-    const int num_block = (size + block_size - 1) / block_size;
-    dense_vector_div_dense_vector_mul_scalar_kernel<<<num_block, block_size, 0, stream>>>(
-        vec1.vals, vec2.vals, scalar, size);
-    CHECK_KERNEL_LAUNCH();
+    dense_vector_div_dense_vector_mul_scalar(vec1.vals, vec2.vals, scalar, vec1.size, stream, block_size);
     return;
 }
 

@@ -41,6 +41,10 @@ void dense_vector_div_dense_vector_mul_scalar(
     DeviceDenseVector<double> &vec1, const DeviceDenseVector<double> &vec2,
     const double scalar,
     const cudaStream_t &stream = (cudaStream_t)0, int block_size = 1024);
+// The same on raw device ranges of `size` entries (the linear-system backends, Phase 7).
+void dense_vector_div_dense_vector_mul_scalar(
+    double *vec1_vals, const double *vec2_vals, const double scalar, int size,
+    const cudaStream_t &stream = (cudaStream_t)0, int block_size = 1024);
 
 // vec1 <-- -vec1
 void dense_vector_negate(
@@ -111,6 +115,10 @@ void perform_permutation(
     DeviceDenseVector<double> &vec1,
     const DeviceDenseVector<double> &vec2,
     const DeviceDenseVector<int> &perm,
+    const cudaStream_t &stream = (cudaStream_t)0, int block_size = 1024);
+// The same on raw device ranges: vec1[perm[i]] = vec2[i] for i < size (the linear-system backends, Phase 7).
+void perform_permutation(
+    double *vec1_vals, const double *vec2_vals, const int *perm_vals, int size,
     const cudaStream_t &stream = (cudaStream_t)0, int block_size = 1024);
 
 /*

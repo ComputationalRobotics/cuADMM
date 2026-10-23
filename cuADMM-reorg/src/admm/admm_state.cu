@@ -37,10 +37,8 @@ void AdmmState::y_step(double sigma)
     // rhsy <-- 1/sig * Rp + rhsy
     axpy_cublas(e.cublasH, e.Rp, e.rhsy, 1 / sigma);
     /* y^{k+1/2} = (AA^T)^{-1} r_s^{k+1/2} */
-    perform_permutation(e.rhsy_perm, e.rhsy, e.perm_inv);
-    e.solve_AAt_perm();
+    e.linsys->solve(e.rhsy.vals, e.y.vals, e.con_num, cuadmm::linsys::SolveRequest(), nullptr);
     y_solves_++;
-    perform_permutation(e.y, e.y_perm, e.perm);
 }
 
 void AdmmState::cone_step(double sigma, int k)
@@ -74,10 +72,8 @@ void AdmmState::second_y_step(double sigma)
     // rhsy <-- 1/sig * Rp + rhsy, hence rhsy = 1/sigma b - A(X^k /sigma + S^{k+1} - C)
     axpy_cublas(e.cublasH, e.Rp, e.rhsy, 1 / sigma);
     // y <-- linsys(rhsy)
-    perform_permutation(e.rhsy_perm, e.rhsy, e.perm_inv);
-    e.solve_AAt_perm();
+    e.linsys->solve(e.rhsy.vals, e.y.vals, e.con_num, cuadmm::linsys::SolveRequest(), nullptr);
     y_solves_++;
-    perform_permutation(e.y, e.y_perm, e.perm);
     // Aty <-- 1.0 * At * y + 0.0 * Aty, hence Aty = A^T y^{k+1}
     SpMV_cusparse(e.cusparseH, e.At_csr, e.y, e.Aty, 1.0, 0.0, e.SpMV_Aty_buffer);
     // Rd1 <-- Aty; Rd1 <-- (-1.0) * C + 1.0 * Rd1, hence Rd1 = A^T y^{k+1} - C

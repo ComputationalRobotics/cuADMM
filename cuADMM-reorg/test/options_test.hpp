@@ -272,8 +272,8 @@ TEST(Options, ValidateRejectsWhatThePlanForbids)
     rejects("validation.tol", "1e-4");  // needs an interval
     rejects("validation.checkpoint_iterations", "100");
     rejects("validation.strict_dimacs_tol", "1e-6");
-    rejects("linsys.presolve", "1");    // Phase 7
-    rejects("linsys.backend", "cudss");
+    rejects("linsys.autotune", "1");       // not implemented (DECISIONS 57)
+    rejects("linsys.regularization", "1"); // out of [0, 1e-3]
     rejects("scaling.enabled", "0");
     rejects("psd.small_max", "64");     // fixed tier limits
     rejects("psd.medium.max_batch", "-1");

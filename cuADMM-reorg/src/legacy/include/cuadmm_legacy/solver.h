@@ -17,6 +17,8 @@
 #include "cuadmm_legacy/memory.h"
 #include "cuadmm_legacy/utils.h"
 #include "cuadmm_legacy/cholesky_cpu.h"
+#include "linsys/normal_equation_solver.h"
+#include <memory>
 #include "cuadmm_legacy/cublas.h"
 #include "cuadmm_legacy/cusparse.h"
 #include "cuadmm_legacy/cusolver.h"
@@ -259,16 +261,13 @@ public:
     size_t SpVV_bty_buffer_size;               // |
     DeviceDenseVector<double> SpVV_bty_buffer; // |
 
-    /* Cholesky decomposition on CPU */
-    CholeskySolverCPU cpu_AAt_solver;    // solver for AAt * x = b
-    DeviceDenseVector<int> perm;         // permutation in the L factor of AAt
-    DeviceDenseVector<int> perm_inv;     // inverse of perm
+    /* The normal equations (plan Section 11, Phase 7): the backend behind the interface; CHOLMOD of main by default */
+    std::unique_ptr<cuadmm::linsys::NormalEquationSolver> linsys; // set by init() (CholmodSolver); the facade may replace it
+    cuadmm::linsys::FactorInfo linsys_factor;                   // the factorization statistics of the backend in use
+    double linsys_nnz_L = 0.0;                                   // nnz(L) of the CHOLMOD factor (0 for the other backends)
+    double linsys_regularization = 1e-15;                        // eps of A A^T + eps I (linsys.regularization); set before init()
+    std::vector<double> host_At_vals_scaled;                     // the normalized A^T values on the host (the backends' input)
     DeviceDenseVector<double> rhsy;      // right-hand side of AAt * x = b
-    DeviceDenseVector<double> rhsy_perm; // permuted rhsy
-    DeviceDenseVector<double> y_perm;    // y after permutation
-    bool AAt_dense_gpu;                  // y-step solves with the dense L D L^T factor on the GPU (see init)
-    DeviceDenseVector<double> AAt_L;     // |- dense unit lower triangular L (column-major, con_num x con_num)
-    DeviceDenseVector<double> AAt_D;     // |  and diagonal D of the factor of cpu_AAt_solver, if AAt_dense_gpu
     DeviceDenseVector<double> Rd1;
     size_t CSCtoCSR_At2A_buffer_size;               // cached call to buffersize_cusparse
     DeviceDenseVector<double> CSCtoCSR_At2A_buffer; // buffer for CSC to CSR
@@ -436,7 +435,7 @@ public:
     DeviceDenseVector<double> y_best; // |
     DeviceDenseVector<double> S_best; // |
 
-    SDPSolver() : AAt_dense_gpu(false), start(nullptr), stop(nullptr), time_limit(std::numeric_limits<double>::infinity()),
+    SDPSolver() : start(nullptr), stop(nullptr), time_limit(std::numeric_limits<double>::infinity()),
                   time_limit_reached(false), sigma_policy(SigmaPolicy::RESIDUAL_BALANCING), sigma0(0.0), sigma_changes(0),
                   admm_phase_iterations(0) {}
     ~SDPSolver();
@@ -515,9 +514,8 @@ public:
     // Synchronizes the three streams of GPU0.
     void synchronize_gpu0_streams();
 
-    // Solves the permuted y-step system L D L^T y_perm = rhsy_perm (P (eps I + AA^T) P^T = L D L^T): with CHOLMOD on
-    // the CPU, or with two dense triangular solves on the GPU if AAt_dense_gpu.
-    void solve_AAt_perm();
+    // The system of the y-step as the backends see it (the normalized A^T on the host, eps I): for a replacement backend.
+    cuadmm::linsys::NormalSystem normal_system() const;
 
     /* Certificate of suboptimality (paper eq. 29-31), computed at termination for the returned y */
     std::vector<double> dual_block_min; // per block, original units: lambda_min((C - A^T y)_b) for 's', min entry for 'l', max |entry| for 'u'
