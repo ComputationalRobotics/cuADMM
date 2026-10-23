@@ -29,12 +29,6 @@
 #include <memory>
 #include <string>
 
-// Safety margin applied to the Lanczos estimate of ||A||_2 before a composite projection:
-// the polynomial filter overflows if the scaled spectrum exceeds ~1.02 (FP16).
-#define COMPOSITE_FP16_SCALE_MARGIN 1.05
-// Norm test of a composite projection (B22): the projection is nonexpansive with Pi(0) = 0, so ||P||_F <= ||Z||_F; a
-// result above (1 + COMPOSITE_NORM_SLACK) ||Z||_F (an underestimated Lanczos scale) is rejected
-#define COMPOSITE_NORM_SLACK 1e-2
 // Largest PSD block the exact EVD handles (B21): on CUDA 12.9 the cusolverDnXsyevd workspace query fails above it
 #define CUADMM_MAX_EVD_BLOCK_SIZE 32768
 
@@ -339,6 +333,8 @@ public:
     bool use_lobpcg;                                 // whether to use LOBPCG
     double lobpcg_tol = 1e-5;                        // LOBPCG convergence tolerance (psd.lowrank.tol; absolute, B13)
     int lobpcg_maxit = 20;                           // LOBPCG iterations (psd.lowrank.max_iter)
+    double lobpcg_ratio = 0.03;                      // low-rank threshold as a fraction of n (psd.lowrank.ratio); sizes the warm start
+    double lobpcg_relaxation = 1.2;                  // eigenpairs requested: ceil(relaxation * rank) (psd.lowrank.relaxation)
     unsigned long long lanczos_seed = 0;             // seed of the Lanczos start vectors (options.seed; per block: mixed with the block index, B8)
     DeviceDenseVector<int> positive_ranks;           // positive ranks of large matrices
     DeviceDenseVector<int> negative_ranks;           // negative ranks of large matrices
@@ -596,22 +592,7 @@ public:
     // Same with the same bound R for every block.
     double certified_lower_bound(double trace_bound) const;
 
-    /* Projection of the large matrices, idx is the flat index of the j-th matrix of size index i */
-
-    // Exact projection with the cuSOLVER EVD: large_mat_P <- Pi(large_mat), large_mat <- eigenvectors.
-    // If analyze_rank, the ranks are recomputed and the LOBPCG mode / warmstart of the matrix refreshed.
-    // If !multiply, the final GEMM P = (Q max(W, 0)) Q^T is left to the caller (large_mat_tmp holds Q max(W, 0)).
-    void large_full_eig_project(int i, int j, int idx, bool analyze_rank, bool multiply = true);
-
-    // Projection with warm-started LOBPCG (large_mode[idx] must be LOBPCG_POSITIVE or LOBPCG_NEGATIVE).
-    // Returns false if LOBPCG did not converge or if its k-th Ritz value is above the rank tolerance
-    // (an eigenvalue of the wanted sign may be missing); large_mat is then unchanged.
-    bool large_lobpcg_project(int i, int j, int idx);
-
-    // Projection with the FP16 composite polynomial filter, after scaling by COMPOSITE_FP16_SCALE_MARGIN times the
-    // Lanczos estimate of ||A||_2. Returns false if the result is not finite or fails the norm test (B22); large_mat is
-    // then unchanged.
-    bool large_composite_project(int i, int j, int idx);
+    // The projections of the large matrices are the projector classes of src/cone/psd/large/ (Phase 6a).
 };
 
 #endif // CUADMM_SOLVER_H

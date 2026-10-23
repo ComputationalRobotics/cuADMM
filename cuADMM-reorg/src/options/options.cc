@@ -48,6 +48,7 @@ const char *const kFreezeValueNames[] = {"last", "band_centre"};
 const char *const kBackendNames[] = {"auto", "cholmod", "cudss", "dense"};
 const char *const kDeterminismNames[] = {"strict", "fast"};
 const char *const kWarmupNames[] = {"none", "composite_fp16"};
+const char *const kFinalProductNames[] = {"gemm_compat", "syrk"};
 const char *const kFormatNames[] = {"auto", "h5", "sdpa", "sedumi", "sdpt3", "mosek", "txt"};
 const char *const kSenseNames[] = {"min", "max"};
 
@@ -155,6 +156,7 @@ const char *name_of(FreezeValue v) { return enum_name(v, kFreezeValueNames); }
 const char *name_of(LinsysBackend v) { return enum_name(v, kBackendNames); }
 const char *name_of(Determinism v) { return enum_name(v, kDeterminismNames); }
 const char *name_of(WarmupKind v) { return enum_name(v, kWarmupNames); }
+const char *name_of(FinalProductKind v) { return enum_name(v, kFinalProductNames); }
 const char *name_of(IoFormat v) { return enum_name(v, kFormatNames); }
 const char *name_of(Sense v) { return enum_name(v, kSenseNames); }
 SchemeKind parse_scheme(const std::string &s) { return enum_parse<SchemeKind>(s, kSchemeNames, "scheme"); }
@@ -164,6 +166,7 @@ FreezeValue parse_freeze_value(const std::string &s) { return enum_parse<FreezeV
 LinsysBackend parse_linsys_backend(const std::string &s) { return enum_parse<LinsysBackend>(s, kBackendNames, "linear-system backend"); }
 Determinism parse_determinism(const std::string &s) { return enum_parse<Determinism>(s, kDeterminismNames, "determinism"); }
 WarmupKind parse_warmup(const std::string &s) { return enum_parse<WarmupKind>(s, kWarmupNames, "PSD warm-up"); }
+FinalProductKind parse_final_product(const std::string &s) { return enum_parse<FinalProductKind>(s, kFinalProductNames, "large-block final product"); }
 IoFormat parse_io_format(const std::string &s) { return enum_parse<IoFormat>(s, kFormatNames, "input format"); }
 Sense parse_sense(const std::string &s)
 {
@@ -255,29 +258,30 @@ const std::vector<OptionSpec> &option_table()
         {"output.sigma_log", "--sigma-log", {}, "string", "", "none", "one CSV line per sigma change", ""},
         {"output.tag", "--tag", {}, "string", "", "none", "label copied to the summary", ""},
         // psd
-        {"psd.small_max", "--psd-small-max", {}, "int", "", "32", "largest small PSD block (batched Jacobi); Milestone 1: fixed", "6a"},
-        {"psd.medium_max", "--psd-medium-max", {}, "int", "", "1000", "largest medium PSD block; Milestone 1: fixed", "6a"},
+        {"psd.small_max", "--psd-small-max", {}, "int", "", "32", "largest small PSD block (batched Jacobi); fixed", ""},
+        {"psd.medium_max", "--psd-medium-max", {}, "int", "", "1000", "largest medium PSD block; fixed", ""},
         {"psd.medium_batch_min", "--psd-medium-batch-min", {}, "int", "", "2", "medium size groups with at least this many blocks use the batched EVD (0: never)", ""},
         {"psd.medium_streams", "--psd-medium-streams", {"--streams"}, "int", "", "15", "CUDA streams of the medium eigendecompositions (>= 1)", ""},
-        {"psd.jacobi_tol", "--psd-jacobi-tol", {}, "double", "", "1e-16", "tolerance of the batched Jacobi EVD; Milestone 1: fixed", "6a"},
-        {"psd.jacobi_max_sweeps", "--psd-jacobi-max-sweeps", {}, "int", "", "15", "sweeps of the batched Jacobi EVD; Milestone 1: fixed", "6a"},
+        {"psd.jacobi_tol", "--psd-jacobi-tol", {}, "double", "", "1e-16", "tolerance of the batched Jacobi EVD; fixed", ""},
+        {"psd.jacobi_max_sweeps", "--psd-jacobi-max-sweeps", {}, "int", "", "15", "sweeps of the batched Jacobi EVD; fixed", ""},
         {"psd.large.memory_budget", "--psd-large-memory-budget", {}, "double", "", "0.9", "fraction of free memory for the large tier (Phase 6b)", "6b"},
-        {"psd.large.warmup", "--psd-warmup", {}, "enum", "none, composite_fp16", "none", "low-precision warm-up of the large blocks (composite_fp16 becomes the default in Phase 6a)", ""},
-        {"psd.large.warmup.min_size", "--psd-warmup-min-size", {}, "int", "", "5000", "smallest block that gets the warm-up (Milestone 1: the warm-up applies to every large block, as the C++ API did)", "6a"},
+        {"psd.large.warmup", "--psd-warmup", {}, "enum", "none, composite_fp16", "none", "low-precision warm-up of the large blocks (the FP16 composite filter until eta < switch_tol)", ""},
+        {"psd.large.warmup.min_size", "--psd-warmup-min-size", {}, "int", "", "5000", "smallest large block that gets the warm-up", ""},
         {"psd.large.warmup.switch_tol", "--psd-warmup-switch-tol", {"--switch-proj-tol"}, "double", "", "1e-2", "the warm-up ends at the first iteration with eta below this", ""},
         {"psd.large.warmup.switch_iter", "--psd-warmup-switch-iter", {"--switch-proj-iter"}, "int", "", "5000", "or after this many iterations", ""},
+        {"psd.large.final_product", "--psd-final-product", {}, "enum", "gemm_compat, syrk", "gemm_compat", "final product of the large blocks (syrk arrives with Phase 6b)", "6b"},
         {"psd.lowrank.enabled", "--psd-lowrank-enabled", {"--lobpcg"}, "bool", "", "true", "LOBPCG for large blocks of low positive or negative rank", ""},
         {"psd.lowrank.start_iter", "--psd-lowrank-start-iter", {}, "int", "", "2", "first iteration of the low-rank analysis for blocks without a warm-up (warm-up blocks: the end of the warm-up)", ""},
-        {"psd.lowrank.reevaluate", "--psd-lowrank-reevaluate", {}, "int", "", "100", "exact EVD with rank analysis every this many iterations; Milestone 1: fixed", "6a"},
-        {"psd.lowrank.ratio", "--psd-lowrank-ratio", {}, "double", "", "0.03", "low-rank threshold as a fraction of n; Milestone 1: fixed", "6a"},
-        {"psd.lowrank.relaxation", "--psd-lowrank-relaxation", {}, "double", "", "1.2", "eigenpairs requested: ceil(relaxation * rank); Milestone 1: fixed", "6a"},
-        {"psd.lowrank.max_iter", "--psd-lowrank-max-iter", {}, "int", "", "20", "LOBPCG iterations", "6a"},
-        {"psd.lowrank.tol", "--psd-lowrank-tol", {}, "double", "", "1e-5", "LOBPCG convergence tolerance (absolute; the stopping-tolerance-relative rule of B13 is deferred, see DECISIONS.md)", "6a"},
-        {"psd.lowrank.rank_rtol", "--psd-lowrank-rank-rtol", {}, "double", "", "1e-8", "rank tolerance relative to max |lambda|; Milestone 1: fixed", "6a"},
-        {"psd.lowrank.rank_stop_factor", "--psd-lowrank-rank-stop-factor", {}, "double", "", "1e-3", "rank tolerance floor as a fraction of the stopping tolerance; Milestone 1: fixed", "6a"},
-        {"psd.composite.margin", "--psd-composite-margin", {}, "double", "", "1.05", "safety margin on the Lanczos estimate; Milestone 1: fixed", "6a"},
-        {"psd.composite.lanczos_steps", "--psd-composite-lanczos-steps", {}, "int", "", "20", "Lanczos steps of the norm estimate; Milestone 1: fixed", "6a"},
-        {"psd.composite.norm_slack", "--psd-composite-norm-slack", {}, "double", "", "1e-2", "norm test slack of the composite result (B22); Milestone 1: fixed", "6a"},
+        {"psd.lowrank.reevaluate", "--psd-lowrank-reevaluate", {}, "int", "", "100", "exact EVD with rank analysis every this many iterations", ""},
+        {"psd.lowrank.ratio", "--psd-lowrank-ratio", {}, "double", "", "0.03", "low-rank threshold as a fraction of n", ""},
+        {"psd.lowrank.relaxation", "--psd-lowrank-relaxation", {}, "double", "", "1.2", "eigenpairs requested: ceil(relaxation * rank)", ""},
+        {"psd.lowrank.max_iter", "--psd-lowrank-max-iter", {}, "int", "", "20", "LOBPCG iterations", ""},
+        {"psd.lowrank.tol", "--psd-lowrank-tol", {}, "double", "", "1e-5", "LOBPCG convergence tolerance (absolute; the stopping-tolerance-relative rule of B13 is deferred, DECISIONS 45)", ""},
+        {"psd.lowrank.rank_rtol", "--psd-lowrank-rank-rtol", {}, "double", "", "1e-8", "rank tolerance relative to max |lambda|", ""},
+        {"psd.lowrank.rank_stop_factor", "--psd-lowrank-rank-stop-factor", {}, "double", "", "1e-3", "rank tolerance floor as a fraction of the stopping tolerance", ""},
+        {"psd.composite.margin", "--psd-composite-margin", {}, "double", "", "1.05", "safety margin on the Lanczos estimate of the composite filter", ""},
+        {"psd.composite.lanczos_steps", "--psd-composite-lanczos-steps", {}, "int", "", "20", "Lanczos steps of the norm estimate", ""},
+        {"psd.composite.norm_slack", "--psd-composite-norm-slack", {}, "double", "", "1e-2", "norm test slack of the composite result (B22)", ""},
         // misc
         {"seed", "--seed", {}, "int", "", "0", "seed of the deterministic generators (the Lanczos start from Phase 6a)", ""},
         {"determinism", "--determinism", {}, "enum", "strict, fast", "strict", "strict: deterministic SpMV and reductions; fast: opt-in nondeterministic modes (none yet)", ""},
@@ -468,6 +472,7 @@ void set_option(SolverOptions &o, const std::string &path, const std::string &va
         else if (p == "psd.large.warmup.min_size") o.psd.warmup_min_size = parse_int(value);
         else if (p == "psd.large.warmup.switch_tol") o.psd.warmup_switch_tol = parse_double(value);
         else if (p == "psd.large.warmup.switch_iter") o.psd.warmup_switch_iter = parse_int(value);
+        else if (p == "psd.large.final_product") o.psd.large_final_product = parse_final_product(value);
         else if (p == "psd.lowrank.enabled") o.psd.lowrank_enabled = parse_bool(value);
         else if (p == "psd.lowrank.start_iter") o.psd.lowrank_start_iter = parse_int(value);
         else if (p == "psd.lowrank.reevaluate") o.psd.lowrank_reevaluate = parse_int(value);
@@ -571,6 +576,7 @@ std::string get_option(const SolverOptions &o, const std::string &p)
     if (p == "psd.large.warmup.min_size") return fmt(o.psd.warmup_min_size);
     if (p == "psd.large.warmup.switch_tol") return fmt(o.psd.warmup_switch_tol);
     if (p == "psd.large.warmup.switch_iter") return fmt(o.psd.warmup_switch_iter);
+    if (p == "psd.large.final_product") return name_of(o.psd.large_final_product);
     if (p == "psd.lowrank.enabled") return fmt(o.psd.lowrank_enabled);
     if (p == "psd.lowrank.start_iter") return fmt(o.psd.lowrank_start_iter);
     if (p == "psd.lowrank.reevaluate") return fmt(o.psd.lowrank_reevaluate);
@@ -702,13 +708,15 @@ void SolverOptions::validate() const
         fail("output.verbosity", "must be 0, 1 or 2");
 
     if (psd.small_max != 32 || psd.medium_max != 1000)
-        fail("psd.small_max", "the tier limits are fixed at 32 and 1000 until Phase 6a");
+        fail("psd.small_max", "the tier limits are fixed at 32 and 1000 (SMALL_MAT_LIMIT, MEDIUM_MAT_LIMIT of the engine)");
     if (psd.medium_batch_min < 0)
         fail("psd.medium_batch_min", "must be non-negative");
     if (psd.medium_streams < 1)
         fail("psd.medium_streams", "must be at least 1 (B17)");
     if (psd.jacobi_tol != 1e-16 || psd.jacobi_max_sweeps != 15)
-        fail("psd.jacobi_tol", "the Jacobi parameters are fixed until Phase 6a");
+        fail("psd.jacobi_tol", "the Jacobi parameters are fixed (BatchEigParameter of the engine)");
+    if (psd.large_final_product != FinalProductKind::GemmCompat)
+        fail("psd.large.final_product", "syrk arrives with Phase 6b (gemm_compat is the product of today)");
     if (!(psd.large_memory_budget > 0.0 && psd.large_memory_budget <= 1.0))
         fail("psd.large.memory_budget", "must be in (0, 1]");
     if (psd.warmup_min_size < 1)
@@ -719,15 +727,22 @@ void SolverOptions::validate() const
         fail("psd.large.warmup.switch_iter", "must be non-negative");
     if (psd.lowrank_start_iter < 2)
         fail("psd.lowrank.start_iter", "must be at least 2 (the first iteration after the starting point)");
-    if (psd.lowrank_reevaluate != 100 || psd.lowrank_ratio != 0.03 || psd.lowrank_relaxation != 1.2 || psd.lowrank_rank_rtol != 1e-8 ||
-        psd.lowrank_rank_stop_factor != 1e-3)
-        fail("psd.lowrank.reevaluate", "the rank-analysis parameters are fixed until the projector classes of Phase 6a");
+    if (psd.lowrank_reevaluate < 1)
+        fail("psd.lowrank.reevaluate", "must be at least 1");
+    if (!(psd.lowrank_ratio > 0.0 && psd.lowrank_ratio <= 1.0))
+        fail("psd.lowrank.ratio", "must be in (0, 1]");
+    if (!(psd.lowrank_relaxation >= 1.0))
+        fail("psd.lowrank.relaxation", "must be at least 1");
+    if (!(psd.lowrank_rank_rtol >= 0.0) || !(psd.lowrank_rank_stop_factor >= 0.0))
+        fail("psd.lowrank.rank_rtol", "the rank tolerances must be non-negative");
     if (!(psd.lowrank_tol > 0.0) || psd.lowrank_max_iter < 1)
         fail("psd.lowrank.tol", "the LOBPCG tolerance must be positive and the iteration count at least 1");
-    if (psd.composite_margin != 1.05 || psd.composite_lanczos_steps != 20 || psd.composite_norm_slack != 1e-2)
-        fail("psd.composite.margin", "the composite parameters are fixed until Phase 6a");
-    if (psd.warmup == WarmupKind::CompositeFp16 && psd.warmup_min_size != defaults.psd.warmup_min_size)
-        fail("psd.large.warmup.min_size", "Milestone 1 applies the warm-up to every large block (the per-size threshold comes with Phase 6a)");
+    if (!(psd.composite_margin >= 1.0))
+        fail("psd.composite.margin", "must be at least 1");
+    if (psd.composite_lanczos_steps < 1)
+        fail("psd.composite.lanczos_steps", "must be at least 1");
+    if (!(psd.composite_norm_slack >= 0.0))
+        fail("psd.composite.norm_slack", "must be non-negative");
 
     if (determinism != Determinism::Strict)
         fail("determinism", "fast has no nondeterministic mode yet (Milestone 1)");

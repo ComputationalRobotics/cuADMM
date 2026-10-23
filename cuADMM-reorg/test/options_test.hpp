@@ -275,7 +275,10 @@ TEST(Options, ValidateRejectsWhatThePlanForbids)
     rejects("linsys.presolve", "1");    // Phase 7
     rejects("linsys.backend", "cudss");
     rejects("scaling.enabled", "0");
-    rejects("psd.small_max", "64");     // Phase 6a
+    rejects("psd.small_max", "64");     // fixed tier limits
+    rejects("psd.large.final_product", "syrk"); // Phase 6b
+    rejects("psd.lowrank.ratio", "0");
+    rejects("psd.composite.margin", "0.5");
     rejects("determinism", "fast");
     rejects("psd.lowrank.start_iter", "1");
     // the reference policies have fixed hysteresis parameters

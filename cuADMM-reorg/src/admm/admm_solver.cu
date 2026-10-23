@@ -184,7 +184,7 @@ RunOutcome AdmmSolver::run(double sigma0, bool rescale)
         }
 
         // the projection-method switch (warm-up end / low-rank start), on the residuals of the current iterate
-        state_.begin_iteration(k, internal_kkt, c.switch_proj_max_iter, c.switch_proj_tol);
+        state_.begin_iteration(k, internal_kkt, c.verbose);
 
         /* the step length of this iteration */
         double tau = sgs_step ? c.tau_sgs : c.tau_admm;

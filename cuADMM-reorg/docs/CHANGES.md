@@ -243,3 +243,17 @@ Inside `cuADMM-reorg/src/legacy/` (the copied `SDPSolver`), the CLI and the test
   CLI default): the exact and LOBPCG paths are bit for bit.
 - `psd.lowrank.tol` and `psd.lowrank.max_iter` are honoured (previously fixed at 1e-5 and 20; the defaults keep
   those values).
+
+## Phase 6a, step 2 (2026-10-23): the projector classes and the per-block policy
+
+- `psd.large.warmup.min_size` is honoured: the composite warm-up applies to the large blocks with n >= min_size
+  (Milestone 1 applied it to every large block, as the C++ API of main). Blocks below the threshold start their
+  low-rank analysis at `psd.lowrank.start_iter` while the others warm up (plan Section 10.6). No baseline uses
+  the warm-up.
+- `psd.lowrank.{reevaluate, ratio, relaxation, rank_rtol, rank_stop_factor}` and `psd.composite.{margin,
+  lanczos_steps, norm_slack}` are honoured (previously fixed at the values of main; the defaults keep them).
+  `psd.large.final_product` exists with its Phase 6a value `gemm_compat`; `syrk` is rejected until Phase 6b.
+- The result and the summary JSON carry `warmup_switch_iteration` (the first iteration after the composite
+  warm-up; -1 without one).
+- The console lines "Switching projection method" and "Number of low rank matrices / Ranks" follow the verbosity
+  (`output.verbosity` 0 prints neither); the CLI output is unchanged.

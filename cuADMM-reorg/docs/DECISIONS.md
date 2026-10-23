@@ -231,3 +231,18 @@ Items 40-44 are the Phase 7 backend decisions written on branch `reorg-linsys`; 
     calibration run that the Phase 6a benchmark (FullEvd against the composite filter) does not provide. Phase 6a
     exposes `psd.lowrank.tol` (absolute, default 1e-5) and `psd.lowrank.max_iter`; the relative rule is a later
     option value (`psd.lowrank.tol` relative to `algorithm.tol`) with the constant from its own run.
+
+46. **The large-block state stays in the engine's arrays in Phase 6a; `LargeBlockState` is a view.** The
+    projector classes and the rank analyzer run on the engine's buffers and update its `large_mode`, `large_k`,
+    `large_rank_tol`, the rank counters and the LOBPCG warm start through per-block views, so the exact and LOBPCG
+    paths stay bit for bit and the copied tests of main (which read `solver.large_mode`, `lobpcg_calls`,
+    `lobpcg_fallbacks`, `composite_fallbacks`) keep working. Phase 6b moves the storage into the cone with the
+    arena; the facade's result already reads the counters through the engine.
+47. **LOBPCG in a low-rank mode only inside the block's low-rank phase.** The plan's pseudo-code picks Lobpcg
+    whenever the block's mode is low rank; the engine's gate (`switched_proj_method`) only allowed it after the
+    switch. The modes persist across solves on the same engine (a second solve, a warm restart), so the policy
+    requires k >= start(b) for both the analysis and LOBPCG: a stale mode of an earlier solve is not used before
+    the first analysis of the new solve, as before.
+48. **The policy indexes the large blocks in the engine's flat order (size group by size group), not the input
+    order.** `PsdCone` and the engine agree on this order (`LargeBlockJob` carries the size-group indices); the
+    mapping from an input block is `BlockInfo::size_index` and `same_size_index`. Phase 6b keeps it.

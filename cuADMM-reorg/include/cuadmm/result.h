@@ -95,6 +95,7 @@ struct SolveResult
     double aat_nnz_L = 0.0;
     int aat_tiny_pivots = 0, aat_nonpositive_pivots = 0;
     int lobpcg_calls = 0, lobpcg_fallbacks = 0, composite_fallbacks = 0, jacobi_not_converged = 0;
+    int warmup_switch_iteration = -1; // first iteration after the composite warm-up (-1: no warm-up, or it never ended)
     // history
     std::vector<HistoryRow> history;
 };

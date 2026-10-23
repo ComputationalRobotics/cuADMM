@@ -84,6 +84,15 @@ Cone *ConeProduct::cone(ConeKind kind)
     return nullptr;
 }
 
+bool ConeProduct::begin_iteration(int k, double eta, bool verbose)
+{
+    bool switched = false;
+    for (auto &c : cones_)
+        if (c->kind() == ConeKind::Psd)
+            switched = static_cast<PsdCone *>(c.get())->begin_iteration(k, eta, verbose) || switched;
+    return switched;
+}
+
 void ConeProduct::project_dual(core::DeviceSpan<const double> z, core::DeviceSpan<double> s, int k, core::ExecContext &ctx)
 {
     if (z.size != static_cast<std::size_t>(vec_len_) || s.size != static_cast<std::size_t>(vec_len_))

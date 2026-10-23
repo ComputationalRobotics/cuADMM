@@ -25,12 +25,16 @@ namespace cuadmm
 namespace cone
 {
 
-/// What a factory receives: the blocks of one kind, the length of the svec vector, and (Phase 5 only) the engine
-/// whose tiers the PSD cone wraps.
+struct PsdConeConfig;
+
+/// What a factory receives: the blocks of one kind, the length of the svec vector, the engine whose buffers the
+/// PSD cone's projectors run on (Phases 5-6a), and the PSD cone's configuration (null: the defaults of the options,
+/// with the low-rank path following the engine's use_lobpcg).
 struct ConeBuildContext
 {
     std::int64_t vec_len = 0;
     SDPSolver *engine = nullptr;
+    const PsdConeConfig *psd = nullptr;
 };
 
 using ConeFactory = std::function<std::unique_ptr<Cone>(const std::vector<BlockSlice> &, const ConeBuildContext &)>;

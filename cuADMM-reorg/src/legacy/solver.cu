@@ -19,11 +19,8 @@
 #include "termination/best_iterate_tracker.h"
 #include "termination/stopping_rule.h"
 
-#include "cone/psd/kernels/composite_fp16.h"
-#include "cone/psd/kernels/lanczos.h"
-#include "cone/psd/kernels/lobpcg.h"
-#include "cone/psd/kernels/precision.h"
 #include "cone/cone_product.h"
+#include "cone/psd/psd_cone.h"
 
 #include <algorithm>
 #include <stdio.h>
@@ -34,13 +31,6 @@
 #include <string>
 #include <vector>
 #include <set>
-
-#define LOBPCG_WARMSTART true
-#define LOBPCG_RATIO 0.03
-#define LOBPCG_RELAXATION 1.2
-#define LOBPCG_REEVALUATE 100
-#define LOBPCG_RANK_RTOL 1e-8           // rank tolerance relative to max(|lambda_min|, |lambda_max|)
-#define LOBPCG_RANK_STOP_TOL_FACTOR 1e-3 // lower bound of the rank tolerance, relative to the stopping tolerance
 
 // Copies `count` cuSOLVER info values to the host and throws if an eigendecomposition failed.
 // For cusolverDnDsyevjBatched (jacobi_n = matrix size), info == n + 1 only means that the Jacobi
@@ -120,239 +110,8 @@ void SDPSolver::synchronize_gpu0_streams()
     CHECK_CUDA(cudaStreamSynchronize(this->stream_flex[2].stream));
 }
 
-void SDPSolver::large_full_eig_project(int i, int j, int idx, bool analyze_rank, bool multiply)
-{
-    const int n = this->sizes.large_mat_sizes[i];
-    const int mat_offset = this->sizes.large_mat_offset(i, j);
-    const int W_offset = this->sizes.large_W_offset(i, j);
-    const double one = 1.0;
-    const double zero = 0.0;
-
-    // compute the EVD using cuSOLVER: large_mat <- eigenvectors, large_W <- eigenvalues (increasing order)
-    single_eig_cusolver(
-        this->cusolverH_eig_large, eig_param_single,
-        this->large_mat, this->large_W,
-        this->eig_large_buffer, this->cpu_eig_large_buffer, this->large_info,
-        n,
-        this->eig_large_buffer_size[i], this->cpu_eig_large_buffer_size[i],
-        mat_offset, W_offset,
-        this->sizes.large_buffer_offset(i, j, this->eig_large_buffer_size),
-        this->sizes.large_cpu_buffer_offset(i, j, this->cpu_eig_large_buffer_size),
-        idx);
-    check_eig_info(this->large_info.vals + idx, 1, "cusolverDnXsyevd (large matrix)");
-
-    if (analyze_rank)
-    {
-        // rank tolerance: relative to the extreme eigenvalues, but not below a fraction of the stopping
-        // tolerance (the negative part of C - A^T y - X/sigma is -X/sigma, tiny when sigma is large)
-        double lambda_min, lambda_max;
-        CHECK_CUDA(cudaMemcpy(&lambda_min, this->large_W.vals + W_offset, sizeof(double), D2H));
-        CHECK_CUDA(cudaMemcpy(&lambda_max, this->large_W.vals + W_offset + n - 1, sizeof(double), D2H));
-        const double rank_tol = std::max(
-            LOBPCG_RANK_RTOL * std::max(std::abs(lambda_min), std::abs(lambda_max)),
-            LOBPCG_RANK_STOP_TOL_FACTOR * this->stop_tol);
-        this->large_rank_tol[idx] = rank_tol;
-
-        // compute the ranks
-        compute_ranks(
-            this->large_W.vals + W_offset, n,
-            this->positive_ranks.vals + idx,
-            this->negative_ranks.vals + idx,
-            rank_tol);
-
-        // copy ranks to CPU
-        CHECK_CUDA(cudaMemcpy(this->cpu_positive_ranks.vals + idx, this->positive_ranks.vals + idx, sizeof(int), D2H));
-        CHECK_CUDA(cudaMemcpy(this->cpu_negative_ranks.vals + idx, this->negative_ranks.vals + idx, sizeof(int), D2H));
-        const int positive_rank = this->cpu_positive_ranks.vals[idx];
-        const int negative_rank = this->cpu_negative_ranks.vals[idx];
-
-        // copy the extreme eigenpairs to use as a warmstart for LOBPCG
-        if (positive_rank < LOBPCG_RATIO * n && positive_rank > 0)
-        {
-            const int k = std::min<int>(std::ceil(LOBPCG_RELAXATION * positive_rank), this->lobpcg_k_alloc[idx]);
-            this->large_mode[idx] = LargeProjectionMode::LOBPCG_POSITIVE;
-            this->large_k[idx] = k;
-
-            // largest k eigenpairs, in decreasing order: copy the eigenvalues and reverse them
-            cuadmm::cone::psd::reverse_vector(this->large_W.vals + W_offset + n - k, this->lobpcg_W[idx].vals, k);
-            // copy the eigenvectors and reverse the columns
-            cuadmm::cone::psd::reverse_columns(this->large_mat.vals + mat_offset + (n - k) * n, this->lobpcg_P[idx].vals, n, k);
-        }
-        else if (negative_rank < LOBPCG_RATIO * n && negative_rank > 0)
-        {
-            const int k = std::min<int>(std::ceil(LOBPCG_RELAXATION * negative_rank), this->lobpcg_k_alloc[idx]);
-            this->large_mode[idx] = LargeProjectionMode::LOBPCG_NEGATIVE;
-            this->large_k[idx] = k;
-
-            // smallest k eigenpairs, in increasing order (i.e. decreasing order for -A): copy without reversing
-            CHECK_CUDA(cudaMemcpy(
-                this->lobpcg_W[idx].vals, this->large_W.vals + W_offset, sizeof(double) * k, D2D));
-            CHECK_CUDA(cudaMemcpy(
-                this->lobpcg_P[idx].vals, this->large_mat.vals + mat_offset, sizeof(double) * k * n, D2D));
-            // LOBPCG runs on -A: store the eigenvalues of -A (the eigenvectors do not change)
-            const double minus_one = -1.0;
-            CHECK_CUBLAS(cublasDscal(this->cublasH_eig_large.cublas_handle, k, &minus_one, this->lobpcg_W[idx].vals, 1));
-        }
-        else
-        {
-            this->large_mode[idx] = LargeProjectionMode::FULL;
-            this->large_k[idx] = 0;
-        }
-    }
-
-    // P = Q max(W, 0) Q^T
-    max_dense_vector_zero(this->large_W.vals + W_offset, n);
-    dense_matrix_mul_diag_batch(
-        this->large_mat_tmp, this->large_mat, this->large_W,
-        n, 1, mat_offset, W_offset);
-    if (!multiply)
-        return; // the caller multiplies the whole size group with one batched GEMM
-    CHECK_CUBLAS(cublasDgemm(
-        this->cublasH_eig_large.cublas_handle,
-        CUBLAS_OP_N, CUBLAS_OP_T,
-        n, n, n,
-        &one,
-        this->large_mat_tmp.vals + mat_offset, n,
-        this->large_mat.vals + mat_offset, n,
-        &zero,
-        this->large_mat_P.vals + mat_offset, n));
-}
-
-bool SDPSolver::large_lobpcg_project(int i, int j, int idx)
-{
-    const int n = this->sizes.large_mat_sizes[i];
-    const int k = this->large_k[idx];
-    const int mat_offset = this->sizes.large_mat_offset(i, j);
-    const bool negative = this->large_mode[idx] == LargeProjectionMode::LOBPCG_NEGATIVE;
-    const double one = 1.0;
-    const double minus_one = -1.0;
-
-    cublasHandle_t cublasH = this->cublasH_eig_large.cublas_handle;
-    double *A = this->large_mat.vals + mat_offset;
-    double *P = this->large_mat_P.vals + mat_offset;
-    double *eigenvectors = this->lobpcg_P[idx].vals;
-    double *eigenvalues = this->lobpcg_W[idx].vals;
-    double *relu_eigenvalues = this->lobpcg_W_relu.vals;
-    double *scaled_eigenvectors = this->large_mat_tmp.vals + mat_offset; // n x k workspace
-
-    if (negative)
-    {
-        // change the matrix sign to reuse LOBPCG code: A <- -A
-        // (the warmstart eigenvalues in lobpcg_W are already those of -A)
-        CHECK_CUBLAS(cublasDscal(cublasH, n * n, &minus_one, A, 1));
-    }
-
-    // compute the largest eigenpairs (of -A in the negative case), in decreasing order;
-    // the pairs that were above the rank tolerance at the last rank analysis and the pairs currently
-    // above it take part in the convergence test (the remaining relaxation pairs need not converge)
-    const double rank_tol = this->large_rank_tol[idx];
-    const int rank = negative ? this->cpu_negative_ranks.vals[idx] : this->cpu_positive_ranks.vals[idx];
-    cuadmm::cone::psd::LobpcgInfo info;
-    cuadmm::cone::psd::lobpcg(
-        cublasH, this->cusolverH_eig_large.cusolver_dn_handle,
-        A, eigenvectors, eigenvalues,
-        n, k, LOBPCG_WARMSTART, this->lobpcg_maxit, this->lobpcg_tol, false,
-        &info, rank_tol, std::min(rank, k));
-    this->lobpcg_calls++;
-
-    if (negative)
-    {
-        // restore the sign of A
-        CHECK_CUBLAS(cublasDscal(cublasH, n * n, &minus_one, A, 1));
-    }
-
-    // accept the result only if LOBPCG converged and the smallest computed Ritz value is below the
-    // rank tolerance: otherwise an eigenvalue of the wanted sign may have been left out (e.g. the
-    // rank grew since the last rank analysis), and the projection would not be PSD. This is necessary,
-    // not sufficient: Ritz values are lower bounds, and an eigenvector (numerically) orthogonal to the
-    // LOBPCG search subspace cannot be detected; the full EVD every LOBPCG_REEVALUATE iterations and the
-    // exact PSD-violation check at termination bound this
-    std::vector<double> ritz_values(k);
-    CHECK_CUDA(cudaMemcpy(ritz_values.data(), eigenvalues, sizeof(double) * k, D2H));
-    bool finite = true;
-    for (int l = 0; l < k; l++)
-        finite = finite && std::isfinite(ritz_values[l]);
-    if (!(finite && info.converged && ritz_values[k - 1] <= rank_tol + info.residual_norm))
-    {
-        this->lobpcg_fallbacks++;
-        return false;
-    }
-
-    // V diag(max(D, 0))
-    CHECK_CUDA(cudaMemcpy(relu_eigenvalues, eigenvalues, sizeof(double) * k, D2D));
-    max_dense_vector_zero(relu_eigenvalues, k);
-    CHECK_CUBLAS(cublasDdgmm(
-        cublasH, CUBLAS_SIDE_RIGHT, n, k,
-        eigenvectors, n, relu_eigenvalues, 1,
-        scaled_eigenvectors, n));
-
-    // positive case: P = V max(D, 0) V^T
-    // negative case: P = A + V max(-D', 0) V^T = A + proj(-A), where D' are the eigenvalues of -A
-    double beta = 0.0;
-    if (negative)
-    {
-        CHECK_CUDA(cudaMemcpy(P, A, sizeof(double) * n * n, D2D));
-        beta = 1.0;
-    }
-    CHECK_CUBLAS(cublasDgemm(
-        cublasH, CUBLAS_OP_N, CUBLAS_OP_T,
-        n, n, k,
-        &one,
-        scaled_eigenvectors, n,
-        eigenvectors, n,
-        &beta,
-        P, n));
-
-    return true;
-}
-
-bool SDPSolver::large_composite_project(int i, int j, int idx)
-{
-    const int n = this->sizes.large_mat_sizes[i];
-    const int mat_offset = this->sizes.large_mat_offset(i, j);
-    const int nn = n * n; // fits in an int since n <= 46340
-    cublasHandle_t cublasH = this->cublasH_composite_proj.cublas_handle;
-    double *A = this->large_mat.vals + mat_offset;
-    double *A_copy = this->large_mat_tmp.vals + mat_offset; // large_mat_tmp is free here
-
-    // keep a copy of the input to restore it if the polynomial filter overflows or fails the norm test
-    CHECK_CUDA(cudaMemcpy(A_copy, A, sizeof(double) * nn, D2D));
-    double norm_in;
-    CHECK_CUBLAS(cublasDnrm2(cublasH, nn, A_copy, 1, &norm_in));
-
-    // scale the spectrum into [-1, 1]: the Lanczos estimate 'up' is not a certified upper bound on
-    // ||A||_2, and the filter overflows if ||A||/scale > ~1.02 (FP16), hence the margin
-    double lo, up;
-    // B8: the Lanczos start vector is deterministic, seeded by (options.seed, block index)
-    const unsigned long long block_seed = this->lanczos_seed ^ (0x9E3779B97F4A7C15ULL * (unsigned long long)(idx + 1));
-    cuadmm::cone::psd::approximate_two_norm(cublasH, this->cusolverH_composite_proj.cusolver_dn_handle, A, n, &lo, &up, block_seed);
-    const double margin = COMPOSITE_FP16_SCALE_MARGIN;
-    const double scale = up > 0.0 ? margin * up : 1.0;
-    const double inv_scale = 1.0 / scale;
-    CHECK_CUBLAS(cublasDscal(cublasH, nn, &inv_scale, A, 1));
-
-    cuadmm::cone::psd::composite_fp16(cublasH, A, n, this->float_proj_workspace.vals, this->half_proj_workspace.vals);
-
-    // rescale the result back to the original scale
-    CHECK_CUBLAS(cublasDscal(cublasH, nn, &scale, A, 1));
-
-    // reject a non-finite result (overflow of the filter, or non-finite input) and, B22, a result whose norm exceeds
-    // that of the input beyond the slack: the projection is nonexpansive with Pi(0) = 0, so ||P||_F <= ||Z||_F, and a
-    // finite but wrong result from an underestimated scale fails this free necessary condition
-    double norm;
-    CHECK_CUBLAS(cublasDnrm2(cublasH, nn, A, 1, &norm));
-    if (!std::isfinite(norm) || !std::isfinite(norm_in) || norm > (1.0 + COMPOSITE_NORM_SLACK) * norm_in)
-    {
-        CHECK_CUDA(cudaMemcpy(A, A_copy, sizeof(double) * nn, D2D));
-        this->composite_fallbacks++;
-        return false;
-    }
-
-    // copy large_mat to large_mat_P
-    CHECK_CUDA(cudaMemcpy(this->large_mat_P.vals + mat_offset, A, sizeof(double) * nn, D2D));
-
-    return true;
-}
+// The large-block projections (exact EVD, LOBPCG, composite filter) are the projector classes of src/cone/psd/large/
+// since Phase 6a; the engine keeps their buffers and counters.
 
 void SDPSolver::cone_measures(DeviceDenseVector<double> &v, std::vector<double> &block_min, std::vector<double> &bound_coef)
 {
@@ -1028,7 +787,7 @@ void SDPSolver::init(
         this->cpu_negative_ranks.allocate(this->sizes.large_mat_num);
 
         // we only need the ReLU workspace for one matrix at a time
-        int max_k = std::ceil(this->sizes.max_large_mat_size * LOBPCG_RATIO * LOBPCG_RELAXATION);
+        int max_k = std::ceil(this->sizes.max_large_mat_size * this->lobpcg_ratio * this->lobpcg_relaxation);
         this->lobpcg_W_relu.allocate(GPU0, max_k);
 
         // allocate one pointer for each large matrix
@@ -1041,7 +800,7 @@ void SDPSolver::init(
             for (int j = 0; j < this->sizes.large_mat_nums[i]; j++)
             {
                 int n = this->sizes.large_mat_sizes[i];
-                int k = std::ceil(n * LOBPCG_RATIO * LOBPCG_RELAXATION);
+                int k = std::ceil(n * this->lobpcg_ratio * this->lobpcg_relaxation);
                 this->lobpcg_k_alloc[counter] = k; // upper bound on the number of eigenpairs requested from LOBPCG
                 // allocate space to store warmstarting eigenpairs
                 this->lobpcg_W[counter] = DeviceDenseVector<double>();
@@ -1120,7 +879,22 @@ void SDPSolver::solve(
     po.sgs_factor = sigscale;
     std::unique_ptr<admm::PenaltyPolicy> penalty = admm::make_penalty_policy(po);
 
-    cone::ConeProduct cones(this->host_blk_types, this->host_blk_sizes, cone::ConeBuildContext{this->vec_len, this});
+    // the PSD cone with the schedule of the C++ API of main: the warm-up (if the initial method is the composite
+    // filter) on every large block, and the low-rank analysis of every block from the switch (switch_proj_max_iter,
+    // switch_proj_tol), B3
+    cone::PsdConeConfig pc;
+    pc.policy.warmup = this->initial_proj_method == ProjectionMethod::COMPOSITE_FP16;
+    pc.policy.warmup_min_size = 1;
+    pc.policy.switch_tol = switch_proj_tol;
+    pc.policy.switch_iter = switch_proj_max_iter;
+    pc.policy.lowrank_enabled = this->use_lobpcg;
+    pc.policy.legacy_global_start = true;
+    pc.rank.ratio = this->lobpcg_ratio;
+    pc.rank.relaxation = this->lobpcg_relaxation;
+    pc.lobpcg.max_iter = this->lobpcg_maxit;
+    pc.lobpcg.tol = this->lobpcg_tol;
+    pc.composite.seed = this->lanczos_seed;
+    cone::ConeProduct cones(this->host_blk_types, this->host_blk_sizes, cone::ConeBuildContext{this->vec_len, this, &pc});
     admm::AdmmState state(*this, cones);
     termination::BestIterateTracker tracker(*this);
     std::unique_ptr<termination::StoppingRule> rule;
@@ -1139,8 +913,6 @@ void SDPSolver::solve(
     cfg.tau_admm = 1.618;
     cfg.tau_sgs = 1.95;
     cfg.legacy_sgs_tau_reduction = this->legacy_sgs_tau_reduction;
-    cfg.switch_proj_max_iter = switch_proj_max_iter;
-    cfg.switch_proj_tol = switch_proj_tol;
     cfg.verbose = true;
     admm::AdmmSolver loop(state, *penalty, *rule, tracker, observers, cfg);
     loop.run(this->sig, !if_first);

@@ -150,6 +150,13 @@ set(CUADMM_SOURCES
   src/cone/psd/kernels/lanczos.cu
   src/cone/psd/kernels/lobpcg.cu
   src/cone/psd/kernels/composite_fp16.cu
+  src/cone/psd/eig_info.cu
+  src/cone/psd/batched/batch_projectors.cu
+  src/cone/psd/large/large_block_policy.cc
+  src/cone/psd/large/rank_analyzer.cu
+  src/cone/psd/large/projectors/full_evd.cu
+  src/cone/psd/large/projectors/lobpcg_projector.cu
+  src/cone/psd/large/projectors/composite_filter.cu
   src/termination/certificate.cu
   src/solver/solver_facade.cu)
 add_library(cuadmm SHARED ${CUADMM_LEGACY_SOURCES} ${CUADMM_SOURCES})

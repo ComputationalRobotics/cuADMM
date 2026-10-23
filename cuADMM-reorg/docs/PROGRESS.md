@@ -33,8 +33,9 @@ peak memory beyond the summaries' fields.
 
 ## Milestone 2: Phase 6a, PSD strategies (in progress)
 
-Status: step 1 done (the kernels moved in; the per-commit comparison is recorded in the GPU-evidence list below);
-step 2 (the projector classes, the selection policy, the options, the benchmark and the warm-up default) follows.
+Status: steps 1 and 2 done (the kernels moved in, 14178fa; the projector classes and the selection policy, the
+commit recorded in the GPU-evidence list below); the benchmark and the warm-up default (step 3) wait for the
+A100 benchmark job of branch `reorg-bench6a`.
 
 - Step 1 (B8, B10, B11, B15): the FP16 composite filter, the Lanczos norm estimate, LOBPCG and the precision
   helpers of the vendored `third_party/psd_projection` subset moved to `src/cone/psd/kernels/` (namespace
@@ -48,6 +49,42 @@ step 2 (the projector classes, the selection policy, the options, the benchmark 
 - Acceptance of step 1: GPU suite 118 of 118 on the MIG (dev build, `$HOME/cuadmm-builds/reorg-dev/logs/
   tests_phase6a_step1.log`, 2026-10-22 22:05); the exact and LOBPCG paths are bit for bit (no baseline uses the
   warm-up): the per-commit comparison is in the GPU-evidence list.
+- Step 2, the projectors (plan Sections 10.2-10.7): `src/cone/psd/batched/` (`JacobiBatchedEvd`: the small
+  tier; `BatchedEvd` and `StreamedEvd` per medium size group, `MediumTier` around them), `src/cone/psd/large/`
+  (`LargeBlockState` as a view on the engine's per-block arrays until Phase 6b, `LargeBlockJob`, `RankAnalyzer`,
+  `LargeBlockPolicy`, `projectors/FullEvd`, `projectors/Lobpcg`, `projectors/CompositeFilter`), `eig_info`
+  (the shared cuSOLVER info check). `PsdCone` decides the strategy of every large block with the policy at
+  each cone step (`begin_iteration(k, eta)` from `AdmmSolver` through `AdmmState` and `ConeProduct`: the
+  one-way warm-up switch k_sw), runs the projectors on the engine's buffers in the call order of Milestone 1,
+  and keeps the strided-batched GEMM of a size group when every block of the iteration takes the exact path
+  (`psd.large.final_product = gemm_compat`, the only value until Phase 6b). The engine lost
+  `large_full_eig_project`, `large_lobpcg_project`, `large_composite_project` and the `LOBPCG_*` /
+  `COMPOSITE_*` macros; it keeps the buffers, the per-block state, the counters and `cone_measures`
+  (DECISIONS 39). The per-block policy of the plan: warm(b) = `psd.large.warmup` and n_b >= `warmup.min_size`
+  (honoured now), start(b) = k_sw for warm-up blocks and `psd.lowrank.start_iter` otherwise, the analysis every
+  `psd.lowrank.reevaluate` iterations from start(b), LOBPCG in a low-rank mode only inside the block's
+  low-rank phase (a stale mode of an earlier solve is not used before it, as the engine's gate did). The
+  legacy `SDPSolver::solve()` keeps the C++ API's schedule (`legacy_global_start`: every block from the switch,
+  the warm-up on every large block). Options honoured: `psd.large.warmup.min_size`, `psd.lowrank.{reevaluate,
+  ratio, relaxation, max_iter, tol, rank_rtol, rank_stop_factor}`, `psd.composite.{margin, lanczos_steps,
+  norm_slack}`, `psd.large.final_product` (gemm_compat; syrk rejected until 6b); the result and the summary
+  report `warmup_switch_iteration`.
+- Tests of step 2: `test/large_block_policy_test.hpp` (CPU: the per-block threshold, the switch by residual
+  and by iteration, one-way and never at iteration 1, the cadences per block, the low-rank path off, the
+  legacy global start of the C++ API and today's CLI, the argument checks); `test/psd_strategies_test.hpp`
+  (GPU, on the engine of `Large_LowRankS` and of the new generator case `Large_Two` with blocks 1100 and
+  1050, inputs built on the host from Householder reflections with prescribed spectra): FullEvd against the
+  host projection (1e-10), the rank analysis positive and negative then LOBPCG from the warm start (modes,
+  k = ceil(1.2 r), the warm-start eigenvalues, 1e-8), a dense spectrum and eigenvalues below the rank
+  tolerance, a rank grown past k rejected by LOBPCG's certificate with the exact fallback and the refreshed
+  analysis, the composite filter accurate (relative Frobenius error < 2e-2) and bit for bit reproducible (B8),
+  its rejection by the norm test with the input restored (B22), the per-block threshold on two blocks (a
+  mixed iteration with per-block products, the switch, the engine's bookkeeping); end to end through the
+  facade: the composite warm-up on `Large_LowRankS` and `Large_Two` converges to the generator's optimum and
+  reports the switch iteration, repeats bit for bit, and without a warm-up reports none.
+- Acceptance of step 2: CPU suite 57 of 57 (sapphire job 54779332), GPU suite 128 of 130 on the first full run (two test-side expectation errors, since fixed: the 12 new tests then 12 of 12) on the MIG (dev build,
+  `$HOME/cuadmm-builds/reorg-dev/logs/tests_phase6a_step2*.log`); the per-commit comparison (exact and LOBPCG
+  paths bit for bit on the 53 cases) is in the GPU-evidence list.
 
 ## Milestone 2: Phase 5, cone layer
 
@@ -600,6 +637,8 @@ over one hour).
 - 1cca25e (Phase 5, the cone layer), `build_and_compare.sh 1cca25e phase5 ... reorg` (2026-10-22 21:24-21:36, MIG
   configuration): 53 of 53 identical, 0 different, 0 failed runs; tests 118 ran, 118 passed (the 17 cone-layer tests
   included).
+- 14178fa (Phase 6a step 1, the kernels moved in), `build_and_compare.sh 14178fa phase6a1 ... reorg` (2026-10-22
+  21:45-21:56, MIG configuration): 53 of 53 identical, 0 different, 0 failed runs; tests 118 ran, 118 passed.
 - Note on the summary comparison of `compare_runs.py`: the `options` object of the new CLI's summary was invalid
   JSON from Phase 2 until the fix recorded in CHANGES.md ("Phase 2b follow-up"), and the tool skipped the unreadable
   summary silently; the summary comparison is informational, the acceptance (histories and solutions, bit for bit)

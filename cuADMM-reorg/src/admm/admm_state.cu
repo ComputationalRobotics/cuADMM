@@ -165,18 +165,9 @@ void AdmmState::unscale_iterate()
     dense_vector_mul_scalar(e.S, e.Cscale);
 }
 
-void AdmmState::begin_iteration(int k, double eta, int switch_iter, double switch_tol)
+void AdmmState::begin_iteration(int k, double eta, bool verbose)
 {
-    SDPSolver &e = engine_;
-    // check if the conditions to switch the projection method are met
-    if (!e.switched_proj_method && (k > switch_iter || eta < switch_tol) && k > 1)
-    {
-        if (e.final_proj_method != e.current_proj_method)
-            std::cout << " ---------------- Switching projection method to " << get_projection_method_name(e.final_proj_method) << "------" << std::endl;
-        e.current_proj_method = e.final_proj_method;
-        e.switched_proj_method = true;
-        e.switched_proj_method_iter = k;
-    }
+    cones_.begin_iteration(k, eta, verbose);
 }
 
 } // namespace admm

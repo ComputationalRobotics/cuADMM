@@ -10,11 +10,11 @@
       algorithm.scheme admm / sgs_admm        -> switch_admm 0 / INT_MAX; scheme_switch_iteration n -> switch_admm n
       algorithm.tau                           -> the step length of both schemes (the references used 1.618 / 1.95)
       penalty.*                               -> sigma_policy, sig, penalty_factor, penalty_sigma_min/max, the sGS rule
-      psd.large.warmup none                   -> initial = final = EIG_FP64; the low-rank analysis (LOBPCG phase)
-                                                 starts at psd.lowrank.start_iter (switch_proj_max_iter = start - 1,
-                                                 switch_proj_tol = 0): today's CLI default (0, 1e-2) starts it at 2
-      psd.large.warmup composite_fp16         -> initial COMPOSITE_FP16, final EIG_FP64, warm-up end at
-                                                 psd.large.warmup.switch_iter / switch_tol (today's C++ API)
+      psd.large.warmup none                   -> initial = final = EIG_FP64; the low-rank analysis starts at
+                                                 psd.lowrank.start_iter (the PSD cone's LargeBlockPolicy, Phase 6a)
+      psd.large.warmup composite_fp16         -> initial COMPOSITE_FP16 when a large block reaches warmup.min_size
+                                                 (the engine's warm-up workspaces), final EIG_FP64; the policy ends
+                                                 the warm-up at psd.large.warmup.switch_iter / switch_tol per block
       psd.lowrank.enabled, psd.medium_streams, psd.medium_batch_min -> use_lobpcg, eig_stream_num_per_gpu, medium_batch_min_count
       validation.*                            -> ValidationConfig (checkpoints and the final snapshot written here)
 
@@ -23,6 +23,7 @@
 #include "cuadmm/solver.h"
 
 #include "cone/cone_product.h"
+#include "cone/psd/psd_cone.h"
 #include "termination/certificate.h"
 
 #include <chrono>
@@ -63,8 +64,7 @@ struct Solver::Impl
     bool has_free_block = false;
     // engine call parameters (fixed at setup)
     int switch_admm = 0;
-    int switch_proj_max_iter = 0;
-    double switch_proj_tol = 0.0;
+    cone::PsdConeConfig psd_config; // the PSD cone's policy and projector settings (Phase 6a)
     std::vector<std::shared_ptr<report::IterationObserver>> observers;
     std::unique_ptr<admm::PenaltyPolicy> penalty; // built at setup from the options; reset at every solve
     std::unique_ptr<cone::ConeProduct> cones;      // the product cone of the problem (Phase 5), on the engine's tiers
@@ -185,24 +185,20 @@ void Solver::setup(const ProblemData &problem)
 
     // scheme and projection schedule
     im.switch_admm = o.algorithm.scheme == SchemeKind::SgsAdmm ? std::numeric_limits<int>::max() : o.algorithm.scheme_switch_iteration;
-    ProjectionMethod initial = ProjectionMethod::EIG_FP64;
-    if (o.psd.warmup == WarmupKind::CompositeFp16)
-    {
-        initial = ProjectionMethod::COMPOSITE_FP16;
-        im.switch_proj_max_iter = o.psd.warmup_switch_iter;
-        im.switch_proj_tol = o.psd.warmup_switch_tol;
-    }
-    else
-    {
-        // no warm-up: the switch of the engine only starts the low-rank analysis (plan Q2: iteration 2 by default)
-        im.switch_proj_max_iter = o.psd.lowrank_start_iter - 1;
-        im.switch_proj_tol = 0.0;
-    }
+    // the warm-up workspaces of the engine are allocated when some large block (n > psd.medium_max) gets the warm-up
+    // (n >= psd.large.warmup.min_size); the per-block schedule is the PSD cone's LargeBlockPolicy
+    bool any_warm_block = false;
+    for (std::size_t b = 0; b < im.num_blocks; b++)
+        any_warm_block = any_warm_block || (im.blk_types[b] == 's' && im.blk_sizes[b] > o.psd.medium_max && im.blk_sizes[b] >= o.psd.warmup_min_size);
+    const ProjectionMethod initial = (o.psd.warmup == WarmupKind::CompositeFp16 && any_warm_block) ? ProjectionMethod::COMPOSITE_FP16 : ProjectionMethod::EIG_FP64;
+    im.psd_config = cone::PsdConeConfig::from_options(o.psd, static_cast<unsigned long long>(o.seed));
 
     CHECK_CUDA(cudaSetDevice(o.gpu_device));
     im.engine.reset(new SDPSolver());
     SDPSolver &e = *im.engine;
     e.medium_batch_min_count = o.psd.medium_batch_min;
+    e.lobpcg_ratio = o.psd.lowrank_ratio; // sizes the LOBPCG warm start at init
+    e.lobpcg_relaxation = o.psd.lowrank_relaxation;
     e.init(o.psd.medium_streams, im.vec_len, im.con_num,
            im.at_colptr.data(), im.at_rowind.data(), im.at_val.data(), static_cast<int>(im.at_val.size()),
            im.b_index.data(), im.b_val.data(), static_cast<int>(im.b_val.size()),
@@ -211,7 +207,7 @@ void Solver::setup(const ProblemData &problem)
            initial, ProjectionMethod::EIG_FP64,
            nullptr, nullptr, nullptr, // the warm start is handed over by solve()
            o.penalty.sigma0, o.psd.lowrank_enabled);
-    im.cones.reset(new cone::ConeProduct(im.blk_types, im.blk_sizes, cone::ConeBuildContext{im.vec_len, &e}));
+    im.cones.reset(new cone::ConeProduct(im.blk_types, im.blk_sizes, cone::ConeBuildContext{im.vec_len, &e, &im.psd_config}));
     e.sigma_policy = to_engine_policy(o.penalty.policy);
     e.penalty_factor = o.penalty.factor;
     e.penalty_sigma_min = o.penalty.sigma_min;
@@ -304,8 +300,6 @@ SolveResult Solver::solve(const WarmStart *warm_start)
     cfg.tau_admm = o.algorithm.tau;
     cfg.tau_sgs = o.algorithm.sgs_tau >= 0 ? o.algorithm.sgs_tau : o.algorithm.tau;
     cfg.legacy_sgs_tau_reduction = o.algorithm.sgs_tau_reduction;
-    cfg.switch_proj_max_iter = im.switch_proj_max_iter;
-    cfg.switch_proj_tol = im.switch_proj_tol;
     cfg.verbose = o.output.verbosity >= 1;
     admm::AdmmSolver loop(state, *im.penalty, *rule, tracker, observers, cfg);
     loop.run(e.sig, rescale);
@@ -405,6 +399,7 @@ SolveResult Solver::solve(const WarmStart *warm_start)
     r.lobpcg_calls = e.lobpcg_calls;
     r.lobpcg_fallbacks = e.lobpcg_fallbacks;
     r.composite_fallbacks = e.composite_fallbacks;
+    r.warmup_switch_iteration = e.switched_proj_method && e.initial_proj_method == ProjectionMethod::COMPOSITE_FP16 ? e.switched_proj_method_iter : -1;
     r.jacobi_not_converged = e.jacobi_not_converged;
     // history of this solve, from the observer
     r.history = history->take();

@@ -51,6 +51,9 @@ public:
     Cone *cone(ConeKind kind);
     const std::vector<std::unique_ptr<Cone>> &cones() const { return cones_; }
 
+    /// The beginning of iteration k (1-based) with the KKT residual eta of the current iterate: the PSD cone's
+    /// large-block policy decides its warm-up switch; returns true at the iteration that switches.
+    bool begin_iteration(int k, double eta, bool verbose);
     /// Cone step (3): s = Pi_{K*}(z) on every block; k is the iteration (the PSD cone's large-block schedule).
     void project_dual(core::DeviceSpan<const double> z, core::DeviceSpan<double> s, int k, core::ExecContext &ctx);
     /// Pi_K(z) on every block (Moreau where a cone has no primal projection of its own).

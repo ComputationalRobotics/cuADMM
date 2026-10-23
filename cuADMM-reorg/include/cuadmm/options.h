@@ -33,6 +33,7 @@ enum class FreezeValue { Last, BandCentre };
 enum class LinsysBackend { Auto, Cholmod, Cudss, Dense };
 enum class Determinism { Strict, Fast };
 enum class WarmupKind { None, CompositeFp16 };
+enum class FinalProductKind { GemmCompat, Syrk }; // the final product of the large blocks (syrk: Phase 6b)
 enum class IoFormat { Auto, H5, Sdpa, Sedumi, Sdpt3, Mosek, Txt };
 enum class Sense { Minimize, Maximize };
 
@@ -131,29 +132,30 @@ struct OutputOptions
 
 struct PsdOptions
 {
-    int small_max = 32;    // Milestone 1: fixed (SMALL_MAT_LIMIT)
-    int medium_max = 1000; // Milestone 1: fixed (MEDIUM_MAT_LIMIT)
+    int small_max = 32;    // fixed (SMALL_MAT_LIMIT) until the tier limits become options
+    int medium_max = 1000; // fixed (MEDIUM_MAT_LIMIT)
     int medium_batch_min = 2;
     int medium_streams = 15; // must be >= 1 (B17)
-    double jacobi_tol = 1e-16;   // Milestone 1: fixed
-    int jacobi_max_sweeps = 15;  // Milestone 1: fixed
+    double jacobi_tol = 1e-16;   // fixed (BatchEigParameter)
+    int jacobi_max_sweeps = 15;  // fixed (BatchEigParameter)
     double large_memory_budget = 0.9; // fraction of free memory (Phase 6b)
-    WarmupKind warmup = WarmupKind::None; // composite_fp16 from Phase 6a
+    WarmupKind warmup = WarmupKind::None; // composite_fp16 once the Phase 6a benchmark confirms the threshold
+    FinalProductKind large_final_product = FinalProductKind::GemmCompat; // syrk arrives with Phase 6b
     int warmup_min_size = 5000;
     double warmup_switch_tol = 1e-2;
     int warmup_switch_iter = 5000;
     bool lowrank_enabled = true;
     int lowrank_start_iter = 2; // blocks without a warm-up; warm-up blocks: the end of the warm-up
     int lowrank_reevaluate = 100;
-    double lowrank_ratio = 0.03;      // Milestone 1: fixed
-    double lowrank_relaxation = 1.2;  // Milestone 1: fixed
-    int lowrank_max_iter = 20;        // Milestone 1: fixed
-    double lowrank_tol = 1e-5;        // Milestone 1: fixed (absolute, B13)
-    double lowrank_rank_rtol = 1e-8;  // Milestone 1: fixed
-    double lowrank_rank_stop_factor = 1e-3; // Milestone 1: fixed
-    double composite_margin = 1.05;   // Milestone 1: fixed
-    int composite_lanczos_steps = 20; // Milestone 1: fixed
-    double composite_norm_slack = 1e-2; // Milestone 1: fixed
+    double lowrank_ratio = 0.03;      // low-rank threshold as a fraction of n
+    double lowrank_relaxation = 1.2;  // eigenpairs requested: ceil(relaxation * rank)
+    int lowrank_max_iter = 20;        // LOBPCG iterations
+    double lowrank_tol = 1e-5;        // LOBPCG tolerance (absolute; DECISIONS 45)
+    double lowrank_rank_rtol = 1e-8;  // rank tolerance relative to max |lambda|
+    double lowrank_rank_stop_factor = 1e-3; // rank tolerance floor as a fraction of the stopping tolerance
+    double composite_margin = 1.05;   // safety margin on the Lanczos estimate
+    int composite_lanczos_steps = 20; // Lanczos steps of the norm estimate
+    double composite_norm_slack = 1e-2; // norm test slack of the composite result (B22)
 };
 
 struct SolverOptions
@@ -183,6 +185,7 @@ const char *name_of(StepSchedule v);
 const char *name_of(FreezeValue v);
 const char *name_of(LinsysBackend v);
 const char *name_of(Determinism v);
+const char *name_of(FinalProductKind v);
 const char *name_of(WarmupKind v);
 const char *name_of(IoFormat v);
 const char *name_of(Sense v);
@@ -193,6 +196,7 @@ FreezeValue parse_freeze_value(const std::string &s);
 LinsysBackend parse_linsys_backend(const std::string &s);
 Determinism parse_determinism(const std::string &s);
 WarmupKind parse_warmup(const std::string &s);
+FinalProductKind parse_final_product(const std::string &s);
 IoFormat parse_io_format(const std::string &s);
 Sense parse_sense(const std::string &s);
 

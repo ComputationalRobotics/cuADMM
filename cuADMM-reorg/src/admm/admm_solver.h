@@ -43,8 +43,6 @@ struct RunConfig
     double tau_admm = 1.618;
     double tau_sgs = 1.95;
     bool legacy_sgs_tau_reduction = false;      // today's hidden rule: tau = max(1.618, tau / 1.1) when eta_d < tol
-    int switch_proj_max_iter = 0;               // the projection-method switch (warm-up end / low-rank start)
-    double switch_proj_tol = 1e-2;
     bool verbose = true;
 };
 

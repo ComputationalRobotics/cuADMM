@@ -51,10 +51,9 @@ public:
     void scale_iterate();
     void unscale_iterate();
 
-    // The projection-method schedule of today (switched_proj_method): at iteration k with the residuals of the
-    // current iterate, switch to the final projection method (the end of the warm-up, the start of the low-rank
-    // analysis) when k > switch_iter or eta < switch_tol, k > 1.
-    void begin_iteration(int k, double eta, int switch_iter, double switch_tol);
+    // The beginning of iteration k with the KKT residual eta of the current iterate: the PSD cone's large-block
+    // policy decides its warm-up switch (the end of the warm-up, the start of the low-rank analysis).
+    void begin_iteration(int k, double eta, bool verbose);
 
     long y_solves() const { return y_solves_; }
     void reset_counters() { y_solves_ = 0; }

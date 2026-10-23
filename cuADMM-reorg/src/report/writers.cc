@@ -171,6 +171,7 @@ void append_summary_json(const std::string &path, const std::string &problem_pat
       << ", \"errPSD_X\": " << json_number(r.cone_violation_X) << ", \"errPSD_S\": " << json_number(r.cone_violation_S)
       << ", \"lobpcg_calls\": " << r.lobpcg_calls << ", \"lobpcg_fallbacks\": " << r.lobpcg_fallbacks
       << ", \"composite_fallbacks\": " << r.composite_fallbacks << ", \"jacobi_not_converged\": " << r.jacobi_not_converged
+      << ", \"warmup_switch_iteration\": " << r.warmup_switch_iteration
       << ", \"final_sig\": " << json_number(r.sigma_final)
       << ", \"trace_bound\": " << json_number(o.certificate.trace_bound);
     if (o.certificate.trace_bound >= 0 || !o.certificate.block_bounds.empty())
