@@ -82,9 +82,10 @@ A100 benchmark job of branch `reorg-bench6a`.
   mixed iteration with per-block products, the switch, the engine's bookkeeping); end to end through the
   facade: the composite warm-up on `Large_LowRankS` and `Large_Two` converges to the generator's optimum and
   reports the switch iteration, repeats bit for bit, and without a warm-up reports none.
-- Acceptance of step 2: CPU suite 57 of 57 (sapphire job 54779332), GPU suite 128 of 130 on the first full run (two test-side expectation errors, since fixed: the 12 new tests then 12 of 12) on the MIG (dev build,
-  `$HOME/cuadmm-builds/reorg-dev/logs/tests_phase6a_step2*.log`); the per-commit comparison (exact and LOBPCG
-  paths bit for bit on the 53 cases) is in the GPU-evidence list.
+- Acceptance of step 2: CPU suite 57 of 57 (sapphire job 54779332); GPU suite 130 of 130 on the clean per-commit
+  build (684b99f, MIG), after a first dev-build run of 128 of 130 whose two failures were test-side expectation
+  errors (a malformed test spectrum; the engine's size-group order of the large blocks, DECISIONS 48); the exact and
+  LOBPCG paths are bit for bit on the 53 cases (GPU-evidence list).
 
 ## Milestone 2: Phase 5, cone layer
 
@@ -639,6 +640,9 @@ over one hour).
   included).
 - 14178fa (Phase 6a step 1, the kernels moved in), `build_and_compare.sh 14178fa phase6a1 ... reorg` (2026-10-22
   21:45-21:56, MIG configuration): 53 of 53 identical, 0 different, 0 failed runs; tests 118 ran, 118 passed.
+- 684b99f (Phase 6a step 2, the projector classes and the policy), `build_and_compare.sh 684b99f phase6a2 ... reorg`
+  (2026-10-22 22:21-22:33, MIG configuration): 53 of 53 identical, 0 different, 0 failed runs; tests 130 ran, 130
+  passed (the 12 projector and warm-up tests included).
 - Note on the summary comparison of `compare_runs.py`: the `options` object of the new CLI's summary was invalid
   JSON from Phase 2 until the fix recorded in CHANGES.md ("Phase 2b follow-up"), and the tool skipped the unreadable
   summary silently; the summary comparison is informational, the acceptance (histories and solutions, bit for bit)
