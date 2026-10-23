@@ -11,6 +11,7 @@
 #ifndef CUADMM_CONE_PSD_KERNELS_LOBPCG_H
 #define CUADMM_CONE_PSD_KERNELS_LOBPCG_H
 
+#include <cstddef>
 #include <limits>
 
 #include <cublas_v2.h>
@@ -66,8 +67,12 @@ void lobpcg(
     const bool verbose = false, // verbosity flag
     LobpcgInfo* info = nullptr, // optional convergence information
     const double conv_threshold = -std::numeric_limits<double>::infinity(),
-    const int min_checked = 0
+    const int min_checked = 0,
+    double* workspace = nullptr // lobpcg_workspace_doubles(n, m) doubles; null: allocated for this call (B7: the solver passes the arena's)
 );
+
+/// The workspace of lobpcg(n, m) in doubles (the cuSOLVER buffer sizes are queried from the handle at setup).
+std::size_t lobpcg_workspace_doubles(cusolverDnHandle_t cusolverH, int n, int m);
 
 
 } // namespace psd

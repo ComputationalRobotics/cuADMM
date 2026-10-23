@@ -17,6 +17,7 @@
 
 #include "cone/psd/kernels/precision.h"
 #include "core/check.h"
+#include "core/device_buffer.h"
 
 #define H2D cudaMemcpyHostToDevice
 #define D2H cudaMemcpyDeviceToHost
@@ -53,27 +54,66 @@ static void fill_tridiagonal(
 }
 
 
+namespace
+{
+struct LanczosLayout
+{
+    int lwork_eig = 0;
+    std::size_t doubles = 0;
+};
+
+// The buffers of approximate_two_norm(n, max_iter) in carving order (max_iter already clamped to n).
+LanczosLayout lanczos_layout(cusolverDnHandle_t cusolverH, std::size_t n, std::size_t max_iter)
+{
+    LanczosLayout L;
+    core::DeviceBuffer<double> dummy(16);
+    double *d = dummy.data();
+    CUADMM_CHECK_CUSOLVER(cusolverDnDsyevd_bufferSize(cusolverH, CUSOLVER_EIG_MODE_VECTOR, CUBLAS_FILL_MODE_UPPER,
+                                                      (int)max_iter, d, (int)max_iter, d, &L.lwork_eig));
+    L.doubles = n * max_iter + 4 * n                     // V, V_old, q, w, w1
+                + max_iter * max_iter + 3 * max_iter     // T, d_beta, d_alpha, d_eigenvalues
+                + (std::size_t)L.lwork_eig + 1           // the EVD workspace and devInfo
+                + max_iter + 2 * n;                      // uk, y, ry
+    return L;
+}
+} // namespace
+
+std::size_t lanczos_workspace_doubles(cusolverDnHandle_t cusolverH, std::size_t n, std::size_t max_iter)
+{
+    return lanczos_layout(cusolverH, n, min(max_iter, n)).doubles;
+}
+
 void approximate_two_norm(
     cublasHandle_t cublasH,
     cusolverDnHandle_t cusolverH,
     const double* A, size_t n,
     double* lo, double* up,
     unsigned long long seed,
-    size_t max_iter, double tol
+    size_t max_iter, double tol, double *workspace
 ) {
-    /* Allocations */
+    /* The workspace (B7: nothing is allocated per call when the caller passes one) */
     // constants
     const double zero = 0.0;
     const double one = 1.0;
-    
-    // storage
-    double *V, *V_old, *q, *w, *w1;
+
     max_iter = min(max_iter, n);
-    CUADMM_CHECK_CUDA(cudaMalloc(&V,     n * max_iter * sizeof(double)));
-    CUADMM_CHECK_CUDA(cudaMalloc(&V_old,            n * sizeof(double)));
-    CUADMM_CHECK_CUDA(cudaMalloc(&q,                n * sizeof(double)));
-    CUADMM_CHECK_CUDA(cudaMalloc(&w,                n * sizeof(double)));
-    CUADMM_CHECK_CUDA(cudaMalloc(&w1,               n * sizeof(double)));
+    const LanczosLayout L = lanczos_layout(cusolverH, n, max_iter);
+    core::DeviceBuffer<double> own_workspace;
+    double *ws = workspace;
+    if (ws == nullptr)
+    {
+        own_workspace.allocate(L.doubles);
+        ws = own_workspace.data();
+    }
+    double *cursor = ws;
+    auto carve = [&cursor](std::size_t count) { double *p = cursor; cursor += count; return p; };
+    // storage
+    double *V = carve(n * max_iter), *V_old = carve(n), *q = carve(n), *w = carve(n), *w1 = carve(n);
+    double *T = carve(max_iter * max_iter), *d_beta = carve(max_iter), *d_alpha = carve(max_iter), *d_eigenvalues = carve(max_iter);
+    const int lwork_eig = L.lwork_eig;
+    double *d_work_eig = carve(L.lwork_eig);
+    int *devInfo = reinterpret_cast<int *>(carve(1));
+    double *uk = carve(max_iter), *y = carve(n), *ry = carve(n);
 
     std::vector<double> alpha(max_iter, 0.0);
     std::vector<double> beta(max_iter, 0.0);
@@ -159,11 +199,6 @@ void approximate_two_norm(
         *lo = 0.0;
         *up = 1.0;
 
-        CUADMM_CHECK_CUDA(cudaFree(V));
-        CUADMM_CHECK_CUDA(cudaFree(V_old));
-        CUADMM_CHECK_CUDA(cudaFree(q));
-        CUADMM_CHECK_CUDA(cudaFree(w));
-        CUADMM_CHECK_CUDA(cudaFree(w1));
         CUADMM_CHECK_CUDA(cudaDeviceSynchronize());
 
         return;
@@ -171,10 +206,6 @@ void approximate_two_norm(
 
     /* Tridiagonal T */
     // T = diag(alpha) + diag(beta(2:end),1) + diag(beta(2:end),-1);
-    double *T, *d_alpha, *d_beta;
-    CUADMM_CHECK_CUDA(cudaMalloc(&T,       nb_iter * nb_iter * sizeof(double)));
-    CUADMM_CHECK_CUDA(cudaMalloc(&d_beta,            nb_iter * sizeof(double)));
-    CUADMM_CHECK_CUDA(cudaMalloc(&d_alpha,           nb_iter * sizeof(double)));
     CUADMM_CHECK_CUDA(cudaMemcpy(d_alpha, alpha.data(), nb_iter * sizeof(double), H2D));
     CUADMM_CHECK_CUDA(cudaMemcpy(d_beta,  beta.data(),  nb_iter * sizeof(double), H2D));
     // fill_tridiagonal only writes the three diagonals: zero the rest of T
@@ -184,17 +215,7 @@ void approximate_two_norm(
     );
 
     /* Largest Ritz pair */
-    // allocate memory for eigenvalues
-    double *d_eigenvalues;
-    CUADMM_CHECK_CUDA(cudaMalloc(&d_eigenvalues, nb_iter * sizeof(double)));
-
-    // allocate workspace for eigenvalue decomposition
-    int lwork_eig, *devInfo;
-    double *d_work_eig;
-    CUADMM_CHECK_CUSOLVER(cusolverDnDsyevd_bufferSize(cusolverH, CUSOLVER_EIG_MODE_VECTOR, CUBLAS_FILL_MODE_UPPER,
-                                               nb_iter, T, nb_iter, d_eigenvalues, &lwork_eig));
-    CUADMM_CHECK_CUDA(cudaMalloc(&d_work_eig, lwork_eig * sizeof(double)));
-    CUADMM_CHECK_CUDA(cudaMalloc(&devInfo, sizeof(int)));
+    // the eigenvalue decomposition of T (nb_iter <= max_iter: the workspace was sized for max_iter)
 
     // compute eigenvalues and eigenvectors
     CUADMM_CHECK_CUSOLVER(cusolverDnDsyevd(cusolverH, CUSOLVER_EIG_MODE_VECTOR, CUBLAS_FILL_MODE_UPPER,
@@ -221,16 +242,11 @@ void approximate_two_norm(
     double theta;
     CUADMM_CHECK_CUDA(cudaMemcpy(&theta, d_eigenvalues + idx_max, sizeof(double), D2H));
 
-    double *uk, *y;
-    CUADMM_CHECK_CUDA(cudaMalloc(&uk, nb_iter * sizeof(double)));
-    CUADMM_CHECK_CUDA(cudaMalloc(&y,        n * sizeof(double)));
     // uk = T(:, idx_max)
     CUADMM_CHECK_CUBLAS(cublasDcopy(cublasH, nb_iter, T + idx_max * nb_iter, 1, uk, 1));
     // y = V(:,1:nb_iter) * uk
     CUADMM_CHECK_CUBLAS(cublasDgemv(cublasH, CUBLAS_OP_N, n, nb_iter, &one, V, n, uk, 1, &zero, y, 1));
 
-    double *ry;
-    CUADMM_CHECK_CUDA(cudaMalloc(&ry, n * sizeof(double)));
     // ry = A * y
     CUADMM_CHECK_CUBLAS(cublasDgemv(cublasH, CUBLAS_OP_N, n, n,
                                 &one, A, n, y, 1,
@@ -258,21 +274,6 @@ void approximate_two_norm(
     *up = std::sqrt(theta + norm_ry);
     // printf("up: %5.4e \n", *up);
 
-    /* Free memory */
-    CUADMM_CHECK_CUDA(cudaFree(V));
-    CUADMM_CHECK_CUDA(cudaFree(V_old));
-    CUADMM_CHECK_CUDA(cudaFree(d_alpha));
-    CUADMM_CHECK_CUDA(cudaFree(d_beta));
-    CUADMM_CHECK_CUDA(cudaFree(q));
-    CUADMM_CHECK_CUDA(cudaFree(w));
-    CUADMM_CHECK_CUDA(cudaFree(w1));
-    CUADMM_CHECK_CUDA(cudaFree(T));
-    CUADMM_CHECK_CUDA(cudaFree(d_eigenvalues));
-    CUADMM_CHECK_CUDA(cudaFree(d_work_eig));
-    CUADMM_CHECK_CUDA(cudaFree(devInfo));
-    CUADMM_CHECK_CUDA(cudaFree(uk));
-    CUADMM_CHECK_CUDA(cudaFree(y));
-    CUADMM_CHECK_CUDA(cudaFree(ry));
     CUADMM_CHECK_CUDA(cudaDeviceSynchronize());
 
     // std::cout << "Upper bound: " << *up << std::endl;

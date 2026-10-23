@@ -22,6 +22,7 @@
 
 #include "cone/psd/kernels/precision.h"
 #include "core/check.h"
+#include "core/device_buffer.h"
 
 #define D2H cudaMemcpyDeviceToHost
 #define D2D cudaMemcpyDeviceToDevice
@@ -68,6 +69,47 @@ static bool check_dev_info(const int* devInfo, const char* what) {
     return true;
 }
 
+namespace
+{
+struct LobpcgLayout
+{
+    int lwork_eig = 0, lwork_eig_xrd = 0, lwork_xrd = 0, lwork_x = 0;
+    std::size_t doubles = 0;
+};
+
+// The buffers of lobpcg(n, m) in carving order (the cuSOLVER sizes are queried with dummy device pointers).
+LobpcgLayout lobpcg_layout(cusolverDnHandle_t cusolverH, int n, int m)
+{
+    LobpcgLayout L;
+    core::DeviceBuffer<double> dummy(16);
+    double *d = dummy.data();
+    CUADMM_CHECK_CUSOLVER(cusolverDnDsyevd_bufferSize(cusolverH, CUSOLVER_EIG_MODE_VECTOR, CUBLAS_FILL_MODE_UPPER, m, d, m, d, &L.lwork_eig));
+    CUADMM_CHECK_CUSOLVER(cusolverDnDsyevd_bufferSize(cusolverH, CUSOLVER_EIG_MODE_VECTOR, CUBLAS_FILL_MODE_UPPER, 3 * m, d, 3 * m, d, &L.lwork_eig_xrd));
+    int lwork_geqrf = 0, lwork_orgqr = 0;
+    CUADMM_CHECK_CUSOLVER(cusolverDnDgeqrf_bufferSize(cusolverH, n, 3 * m, d, n, &lwork_geqrf));
+    CUADMM_CHECK_CUSOLVER(cusolverDnDorgqr_bufferSize(cusolverH, n, 3 * m, 3 * m, d, n, d, &lwork_orgqr));
+    L.lwork_xrd = std::max(lwork_geqrf, lwork_orgqr);
+    int lwork_geqrf_x = 0, lwork_orgqr_x = 0;
+    CUADMM_CHECK_CUSOLVER(cusolverDnDgeqrf_bufferSize(cusolverH, n, m, d, n, &lwork_geqrf_x));
+    CUADMM_CHECK_CUSOLVER(cusolverDnDorgqr_bufferSize(cusolverH, n, m, m, d, n, d, &lwork_orgqr_x));
+    L.lwork_x = std::max(lwork_geqrf_x, lwork_orgqr_x);
+    const std::size_t nm = (std::size_t)n * m, mm = (std::size_t)m * m;
+    L.doubles = 2 * nm + 2 * (std::size_t)m + 2 * nm + mm            // X_k, X_k_tmp, Lam_k, Lam_k_tmp, Delta_X_k, T_tmp, T
+                + 3 * nm + 3 * (std::size_t)m + 3 * nm + 9 * mm + 3 * nm + 3 * nm // XRD, Lam_all, XRD_tmp, T_XRD, T_tmp_XRD, R_k
+                + (std::size_t)m                                          // R_norms
+                + (std::size_t)L.lwork_eig + (std::size_t)L.lwork_eig_xrd  // the EVD workspaces
+                + (std::size_t)L.lwork_xrd + 3 * (std::size_t)m            // the QR workspace of XRD and tau
+                + (std::size_t)L.lwork_x + (std::size_t)m                  // the cold start's QR workspace and tau
+                + 1;                                                       // devInfo
+    return L;
+}
+} // namespace
+
+std::size_t lobpcg_workspace_doubles(cusolverDnHandle_t cusolverH, int n, int m)
+{
+    return lobpcg_layout(cusolverH, n, m).doubles;
+}
+
 void lobpcg(
     cublasHandle_t cublasH,
     cusolverDnHandle_t cusolverH,
@@ -82,33 +124,40 @@ void lobpcg(
     const bool verbose,
     LobpcgInfo* info,
     const double conv_threshold,
-    const int min_checked
+    const int min_checked,
+    double* workspace
 ) {
     assert(m > 0);
     assert(n > 0);
     assert(3*m <= n);
 
-    /* Allocations */
-    // allocate the device memory
-    double *X_k, *X_k_tmp, *Lam_k, *Lam_k_tmp, *T, *Delta_X_k, *T_tmp, *R_k;
-    double *XRD, *Lam_all, *XRD_tmp, *T_XRD, *T_tmp_XRD;
-    CUADMM_CHECK_CUDA(cudaMalloc(&X_k,            n * m * sizeof(double)));
-    CUADMM_CHECK_CUDA(cudaMalloc(&X_k_tmp,        n * m * sizeof(double)));
-    CUADMM_CHECK_CUDA(cudaMalloc(&Lam_k,              m * sizeof(double)));
-    CUADMM_CHECK_CUDA(cudaMalloc(&Lam_k_tmp,          m * sizeof(double)));
-    CUADMM_CHECK_CUDA(cudaMalloc(&Delta_X_k,      n * m * sizeof(double)));
-    CUADMM_CHECK_CUDA(cudaMalloc(&T_tmp,          n * m * sizeof(double)));
-    CUADMM_CHECK_CUDA(cudaMalloc(&T,              m * m * sizeof(double)));
-    
-    CUADMM_CHECK_CUDA(cudaMalloc(&XRD,          n * 3*m * sizeof(double)));
-    CUADMM_CHECK_CUDA(cudaMalloc(&Lam_all,          3*m * sizeof(double)));
-    CUADMM_CHECK_CUDA(cudaMalloc(&XRD_tmp,      n * 3*m * sizeof(double)));
-    CUADMM_CHECK_CUDA(cudaMalloc(&T_XRD,      3*m * 3*m * sizeof(double)));
-    CUADMM_CHECK_CUDA(cudaMalloc(&T_tmp_XRD,    n * 3*m * sizeof(double)));
-    CUADMM_CHECK_CUDA(cudaMalloc(&R_k,          n * 3*m * sizeof(double)));
+    /* The workspace (B7: nothing is allocated per call when the caller passes one) */
+    const LobpcgLayout L = lobpcg_layout(cusolverH, n, m);
+    core::DeviceBuffer<double> own_workspace;
+    double *ws = workspace;
+    if (ws == nullptr)
+    {
+        own_workspace.allocate(L.doubles);
+        ws = own_workspace.data();
+    }
+    double *cursor = ws;
+    auto carve = [&cursor](std::size_t count) { double *p = cursor; cursor += count; return p; };
+    double *X_k = carve((std::size_t)n * m), *X_k_tmp = carve((std::size_t)n * m);
+    double *Lam_k = carve(m), *Lam_k_tmp = carve(m);
+    double *Delta_X_k = carve((std::size_t)n * m), *T_tmp = carve((std::size_t)n * m);
+    double *T = carve((std::size_t)m * m);
+    double *XRD = carve((std::size_t)n * 3 * m), *Lam_all = carve(3 * m), *XRD_tmp = carve((std::size_t)n * 3 * m);
+    double *T_XRD = carve((std::size_t)3 * m * 3 * m), *T_tmp_XRD = carve((std::size_t)n * 3 * m), *R_k = carve((std::size_t)n * 3 * m);
+    double *R_norms = carve(m); // per-column residual norms ||A x_j - lambda_j x_j||_2
+    const int lwork_eig = L.lwork_eig;
+    double *d_work_eig = carve(L.lwork_eig);
+    const int lwork_eig_XRD = L.lwork_eig_xrd;
+    double *d_work_eig_XRD = carve(L.lwork_eig_xrd);
+    const int lwork_xrd = L.lwork_xrd;
+    double *d_work_xrd = carve(L.lwork_xrd), *tau_xrd = carve(3 * m);
+    double *d_work_x = carve(L.lwork_x), *tau_x = carve(m); // the cold start's QR
+    int *devInfo = reinterpret_cast<int *>(carve(1));
 
-    double *R_norms; // per-column residual norms ||A x_j - lambda_j x_j||_2
-    CUADMM_CHECK_CUDA(cudaMalloc(&R_norms, m * sizeof(double)));
     // NaN until copied back, so that a failed copy cannot look like convergence
     std::vector<double> h_R_norms(m, std::numeric_limits<double>::quiet_NaN());
     std::vector<double> h_Lam_k(m, std::numeric_limits<double>::quiet_NaN());
@@ -123,50 +172,15 @@ void lobpcg(
     const double half = 0.5;
     const double neg1 = -1.0;
 
-    // workspace for eigenvalue decomposition
-    int lwork_eig;
-    double *d_work_eig;
-    CUADMM_CHECK_CUSOLVER(cusolverDnDsyevd_bufferSize(cusolverH, CUSOLVER_EIG_MODE_VECTOR, CUBLAS_FILL_MODE_UPPER,
-                                                m, T, m, Lam_k, &lwork_eig));
-    CUADMM_CHECK_CUDA(cudaMalloc(&d_work_eig, lwork_eig * sizeof(double)));
-
-    // workspace for eigenvalue decomposition of XRD
-    int lwork_eig_XRD;
-    double *d_work_eig_XRD;
-    CUADMM_CHECK_CUSOLVER(cusolverDnDsyevd_bufferSize(cusolverH, CUSOLVER_EIG_MODE_VECTOR, CUBLAS_FILL_MODE_UPPER,
-                                                3*m, T_XRD, 3*m, Lam_all, &lwork_eig_XRD));
-    CUADMM_CHECK_CUDA(cudaMalloc(&d_work_eig_XRD, lwork_eig_XRD * sizeof(double)));
-
-    int *devInfo;
-    CUADMM_CHECK_CUDA(cudaMalloc(&devInfo, sizeof(int)));
-
-    // workspace for QR decomposition of XRD
-    int lwork_xrd;
-    double *d_work_xrd, *tau_xrd;
-    CUADMM_CHECK_CUDA(cudaMalloc(&tau_xrd, 3*m * sizeof(double)));
-
-    int lwork_geqrf = 0, lwork_orgqr = 0;
-    CUADMM_CHECK_CUSOLVER(cusolverDnDgeqrf_bufferSize(cusolverH, n, 3*m, XRD, n, &lwork_geqrf));
-    CUADMM_CHECK_CUSOLVER(cusolverDnDorgqr_bufferSize(cusolverH, n, 3*m, 3*m, XRD, n, tau_xrd, &lwork_orgqr));
-    lwork_xrd = std::max(lwork_geqrf, lwork_orgqr);
-
-    CUADMM_CHECK_CUDA(cudaMalloc(&d_work_xrd, lwork_xrd * sizeof(double)));
-
     /* Initialization of X_k */
     if (warmstart) {
         CUADMM_CHECK_CUDA(cudaMemcpy(X_k, V, n * m * sizeof(double), D2D));
         CUADMM_CHECK_CUDA(cudaMemcpy(Lam_k, D, m * sizeof(double), D2D));
         // note: we assume vectors in V are orthonormal
     } else {
-        // workspace for QR decomposition of X_k
-        double *d_work, *tau;
-        int lwork;
-        CUADMM_CHECK_CUDA(cudaMalloc(&tau, m * sizeof(double)));
-        int lwork_orgqr_x = 0;
-        CUADMM_CHECK_CUSOLVER(cusolverDnDgeqrf_bufferSize(cusolverH, n, m, X_k, n, &lwork));
-        CUADMM_CHECK_CUSOLVER(cusolverDnDorgqr_bufferSize(cusolverH, n, m, m, X_k, n, tau, &lwork_orgqr_x));
-        lwork = std::max(lwork, lwork_orgqr_x);
-        CUADMM_CHECK_CUDA(cudaMalloc(&d_work, lwork * sizeof(double)));
+        // the QR decomposition of X_k, with the workspace carved above
+        double *d_work = d_work_x, *tau = tau_x;
+        const int lwork = L.lwork_x;
 
         fill_deterministic(X_k, n * m, 0); // the solver always warm-starts; this start is deterministic too (B8)
 
@@ -182,8 +196,6 @@ void lobpcg(
         if (!check_dev_info(devInfo, "initial ORGQR"))
             failed = true;
 
-        CUADMM_CHECK_CUDA(cudaFree(d_work));
-        CUADMM_CHECK_CUDA(cudaFree(tau));
     }
 
     /* Compute new X_k using T */
@@ -357,28 +369,6 @@ void lobpcg(
     // D = Lam_k
     CUADMM_CHECK_CUBLAS(cublasDcopy(cublasH, m, Lam_k, 1, D, 1));
 
-
-    // Free device memory
-    CUADMM_CHECK_CUDA(cudaFree(X_k));
-    CUADMM_CHECK_CUDA(cudaFree(X_k_tmp));
-    CUADMM_CHECK_CUDA(cudaFree(Lam_k));
-    CUADMM_CHECK_CUDA(cudaFree(Lam_k_tmp));
-    CUADMM_CHECK_CUDA(cudaFree(d_work_xrd));
-    CUADMM_CHECK_CUDA(cudaFree(tau_xrd));
-    CUADMM_CHECK_CUDA(cudaFree(T_tmp));
-    CUADMM_CHECK_CUDA(cudaFree(T_tmp_XRD));
-    CUADMM_CHECK_CUDA(cudaFree(d_work_eig));
-    CUADMM_CHECK_CUDA(cudaFree(devInfo));
-    CUADMM_CHECK_CUDA(cudaFree(T));
-    CUADMM_CHECK_CUDA(cudaFree(Delta_X_k));
-    CUADMM_CHECK_CUDA(cudaFree(R_k));
-    
-    CUADMM_CHECK_CUDA(cudaFree(XRD));
-    CUADMM_CHECK_CUDA(cudaFree(Lam_all));
-    CUADMM_CHECK_CUDA(cudaFree(T_XRD));
-    CUADMM_CHECK_CUDA(cudaFree(XRD_tmp));
-    CUADMM_CHECK_CUDA(cudaFree(d_work_eig_XRD));
-    CUADMM_CHECK_CUDA(cudaFree(R_norms));
 
     if (failed && info == nullptr)
         throw std::runtime_error("lobpcg: a cuSOLVER factorization failed (devInfo != 0)");

@@ -25,7 +25,11 @@ namespace psd
 {
 
 void approximate_two_norm(cublasHandle_t cublasH, cusolverDnHandle_t cusolverH, const double *A, std::size_t n, double *lo, double *up,
-                          unsigned long long seed, std::size_t max_iter = 20, double tol = 1e-10);
+                          unsigned long long seed, std::size_t max_iter = 20, double tol = 1e-10,
+                          double *workspace = nullptr); // lanczos_workspace_doubles(n, max_iter) doubles; null: allocated for this call
+
+/// The workspace of approximate_two_norm(n, max_iter) in doubles.
+std::size_t lanczos_workspace_doubles(cusolverDnHandle_t cusolverH, std::size_t n, std::size_t max_iter);
 
 } // namespace psd
 } // namespace cone
