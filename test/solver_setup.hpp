@@ -11,8 +11,8 @@
 
 #include <vector>
 
-#include "cuadmm/solver.h"
-#include "cuadmm/io.h"
+#include "cuadmm_legacy/solver.h"
+#include "cuadmm_legacy/io.h"
 #include "regression_problems.hpp"
 
 namespace solver_setup

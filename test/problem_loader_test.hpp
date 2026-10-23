@@ -14,7 +14,7 @@
 #include <stdexcept>
 #include <string>
 
-#include "cuadmm/problem.h"
+#include "cuadmm_legacy/problem.h"
 
 namespace problem_loader_test
 {

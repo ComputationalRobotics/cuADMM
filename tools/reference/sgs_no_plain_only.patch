@@ -1,0 +1,13 @@
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index ff33851..3b40d59 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -91,7 +91,7 @@ target_include_directories(${CUADMM_LIB} PUBLIC ${INCLUDE_DIRS})
+ # Branch experiment/plato-cold-plain-admm-sigma: plain ADMM only. solve() rejects sGS-ADMM and the sGS -> ADMM hybrid
+ # (switch_admm > 1, the fixed_sgs_then_legacy_admm policy), the CLI rejects the sGS options, and the sGS y-update is
+ # unreachable (it throws if ever entered). PUBLIC: the executable and the tests see the same definition.
+-target_compile_definitions(${CUADMM_LIB} PUBLIC CUADMM_PLAIN_ADMM_ONLY)
++# target_compile_definitions(${CUADMM_LIB} PUBLIC CUADMM_PLAIN_ADMM_ONLY)  # removed for the sGS reference build (plan Phase 4 criterion)
+ target_link_libraries(
+     ${CUADMM_LIB}
+     PUBLIC

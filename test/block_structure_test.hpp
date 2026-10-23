@@ -8,10 +8,10 @@
 #include <string>
 #include <vector>
 
-#include "cuadmm/block_structure.h"
-#include "cuadmm/matrix_sizes.h"
-#include "cuadmm/memory.h"
-#include "cuadmm/utils.h"
+#include "cuadmm_legacy/block_structure.h"
+#include "cuadmm_legacy/matrix_sizes.h"
+#include "cuadmm_legacy/memory.h"
+#include "legacy_block_layout.hpp" // the deleted analyze_blk + MatrixSizes::init + get_maps path, as a test oracle
 
 namespace block_structure_test
 {
@@ -39,10 +39,10 @@ namespace block_structure_test
             ref.vec_len += (types[k] == 's') ? blk_sizes[k] * (blk_sizes[k] + 1) / 2 : blk_sizes[k];
 
         testing::internal::CaptureStdout();
-        analyze_blk(types_copy.data(), blk, ref.psd_blk_sizes, ref.psd_blk_nums);
+        legacy_block_layout::analyze_blk(types_copy.data(), blk, ref.psd_blk_sizes, ref.psd_blk_nums);
         ref.printed = testing::internal::GetCapturedStdout();
-        ref.sizes.init(ref.psd_blk_sizes, ref.psd_blk_nums);
-        get_maps(types.data(), blk, ref.vec_len, ref.map_B, ref.map_M1, ref.map_M2, ref.sizes);
+        legacy_block_layout::matrix_sizes_init(ref.sizes, ref.psd_blk_sizes, ref.psd_blk_nums);
+        legacy_block_layout::get_maps(types.data(), blk, ref.vec_len, ref.map_B, ref.map_M1, ref.map_M2, ref.sizes);
     }
 
     // Compare two int vectors, reporting the first mismatch rather than both vectors

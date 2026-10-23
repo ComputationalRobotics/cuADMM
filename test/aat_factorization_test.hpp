@@ -15,7 +15,7 @@
 #include <string>
 #include <vector>
 
-#include "cuadmm/cholesky_cpu.h"
+#include "cuadmm_legacy/cholesky_cpu.h"
 
 namespace aat_factorization_test
 {

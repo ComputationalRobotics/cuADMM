@@ -6,8 +6,8 @@
     solve() (ValidationConfig, ExternalValidator):
       - fixed sigma is exactly constant for the whole solve, in pure sGS and in plain ADMM;
       - the legacy adaptive policy (and plain ADMM) reproduces the histories of the pre-change solver 290660f
-        (test/data/legacy_golden.txt, generated on an H200 by
-        experiments/2026-09-28_fixed_sigma_to_tolerance/scripts/gen_legacy_golden.cu; regenerate it on another GPU
+        (test/data/legacy_golden.txt, generated on an H200 by gen_legacy_golden.cu of the fixed-sigma campaign,
+        experiments/2026-09-28_fixed_sigma_to_tolerance/scripts/ in the history of main; regenerate it on another GPU
         architecture, whose rounding may differ);
       - pure sGS never takes a plain ADMM step;
       - validation continues beyond iteration 10000, the solve stops on the validated accuracy, not on the internal
@@ -35,8 +35,8 @@
 #include <string>
 #include <vector>
 
-#include "cuadmm/external_validation.h"
-#include "cuadmm/solver.h"
+#include "cuadmm_legacy/external_validation.h"
+#include "cuadmm_legacy/solver.h"
 #include "regression_problems.hpp"
 #include "solver_setup.hpp"
 
@@ -44,17 +44,11 @@
 #define CUADMM_TEST_DATA_DIR "test/data"
 #endif
 
-// In the plain-ADMM-only build (CUADMM_PLAIN_ADMM_ONLY) solve() rejects sGS-ADMM: the validation tests then run on
-// plain ADMM, the sGS-only tests and golden cases are compiled out (see plain_admm_only_test.hpp for the rejection).
-#ifdef CUADMM_PLAIN_ADMM_ONLY
-#define CUADMM_SGS_OR_PLAIN 0
-#define CUADMM_ALGORITHM_FLAG "admm"
-static const std::vector<int> CUADMM_SGS_AND_PLAIN = {0};
-#else
+// sGS-ADMM is a runtime option (B5: the compile-time switch CUADMM_PLAIN_ADMM_ONLY of main is gone); the validation
+// tests run on pure sGS and on plain ADMM
 #define CUADMM_SGS_OR_PLAIN INT_MAX
 #define CUADMM_ALGORITHM_FLAG "sgs"
 static const std::vector<int> CUADMM_SGS_AND_PLAIN = {INT_MAX, 0};
-#endif
 
 namespace fixed_sigma_test
 {
@@ -189,7 +183,7 @@ inline void check_golden(const GoldenCase &c)
     const regression::RegressionProblem p = regression::generate(c.problem);
     SDPSolver s;
     ASSERT_NO_THROW(solver_setup::init_solver(p, s, true, c.sig0));
-    ASSERT_EQ(s.sigma_policy, SigmaPolicy::LEGACY_ADAPTIVE); // the default
+    s.sigma_policy = SigmaPolicy::LEGACY_ADAPTIVE; // the golden histories are those of 9bb4ba5 / 290660f
     ASSERT_NO_THROW(s.solve(c.max_iter, c.stop_tol, 500, 50, 100, c.switch_admm, 0, 1e-2, c.sigscale));
     ASSERT_EQ(s.info_iter_num, c.iterations);
     const std::vector<double> sig = last_solve(s.info_sig_arr, s.info_iter_num);
@@ -276,19 +270,9 @@ TEST(FixedSigma, LegacyAdaptiveAndPlainAdmmUnchanged)
     const std::vector<GoldenCase> cases = read_golden(std::string(CUADMM_TEST_DATA_DIR) + "/legacy_golden.txt");
     ASSERT_EQ(cases.size(), 6u);
     for (const GoldenCase &c : cases)
-    {
-#ifdef CUADMM_PLAIN_ADMM_ONLY
-        if (c.switch_admm > 1)
-        {
-            printf("[ GOLDEN   ] %s: skipped (sGS-ADMM is disabled in the plain-ADMM-only build)\n", c.name.c_str());
-            continue;
-        }
-#endif
         check_golden(c);
-    }
 }
 
-#ifndef CUADMM_PLAIN_ADMM_ONLY
 // 3. Pure sGS (switch_admm = INT_MAX, as --algorithm sgs) never takes a plain ADMM step: the counter stays 0 and the
 //    primal residual contracts by |1 - tau| = 0.95 at every iteration (tau = 1.95 of the sGS branch).
 TEST(FixedSigma, PureSgsNeverSwitchesToAdmm)
@@ -313,8 +297,6 @@ TEST(FixedSigma, PureSgsNeverSwitchesToAdmm)
     ASSERT_NO_THROW(a.solve(300, 0.0, 500, 50, 100, 0, 0, 1e-2, 2.0));
     EXPECT_EQ(a.admm_phase_iterations, 300);
 }
-
-#endif // CUADMM_PLAIN_ADMM_ONLY
 
 // 4. The validation keeps running beyond iteration 10000 (no hidden 10000-iteration stop) and records the requested
 //    checkpoint; with an unattainable tolerance the solve ends at the safety cap.
@@ -412,27 +394,32 @@ TEST(ValidationStopping, NoStopWhenConeFailsAndBestIterateReturned)
     EXPECT_FALSE(s.converged);
     EXPECT_EQ(s.info_iter_num, 3000);
     bool crossing_failed_on_cone = false;
-    double best_merit = std::numeric_limits<double>::infinity();
+    // the ranking of B23: the maximum DIMACS error (the practical merit only for snapshots without a finite one)
+    double best_dimacs = std::numeric_limits<double>::infinity(), best_merit = std::numeric_limits<double>::infinity();
     int best_iter = -1;
     for (const ValidationRecord &r : s.validation_history)
     {
         EXPECT_FALSE(r.result.validated);
         crossing_failed_on_cone = crossing_failed_on_cone ||
                                   (r.trigger == "internal_crossing" && r.result.failed.find("X_cone") != std::string::npos);
-        if (r.result.merit() < best_merit)
+        const double d = std::isfinite(r.result.max_abs_dimacs) ? r.result.max_abs_dimacs : std::numeric_limits<double>::infinity();
+        if (d < best_dimacs || (std::isinf(d) && std::isinf(best_dimacs) && r.result.merit() < best_merit))
         {
+            best_dimacs = d;
             best_merit = r.result.merit();
             best_iter = r.iter;
         }
     }
     EXPECT_TRUE(crossing_failed_on_cone);
+    EXPECT_TRUE(std::isfinite(best_dimacs)) << "the snapshots of this test have finite DIMACS errors";
     EXPECT_EQ(s.best_validation.iter, best_iter);
     EXPECT_LE(best_iter, 2900);
     ASSERT_TRUE(s.returned_best_external);
     std::vector<double> X, y, S;
     returned_iterate(s, X, y, S);
     const ValidationResult r = make_validator(p).evaluate(X.data(), y.data(), S.data(), s.validation.tol);
-    EXPECT_EQ(r.merit(), best_merit) << "the returned iterate must be the best externally evaluated one";
+    EXPECT_EQ(r.max_abs_dimacs, best_dimacs) << "the returned iterate must be the best externally evaluated one (B23: by max |DIMACS|)";
+    EXPECT_EQ(r.merit(), best_merit);
     // and the reported residuals are the solver's own ones of that snapshot
     EXPECT_EQ(s.errRp, s.best_validation.internal_errRp);
     EXPECT_EQ(s.errRd, s.best_validation.internal_errRd);
@@ -605,8 +592,9 @@ TEST(FixedSigmaCli, BackwardCompatibleAndNewFlags)
         ss << in.rdbuf();
         return ss.str();
     };
+    // the default policy is residual_balancing (plan O1, until Phase 4b): explicit and implicit runs are identical
     ASSERT_EQ(run("--max-iter 400 --tol 1e-9", "legacy"), 0);
-    ASSERT_EQ(run("--max-iter 400 --tol 1e-9 --sigma-policy legacy_adaptive", "explicit"), 0);
+    ASSERT_EQ(run("--max-iter 400 --tol 1e-9 --sigma-policy residual_balancing", "explicit"), 0);
     // identical histories apart from the time column
     auto strip_time = [](const std::string &csv)
     {
@@ -621,7 +609,21 @@ TEST(FixedSigmaCli, BackwardCompatibleAndNewFlags)
     };
     EXPECT_EQ(strip_time(read("fixed_sigma_cli/legacy.csv")), strip_time(read("fixed_sigma_cli/explicit.csv")));
     const std::string legacy = read("fixed_sigma_cli/legacy.json");
-    EXPECT_NE(legacy.find("\"sigma_policy\": \"legacy_adaptive\""), std::string::npos);
+    EXPECT_NE(legacy.find("\"sigma_policy\": \"residual_balancing\""), std::string::npos);
+    EXPECT_NE(legacy.find("\"sigma_policy_parameters\": {\"factor\": 2, \"sigma_min\": 0.001, \"sigma_max\": 1000"), std::string::npos);
+    EXPECT_NE(legacy.find("\"build_commit\": \""), std::string::npos);
+    // the historical rule is selectable under its historical name, with its own bounds and Monitor1
+    ASSERT_EQ(run("--max-iter 400 --tol 1e-9 --sigma-policy legacy_adaptive", "historical"), 0);
+    const std::string historical = read("fixed_sigma_cli/historical.json");
+    EXPECT_NE(historical.find("\"sigma_policy\": \"legacy_adaptive\""), std::string::npos);
+    EXPECT_NE(historical.find("\"sigma_min\": 1e-06, \"sigma_max\": 1000000, \"win_ratio\": 1.35, \"guard\": false"), std::string::npos);
+    // (JSON numbers are the shortest decimals that round-trip exactly: 1e-06, 1.35)
+    EXPECT_NE(historical.find("\"monitor1\": true"), std::string::npos);
+    // the October 20 factor is an option value, never the meaning of a policy name
+    ASSERT_EQ(run("--max-iter 400 --tol 1e-9 --penalty-factor 1.2", "factor12"), 0);
+    EXPECT_NE(read("fixed_sigma_cli/factor12.json").find("\"sigma_policy_parameters\": {\"factor\": 1.2"), std::string::npos);
+    EXPECT_NE(run("--penalty-factor 0", "bad_factor"), 0);
+    EXPECT_NE(run("--sigma-min 10 --sigma-max 1", "bad_bounds"), 0);
     EXPECT_NE(legacy.find("\"validation_interval\": 0"), std::string::npos);
     EXPECT_NE(legacy.find("\"algorithm\": \"plain ADMM\""), std::string::npos);
 
@@ -633,18 +635,10 @@ TEST(FixedSigmaCli, BackwardCompatibleAndNewFlags)
     const std::string fresh = read("fixed_sigma_cli/new.json");
     EXPECT_NE(fresh.find("\"sigma_policy\": \"fixed\""), std::string::npos);
     EXPECT_NE(fresh.find("\"sigma_changes\": 0"), std::string::npos);
-#ifdef CUADMM_PLAIN_ADMM_ONLY
-    EXPECT_NE(fresh.find("\"sgs_phase_iterations\": 0"), std::string::npos);
-#else
     EXPECT_NE(fresh.find("\"admm_phase_iterations\": 0"), std::string::npos);
-#endif
     EXPECT_NE(fresh.find("\"stop_reason\": \"externally_validated\""), std::string::npos);
     EXPECT_NE(fresh.find("\"externally_validated_converged\": true"), std::string::npos);
-#ifdef CUADMM_PLAIN_ADMM_ONLY
-    EXPECT_NE(read("fixed_sigma_cli/new.log").find("Build: plain ADMM only"), std::string::npos);
-#else
     EXPECT_NE(read("fixed_sigma_cli/new.log").find("Algorithm: pure sGS-ADMM"), std::string::npos);
-#endif
     EXPECT_FALSE(read("fixed_sigma_cli/new_validation.csv").empty());
 
     // no JSON value may be nan or inf

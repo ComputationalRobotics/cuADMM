@@ -12,7 +12,7 @@
 #include <cmath>
 #include <vector>
 
-#include "cuadmm/solver.h"
+#include "cuadmm_legacy/solver.h"
 #include "regression_problems.hpp"
 #include "solver_setup.hpp"
 

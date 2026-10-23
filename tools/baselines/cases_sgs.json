@@ -1,0 +1,113 @@
+[
+ {
+  "name": "PSD_Free__sgs_fixed_s100_i3000",
+  "problem": "generated/PSD_Free",
+  "policy": "fixed",
+  "sigma0": 100.0,
+  "max_iter": 3000,
+  "tol": 1e-300,
+  "scheme": "sgs_admm"
+ },
+ {
+  "name": "Nonneg_Free_PSD__sgs_fixed_s100_i1500",
+  "problem": "generated/Nonneg_Free_PSD",
+  "policy": "fixed",
+  "sigma0": 100.0,
+  "max_iter": 1500,
+  "tol": 1e-300,
+  "scheme": "sgs_admm"
+ },
+ {
+  "name": "Medium_Free__sgs_fixed_s100_i1000",
+  "problem": "generated/Medium_Free",
+  "policy": "fixed",
+  "sigma0": 100.0,
+  "max_iter": 1000,
+  "tol": 1e-300,
+  "scheme": "sgs_admm"
+ },
+ {
+  "name": "Large_LowRankX__sgs_fixed_s100_i500",
+  "problem": "generated/Large_LowRankX",
+  "policy": "fixed",
+  "sigma0": 100.0,
+  "max_iter": 500,
+  "tol": 1e-300,
+  "scheme": "sgs_admm"
+ },
+ {
+  "name": "Free__sgs_fixed_s100_i1500",
+  "problem": "generated/Free",
+  "policy": "fixed",
+  "sigma0": 100.0,
+  "max_iter": 1500,
+  "tol": 1e-300,
+  "scheme": "sgs_admm"
+ },
+ {
+  "name": "PSD_Nonneg__sgs_fixed_s100_i1500",
+  "problem": "generated/PSD_Nonneg",
+  "policy": "fixed",
+  "sigma0": 100.0,
+  "max_iter": 1500,
+  "tol": 1e-300,
+  "scheme": "sgs_admm"
+ },
+ {
+  "name": "trto1__sgs_fixed_s1_i2000",
+  "problem": "plato/trto1",
+  "policy": "fixed",
+  "sigma0": 1.0,
+  "max_iter": 2000,
+  "tol": 1e-300,
+  "scheme": "sgs_admm"
+ },
+ {
+  "name": "mater-1__sgs_fixed_s1_i2000",
+  "problem": "plato/mater-1",
+  "policy": "fixed",
+  "sigma0": 1.0,
+  "max_iter": 2000,
+  "tol": 1e-300,
+  "scheme": "sgs_admm"
+ },
+ {
+  "name": "PSD_Free__sgs_balancing_s100_i1500",
+  "problem": "generated/PSD_Free",
+  "policy": "residual_balancing",
+  "sigma0": 100.0,
+  "max_iter": 1500,
+  "tol": 1e-300,
+  "scheme": "sgs_admm"
+ },
+ {
+  "name": "Nonneg_Free_PSD__hybrid100_fixed_s100_i600",
+  "problem": "generated/Nonneg_Free_PSD",
+  "policy": "fixed",
+  "sigma0": 100.0,
+  "max_iter": 600,
+  "tol": 1e-300,
+  "scheme": "admm",
+  "switch_iteration": 101
+ },
+ {
+  "name": "PSD_Free__hybrid300_balancing_s100_i1500",
+  "problem": "generated/PSD_Free",
+  "policy": "residual_balancing",
+  "sigma0": 100.0,
+  "max_iter": 1500,
+  "tol": 1e-300,
+  "scheme": "admm",
+  "switch_iteration": 301
+ },
+ {
+  "name": "PSD_Free__sgs_fixed_s100_tol1e-5",
+  "problem": "generated/PSD_Free",
+  "policy": "fixed",
+  "sigma0": 100.0,
+  "max_iter": 20000,
+  "tol": 1e-05,
+  "scheme": "sgs_admm",
+  "sgs_tau_reduction": true
+ }
+]

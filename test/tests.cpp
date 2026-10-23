@@ -1,7 +1,7 @@
 #include <gtest/gtest.h>
 
-#include "cuadmm/utils.h"
-#include "cuadmm/check.h"
+#include "cuadmm_legacy/utils.h"
+#include "cuadmm_legacy/check.h"
 
 // #include "meta_test.hpp"
 // #include "memory_test.hpp"
@@ -29,12 +29,18 @@
 #include "large_projection_test.hpp"
 #include "block_structure_test.hpp"
 #include "certificate_test.hpp"
+#include "cone_test.hpp"
+#include "psd_strategies_test.hpp"
+#include "core_runtime_test.hpp"
+#include "psd_memory_test.hpp"
+#include "empty_objective_test.hpp"
+#include "linsys_integration_test.hpp"
 #include "warm_restart_test.hpp"
 
 #include "regression_solver_test.hpp"
 #include "fixed_sigma_validation_test.hpp"
 #include "hybrid_switch_test.hpp"
-#include "plain_admm_only_test.hpp"
+#include "outputs_test.hpp"
 
 int main(int argc, char **argv)
 {

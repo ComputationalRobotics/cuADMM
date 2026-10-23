@@ -1,24 +1,28 @@
+# build trees (the CMake presets use build/ and build-*/)
+build/
+build-*/
+# CUDA intermediates
 *.i
 *.ii
 *.gpu
 *.ptx
 *.cubin
 *.fatbin
-
-ksc/data
-ksc/figs
-ksc/logs
-logs/
-# experiment records are versioned
-!experiments/*/logs/
-!experiments/*/code_benchmarks/logs/
-debug/
-
-build
-build-*/
-.vscode
+# Python
+*.pyc
+__pycache__/
+# the API documentation rendered by the target cuadmm_docs
+docs/api/
+# editors, OS
+.vscode/
 .DS_Store
-
+# run outputs (the example scripts, the tests)
+logs/
+debug/
+out_defaults/
+out_main/
+out_backends/
+io_test_tmp/
+# the data directories: new files there are not picked up by default
 examples/SPOT
-examples/BQP
 examples/plato

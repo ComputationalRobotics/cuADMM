@@ -5,8 +5,8 @@
 #include <string>
 #include <vector>
 
-#include "cuadmm/io.h"
-#include "cuadmm/memory.h"
+#include "cuadmm_legacy/io.h"
+#include "cuadmm_legacy/memory.h"
 
 // Regression tests for COO_to_CSC (CPU only, no data files).
 // Triplets are passed as (col_ids, row_ids, vals); after the call they are

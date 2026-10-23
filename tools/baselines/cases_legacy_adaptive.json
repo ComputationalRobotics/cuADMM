@@ -1,0 +1,82 @@
+[
+ {
+  "name": "PSD_Free__legacy_s100_i6000",
+  "problem": "generated/PSD_Free",
+  "policy": "legacy_adaptive",
+  "sigma0": 100.0,
+  "max_iter": 6000,
+  "tol": 1e-300
+ },
+ {
+  "name": "Nonneg_Free_PSD__legacy_s100_i6000",
+  "problem": "generated/Nonneg_Free_PSD",
+  "policy": "legacy_adaptive",
+  "sigma0": 100.0,
+  "max_iter": 6000,
+  "tol": 1e-300
+ },
+ {
+  "name": "Medium_Free__legacy_s100_i3000",
+  "problem": "generated/Medium_Free",
+  "policy": "legacy_adaptive",
+  "sigma0": 100.0,
+  "max_iter": 3000,
+  "tol": 1e-300
+ },
+ {
+  "name": "Large_LowRankX__legacy_s100_i800",
+  "problem": "generated/Large_LowRankX",
+  "policy": "legacy_adaptive",
+  "sigma0": 100.0,
+  "max_iter": 800,
+  "tol": 1e-300
+ },
+ {
+  "name": "PSD_Nonneg__legacy_s100_i2000",
+  "problem": "generated/PSD_Nonneg",
+  "policy": "legacy_adaptive",
+  "sigma0": 100.0,
+  "max_iter": 2000,
+  "tol": 1e-300
+ },
+ {
+  "name": "trto1__legacy_s1_i6000",
+  "problem": "plato/trto1",
+  "policy": "legacy_adaptive",
+  "sigma0": 1.0,
+  "max_iter": 6000,
+  "tol": 1e-300
+ },
+ {
+  "name": "trto1__legacy_s1_tol1e-4",
+  "problem": "plato/trto1",
+  "policy": "legacy_adaptive",
+  "sigma0": 1.0,
+  "max_iter": 20000,
+  "tol": 0.0001
+ },
+ {
+  "name": "mater-1__legacy_s1_i6000",
+  "problem": "plato/mater-1",
+  "policy": "legacy_adaptive",
+  "sigma0": 1.0,
+  "max_iter": 6000,
+  "tol": 1e-300
+ },
+ {
+  "name": "mater-1__legacy_s1_tol1e-4",
+  "problem": "plato/mater-1",
+  "policy": "legacy_adaptive",
+  "sigma0": 1.0,
+  "max_iter": 20000,
+  "tol": 0.0001
+ },
+ {
+  "name": "PSD_Free__legacy_s100_tol1e-6",
+  "problem": "generated/PSD_Free",
+  "policy": "legacy_adaptive",
+  "sigma0": 100.0,
+  "max_iter": 20000,
+  "tol": 1e-06
+ }
+]

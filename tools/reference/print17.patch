@@ -1,0 +1,31 @@
+diff --git a/src/main.cu b/src/main.cu
+index d5035bc..4907960 100644
+--- a/src/main.cu
++++ b/src/main.cu
+@@ -146,7 +146,7 @@ static std::string json_number(double x)
+     if (!std::isfinite(x))
+         return "null";
+     std::ostringstream o;
+-    o << std::setprecision(10) << x;
++    o << std::setprecision(17) << x;
+     return o.str();
+ }
+ 
+@@ -400,7 +400,7 @@ static void write_summary(const Options &opt, const Problem &problem, const SDPS
+         std::cerr << "WARNING: could not open " << opt.summary_file << " for the summary" << std::endl;
+         return;
+     }
+-    f << std::setprecision(10)
++    f << std::setprecision(17)
+       << "{\"problem\": " << json_string(opt.prefix) << ", \"tag\": " << json_string(opt.tag)
+       << ", \"vec_len\": " << problem.vec_len << ", \"con_num\": " << problem.con_num
+       << ", \"stop_tol\": " << opt.stop_tol << ", \"max_iter\": " << opt.max_iter
+@@ -594,7 +594,7 @@ static void write_history(const Options &opt, const SDPSolver &solver)
+     // the info arrays accumulate over solve() calls: the last info_iter_num entries belong to the last one
+     const size_t first = solver.info_pobj_arr.size() - solver.info_iter_num;
+     // phase: the update of that iteration (sgs for iter < switch_admm, admm otherwise); tau: its step length
+-    f << std::setprecision(10) << "iter,time_s,pobj,dobj,errRp,errRd,relgap,sig,tau,phase\n";
++    f << std::setprecision(17) << "iter,time_s,pobj,dobj,errRp,errRd,relgap,sig,tau,phase\n";
+     for (int k = 0; k < solver.info_iter_num; k++)
+         f << k + 1 << "," << solver.info_time_arr[first + k] << "," << solver.info_pobj_arr[first + k] << ","
+           << solver.info_dobj_arr[first + k] << "," << solver.info_errRp_arr[first + k] << ","

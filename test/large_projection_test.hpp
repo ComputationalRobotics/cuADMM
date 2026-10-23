@@ -31,16 +31,14 @@
 #include <string>
 #include <vector>
 
-#include "cuadmm/solver.h"
-#include "psd_projection/lobpcg.h"
-#include "psd_projection/lanczos.h"
-#include "psd_projection/composite_FP32.h"
-#include "psd_projection/composite_FP16.h"
+#include "cuadmm_legacy/solver.h"
+#include "cone/psd/kernels/composite_fp16.h"
+#include "cone/psd/kernels/lanczos.h"
+#include "cone/psd/kernels/lobpcg.h"
+#include "cone/psd/kernels/precision.h"
+using namespace cuadmm::cone::psd;
 
 // margins applied to the Lanczos estimate of ||A||_2 before a composite projection
-#ifndef COMPOSITE_FP32_SCALE_MARGIN
-#define COMPOSITE_FP32_SCALE_MARGIN 1.02
-#endif
 #ifndef COMPOSITE_FP16_SCALE_MARGIN
 #define COMPOSITE_FP16_SCALE_MARGIN 1.05
 #endif
@@ -358,14 +356,16 @@ protected:
         ASSERT_CUDA_SUCCESS(cudaDeviceSynchronize());
     }
 
-    /// @brief Composite projection of a full-rank matrix with the solver's scaling (margin * Lanczos estimate).
-    void composite_projection(const bool fp16, const double margin, const double err_tol)
+    /// @brief FP16 composite projection of a full-rank matrix with the solver's scaling (margin * Lanczos estimate).
+    /// (The FP32 filter is not ported: plan Q3.)
+    void composite_projection(const double margin, const double err_tol)
     {
         using namespace large_projection;
+        const bool fp16 = true;
         const size_t nn = (size_t)n * n;
         const size_t stride = (nn + 3) / 4 * 4; // workspace alignment used by the solver
 
-        const std::vector<double> lambda = full_rank_spectrum(n, fp16 ? 16 : 32);
+        const std::vector<double> lambda = full_rank_spectrum(n, 16);
         double max_abs = 0.0;
         for (double x : lambda)
             max_abs = std::max(max_abs, std::abs(x));
@@ -373,10 +373,10 @@ protected:
         ASSERT_NO_FATAL_FAILURE(this->build_matrix(lambda, A));
         ASSERT_NO_FATAL_FAILURE(this->build_matrix(relu(lambda), P_ref));
 
-        // the solver's composite handle uses tensor-op math
+        // the solver's composite handle uses the default math mode (B1); the FP16 filter sets its own compute type
         BlasHandle tensor_op_H;
         ASSERT_CUBLAS_SUCCESS(cublasCreate(&tensor_op_H.handle));
-        ASSERT_CUBLAS_SUCCESS(cublasSetMathMode(tensor_op_H.handle, CUBLAS_TENSOR_OP_MATH));
+        ASSERT_CUBLAS_SUCCESS(cublasSetMathMode(tensor_op_H.handle, CUBLAS_DEFAULT_MATH));
         DeviceBuffer<float> float_ws;
         DeviceBuffer<__half> half_ws;
         ASSERT_CUDA_SUCCESS(float_ws.allocate(3 * stride));
@@ -387,14 +387,11 @@ protected:
 
         // same sequence as the solver: estimate ||A||_2, scale, project, scale back
         double lo = 0.0, up = 0.0;
-        approximate_two_norm(tensor_op_H.handle, this->cusolverH.handle, A.ptr, n, &lo, &up);
+        approximate_two_norm(tensor_op_H.handle, this->cusolverH.handle, A.ptr, n, &lo, &up, 0);
         const double scale = up > 0.0 ? margin * up : 1.0;
         const double inv_scale = 1.0 / scale;
         ASSERT_CUBLAS_SUCCESS(cublasDscal(tensor_op_H.handle, (int)nn, &inv_scale, A.ptr, 1));
-        if (fp16)
-            composite_FP16(tensor_op_H.handle, A.ptr, n, float_ws.ptr, half_ws.ptr);
-        else
-            composite_FP32(tensor_op_H.handle, A.ptr, n, float_ws.ptr);
+        composite_fp16(tensor_op_H.handle, A.ptr, n, float_ws.ptr, half_ws.ptr);
         ASSERT_CUBLAS_SUCCESS(cublasDscal(tensor_op_H.handle, (int)nn, &scale, A.ptr, 1));
         ASSERT_CUDA_SUCCESS(cudaDeviceSynchronize());
         ASSERT_CUDA_SUCCESS(cudaGetLastError());
@@ -625,12 +622,7 @@ TEST_F(LargeProjection, LOBPCG_ClusteredAndTinyEigenvalues)
     }
 }
 
-TEST_F(LargeProjection, Composite_FP32_SolverScaling)
-{
-    composite_projection(false, COMPOSITE_FP32_SCALE_MARGIN, 1e-3);
-}
-
 TEST_F(LargeProjection, Composite_FP16_SolverScaling)
 {
-    composite_projection(true, COMPOSITE_FP16_SCALE_MARGIN, 2e-2);
+    composite_projection(COMPOSITE_FP16_SCALE_MARGIN, 2e-2);
 }

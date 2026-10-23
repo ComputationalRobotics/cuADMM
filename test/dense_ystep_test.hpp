@@ -8,18 +8,19 @@
 
 */
 
-#ifdef CUADMM_PLAIN_ADMM_ONLY
-#define CUADMM_PLAIN_AND_SGS_SWITCHES {0}
-#else
-#define CUADMM_PLAIN_AND_SGS_SWITCHES {0, 100000}
-#endif
+#define CUADMM_PLAIN_AND_SGS_SWITCHES {0, 100000} // plain ADMM and pure sGS-ADMM (a runtime option since B5)
 #include <gtest/gtest.h>
 
 #include <algorithm>
 #include <cmath>
 #include <vector>
 
-#include "cuadmm/solver.h"
+#include "cone/cone_product.h"
+#include "linsys/direct/cholmod/cholmod_solver.h"
+#include "cone/psd/psd_cone.h"
+#include "core/stream_pool.h"
+#include "core/workspace_arena.h"
+#include "cuadmm_legacy/solver.h"
 #include "regression_problems.hpp"
 #include "solver_setup.hpp"
 
@@ -34,8 +35,16 @@ TEST(DenseYStep, MatchesCpuSolves)
         SDPSolver dense, cpu;
         ASSERT_NO_THROW(solver_setup::init_solver(p, dense));
         ASSERT_NO_THROW(solver_setup::init_solver(p, cpu));
-        ASSERT_TRUE(dense.AAt_dense_gpu) << "nnz(L) = " << dense.cpu_AAt_solver.cc.lnz;
-        cpu.AAt_dense_gpu = false; // same factor, CHOLMOD solves on the CPU
+        ASSERT_TRUE(static_cast<cuadmm::linsys::CholmodSolver *>(dense.linsys.get())->dense_gpu()) << "nnz(L) = " << dense.linsys_nnz_L;
+        {
+            // the same factor, CHOLMOD solves on the CPU: a backend without the dense-factor variant
+            cuadmm::linsys::CholmodSolver::Options no_dense;
+            no_dense.dense_gpu_auto = false;
+            std::unique_ptr<cuadmm::linsys::CholmodSolver> chol(new cuadmm::linsys::CholmodSolver(cpu.cublasH.cublas_handle, no_dense));
+            cpu.linsys_factor = chol->factorize(cpu.normal_system());
+            ASSERT_FALSE(chol->dense_gpu());
+            cpu.linsys = std::move(chol);
+        }
         ASSERT_NO_THROW(dense.solve(300, 1e-12, 500, 50, 100, switch_admm, 0));
         ASSERT_NO_THROW(cpu.solve(300, 1e-12, 500, 50, 100, switch_admm, 0));
         ASSERT_EQ(dense.info_iter_num, cpu.info_iter_num);
@@ -73,10 +82,24 @@ TEST(BatchedMediumEVD, MatchesStreamedEVD)
         streamed.medium_batch_min_count = 0; // one EVD per matrix on the streams
         ASSERT_NO_THROW(solver_setup::init_solver(p, batched));
         ASSERT_NO_THROW(solver_setup::init_solver(p, streamed));
+        // the batched decision is the medium tier's (the cone layer, Phase 6b): two size groups with several blocks
+        auto batched_groups = [&p](SDPSolver &engine)
+        {
+            cuadmm::core::StreamPool pool{cuadmm::core::StreamPoolConfig{}};
+            cuadmm::core::WorkspaceArena arena;
+            cuadmm::cone::PsdConeConfig pc;
+            pc.medium_batch_min = engine.medium_batch_min_count;
+            cuadmm::cone::ConeProduct cones(p.blk_types, p.blk_sizes, cuadmm::cone::ConeBuildContext{p.vec_len, &engine, &pc, &arena, &pool});
+            cuadmm::cone::psd::BatchedTier &tier = static_cast<cuadmm::cone::PsdCone *>(cones.cone(cuadmm::ConeKind::Psd))->medium_tier();
+            int count = 0;
+            for (int g = 0; g < tier.group_count(); g++)
+                count += tier.group_batched(g);
+            return count;
+        };
 #if defined(CUDA_VERSION) && (CUDA_VERSION >= 12080)
-        ASSERT_EQ(std::count(batched.medium_group_batched.begin(), batched.medium_group_batched.end(), 1), 2);
+        ASSERT_EQ(batched_groups(batched), 2);
 #endif
-        ASSERT_EQ(std::count(streamed.medium_group_batched.begin(), streamed.medium_group_batched.end(), 1), 0);
+        ASSERT_EQ(batched_groups(streamed), 0);
         ASSERT_NO_THROW(batched.solve(300, 1e-12, 500, 50, 100, switch_admm, 0));
         ASSERT_NO_THROW(streamed.solve(300, 1e-12, 500, 50, 100, switch_admm, 0));
         ASSERT_EQ(batched.info_iter_num, streamed.info_iter_num);

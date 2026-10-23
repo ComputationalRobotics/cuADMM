@@ -1,79 +1,65 @@
-#ifndef CUADMM_IO_H
-#define CUADMM_IO_H
+/*
+
+    io.h
+
+    Readers and writers of problem data (plan Section 12): the native HDF5 file, SDPA sparse (.dat-s, .dat-s.gz),
+    SeDuMi, SDPT3 and MOSEK prob .mat files (through matio), and the legacy TXT directory (read exactly as today's
+    Problem::from_txt, never simplified). Every reader produces one ProblemData with 64-bit sizes, fills the CSC of
+    At directly, and leaves a conversion report in problem.source.report. Solutions are written in the input's
+    convention.
+
+*/
+
+#ifndef CUADMM_IO_PUBLIC_H
+#define CUADMM_IO_PUBLIC_H
 
 #include <string>
 #include <vector>
-#include <iostream>
-#include <tuple>
 
-typedef std::tuple<char, int> BlkVal; // block value type for reading block sizes
+#include "cuadmm/options.h"
+#include "cuadmm/problem.h"
+#include "cuadmm/result.h"
 
-// Read dense vector data from a .txt file.
-void read_dense_vector_data(
-    const std::string &filename,
-    std::vector<double> &vals);
-void read_dense_vector_data(
-    const std::string &filename,
-    std::vector<int> &vals);
-
-// Read sparse vector data from a .txt file.
-void read_sparse_vector_data(
-    const std::string &filename,
-    std::vector<int> &rows, std::vector<double> &vals);
-
-// Read sparse matrix data from a .txt file.
-void read_COO_sparse_matrix_data(
-    const std::string &filename,
-    std::vector<int> &rows, std::vector<int> &cols, std::vector<double> &vals,
-    const bool transpose = false);
-
-// Write dense vector data from to a .txt file.
-void write_dense_vector_data(
-    const std::string &filename, const std::vector<double> &vals,
-    const int precision = 20);
-void write_dense_vector_data(
-    const std::string &filename, const std::vector<int> &vals,
-    const int precision = 30);
-
-// Write sparse matrix to a .txt file.
-void write_sparse_matrix_data(
-    const std::string &filename,
-    const std::vector<int> &rows, const std::vector<int> &cols, const std::vector<double> &vals,
-    const int precision = 20);
-
-// Triplet containing the column index, row index, and values
-// (This class helps to convert COO sparse matrix data to CSC sparse matrix data.)
-class Triplet
+namespace cuadmm
 {
-public:
-    Triplet(int col_id, int row_id, double val) : col_id(col_id), row_id(row_id), val(val) {}
+namespace io
+{
 
-    int col_id;
-    int row_id;
-    double val;
-};
+/// @brief Reads a problem; the format comes from io.format, else from the extension and, for .mat, the variables.
+ProblemData read_problem(const std::string &path, const IoOptions &options);
 
-// Convert COO sparse matrix format to CSC sparse matrix format.
-// Note: the CSC format generated will always be sorted,
-// hence this function can also help to sort the COO format data.
-// Throws std::invalid_argument (before modifying anything) if nnz or col_num is negative,
-// if the triplets hold fewer than nnz entries, or if a column index lies outside [0, col_num).
-void COO_to_CSC(
-    std::vector<int> &col_ptrs,                                                      // pointers of col in CSC, of size (col_num+1, 0)
-    std::vector<int> &col_ids, std::vector<int> &row_ids, std::vector<double> &vals, // triplets for the COO format
-    const int nnz, const int col_num);
+/// @brief The legacy TXT directory (blk.txt, At.txt, b.txt, C.txt, con_num.txt): exactly today's arrays, no
+/// simplification, 0-based indices, a bare size in blk.txt meaning 's'.
+ProblemData read_txt(const std::string &directory);
 
-// Convert CSC sparse matrix format to COO sparse matrix format.
-// Note: CSC data is sorted by column, while COO data is sorted by row
-// After this function, CSC data's col_ptrs will be set as empty.
-void CSC_to_COO(
-    std::vector<int> &col_ptrs,                                                      // pointers of col in CSC, of size (col_num+1, 0)
-    std::vector<int> &col_ids, std::vector<int> &row_ids, std::vector<double> &vals, // triplets for the COO format
-    const int nnz, const int col_num);
+/// @brief Warm start X.txt, y.txt, S.txt (dense, one value per line) from a directory; sizes are checked.
+WarmStart read_txt_warm_start(const std::string &directory, const ProblemData &problem);
 
-// Read blk data from a .txt file.
-void read_blk(
-    const std::string &filename,
-    std::vector<BlkVal> &vals);
+/// @brief Warm start for a problem: a directory holds X.txt, y.txt, S.txt; a .h5 file holds the group /start.
+WarmStart read_warm_start(const std::string &path, const ProblemData &problem);
 
-#endif // CUADMM_IO_H
+/// @brief Writes the returned iterate in the input's convention (plan Section 12): TXT directory (X.txt, y.txt,
+/// S.txt, 17 digits, certificate.txt), .h5 (group /solution), SDPA (x = -y, X, Y in the sparse initial-point
+/// layout), SeDuMi (x, y, z as full vectors), SDPT3 (cell arrays X, y, Z), MOSEK (res.sol.itr with barx, bars as
+/// lower triangles, xx, slx, y). `format` forces a convention ("" : the input's). For the file formats `path` is
+/// the file when it carries the format's extension, otherwise a directory that receives solution.<ext>.
+void write_solution(const std::string &path, const ProblemData &problem, const SolveResult &result);
+void write_solution(const std::string &path, const ProblemData &problem, const SolveResult &result, const std::string &format);
+
+/// @brief The native HDF5 problem file (schema version 1); compression_level 0 (none) to 9 (deflate).
+void write_problem(const std::string &path_h5, const ProblemData &problem);
+void write_problem(const std::string &path_h5, const ProblemData &problem, int compression_level);
+
+/// @brief The legacy TXT directory (blk.txt with explicit types, At.txt, b.txt, C.txt, con_num.txt, and
+/// dimacs_blocks.txt when the source kinds are known), readable by read_txt and by today's solver.
+void write_problem_txt(const std::string &directory, const ProblemData &problem);
+
+/// @brief The formats compiled into this build: "txt", "sdpa" always; "sdpa.gz" with zlib; "h5" with HDF5;
+/// "sedumi", "sdpt3", "mosek" with matio.
+std::vector<std::string> available_formats();
+bool format_available(const std::string &name);
+
+} // namespace io
+} // namespace cuadmm
+
+#endif // CUADMM_IO_PUBLIC_H

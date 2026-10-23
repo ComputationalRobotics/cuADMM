@@ -1,0 +1,29 @@
+# Doxygen configuration of cuADMM 2.0. Run `doxygen docs/Doxyfile` from the project directory,
+# or build the CMake target `cuadmm_docs` when Doxygen is found; the HTML lands in docs/api/html.
+PROJECT_NAME           = "cuADMM"
+PROJECT_NUMBER         = 2.0.0
+PROJECT_BRIEF          = "GPU ADMM solver for semidefinite programs"
+OUTPUT_DIRECTORY       = docs/api
+CREATE_SUBDIRS         = NO
+INPUT                  = include src README.md docs/MIGRATION.md docs/OPTIONS.md docs/CHANGES.md
+USE_MDFILE_AS_MAINPAGE = README.md
+FILE_PATTERNS          = *.h *.hpp *.cc *.cu *.md
+RECURSIVE              = YES
+EXCLUDE                = src/legacy
+EXCLUDE_PATTERNS       = */kernels/*
+EXTENSION_MAPPING      = cu=C++
+EXTRACT_ALL            = YES
+EXTRACT_PRIVATE        = NO
+EXTRACT_STATIC         = NO
+HIDE_UNDOC_MEMBERS     = NO
+JAVADOC_AUTOBRIEF      = YES
+QT_AUTOBRIEF           = NO
+MARKDOWN_SUPPORT       = YES
+TOC_INCLUDE_HEADINGS   = 3
+GENERATE_HTML          = YES
+GENERATE_LATEX         = NO
+GENERATE_TREEVIEW      = YES
+SOURCE_BROWSER         = NO
+WARN_IF_UNDOCUMENTED   = NO
+QUIET                  = YES
+PREDEFINED             = CUADMM_HAVE_CUDSS=1 CUADMM_HAVE_HDF5=1 CUADMM_HAVE_MATIO=1

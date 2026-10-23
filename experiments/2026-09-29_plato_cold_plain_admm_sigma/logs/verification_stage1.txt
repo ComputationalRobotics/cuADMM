@@ -1,2 +1,0 @@
-stage1: 52 runs checked, 52 dataset/configuration groups, 52 runs incl. repetitions
-ALL CHECKS PASSED

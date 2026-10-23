@@ -9,11 +9,7 @@
 
 */
 
-#ifdef CUADMM_PLAIN_ADMM_ONLY
-#define CUADMM_PLAIN_AND_SGS_SWITCHES {0}
-#else
-#define CUADMM_PLAIN_AND_SGS_SWITCHES {0, 100000}
-#endif
+#define CUADMM_PLAIN_AND_SGS_SWITCHES {0, 100000} // plain ADMM and pure sGS-ADMM (a runtime option since B5)
 #include <gtest/gtest.h>
 
 #include <algorithm>
@@ -21,8 +17,11 @@
 #include <random>
 #include <vector>
 
-#include "cuadmm/solver.h"
-#include "cuadmm/io.h"
+#include "cone/cone_product.h"
+#include "core/stream_pool.h"
+#include "core/workspace_arena.h"
+#include "cuadmm_legacy/solver.h"
+#include "cuadmm_legacy/io.h"
 #include "regression_problems.hpp"
 #include "solver_setup.hpp"
 
@@ -80,7 +79,7 @@ inline std::vector<double> optimal_block_bounds(const regression::RegressionProb
 
 } // namespace certificate_test
 
-// cone_measures on a vector with known spectra: small (batched Jacobi), medium (streamed syevd) and large (syevd)
+// the cone measures on a vector with known spectra: small (batched Jacobi), medium (streamed syevd) and large (syevd)
 // PSD blocks, plus 'l' and 'u' blocks, in the input order of the blocks.
 TEST(Certificate, ConeMeasuresMatchKnownSpectra)
 {
@@ -138,7 +137,19 @@ TEST(Certificate, ConeMeasuresMatchKnownSpectra)
     d_v.allocate(GPU0, p.vec_len);
     ASSERT_EQ(cudaMemcpy(d_v.vals, v.data(), sizeof(double) * p.vec_len, cudaMemcpyHostToDevice), cudaSuccess);
     std::vector<double> block_min, bound_coef;
-    ASSERT_NO_THROW(solver.cone_measures(d_v, block_min, bound_coef));
+    {
+        // the measures of the cone layer (the engine's cone_measures is gone since Phase 6b)
+        cuadmm::core::StreamPool pool{cuadmm::core::StreamPoolConfig{}};
+        cuadmm::core::WorkspaceArena arena;
+        cuadmm::cone::ConeProduct cones(p.blk_types, p.blk_sizes, cuadmm::cone::ConeBuildContext{p.vec_len, &solver, nullptr, &arena, &pool});
+        arena.commit();
+        cuadmm::core::ExecContext ctx;
+        ctx.cublas = solver.cublasH.cublas_handle;
+        cuadmm::cone::ProductMeasures m;
+        ASSERT_NO_THROW(m = cones.measure(cuadmm::core::DeviceSpan<const double>(d_v.vals, p.vec_len), cuadmm::cone::Side::Dual, ctx));
+        block_min = m.block_min;
+        bound_coef = m.bound_coef;
+    }
     ASSERT_EQ(block_min.size(), spec.blocks.size());
     for (size_t b = 0; b < spec.blocks.size(); b++)
     {

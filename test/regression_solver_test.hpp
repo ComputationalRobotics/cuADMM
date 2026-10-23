@@ -18,8 +18,8 @@
 #include <cstdlib>
 #include <numeric>
 
-#include "cuadmm/problem.h"
-#include "cuadmm/solver.h"
+#include "cuadmm_legacy/problem.h"
+#include "cuadmm_legacy/solver.h"
 #include "regression_problems.hpp"
 
 namespace
@@ -207,13 +207,13 @@ REGRESSION_SOLVER_TEST(SmallBatch_Free, 1e2, -1)
 REGRESSION_SOLVER_TEST(Medium_Free, 1e2, -1)
 REGRESSION_SOLVER_TEST(Large_LowRankX, 1e2, LargeProjectionMode::LOBPCG_NEGATIVE)
 REGRESSION_SOLVER_TEST(Large_LowRankS, 1e-4, LargeProjectionMode::LOBPCG_POSITIVE)
+REGRESSION_SOLVER_TEST(Large_Free, 1e-4, LargeProjectionMode::LOBPCG_POSITIVE) // plan Section 9.3: free variables on the LOBPCG path
 REGRESSION_SOLVER_TEST(Large_HalfRank, 1e2, LargeProjectionMode::FULL)
 
 #undef REGRESSION_SOLVER_TEST
 
 // The same problems solved with the paper's sGS-ADMM (Algorithm 1: sGS Step 3 at every iteration, tau = 1.95,
 // sGS sigma rule), and one hybrid run (sGS-ADMM for 49 iterations, then plain ADMM).
-#ifndef CUADMM_PLAIN_ADMM_ONLY // sGS-ADMM tests: not built in the plain-ADMM-only build
 #define REGRESSION_SOLVER_SGS_TEST(name)                   \
     TEST(RegressionSolver, name##_sGS)                     \
     {                                                      \
@@ -238,8 +238,6 @@ TEST(RegressionSolver, Nonneg_Free_PSD_Hybrid)
     run_regression("Nonneg_Free_PSD", true, 1e2, -1, 50);
 }
 
-#endif // CUADMM_PLAIN_ADMM_ONLY
-
 TEST(RegressionSolver, AdmmModeName)
 {
     EXPECT_EQ(admm_mode_name(0, 100), "plain ADMM");
@@ -248,7 +246,6 @@ TEST(RegressionSolver, AdmmModeName)
     EXPECT_EQ(admm_mode_name(50, 100), "hybrid: sGS-ADMM for iterations 1-49, then plain ADMM");
 }
 
-#ifndef CUADMM_PLAIN_ADMM_ONLY
 // In the sGS phase, Step 3 solves AA^T y^{k+1} = b/sigma - A(X^k/sigma + S^{k+1} - C) exactly (up to the eps*I of
 // the factorization), so Step 4 gives b - A X^{k+1} = (1 - tau)(b - A X^k): the primal residual contracts by exactly
 // |1 - tau| = 0.95 per iteration, whatever sigma and the projection do. A stale Rp or S in Step 3, or a wrong tau,
@@ -269,7 +266,6 @@ TEST(RegressionSolver, SgsPrimalContraction)
         EXPECT_NEAR(ratio, 0.95, 1e-6) << "iteration " << k + 1;
     }
 }
-#endif // CUADMM_PLAIN_ADMM_ONLY
 
 // Bug 2.2 on a run stopped by max_iter: the best iterate must be returned with its own residuals and
 // objectives. A converged run returns its last iterate (the first one below stop_tol, hence the best),
