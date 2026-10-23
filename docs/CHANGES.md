@@ -313,3 +313,13 @@ and the existing tests are unchanged.
   problem is solved, y is reported on the full problem with zeros on the removed rows, and the result / summary
   carry `presolve_removed_rows` and the presolve's message.
 - `linsys.autotune` is rejected (not implemented: DECISIONS 57).
+
+## 2.0 cleanup (2026-10-23): the empty objective vector
+
+- A problem with an empty `C` (or `b`), such as the PLATO instance `cnhil10` of `examples/plato/TXT`, failed at setup
+  since the launch checks of Pre-0 (`CUDA API failed with error: invalid configuration argument` in
+  `src/legacy/kernels/sparse_scalar.cu`): the scalar and sparse-dense kernels launched a block of size nnz = 0, which
+  1.x issued and silently ignored. The three kernels now return early on an empty vector; the iterates are those of
+  1.x bit for bit (cnhil10, 200 iterations of `residual_balancing` against the 2d8a755 reference, with the compat
+  products). Test `EmptyObjective.SolverSetsUpAndIteratesWithoutC`.
+

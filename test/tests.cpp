@@ -33,6 +33,7 @@
 #include "psd_strategies_test.hpp"
 #include "core_runtime_test.hpp"
 #include "psd_memory_test.hpp"
+#include "empty_objective_test.hpp"
 #include "linsys_integration_test.hpp"
 #include "warm_restart_test.hpp"
 

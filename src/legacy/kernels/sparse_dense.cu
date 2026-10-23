@@ -26,6 +26,9 @@ void sparse_vector_div_dense_vector(
     DeviceSparseVector<double> &spvec, const DeviceDenseVector<double> &dnvec,
     const cudaStream_t &stream, int block_size)
 {
+    // nothing to divide for an empty sparse vector (C = 0 or b = 0): no zero-size launch (see sparse_scalar.cu)
+    if (spvec.nnz == 0)
+        return;
     int num_block;
     if (spvec.nnz < 1024)
     {
