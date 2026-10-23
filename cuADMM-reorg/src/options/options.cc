@@ -271,8 +271,8 @@ const std::vector<OptionSpec> &option_table()
         {"psd.lowrank.reevaluate", "--psd-lowrank-reevaluate", {}, "int", "", "100", "exact EVD with rank analysis every this many iterations; Milestone 1: fixed", "6a"},
         {"psd.lowrank.ratio", "--psd-lowrank-ratio", {}, "double", "", "0.03", "low-rank threshold as a fraction of n; Milestone 1: fixed", "6a"},
         {"psd.lowrank.relaxation", "--psd-lowrank-relaxation", {}, "double", "", "1.2", "eigenpairs requested: ceil(relaxation * rank); Milestone 1: fixed", "6a"},
-        {"psd.lowrank.max_iter", "--psd-lowrank-max-iter", {}, "int", "", "20", "LOBPCG iterations; Milestone 1: fixed", "6a"},
-        {"psd.lowrank.tol", "--psd-lowrank-tol", {}, "double", "", "1e-5", "LOBPCG tolerance (absolute today, B13); Milestone 1: fixed", "6a"},
+        {"psd.lowrank.max_iter", "--psd-lowrank-max-iter", {}, "int", "", "20", "LOBPCG iterations", "6a"},
+        {"psd.lowrank.tol", "--psd-lowrank-tol", {}, "double", "", "1e-5", "LOBPCG convergence tolerance (absolute; the stopping-tolerance-relative rule of B13 is deferred, see DECISIONS.md)", "6a"},
         {"psd.lowrank.rank_rtol", "--psd-lowrank-rank-rtol", {}, "double", "", "1e-8", "rank tolerance relative to max |lambda|; Milestone 1: fixed", "6a"},
         {"psd.lowrank.rank_stop_factor", "--psd-lowrank-rank-stop-factor", {}, "double", "", "1e-3", "rank tolerance floor as a fraction of the stopping tolerance; Milestone 1: fixed", "6a"},
         {"psd.composite.margin", "--psd-composite-margin", {}, "double", "", "1.05", "safety margin on the Lanczos estimate; Milestone 1: fixed", "6a"},
@@ -719,9 +719,11 @@ void SolverOptions::validate() const
         fail("psd.large.warmup.switch_iter", "must be non-negative");
     if (psd.lowrank_start_iter < 2)
         fail("psd.lowrank.start_iter", "must be at least 2 (the first iteration after the starting point)");
-    if (psd.lowrank_reevaluate != 100 || psd.lowrank_ratio != 0.03 || psd.lowrank_relaxation != 1.2 || psd.lowrank_max_iter != 20 ||
-        psd.lowrank_tol != 1e-5 || psd.lowrank_rank_rtol != 1e-8 || psd.lowrank_rank_stop_factor != 1e-3)
-        fail("psd.lowrank.reevaluate", "the LOBPCG parameters are fixed until Phase 6a");
+    if (psd.lowrank_reevaluate != 100 || psd.lowrank_ratio != 0.03 || psd.lowrank_relaxation != 1.2 || psd.lowrank_rank_rtol != 1e-8 ||
+        psd.lowrank_rank_stop_factor != 1e-3)
+        fail("psd.lowrank.reevaluate", "the rank-analysis parameters are fixed until the projector classes of Phase 6a");
+    if (!(psd.lowrank_tol > 0.0) || psd.lowrank_max_iter < 1)
+        fail("psd.lowrank.tol", "the LOBPCG tolerance must be positive and the iteration count at least 1");
     if (psd.composite_margin != 1.05 || psd.composite_lanczos_steps != 20 || psd.composite_norm_slack != 1e-2)
         fail("psd.composite.margin", "the composite parameters are fixed until Phase 6a");
     if (psd.warmup == WarmupKind::CompositeFp16 && psd.warmup_min_size != defaults.psd.warmup_min_size)

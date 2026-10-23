@@ -70,6 +70,10 @@ void dense_vector_mul_scalar(
 void max_dense_vector_zero(
     DeviceDenseVector<double> &vec,
     const cudaStream_t &stream = (cudaStream_t)0, int block_size = 1024);
+// The same on a raw device range (one kernel for both, B10; the removed psd_projection utils had a second copy).
+void max_dense_vector_zero(
+    double *vec_vals, int vec_size,
+    const cudaStream_t &stream = (cudaStream_t)0, int block_size = 1024);
 
 /*
     Sparse-scalar operations (kernels/sparse_scalar.cu)

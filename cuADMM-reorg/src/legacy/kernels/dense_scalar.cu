@@ -91,10 +91,16 @@ void dense_vector_mul_scalar(DeviceDenseVector<double> &vec1, DeviceDenseVector<
 
 // Set a vector to its positive part coefficient-wise:
 // vec = max(vec, 0)
+void max_dense_vector_zero(double *vec_vals, int vec_size, const cudaStream_t &stream, int block_size)
+{
+    int num_block = (vec_size + block_size - 1) / block_size;
+    max_dense_vector_zero_kernel<<<num_block, block_size, 0, stream>>>(vec_vals, vec_size);
+    CHECK_KERNEL_LAUNCH();
+    return;
+}
+
 void max_dense_vector_zero(DeviceDenseVector<double> &vec, const cudaStream_t &stream, int block_size)
 {
-    int num_block = (vec.size + block_size - 1) / block_size;
-    max_dense_vector_zero_kernel<<<num_block, block_size, 0, stream>>>(vec.vals, vec.size);
-    CHECK_KERNEL_LAUNCH();
+    max_dense_vector_zero(vec.vals, vec.size, stream, block_size);
     return;
 }

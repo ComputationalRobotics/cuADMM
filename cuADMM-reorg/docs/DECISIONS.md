@@ -221,3 +221,13 @@ implementation, deviations from its letter, and open questions, each with its re
     AdmmSolver) uses `ConeProduct::measure` and `termination::Certificate`; the copied certificate test of main
     still drives the engine's functions, and `ConeLayer.MeasuresMatchTheEngine*` pins the two to the same values.
     Phase 6 moves the tiers out of the engine and deletes the duplicates.
+
+Items 40-44 are the Phase 7 backend decisions written on branch `reorg-linsys`; they arrive with its merge.
+
+45. **The LOBPCG tolerance stays an absolute option in Phase 6a (B13 deferred).** B13 asks for a tolerance
+    proportional to the stopping tolerance, with the constant calibrated on the generator's large-block cases. The
+    baselines and the regression harness run LOBPCG at the absolute 1e-5 (the `Large_*` cases converge to 1e-6
+    with it); a relative rule changes the LOBPCG iterates, so it cannot enter bit for bit, and its constant needs a
+    calibration run that the Phase 6a benchmark (FullEvd against the composite filter) does not provide. Phase 6a
+    exposes `psd.lowrank.tol` (absolute, default 1e-5) and `psd.lowrank.max_iter`; the relative rule is a later
+    option value (`psd.lowrank.tol` relative to `algorithm.tol`) with the constant from its own run.

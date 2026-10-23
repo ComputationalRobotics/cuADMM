@@ -19,10 +19,10 @@
 #include "termination/best_iterate_tracker.h"
 #include "termination/stopping_rule.h"
 
-#include "psd_projection/composite_FP16.h"
-#include "psd_projection/lobpcg.h"
-#include "psd_projection/lanczos.h"
-#include "psd_projection/utils.h"
+#include "cone/psd/kernels/composite_fp16.h"
+#include "cone/psd/kernels/lanczos.h"
+#include "cone/psd/kernels/lobpcg.h"
+#include "cone/psd/kernels/precision.h"
 #include "cone/cone_product.h"
 
 #include <algorithm>
@@ -35,8 +35,6 @@
 #include <vector>
 #include <set>
 
-#define LOBPCG_MAXIT 20
-#define LOBPCG_TOL 1e-5
 #define LOBPCG_WARMSTART true
 #define LOBPCG_RATIO 0.03
 #define LOBPCG_RELAXATION 1.2
@@ -176,9 +174,9 @@ void SDPSolver::large_full_eig_project(int i, int j, int idx, bool analyze_rank,
             this->large_k[idx] = k;
 
             // largest k eigenpairs, in decreasing order: copy the eigenvalues and reverse them
-            reverse_vector(this->large_W.vals + W_offset + n - k, this->lobpcg_W[idx].vals, k);
+            cuadmm::cone::psd::reverse_vector(this->large_W.vals + W_offset + n - k, this->lobpcg_W[idx].vals, k);
             // copy the eigenvectors and reverse the columns
-            reverse_columns(this->large_mat.vals + mat_offset + (n - k) * n, this->lobpcg_P[idx].vals, n, k);
+            cuadmm::cone::psd::reverse_columns(this->large_mat.vals + mat_offset + (n - k) * n, this->lobpcg_P[idx].vals, n, k);
         }
         else if (negative_rank < LOBPCG_RATIO * n && negative_rank > 0)
         {
@@ -249,11 +247,11 @@ bool SDPSolver::large_lobpcg_project(int i, int j, int idx)
     // above it take part in the convergence test (the remaining relaxation pairs need not converge)
     const double rank_tol = this->large_rank_tol[idx];
     const int rank = negative ? this->cpu_negative_ranks.vals[idx] : this->cpu_positive_ranks.vals[idx];
-    LobpcgInfo info;
-    lobpcg(
+    cuadmm::cone::psd::LobpcgInfo info;
+    cuadmm::cone::psd::lobpcg(
         cublasH, this->cusolverH_eig_large.cusolver_dn_handle,
         A, eigenvectors, eigenvalues,
-        n, k, LOBPCG_WARMSTART, LOBPCG_MAXIT, LOBPCG_TOL, false,
+        n, k, LOBPCG_WARMSTART, this->lobpcg_maxit, this->lobpcg_tol, false,
         &info, rank_tol, std::min(rank, k));
     this->lobpcg_calls++;
 
@@ -325,13 +323,15 @@ bool SDPSolver::large_composite_project(int i, int j, int idx)
     // scale the spectrum into [-1, 1]: the Lanczos estimate 'up' is not a certified upper bound on
     // ||A||_2, and the filter overflows if ||A||/scale > ~1.02 (FP16), hence the margin
     double lo, up;
-    approximate_two_norm(cublasH, this->cusolverH_composite_proj.cusolver_dn_handle, A, n, &lo, &up);
+    // B8: the Lanczos start vector is deterministic, seeded by (options.seed, block index)
+    const unsigned long long block_seed = this->lanczos_seed ^ (0x9E3779B97F4A7C15ULL * (unsigned long long)(idx + 1));
+    cuadmm::cone::psd::approximate_two_norm(cublasH, this->cusolverH_composite_proj.cusolver_dn_handle, A, n, &lo, &up, block_seed);
     const double margin = COMPOSITE_FP16_SCALE_MARGIN;
     const double scale = up > 0.0 ? margin * up : 1.0;
     const double inv_scale = 1.0 / scale;
     CHECK_CUBLAS(cublasDscal(cublasH, nn, &inv_scale, A, 1));
 
-    composite_FP16(cublasH, A, n, this->float_proj_workspace.vals, this->half_proj_workspace.vals);
+    cuadmm::cone::psd::composite_fp16(cublasH, A, n, this->float_proj_workspace.vals, this->half_proj_workspace.vals);
 
     // rescale the result back to the original scale
     CHECK_CUBLAS(cublasDscal(cublasH, nn, &scale, A, 1));

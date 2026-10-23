@@ -217,6 +217,9 @@ void Solver::setup(const ProblemData &problem)
     e.penalty_sigma_min = o.penalty.sigma_min;
     e.penalty_sigma_max = o.penalty.sigma_max;
     e.legacy_sgs_tau_reduction = o.algorithm.sgs_tau_reduction;
+    e.lanczos_seed = static_cast<unsigned long long>(o.seed);
+    e.lobpcg_tol = o.psd.lowrank_tol;
+    e.lobpcg_maxit = o.psd.lowrank_max_iter;
     e.time_limit = o.algorithm.time_limit;
     e.validation.interval = o.validation.interval;
     e.validation.tol = ValidationTolerances::all(o.validation.tol > 0 ? o.validation.tol : o.algorithm.tol);

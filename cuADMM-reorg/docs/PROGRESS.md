@@ -31,6 +31,24 @@ H200-hours; section "Phase 4b GPU gates"): G0 and G1 pass, G2 and G3 fail; the d
 MATLAB (MEX, SPOT recovery), MOSEK dual signs against a MOSEK run, buck3's published objective, performance and
 peak memory beyond the summaries' fields.
 
+## Milestone 2: Phase 6a, PSD strategies (in progress)
+
+Status: step 1 done (the kernels moved in; the per-commit comparison is recorded in the GPU-evidence list below);
+step 2 (the projector classes, the selection policy, the options, the benchmark and the warm-up default) follows.
+
+- Step 1 (B8, B10, B11, B15): the FP16 composite filter, the Lanczos norm estimate, LOBPCG and the precision
+  helpers of the vendored `third_party/psd_projection` subset moved to `src/cone/psd/kernels/` (namespace
+  `cuadmm::cone::psd`, the CUADMM checks, one copy of each helper: the raw-pointer ReLU is a second signature of
+  the legacy kernel, the print helpers and the `curand` fill dropped); the composite coefficients are a constexpr
+  table (`kCompositeFp16`) with the damping factor documented; the Lanczos start vector is deterministic
+  (`fill_deterministic`, a splitmix64 counter-based generator seeded by options.seed mixed with the block index;
+  the LOBPCG cold start too). The vendored directory and the `cuadmm_psd_kernels` target are gone.
+  `psd.lowrank.tol` and `psd.lowrank.max_iter` are honoured (engine fields `lobpcg_tol`, `lobpcg_maxit`); the
+  tolerance stays absolute (DECISIONS 45).
+- Acceptance of step 1: GPU suite 118 of 118 on the MIG (dev build, `$HOME/cuadmm-builds/reorg-dev/logs/
+  tests_phase6a_step1.log`, 2026-10-22 22:05); the exact and LOBPCG paths are bit for bit (no baseline uses the
+  warm-up): the per-commit comparison is in the GPU-evidence list.
+
 ## Milestone 2: Phase 5, cone layer
 
 Status: done (commit 1cca25e, verified bit for bit); authorized on 2026-10-22 with Phases 6a, 6b, 7 and 10

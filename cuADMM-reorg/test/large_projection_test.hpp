@@ -32,9 +32,11 @@
 #include <vector>
 
 #include "cuadmm_legacy/solver.h"
-#include "psd_projection/lobpcg.h"
-#include "psd_projection/lanczos.h"
-#include "psd_projection/composite_FP16.h"
+#include "cone/psd/kernels/composite_fp16.h"
+#include "cone/psd/kernels/lanczos.h"
+#include "cone/psd/kernels/lobpcg.h"
+#include "cone/psd/kernels/precision.h"
+using namespace cuadmm::cone::psd;
 
 // margins applied to the Lanczos estimate of ||A||_2 before a composite projection
 #ifndef COMPOSITE_FP16_SCALE_MARGIN
@@ -385,11 +387,11 @@ protected:
 
         // same sequence as the solver: estimate ||A||_2, scale, project, scale back
         double lo = 0.0, up = 0.0;
-        approximate_two_norm(tensor_op_H.handle, this->cusolverH.handle, A.ptr, n, &lo, &up);
+        approximate_two_norm(tensor_op_H.handle, this->cusolverH.handle, A.ptr, n, &lo, &up, 0);
         const double scale = up > 0.0 ? margin * up : 1.0;
         const double inv_scale = 1.0 / scale;
         ASSERT_CUBLAS_SUCCESS(cublasDscal(tensor_op_H.handle, (int)nn, &inv_scale, A.ptr, 1));
-        composite_FP16(tensor_op_H.handle, A.ptr, n, float_ws.ptr, half_ws.ptr);
+        composite_fp16(tensor_op_H.handle, A.ptr, n, float_ws.ptr, half_ws.ptr);
         ASSERT_CUBLAS_SUCCESS(cublasDscal(tensor_op_H.handle, (int)nn, &scale, A.ptr, 1));
         ASSERT_CUDA_SUCCESS(cudaDeviceSynchronize());
         ASSERT_CUDA_SUCCESS(cudaGetLastError());

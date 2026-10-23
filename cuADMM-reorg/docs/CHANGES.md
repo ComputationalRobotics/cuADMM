@@ -233,3 +233,13 @@ Inside `cuADMM-reorg/src/legacy/` (the copied `SDPSolver`), the CLI and the test
   block bounds), not only with `trace_bound` / `trace_bound_scale`.
 - `ConeRegistry` rejects the cones of Phase 9 ('q', 'r') and the exponential and power cones with a message naming
   the phase, before any cone object is built.
+
+## Phase 6a, step 1 (2026-10-22): the PSD kernels moved in
+
+- The composite warm-up is deterministic (B8): the Lanczos start vector of the norm estimate (and the LOBPCG cold
+  start, which the solver never uses) comes from a counter-based generator seeded by (`seed`, block index) instead
+  of `curand` with a time-based seed. Runs with `psd.large.warmup = composite_fp16` are reproducible; their
+  iterates differ from the reference's, which were not reproducible. No baseline uses the warm-up (`none` is the
+  CLI default): the exact and LOBPCG paths are bit for bit.
+- `psd.lowrank.tol` and `psd.lowrank.max_iter` are honoured (previously fixed at 1e-5 and 20; the defaults keep
+  those values).

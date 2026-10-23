@@ -2,8 +2,9 @@ cmake_minimum_required(VERSION 3.18)
 
 # cuADMM-reorg: the reorganized cuADMM solver, built as a self-contained project (reorg-plan/developer_prompt.md).
 # Nothing here includes or links the parent tree. Phase 0 (plan Section 17): the sources of main at c23e67e are
-# copied verbatim into src/legacy/ and third_party/psd_projection/ (the subset of the frozen submodule b566590 that
-# the solver uses), with the original tests; later phases move the code into the target layout of plan Section 6.1.
+# copied verbatim into src/legacy/ (and, until Phase 6a, the subset of the frozen submodule b566590 that the solver
+# uses, now src/cone/psd/kernels/), with the original tests; later phases move the code into the target layout of
+# plan Section 6.1.
 
 project(cuadmm_reorg LANGUAGES CXX CUDA)
 
@@ -94,17 +95,7 @@ if(NOT LAPACK_LIBRARIES)
 endif()
 
 # ---------------------------------------------------------------------------------------------- psd kernels
-# Subset of the frozen psd_projection submodule (b566590): composite filters, Lanczos estimate, LOBPCG, helpers.
-# Phase 6a moves them to src/cone/psd/kernels/; until then they keep their own include guard and check macros.
-# SHARED, as the submodule builds it: cuadmm and the kernels both define max_dense_vector_zero_kernel (B10, fixed in
-# Phase 6a); a static library would give a duplicate symbol at link time.
-add_library(cuadmm_psd_kernels SHARED
-  third_party/psd_projection/src/composite_FP16.cu
-  third_party/psd_projection/src/lanczos.cu
-  third_party/psd_projection/src/lobpcg.cu
-  third_party/psd_projection/src/utils.cu)
-target_include_directories(cuadmm_psd_kernels PUBLIC third_party/psd_projection/include PRIVATE src)
-target_link_libraries(cuadmm_psd_kernels PUBLIC CUDA::cudart CUDA::cublas CUDA::cusolver)
+# The PSD kernels of the frozen psd_projection submodule (b566590) live in src/cone/psd/kernels/ since Phase 6a.
 
 # ---------------------------------------------------------------------------------------------- build commit
 # generated/cuadmm/version.h holds the commit of the source tree (plan Pre-0: policy, parameters and build commit in the
@@ -155,6 +146,10 @@ set(CUADMM_SOURCES
   src/cone/cone_product.cu
   src/cone/psd/psd_cone.cu
   src/cone/psd/svec_pack.cu
+  src/cone/psd/kernels/precision.cu
+  src/cone/psd/kernels/lanczos.cu
+  src/cone/psd/kernels/lobpcg.cu
+  src/cone/psd/kernels/composite_fp16.cu
   src/termination/certificate.cu
   src/solver/solver_facade.cu)
 add_library(cuadmm SHARED ${CUADMM_LEGACY_SOURCES} ${CUADMM_SOURCES})
@@ -166,7 +161,7 @@ target_link_libraries(cuadmm PUBLIC
   CUDA::cudart CUDA::cusparse CUDA::cublas CUDA::cusolver
   ${CMAD_LIB} ${CCOLAMD_LIB} ${CHOLMOD_LIB}
   ${LAPACK_LIBRARIES} ${BLAS_LIBRARIES}
-  cuadmm_psd_kernels)
+  )
 # the optional formats (plan Section 12): the readers that are not compiled in fail with a clear message
 if(CUADMM_WITH_HDF5_RESOLVED)
   target_compile_definitions(cuadmm PRIVATE CUADMM_HAVE_HDF5=1)

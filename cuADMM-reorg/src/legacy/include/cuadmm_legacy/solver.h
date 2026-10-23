@@ -337,6 +337,9 @@ public:
     DeviceSolverDnHandle cusolverH_composite_proj;
 
     bool use_lobpcg;                                 // whether to use LOBPCG
+    double lobpcg_tol = 1e-5;                        // LOBPCG convergence tolerance (psd.lowrank.tol; absolute, B13)
+    int lobpcg_maxit = 20;                           // LOBPCG iterations (psd.lowrank.max_iter)
+    unsigned long long lanczos_seed = 0;             // seed of the Lanczos start vectors (options.seed; per block: mixed with the block index, B8)
     DeviceDenseVector<int> positive_ranks;           // positive ranks of large matrices
     DeviceDenseVector<int> negative_ranks;           // negative ranks of large matrices
     HostDenseVector<int> cpu_positive_ranks;         // positive ranks of large matrices (CPU copy)
