@@ -324,3 +324,28 @@ and the existing tests are unchanged.
   1.x bit for bit (cnhil10, 200 iterations of `residual_balancing` against the 2d8a755 reference, with the compat
   products). Test `EmptyObjective.SolverSetsUpAndIteratesWithoutC`.
 
+## 2.0.1 (2026-10-26): acceptance tooling, provenance, license
+
+- `tools/compare_runs.py` rejects what it previously skipped or forgave: a nonfinite value in a history or a
+  solution, a history without one of the mandatory columns (`iter`, `pobj`, `dobj`, `eta_p`, `eta_d`, `eta_g`,
+  `sigma`), a malformed line, a missing or unparsable summary, a missing solution file and a run whose
+  `exit_code.txt` is nonzero are INVALID (exit code 2). The rows of two histories are aligned by their iteration
+  id, and a mismatch is a difference. The bitwise comparison compares the bit patterns of the doubles (`-0.0` and
+  `0.0` differ, NaN never equals NaN), separately from the tolerance comparison (`--rtol`).
+  `tools/slurm/compare_build.sh` returns the worst batch exit code and 1 after a failed test suite (it returned 0);
+  `run_tests.sh` prints the gtest summary lines. `tools/tests/test_compare_runs.py` (16 negative tests, standard
+  library only) proves the rejections; `tools/recheck_retained.sh` rechecks retained outputs without the solver.
+  The retained outputs of the three latest verification tags were rechecked with the repaired tool on 2026-10-26:
+  53 of 53 identical with the compat products (`phase7-compat`, `phase6b-compat2`), and for the 2.0 defaults
+  (`phase6b-default2`, rtol 1e-6) the same 8 identical and 45 different cases as recorded (52 of 53 final
+  objectives within 1e-6, the exception a near-zero objective whose solution agrees to 4e-12 absolute); no invalid
+  run, so no case needed rerunning.
+- Historical references name immutable commits with exact paths (`c4eb89b:cuADMM-reorg/docs/PROGRESS.md` and the
+  phase reports beside it, `c23e67e:reorg-plan/cuadmm_reorg_plan.tex`,
+  `c23e67e:experiments/2026-09-29_plato_cold_plain_admm_sigma/scripts/sdpa_to_cuadmm.py`,
+  `dd4babe:experiments/2026-09-28_fixed_sigma_to_tolerance/scripts/gen_legacy_golden.cu`, the last one on a local
+  branch that is not on GitHub); the deleted tag `v2.0.0-rc1` is not referenced any more.
+- `examples/max-cut/LICENCE`: the BSD 2-Clause license of Richard Y. Zhang's `dual_ctc` repository, from which the
+  scripts come, reproduced verbatim; `examples/max-cut/README.md` gives the provenance file by file.
+- No solver change; the defaults of 2.0 (Decision 37, `residual_balancing`) are unchanged. Project version 2.0.1.
+
