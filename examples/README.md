@@ -20,8 +20,8 @@ it is dense: `linsys.backend = auto`), the arena-sized PSD workspaces (the plan 
     cuadmm_exe <problem> --psd-warmup none --psd-final-product gemm_compat --psd-batched-final-product gemm_compat \
         --policy residual_balancing --sigma0 100
 
-The reference builds of 1.x reproduce these runs bit for bit on the 53 baseline cases (the GPU evidence is in the
-development history: branch `reorg`, tag `v2.0.0-rc1`).
+The reference builds of 1.x reproduce these runs bit for bit on the 53 baseline cases (the GPU evidence:
+`c4eb89b:cuADMM-reorg/docs/PROGRESS.md`, at that commit only).
 `--policy legacy_adaptive --sigma0 1` is the rule of the published PLATO runs (9bb4ba5, with Monitor1);
 `--policy fixed --sigma0 <x>` keeps sigma.
 
@@ -29,7 +29,8 @@ development history: branch `reorg`, tag `v2.0.0-rc1`).
 
     cuadmm_exe <problem> --psd-warmup composite_fp16 --psd-warmup-min-size 2000 --psd-warmup-switch-tol 1e-2
 
-The projector benchmark (`cuadmm_psd_projector_bench`; its recorded run is in the development history) measured
+The projector benchmark (`cuadmm_psd_projector_bench`; its recorded run:
+`c4eb89b:cuADMM-reorg/docs/phase6a_projector_benchmark.md`) measured
 the filter 6x faster than the exact EVD at n = 2000; the warm-up ends at the first iteration with the KKT residual below `switch_tol` (or after
 `switch_iter` iterations), then the exact projections and the low-rank analysis take over. The summary reports
 `warmup_switch_iteration` and `composite_fallbacks` (the results the norm test rejected, projected exactly).
@@ -85,7 +86,8 @@ changed.
   `At.txt`, `b.txt`, `C.txt`, `blk.txt`, `con_num.txt` are a second variant of the same size.
 - `plato/`: PLATO / Kocvara instances as SDPA `.dat-s` and `.mat` files (`MATLAB/`) and TXT directories (`TXT/`).
 - `dimacs/data/`: the DIMACS instances hinf12, hinf13, truss5 and truss8 (`MATLAB/`, `TXT/`).
-- `max-cut/`: MATLAB scripts that generate max-cut SDPs in SeDuMi form (Richard Y. Zhang, BSD 2-Clause).
+- `max-cut/`: MATLAB scripts that generate max-cut SDPs in SeDuMi form (Richard Y. Zhang's `dual_ctc`, BSD 2-Clause:
+  `max-cut/LICENCE` and `max-cut/README.md`).
 
 A TXT directory holds `At.txt`, `b.txt`, `C.txt`, `blk.txt` and `con_num.txt`; `cuadmm-convert` writes it from any
 format the build reads (the MATLAB conversion scripts of 1.x are gone).

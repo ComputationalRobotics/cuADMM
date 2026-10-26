@@ -3,9 +3,9 @@ cmake_minimum_required(VERSION 3.18)
 # cuADMM 2.0: a GPU ADMM solver for semidefinite programs, built as a self-contained project (the cuadmm library, the
 # command-line interface, the MATLAB gateway, the tests and the benchmarks). The ported engine of cuADMM 1.x lives in
 # src/legacy/ behind the facade cuadmm::Solver; the PSD kernels of src/cone/psd/kernels/ come from the psd_projection
-# repository (b566590, formerly a submodule). Layout: plan Section 6.1 (reorg-plan/ in the history of main).
+# repository (b566590, formerly a submodule). Layout: plan Section 6.1 (c23e67e:reorg-plan/cuadmm_reorg_plan.tex).
 
-project(cuADMM VERSION 2.0.0 LANGUAGES CXX CUDA)
+project(cuADMM VERSION 2.0.1 LANGUAGES CXX CUDA)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)

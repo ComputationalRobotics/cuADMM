@@ -8,14 +8,14 @@ cuADMM is a GPU ADMM solver for semidefinite programs with PSD, nonnegative and 
 with K a product of PSD cones, nonnegative orthants and free blocks. Version 2.0 is the reorganized solver: one
 CMake project with the `cuadmm` library, the command-line interface, the MATLAB gateway, the tests and the
 benchmarks. It reproduces the 1.x solver (the `main` branch before 2.0) bit for bit on its exact paths and adds the
-options of the reorganization plan (`reorg-plan/` in the history of `main`); the ported engine of 1.x lives in
+options of the reorganization plan (`c23e67e:reorg-plan/cuadmm_reorg_plan.tex`); the ported engine of 1.x lives in
 `src/legacy/` behind the facade `cuadmm::Solver`.
 
 - `docs/OPTIONS.md`: every option (one table for the CLI, the C++ API and MATLAB).
 - `docs/MIGRATION.md`: what changed for users of 1.x (the MEX signature, the defaults, the option names).
 - `docs/CHANGES.md`: every behavior change relative to 1.x, with the option that restores the old behavior.
-- `docs/DECISIONS.md`: the decisions of the reorganization, phase by phase (the acceptance evidence is in the
-  development history: branch `reorg`, tag `v2.0.0-rc1`).
+- `docs/DECISIONS.md`: the decisions of the reorganization, phase by phase (the acceptance evidence is
+  `c4eb89b:cuADMM-reorg/docs/PROGRESS.md` and the phase reports next to it, at that commit only).
 - `examples/`: command lines and scripts on the options, and the problem data (SPOT, PLATO, pendulum, DIMACS,
   max-cut).
 
@@ -89,8 +89,8 @@ In MATLAB, `[X, y, S, info] = cuadmm.solve(At, b, C, K, opts)` (the `+cuadmm` pa
 
 - The exact paths (the EVD projections, LOBPCG, the CHOLMOD y-step, the residual-balancing and legacy penalty
   rules, the sGS and hybrid schemes) reproduce the reference builds of 1.x bit for bit on 53 baseline cases of two
-  pinned configurations with `--psd-warmup none` and the compat products (the evidence is in the development
-  history: branch `reorg`, tag `v2.0.0-rc1`). With the 2.0 defaults the runs differ within rounding; the composite
+  pinned configurations with `--psd-warmup none` and the compat products (the evidence: `c4eb89b:cuADMM-reorg/docs/PROGRESS.md`,
+  at that commit only). With the 2.0 defaults the runs differ within rounding; the composite
   warm-up changes the iterates of runs with blocks of at least 5000 (deterministically).
 - PSD blocks are limited to n <= 32768 by the cuSOLVER EVD of CUDA 12.9 (checked at setup); the large tier holds one
   block of the largest size (M, about 5 n^2 doubles with the workspace) plus the LOBPCG warm starts.

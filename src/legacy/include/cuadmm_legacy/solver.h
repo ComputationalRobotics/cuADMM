@@ -87,7 +87,7 @@ inline std::string admm_mode_name(int switch_admm, int max_iter)
 }
 
 /// @brief How solve() updates the penalty parameter sigma (set SDPSolver::sigma_policy before solve()).
-/// Plan Section 3.5 / 7.3 (reorg-plan/cuadmm_reorg_plan.tex in the history of main). All adaptive rules count
+/// Plan Section 3.5 / 7.3 (c23e67e:reorg-plan/cuadmm_reorg_plan.tex). All adaptive rules count
 /// "wins" after every iteration (prim_win if residual_weight * errRp < errRd, else dual_win) and act only at the
 /// check iterations
 /// k in {k <= 200: k = 1 mod 10} u {200 < k <= 1000: k = 1 mod 25} u {1000 < k <= 5000: k = 1 mod 50}

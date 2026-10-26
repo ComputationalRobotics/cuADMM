@@ -1,5 +1,6 @@
 # legacy (pre-change) histories generated with commit 290660f (psd_projection b566590) by
-# experiments/2026-09-28_fixed_sigma_to_tolerance/scripts/gen_legacy_golden.cu on an NVIDIA H200 (sm_90)
+# dd4babe:experiments/2026-09-28_fixed_sigma_to_tolerance/scripts/gen_legacy_golden.cu (a commit of the local branch
+# feat/hybrid-sgs-to-admm, not on the GitHub remote) on an NVIDIA H200 (sm_90)
 case admm_legacy PSD_Free 0 6000 0 100 2
 iterations 6000
 sigma 136

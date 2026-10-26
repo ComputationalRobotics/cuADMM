@@ -3,12 +3,13 @@
 Plan principle 4 and the developer prompt: no silent behavior change. Every change of results, option meaning or
 default is listed here with the phase that introduced it and the new name or value that selects it. Structural
 changes that reproduce the reference iterates bit for bit are not listed (they are verified by
-`tools/compare_runs.py`; the evidence is in the development history, branch `reorg`, tag `v2.0.0-rc1`).
+`tools/compare_runs.py`; the evidence: `c4eb89b:cuADMM-reorg/docs/PROGRESS.md`, at that commit only).
 
-> Written during the reorganization (branch `reorg`, tag `v2.0.0-rc1`), when the project lived in `cuADMM-reorg/`
-> beside the 1.x tree: `cuADMM-reorg/<path>` is today's `<path>`. The working records named below (`docs/PROGRESS.md`,
-> the phase reports `docs/phase*.md` with their data, `tools/sigma_screen/`, `tools/slurm/build_and_compare.sh` and the
-> other campaign scripts) were removed from the tree by the 2.0 cleanup and remain in the history at `v2.0.0-rc1`.
+> Written during the reorganization, when the project lived in `cuADMM-reorg/` beside the 1.x tree:
+> `cuADMM-reorg/<path>` is today's `<path>`. The working records named below (`docs/PROGRESS.md`, the phase reports
+> `docs/phase*.md` with their data, `tools/sigma_screen/`, `tools/slurm/build_and_compare.sh` and the other campaign
+> scripts) were removed from the tree by the 2.0 cleanup; they exist at commit `c4eb89b`, for example
+> `git show c4eb89b:cuADMM-reorg/docs/PROGRESS.md`.
 
 ## Phase 0 (2026-10-21)
 

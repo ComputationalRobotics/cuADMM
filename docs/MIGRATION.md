@@ -60,4 +60,4 @@ are deferred.
 
 The reference builds of main reproduce the 2.0 runs bit for bit with `--psd-warmup none --psd-final-product
 gemm_compat --psd-batched-final-product gemm_compat` on the baseline cases (`tools/compare_runs.py`, `tools/slurm/compare_build.sh`;
-the evidence is in the development history, branch `reorg`, tag `v2.0.0-rc1`); with the 2.0 defaults the histories agree within rounding (`compare_runs.py ... --rtol 1e-6`).
+the evidence: `c4eb89b:cuADMM-reorg/docs/PROGRESS.md`, at that commit only); with the 2.0 defaults the histories agree within rounding (`compare_runs.py ... --rtol 1e-6`).
