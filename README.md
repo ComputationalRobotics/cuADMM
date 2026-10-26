@@ -1,6 +1,6 @@
 # cuADMM 2.0
 
-cuADMM is a GPU ADMM solver for semidefinite programs with PSD, nonnegative and free blocks, the solver of
+cuADMM is a GPU ADMM solver for SDP(semidefinite programs) with PSD, nonnegative and free blocks, the solver of
 [arXiv:2406.05846](https://arxiv.org/abs/2406.05846). It solves
 
     min <C, X>   s.t.   <A_i, X> = b_i  (i = 1..m),   X in K
