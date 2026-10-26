@@ -347,5 +347,23 @@ and the existing tests are unchanged.
   branch that is not on GitHub); the deleted tag `v2.0.0-rc1` is not referenced any more.
 - `examples/max-cut/LICENCE`: the BSD 2-Clause license of Richard Y. Zhang's `dual_ctc` repository, from which the
   scripts come, reproduced verbatim; `examples/max-cut/README.md` gives the provenance file by file.
+- **FP16 warm-up gate** (a decision of the 2.0 review): SDPLIB `maxG55`, one PSD block of size 5000 with m = 5000
+  (`maxG55.dat-s`, sha256 `5298a62e46267efbc8e32912caa84eb70232817807025ec5efb285437cd3bb7f`, kept outside the
+  repository), solved to tolerance 1e-6 with external validation every 200 iterations on the A100 MIG 3g.20gb, with
+  the warm-up (the default for blocks of at least 5000) and with `--psd-warmup none`. Both runs converged and were
+  externally validated (X cone violation 2.3e-14): with the warm-up 14213 iterations in 1169 s, the switch to the
+  exact projection at iteration 98, no composite fallback, pobj 12869.867632 and dobj 12869.841926; without it
+  12743 iterations in 1104 s, pobj 12869.867406 and dobj 12869.841673. The objectives agree to 1.8e-8 relative. A
+  certificate computed from the raw file and the saved solution with an independent parser (dual feasibility of
+  Diag(x) - F0 with the shift of its smallest eigenvalue, primal feasibility of Y with its diagonal and smallest
+  eigenvalue) brackets the optimal value of the file's problem in [12869.848, 12869.942], so the SDPA reader's
+  interpretation is right; the 1998 table of SDPLIB lists 9999.21 for this problem and 4003.81 for `maxG51`,
+  where the validated solve gives 4006.2555. The warm-up is validated end to end and stays the default; on this
+  instance it brought no speedup (the low-rank LOBPCG path dominates after the switch and the warm-up trajectory
+  needed 12 percent more iterations). The warm-up run is reproducible bit for bit (two runs: the same iteration
+  count and objective).
+- `--save-solution <dir>` with an SDPA, HDF5 or `.mat` input failed after a converged solve when the directory did
+  not exist ("could not open .../solution.ini-s for writing", exit code 1): the writer now creates the directory,
+  as the TXT writer did (test `IoSimplify.TxtSolutionWriterAndFormatDispatch`). Found by the gate run.
 - No solver change; the defaults of 2.0 (Decision 37, `residual_balancing`) are unchanged. Project version 2.0.1.
 
