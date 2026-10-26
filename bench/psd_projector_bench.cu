@@ -1,7 +1,7 @@
 /*
 
     psd_projector_bench.cu  (plan Section "PSD cone projection", "Integrating the composite polynomial filter"; the
-    recorded run of Phase 6a is in the development history)
+    recorded run: c4eb89b:cuADMM-reorg/docs/phase6a_projector_benchmark.md)
 
     The FP16 composite polynomial filter (CompositeFilter) against the exact FP64 eigendecomposition (FullEvd) on
     synthetic dense symmetric blocks of size n in {2000, 3000, 5000, 10000, 20000}, called as the engine calls them

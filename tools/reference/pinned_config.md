@@ -45,5 +45,5 @@ Both patches were applied with `sed` on 2026-10-21 and recorded with `git diff` 
 - Generator problems: `cuadmm_gen_problems $CUADMM_DATA/generated` (deterministic, `std::mt19937` raw outputs); the
   SHA-256 of the written files is recorded next to each baseline (`generated_sha256.txt`).
 - PLATO: `trto1` and `mater-1` TXT directories (`$CUADMM_DATA/plato_kocvara/txt/`), converted from SDPA by
-  `sdpa_to_cuadmm.py` of the PLATO campaign (`experiments/2026-09-29_plato_cold_plain_admm_sigma/scripts/` in the
-  history of `main`; `cuadmm-convert` reads SDPA directly).
+  `c23e67e:experiments/2026-09-29_plato_cold_plain_admm_sigma/scripts/sdpa_to_cuadmm.py` of the PLATO campaign
+  (`cuadmm-convert` reads SDPA directly).

@@ -14,7 +14,7 @@
 
     usage: cuadmm_linsys_bench <out.csv> <problem dir> [<problem dir> ...]  (--solves N, --eps X before the dirs)
     The CSV has one row per (problem, backend): problem,m,n,nnz,backend,kind,factor_s,ms_per_solve,rel_residual,
-    device_bytes,host_bytes,nnz_L,error. The recorded run of Phase 7 is in the development history.
+    device_bytes,host_bytes,nnz_L,error. The recorded run: c4eb89b:cuADMM-reorg/docs/phase7_linsys_benchmark.md.
 
 */
 

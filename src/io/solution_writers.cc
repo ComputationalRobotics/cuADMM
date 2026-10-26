@@ -24,6 +24,7 @@
 #include <fstream>
 #include <iomanip>
 #include <stdexcept>
+#include <system_error>
 
 #include "io/svec.h"
 #include "report/writers.h"
@@ -328,6 +329,22 @@ void write_solution_mosek(const std::string &path, const ProblemData &, const So
 
 } // namespace detail
 
+namespace detail
+{
+// The directory of a solution file is created when it does not exist yet (the CLI's --save-solution <dir> with an
+// SDPA, HDF5 or .mat input names a directory, as it does for TXT, whose writer creates it itself).
+std::string with_parent_directory(const std::string &file)
+{
+    const std::filesystem::path parent = std::filesystem::path(file).parent_path();
+    if (!parent.empty())
+    {
+        std::error_code ec;
+        std::filesystem::create_directories(parent, ec);
+    }
+    return file;
+}
+} // namespace detail
+
 void write_solution(const std::string &path, const ProblemData &problem, const SolveResult &result)
 {
     write_solution(path, problem, result, "");
@@ -339,15 +356,15 @@ void write_solution(const std::string &path, const ProblemData &problem, const S
     if (fmt == "txt" || fmt.empty())
         detail::write_solution_txt(path, problem, result);
     else if (fmt == "h5")
-        detail::write_solution_h5(detail::solution_file_path(path, {".h5", ".hdf5"}, "solution.h5"), problem, result);
+        detail::write_solution_h5(detail::with_parent_directory(detail::solution_file_path(path, {".h5", ".hdf5"}, "solution.h5")), problem, result);
     else if (fmt == "sdpa")
-        detail::write_solution_sdpa(detail::solution_file_path(path, {".ini-s"}, "solution.ini-s"), problem, result);
+        detail::write_solution_sdpa(detail::with_parent_directory(detail::solution_file_path(path, {".ini-s"}, "solution.ini-s")), problem, result);
     else if (fmt == "sedumi")
-        detail::write_solution_sedumi(detail::solution_file_path(path, {".mat"}, "solution.mat"), problem, result);
+        detail::write_solution_sedumi(detail::with_parent_directory(detail::solution_file_path(path, {".mat"}, "solution.mat")), problem, result);
     else if (fmt == "sdpt3")
-        detail::write_solution_sdpt3(detail::solution_file_path(path, {".mat"}, "solution.mat"), problem, result);
+        detail::write_solution_sdpt3(detail::with_parent_directory(detail::solution_file_path(path, {".mat"}, "solution.mat")), problem, result);
     else if (fmt == "mosek")
-        detail::write_solution_mosek(detail::solution_file_path(path, {".mat"}, "solution.mat"), problem, result);
+        detail::write_solution_mosek(detail::with_parent_directory(detail::solution_file_path(path, {".mat"}, "solution.mat")), problem, result);
     else
         throw std::invalid_argument("unknown solution format '" + fmt + "' (txt, h5, sdpa, sedumi, sdpt3, mosek)");
 }

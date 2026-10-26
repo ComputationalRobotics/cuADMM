@@ -3,12 +3,13 @@
 Plan principle 4 and the developer prompt: no silent behavior change. Every change of results, option meaning or
 default is listed here with the phase that introduced it and the new name or value that selects it. Structural
 changes that reproduce the reference iterates bit for bit are not listed (they are verified by
-`tools/compare_runs.py`; the evidence is in the development history, branch `reorg`, tag `v2.0.0-rc1`).
+`tools/compare_runs.py`; the evidence: `c4eb89b:cuADMM-reorg/docs/PROGRESS.md`, at that commit only).
 
-> Written during the reorganization (branch `reorg`, tag `v2.0.0-rc1`), when the project lived in `cuADMM-reorg/`
-> beside the 1.x tree: `cuADMM-reorg/<path>` is today's `<path>`. The working records named below (`docs/PROGRESS.md`,
-> the phase reports `docs/phase*.md` with their data, `tools/sigma_screen/`, `tools/slurm/build_and_compare.sh` and the
-> other campaign scripts) were removed from the tree by the 2.0 cleanup and remain in the history at `v2.0.0-rc1`.
+> Written during the reorganization, when the project lived in `cuADMM-reorg/` beside the 1.x tree:
+> `cuADMM-reorg/<path>` is today's `<path>`. The working records named below (`docs/PROGRESS.md`, the phase reports
+> `docs/phase*.md` with their data, `tools/sigma_screen/`, `tools/slurm/build_and_compare.sh` and the other campaign
+> scripts) were removed from the tree by the 2.0 cleanup; they exist at commit `c4eb89b`, for example
+> `git show c4eb89b:cuADMM-reorg/docs/PROGRESS.md`.
 
 ## Phase 0 (2026-10-21)
 
@@ -322,4 +323,47 @@ and the existing tests are unchanged.
   1.x issued and silently ignored. The three kernels now return early on an empty vector; the iterates are those of
   1.x bit for bit (cnhil10, 200 iterations of `residual_balancing` against the 2d8a755 reference, with the compat
   products). Test `EmptyObjective.SolverSetsUpAndIteratesWithoutC`.
+
+## 2.0.1 (2026-10-26): acceptance tooling, provenance, license
+
+- `tools/compare_runs.py` rejects what it previously skipped or forgave: a nonfinite value in a history or a
+  solution, a history without one of the mandatory columns (`iter`, `pobj`, `dobj`, `eta_p`, `eta_d`, `eta_g`,
+  `sigma`), a malformed line, a missing or unparsable summary, a missing solution file and a run whose
+  `exit_code.txt` is nonzero are INVALID (exit code 2). The rows of two histories are aligned by their iteration
+  id, and a mismatch is a difference. The bitwise comparison compares the bit patterns of the doubles (`-0.0` and
+  `0.0` differ, NaN never equals NaN), separately from the tolerance comparison (`--rtol`).
+  `tools/slurm/compare_build.sh` returns the worst batch exit code and 1 after a failed test suite (it returned 0);
+  `run_tests.sh` prints the gtest summary lines. `tools/tests/test_compare_runs.py` (16 negative tests, standard
+  library only) proves the rejections; `tools/recheck_retained.sh` rechecks retained outputs without the solver.
+  The retained outputs of the three latest verification tags were rechecked with the repaired tool on 2026-10-26:
+  53 of 53 identical with the compat products (`phase7-compat`, `phase6b-compat2`), and for the 2.0 defaults
+  (`phase6b-default2`, rtol 1e-6) the same 8 identical and 45 different cases as recorded (52 of 53 final
+  objectives within 1e-6, the exception a near-zero objective whose solution agrees to 4e-12 absolute); no invalid
+  run, so no case needed rerunning.
+- Historical references name immutable commits with exact paths (`c4eb89b:cuADMM-reorg/docs/PROGRESS.md` and the
+  phase reports beside it, `c23e67e:reorg-plan/cuadmm_reorg_plan.tex`,
+  `c23e67e:experiments/2026-09-29_plato_cold_plain_admm_sigma/scripts/sdpa_to_cuadmm.py`,
+  `dd4babe:experiments/2026-09-28_fixed_sigma_to_tolerance/scripts/gen_legacy_golden.cu`, the last one on a local
+  branch that is not on GitHub); the deleted tag `v2.0.0-rc1` is not referenced any more.
+- `examples/max-cut/LICENCE`: the BSD 2-Clause license of Richard Y. Zhang's `dual_ctc` repository, from which the
+  scripts come, reproduced verbatim; `examples/max-cut/README.md` gives the provenance file by file.
+- **FP16 warm-up gate** (a decision of the 2.0 review): SDPLIB `maxG55`, one PSD block of size 5000 with m = 5000
+  (`maxG55.dat-s`, sha256 `5298a62e46267efbc8e32912caa84eb70232817807025ec5efb285437cd3bb7f`, kept outside the
+  repository), solved to tolerance 1e-6 with external validation every 200 iterations on the A100 MIG 3g.20gb, with
+  the warm-up (the default for blocks of at least 5000) and with `--psd-warmup none`. Both runs converged and were
+  externally validated (X cone violation 2.3e-14): with the warm-up 14213 iterations in 1169 s, the switch to the
+  exact projection at iteration 98, no composite fallback, pobj 12869.867632 and dobj 12869.841926; without it
+  12743 iterations in 1104 s, pobj 12869.867406 and dobj 12869.841673. The objectives agree to 1.8e-8 relative. A
+  certificate computed from the raw file and the saved solution with an independent parser (dual feasibility of
+  Diag(x) - F0 with the shift of its smallest eigenvalue, primal feasibility of Y with its diagonal and smallest
+  eigenvalue) brackets the optimal value of the file's problem in [12869.848, 12869.942], so the SDPA reader's
+  interpretation is right; the 1998 table of SDPLIB lists 9999.21 for this problem and 4003.81 for `maxG51`,
+  where the validated solve gives 4006.2555. The warm-up is validated end to end and stays the default; on this
+  instance it brought no speedup (the low-rank LOBPCG path dominates after the switch and the warm-up trajectory
+  needed 12 percent more iterations). The warm-up run is reproducible bit for bit (two runs: the same iteration
+  count and objective).
+- `--save-solution <dir>` with an SDPA, HDF5 or `.mat` input failed after a converged solve when the directory did
+  not exist ("could not open .../solution.ini-s for writing", exit code 1): the writer now creates the directory,
+  as the TXT writer did (test `IoSimplify.TxtSolutionWriterAndFormatDispatch`). Found by the gate run.
+- No solver change; the defaults of 2.0 (Decision 37, `residual_balancing`) are unchanged. Project version 2.0.1.
 
