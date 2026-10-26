@@ -26,12 +26,16 @@ NEW=$KIND:$BLD/cuadmm_exe
 EXTRA=()
 if [ -n "${CUADMM_EXTRA_B:-}" ]; then EXTRA+=(--extra-b "$CUADMM_EXTRA_B"); fi
 if [ -n "${CUADMM_RTOL:-}" ]; then EXTRA+=(--rtol "$CUADMM_RTOL"); fi
+# exit code: the worst of the four batches (0 identical, 1 differences, 2 a failed or invalid run) and the tests (1)
 rc=0
-$CMP batch --spec "$HERE/tools/baselines/cases_fixed.json" --problem-root "$CUADMM_DATA" --build-a $R2 --build-b $NEW "${EXTRA[@]}" --out "$OUT/fixed" || rc=1
-$CMP batch --spec "$HERE/tools/baselines/cases_legacy_adaptive.json" --problem-root "$CUADMM_DATA" --build-a $R9 --build-b $NEW "${EXTRA[@]}" --out "$OUT/legacy_adaptive" || rc=1
-$CMP batch --spec "$HERE/tools/baselines/cases_residual_balancing.json" --problem-root "$CUADMM_DATA" --build-a $R2 --build-b $NEW "${EXTRA[@]}" --out "$OUT/residual_balancing" || rc=1
-$CMP batch --spec "$HERE/tools/baselines/cases_sgs.json" --problem-root "$CUADMM_DATA" --build-a $RS --build-b $NEW "${EXTRA[@]}" --out "$OUT/sgs" || rc=1
+worse() { [ "$1" -gt "$rc" ] && rc=$1; }
+$CMP batch --spec "$HERE/tools/baselines/cases_fixed.json" --problem-root "$CUADMM_DATA" --build-a $R2 --build-b $NEW "${EXTRA[@]}" --out "$OUT/fixed"; worse $?
+$CMP batch --spec "$HERE/tools/baselines/cases_legacy_adaptive.json" --problem-root "$CUADMM_DATA" --build-a $R9 --build-b $NEW "${EXTRA[@]}" --out "$OUT/legacy_adaptive"; worse $?
+$CMP batch --spec "$HERE/tools/baselines/cases_residual_balancing.json" --problem-root "$CUADMM_DATA" --build-a $R2 --build-b $NEW "${EXTRA[@]}" --out "$OUT/residual_balancing"; worse $?
+$CMP batch --spec "$HERE/tools/baselines/cases_sgs.json" --problem-root "$CUADMM_DATA" --build-a $RS --build-b $NEW "${EXTRA[@]}" --out "$OUT/sgs"; worse $?
 echo "=== comparison exit $rc ($(date))"
 "$HERE/tools/slurm/run_tests.sh" "$BLD" "$OUT/tests.log"
-echo "=== tests exit $? ($(date))"
+trc=$?
+echo "=== tests exit $trc ($(date))"
+[ "$trc" -ne 0 ] && worse 1
 exit $rc

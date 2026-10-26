@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 compare_runs.py: bitwise comparison of cuADMM runs (the "Comparison script" of the reorganization's developer
-prompt, reorg-plan/ in the history of main).
+prompt, c23e67e:reorg-plan/developer_prompt.md).
 
 Runs a reference build and the new build (or any two builds) with equivalent options on one TXT problem, or compares
 two existing run directories, and reports the first iteration and field that differ.
@@ -35,7 +35,10 @@ usage:
 case options: --policy {fixed,legacy_adaptive,residual_balancing,balance_freeze} --sigma0 X --max-iter N --tol X
               --scheme {admm,sgs_admm} [--tau X] [--streams N] [--lobpcg 0|1] [--switch-proj-iter N]
               [--switch-proj-tol X] [--time-limit S] [--factor X] [--extra-a "..."] [--extra-b "..."]
-Exit code: 0 identical (within --rtol), 1 differences found, 2 a run failed or the directories are unusable.
+Exit code: 0 identical (within --rtol), 1 differences found, 2 a run failed or a directory is invalid (missing file,
+missing mandatory column, nonfinite value, nonzero exit code, unparsable summary).
+Two comparisons: bitwise (--rtol 0, the default: the bit patterns of the doubles, so -0.0 and 0.0 differ) and within
+a relative tolerance (--rtol X). Rows of the histories are aligned by their iteration id; a mismatch is a difference.
 """
 
 import argparse
@@ -43,6 +46,7 @@ import json
 import math
 import os
 import shlex
+import struct
 import subprocess
 import sys
 import time
@@ -183,73 +187,138 @@ def run_build(build, case, out, dry_run=False):
 
 
 # ----------------------------------------------------------------------------------------------- reading runs
+class InvalidRun(Exception):
+    """A run directory that cannot be compared: a missing or malformed file, a missing mandatory column, a nonfinite
+    value, an unparsable summary or a failed run (exit_code.txt). Reported as INVALID, exit code 2."""
+
+
+MANDATORY_HISTORY_COLUMNS = ["iter"] + HISTORY_FIELDS
+
+
 def read_history(path):
-    """Returns (rows, columns): rows as dicts keyed by canonical column names; numbers as floats, phase as str."""
+    """Returns (rows, columns): rows as dicts keyed by canonical column names; numbers as floats, phase as str.
+    Rejects a missing file, an unknown or missing mandatory column, a malformed line and a nonfinite value."""
     if not os.path.isfile(path):
-        raise IOError("missing history " + path)
+        raise InvalidRun("missing history " + path)
     with open(path) as f:
         header = f.readline().strip().split(",")
         cols = []
         for c in header:
             if c not in COLUMN_ALIASES:
-                raise IOError("unknown history column %r in %s" % (c, path))
+                raise InvalidRun("unknown history column %r in %s" % (c, path))
             cols.append(COLUMN_ALIASES[c])
+        missing = [c for c in MANDATORY_HISTORY_COLUMNS if c not in cols]
+        if missing:
+            raise InvalidRun("history %s lacks the mandatory columns %s" % (path, ", ".join(missing)))
         rows = []
-        for line in f:
+        for k, line in enumerate(f, 2):
             line = line.strip()
             if not line:
                 continue
             parts = line.split(",")
             if len(parts) != len(cols):
-                raise IOError("malformed history line in %s: %r" % (path, line))
+                raise InvalidRun("malformed history line %d in %s: %r" % (k, path, line))
             row = {}
             for c, v in zip(cols, parts):
-                row[c] = v if c == "phase" else float(v)
+                if c == "phase":
+                    row[c] = v
+                    continue
+                try:
+                    x = float(v)
+                except ValueError:
+                    raise InvalidRun("history %s line %d: column %s is not a number: %r" % (path, k, c, v))
+                if not math.isfinite(x):
+                    raise InvalidRun("history %s line %d: nonfinite value %r in column %s" % (path, k, v, c))
+                row[c] = x
             rows.append(row)
     return rows, cols
 
 
 def read_vector(path):
     if not os.path.isfile(path):
-        raise IOError("missing " + path)
+        raise InvalidRun("missing " + path)
+    values = []
     with open(path) as f:
-        return [float(x) for x in f.read().split()]
+        for i, token in enumerate(f.read().split()):
+            try:
+                x = float(token)
+            except ValueError:
+                raise InvalidRun("%s entry %d is not a number: %r" % (path, i, token))
+            if not math.isfinite(x):
+                raise InvalidRun("%s entry %d is nonfinite: %r" % (path, i, token))
+            values.append(x)
+    return values
 
 
 def read_summary(path):
+    """The last line of the summary file (the legacy CLI appends). A missing or unparsable summary is a defect of the
+    run, not something to skip."""
     if not os.path.isfile(path):
-        return None
+        raise InvalidRun("missing summary " + path)
     with open(path) as f:
         lines = [l for l in f.read().splitlines() if l.strip()]
     if not lines:
-        return None
+        raise InvalidRun("empty summary " + path)
     try:
         return json.loads(lines[-1])
     except ValueError as e:
-        # an unreadable summary is reported, never skipped silently (the summary comparison is informational, but a
-        # summary that does not parse is a defect of the writer)
-        print("WARNING: summary %s is not valid JSON: %s" % (path, e))
-        return {"__invalid_json__": str(e)}
+        raise InvalidRun("summary %s is not valid JSON: %s" % (path, e))
+
+
+def check_exit_code(run_dir):
+    """A run directory written by this tool records the exit code of the CLI; a nonzero one is a failed run."""
+    p = os.path.join(run_dir, "exit_code.txt")
+    if os.path.isfile(p):
+        with open(p) as f:
+            text = f.read().strip()
+        if text and text != "0":
+            raise InvalidRun("run %s exited with code %s" % (run_dir, text))
 
 
 def rel_diff(a, b):
+    """Relative difference of two finite numbers, for the report. Strings differ unless equal."""
     if a == b:
         return 0.0
     if isinstance(a, str) or isinstance(b, str):
         return float("inf")
-    if math.isnan(a) and math.isnan(b):
-        return 0.0
     den = max(abs(a), abs(b), 1e-300)
     return abs(a - b) / den
 
 
+def bits(x):
+    return struct.pack("<d", float(x))
+
+
+def differ(a, b, rtol):
+    """The two comparisons of the tool. Bitwise (rtol == 0): the bit patterns of the doubles, so -0.0 and 0.0 differ
+    and no rounding is forgiven. Tolerance (rtol > 0): relative difference above rtol. Strings (the phase column)
+    must be equal in both modes. Nonfinite values never reach this point: the readers reject them."""
+    if isinstance(a, str) or isinstance(b, str):
+        return a != b
+    if rtol == 0.0:
+        return bits(a) != bits(b)
+    return rel_diff(a, b) > rtol
+
+
+def iteration_id(x):
+    return int(x) if float(x).is_integer() else x
+
+
 # ----------------------------------------------------------------------------------------------- comparison
 def compare_dirs(dir_a, dir_b, rtol=0.0):
-    """Compares two run directories. Returns a report dict; report["identical"] is the verdict."""
-    report = {"a": dir_a, "b": dir_b, "rtol": rtol, "history": {}, "solution": {}, "summary": {}, "errors": []}
+    """Compares two run directories. Returns a report dict: report["identical"] is the verdict, report["invalid"] the
+    reasons the comparison could not be made (then the verdict is INVALID and the exit code 2)."""
+    report = {"a": dir_a, "b": dir_b, "rtol": rtol, "mode": "bitwise" if rtol == 0.0 else "tolerance",
+              "history": {}, "solution": {}, "summary": {}, "errors": [], "invalid": []}
     identical = True
 
-    # history
+    for d in (dir_a, dir_b):
+        try:
+            check_exit_code(d)
+        except InvalidRun as e:
+            report["invalid"].append(str(e))
+
+    # history: the rows are aligned by their iteration id, never by position alone
     try:
         rows_a, cols_a = read_history(os.path.join(dir_a, "history.csv"))
         rows_b, cols_b = read_history(os.path.join(dir_b, "history.csv"))
@@ -260,30 +329,40 @@ def compare_dirs(dir_a, dir_b, rtol=0.0):
             h["note"] = "different number of iterations"
         n = min(len(rows_a), len(rows_b))
         first = None
+        for k in range(n):
+            ia, ib = iteration_id(rows_a[k]["iter"]), iteration_id(rows_b[k]["iter"])
+            if ia != ib:
+                identical = False
+                h["iteration_id_mismatch"] = {"row": k + 1, "a": ia, "b": ib}
+                first = {"iteration": ia, "field": "iter", "a": ia, "b": ib, "rel_diff": rel_diff(ia, ib)}
+                n = k  # only the aligned prefix is compared field by field
+                break
         per_field = {}
         for field in HISTORY_FIELDS + HISTORY_INFO_FIELDS:
             if field not in cols_a or field not in cols_b:
-                continue
+                continue  # an informational column absent on one side (read_history guarantees the mandatory ones)
             count, worst, worst_at = 0, 0.0, None
             for k in range(n):
                 a, b = rows_a[k][field], rows_b[k][field]
+                it = iteration_id(rows_a[k]["iter"])
                 d = rel_diff(a, b)
-                if d > rtol:
+                if differ(a, b, rtol):
                     count += 1
-                    if first is None or k + 1 < first["iteration"]:
-                        first = {"iteration": k + 1, "field": field, "a": a, "b": b, "rel_diff": d}
-                    elif k + 1 == first["iteration"] and HISTORY_FIELDS.index(field) < HISTORY_FIELDS.index(first["field"]) \
-                            if field in HISTORY_FIELDS and first["field"] in HISTORY_FIELDS else False:
-                        first = {"iteration": k + 1, "field": field, "a": a, "b": b, "rel_diff": d}
+                    if first is None or (first["field"] != "iter" and it < first["iteration"]):
+                        first = {"iteration": it, "field": field, "a": a, "b": b, "rel_diff": d}
+                    elif first["field"] != "iter" and it == first["iteration"] and field in HISTORY_FIELDS \
+                            and first["field"] in HISTORY_FIELDS \
+                            and HISTORY_FIELDS.index(field) < HISTORY_FIELDS.index(first["field"]):
+                        first = {"iteration": it, "field": field, "a": a, "b": b, "rel_diff": d}
                 if d > worst:
-                    worst, worst_at = d, k + 1
+                    worst, worst_at = d, it
             per_field[field] = {"differing_iterations": count, "max_rel_diff": worst, "max_at": worst_at}
             if count > 0 and field in HISTORY_FIELDS:
                 identical = False
         h["per_field"] = per_field
         h["first_difference"] = first
-    except IOError as e:
-        report["errors"].append(str(e))
+    except InvalidRun as e:
+        report["invalid"].append(str(e))
         identical = False
 
     # solutions
@@ -291,8 +370,8 @@ def compare_dirs(dir_a, dir_b, rtol=0.0):
         try:
             va = read_vector(os.path.join(dir_a, "solution", name))
             vb = read_vector(os.path.join(dir_b, "solution", name))
-        except IOError as e:
-            report["errors"].append(str(e))
+        except InvalidRun as e:
+            report["invalid"].append(str(e))
             identical = False
             continue
         s = {"length_a": len(va), "length_b": len(vb)}
@@ -302,7 +381,7 @@ def compare_dirs(dir_a, dir_b, rtol=0.0):
         count, worst, worst_at, first, max_abs = 0, 0.0, None, None, 0.0
         for i in range(min(len(va), len(vb))):
             d = rel_diff(va[i], vb[i])
-            if d > rtol:
+            if differ(va[i], vb[i], rtol):
                 count += 1
                 if first is None:
                     first = {"index": i, "a": va[i], "b": vb[i], "rel_diff": d}
@@ -315,21 +394,30 @@ def compare_dirs(dir_a, dir_b, rtol=0.0):
             identical = False
         report["solution"][name] = s
 
-    # summary (informational)
-    sa, sb = read_summary(os.path.join(dir_a, "summary.json")), read_summary(os.path.join(dir_b, "summary.json"))
-    if sa and sb:
+    # summary (informational, but it must exist and parse)
+    try:
+        sa, sb = read_summary(os.path.join(dir_a, "summary.json")), read_summary(os.path.join(dir_b, "summary.json"))
         for key in SUMMARY_KEYS:
             if key in sa and key in sb and sa[key] != sb[key]:
                 report["summary"][key] = {"a": sa[key], "b": sb[key]}
-    report["identical"] = identical
+    except InvalidRun as e:
+        report["invalid"].append(str(e))
+        identical = False
+    report["identical"] = identical and not report["invalid"]
     return report
 
 
 def print_report(report):
     print("compare: A = %s" % report["a"])
     print("         B = %s" % report["b"])
+    print("  mode: %s" % report.get("mode", "bitwise" if report.get("rtol", 0.0) == 0.0 else "tolerance"))
     for e in report["errors"]:
         print("  ERROR: " + e)
+    for e in report.get("invalid", []):
+        print("  INVALID: " + e)
+    mism = report["history"].get("iteration_id_mismatch") if report["history"] else None
+    if mism:
+        print("  ITERATION ID MISMATCH at row %d: %r vs %r" % (mism["row"], mism["a"], mism["b"]))
     h = report["history"]
     if h:
         print("  history: %d vs %d iterations" % (h.get("iterations_a", 0), h.get("iterations_b", 0)))
@@ -349,7 +437,14 @@ def print_report(report):
                  s.get("max_abs_diff", 0.0), (", first at index %d: %r vs %r" % (fd["index"], fd["a"], fd["b"])) if fd else ""))
     for key, d in report["summary"].items():
         print("  summary %s: %r vs %r" % (key, d["a"], d["b"]))
-    print("  RESULT: %s" % ("IDENTICAL" if report["identical"] else "DIFFERENT"))
+    print("  RESULT: %s" % ("INVALID" if report.get("invalid") else ("IDENTICAL" if report["identical"] else "DIFFERENT")))
+
+
+def exit_code_of(report):
+    """0 identical, 1 different, 2 invalid."""
+    if report.get("invalid"):
+        return 2
+    return 0 if report["identical"] else 1
 
 
 # ----------------------------------------------------------------------------------------------- cases
@@ -460,7 +555,7 @@ def main():
         if args.report:
             with open(args.report, "w") as f:
                 json.dump(report, f, indent=1)
-        sys.exit(0 if report["identical"] else 1)
+        sys.exit(exit_code_of(report))
 
     if args.cmd in ("run", "selfcheck"):
         build_a = Build(args.build_a if args.cmd == "run" else args.build)
@@ -472,7 +567,7 @@ def main():
             sys.exit(0)
         if report is None:
             sys.exit(2)
-        sys.exit(0 if report["identical"] else 1)
+        sys.exit(exit_code_of(report))
 
     if args.cmd == "batch":
         build_a, build_b = Build(args.build_a), Build(args.build_b)
@@ -505,11 +600,11 @@ def main():
                 worst = 2
                 continue
             fd = report["history"].get("first_difference")
-            rows.append({"name": c["name"], "status": "identical" if report["identical"] else "DIFFERENT",
+            status = "INVALID" if report["invalid"] else ("identical" if report["identical"] else "DIFFERENT")
+            rows.append({"name": c["name"], "status": status, "invalid": report["invalid"],
                          "iterations": report["history"].get("iterations_a"),
                          "first_difference": fd, "seconds_a": report["seconds"]["a"], "seconds_b": report["seconds"]["b"]})
-            if not report["identical"]:
-                worst = max(worst, 1)
+            worst = max(worst, exit_code_of(report))
         if args.dry_run:
             sys.exit(0)
         with open(os.path.join(out, "batch_report.json"), "w") as f:

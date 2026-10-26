@@ -12,5 +12,5 @@ nvidia-smi -L >> "$LOG"
 ./cuadmm_tests --gtest_filter="$FILTER" --gtest_color=no >> "$LOG" 2>&1
 rc=$?
 echo "=== exit $rc $(date)" >> "$LOG"
-grep -E "^\[  (PASSED|FAILED) \]|tests ran|FAILED TEST" "$LOG" | tail -40
+grep -E "^\[  (PASSED|FAILED)  \]|tests ran|FAILED TEST" "$LOG" | tail -40
 exit $rc
