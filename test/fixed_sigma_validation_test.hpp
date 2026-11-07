@@ -593,9 +593,10 @@ TEST(FixedSigmaCli, BackwardCompatibleAndNewFlags)
         ss << in.rdbuf();
         return ss.str();
     };
-    // the default policy is residual_balancing (plan O1, until Phase 4b): explicit and implicit runs are identical
+    // the default policy is balance_freeze (2026-11: factor 1.35, freeze after iteration 10000 at the current value):
+    // explicit and implicit runs are identical
     ASSERT_EQ(run("--max-iter 400 --tol 1e-9", "legacy"), 0);
-    ASSERT_EQ(run("--max-iter 400 --tol 1e-9 --sigma-policy residual_balancing", "explicit"), 0);
+    ASSERT_EQ(run("--max-iter 400 --tol 1e-9 --sigma-policy balance_freeze", "explicit"), 0);
     // identical histories apart from the time column
     auto strip_time = [](const std::string &csv)
     {
@@ -610,8 +611,14 @@ TEST(FixedSigmaCli, BackwardCompatibleAndNewFlags)
     };
     EXPECT_EQ(strip_time(read("fixed_sigma_cli/legacy.csv")), strip_time(read("fixed_sigma_cli/explicit.csv")));
     const std::string legacy = read("fixed_sigma_cli/legacy.json");
-    EXPECT_NE(legacy.find("\"sigma_policy\": \"residual_balancing\""), std::string::npos);
-    EXPECT_NE(legacy.find("\"sigma_policy_parameters\": {\"factor\": 2, \"sigma_min\": 0.001, \"sigma_max\": 1000"), std::string::npos);
+    EXPECT_NE(legacy.find("\"sigma_policy\": \"balance_freeze\""), std::string::npos);
+    EXPECT_NE(legacy.find("\"sigma_policy_parameters\": {\"factor\": 1.35, \"sigma_min\": 0.001, \"sigma_max\": 1000"), std::string::npos);
+    EXPECT_NE(legacy.find("\"step_schedule\": \"constant\", \"freeze_iteration\": 10000, \"pingpong_window\": 0"), std::string::npos);
+    EXPECT_NE(legacy.find("\"freeze_value\": \"last\", \"freeze_bias\": 1"), std::string::npos);
+    // residual_balancing keeps the factor of its reference 2d8a755
+    ASSERT_EQ(run("--max-iter 400 --tol 1e-9 --sigma-policy residual_balancing", "residual_balancing"), 0);
+    EXPECT_NE(read("fixed_sigma_cli/residual_balancing.json").find("\"sigma_policy_parameters\": {\"factor\": 2, \"sigma_min\": 0.001, \"sigma_max\": 1000"),
+              std::string::npos);
     EXPECT_NE(legacy.find("\"build_commit\": \""), std::string::npos);
     // the historical rule is selectable under its historical name, with its own bounds and Monitor1
     ASSERT_EQ(run("--max-iter 400 --tol 1e-9 --sigma-policy legacy_adaptive", "historical"), 0);

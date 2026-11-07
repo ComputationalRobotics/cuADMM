@@ -326,7 +326,7 @@ TEST(Options, DocumentationCoversEveryOption)
         if (s.path != "algorithm.sgs_iterations")
             EXPECT_NE(json.find("\"" + s.path + "\": "), std::string::npos) << s.path;
     }
-    EXPECT_NE(json.find("\"penalty.policy\": \"residual_balancing\""), std::string::npos);
+    EXPECT_NE(json.find("\"penalty.policy\": \"balance_freeze\""), std::string::npos);
     EXPECT_NE(json.find("\"algorithm.tau\": 1.618"), std::string::npos);
     EXPECT_NE(json.find("\"psd.lowrank.enabled\": true"), std::string::npos);
 }

@@ -54,22 +54,22 @@ struct AlgorithmOptions
 
 struct PenaltyOptions
 {
-    PenaltyPolicyKind policy = PenaltyPolicyKind::ResidualBalancing; // default until Phase 4b (plan O1)
+    PenaltyPolicyKind policy = PenaltyPolicyKind::BalanceFreeze;     // residual balancing frozen at freeze_iteration (2026-11)
     double sigma0 = 100.0;                                           // scaled units
     double sigma_min = -1.0;                                         // < 0: the policy's own bounds
     double sigma_max = -1.0;                                         // (legacy_adaptive 1e-6..1e6, others 1e-3..1e3)
-    double factor = 2.0;                                             // multiplicative step (today's working tree: 1.2)
-    StepSchedule step_schedule = StepSchedule::Constant;
+    double factor = -1.0;                                            // < 0: the policy's own (balance_freeze 1.35; residual_balancing 2, as 2d8a755)
+    StepSchedule step_schedule = StepSchedule::Constant;             // constant: reversals never change the factor (halve_on_reversal: opt-in)
     double win_ratio = 1.35;
     bool guard = true;             // winner above max(1, win_ratio * other); false: above win_ratio * other
     double residual_weight = 1.0;  // weight on eta_p in the vote (today's ratioconst)
     // check schedule: (up to iteration, period) pairs; the last entry holds for every later iteration
     std::vector<std::pair<int, int>> schedule = {{200, 10}, {1000, 25}, {5000, 50}, {10000, 200}, {std::numeric_limits<int>::max(), 1000}};
     int freeze_iteration = -1;     // < 0: the policy's own (off for residual_balancing, 1e4 for balance_freeze)
-    int pingpong_window = 8;       // balance_freeze only
+    int pingpong_window = 0;       // balance_freeze only: 0 = no ping-pong freeze; W >= 2: freeze when |net| <= pingpong_net over W changes
     int pingpong_net = 2;
     int pingpong_min_iter = 1000;
-    FreezeValue freeze_value = FreezeValue::BandCentre;
+    FreezeValue freeze_value = FreezeValue::Last; // the value at the freeze (band_centre: the band's centre after a ping-pong pattern)
     double freeze_bias = 1.0;
     // the sGS-phase rule of the adaptive policies (today's --sig-update-threshold, --sig-update-stage-1/2, --sigscale)
     int sgs_update_threshold = 500;

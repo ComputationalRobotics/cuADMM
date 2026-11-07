@@ -244,7 +244,7 @@ TEST(PenaltyPolicy, BalanceFreezeFreezesAtTheIteration)
     o.freeze_iteration = 300;
     ResidualBalancingPenalty policy(o, true);
     policy.reset(1.0);
-    double sigma = drive(policy, 1.0, 1, 299, true); // primal always wins: sigma doubles at every check
+    double sigma = drive(policy, 1.0, 1, 299, true); // primal always wins: sigma grows by the factor at every check
     EXPECT_GT(sigma, 1.0);
     EXPECT_FALSE(policy.frozen());
     sigma = policy.update(300, residuals(1e-3, 1e-1), sigma, false);
@@ -272,6 +272,8 @@ TEST(PenaltyPolicy, BalanceFreezeDetectsPingPongByNetMovement)
     o.policy = PenaltyPolicyKind::BalanceFreeze;
     o.freeze_iteration = 100000;
     o.pingpong_min_iter = 1000;
+    o.pingpong_window = 8;                     // the ping-pong freeze is opt-in since 2026-11 (default window 0)
+    o.freeze_value = FreezeValue::BandCentre;  // and so is the band-centre value (default: the current value)
     ResidualBalancingPenalty policy(o, true);
     policy.reset(8.0);
     double sigma = 8.0;
@@ -337,6 +339,7 @@ TEST(PenaltyPolicy, BalanceFreezeHalveOnReversalShrinksTheStep)
     PenaltyOptions o;
     o.policy = PenaltyPolicyKind::BalanceFreeze;
     o.step_schedule = StepSchedule::HalveOnReversal;
+    o.factor = 2.0; // the steps below are powers of 2
     o.freeze_iteration = 100000;
     o.pingpong_window = 100; // keep the ping-pong test out of the way
     ResidualBalancingPenalty policy(o, true);
@@ -373,6 +376,7 @@ TEST(PenaltyPolicy, BalanceFreezeEqualsResidualBalancingBeforeTheFreeze)
     o.policy = PenaltyPolicyKind::BalanceFreeze;
     o.freeze_iteration = 100000;
     o.pingpong_window = 1000; // no ping-pong freeze within the replay
+    o.factor = 2.0;           // the factor of the residual_balancing reference history
     o.sigma_min = 1e-3;
     o.sigma_max = 1e3;
     ResidualBalancingPenalty freeze(o, true), plain(o, false);
@@ -452,6 +456,10 @@ inline void cross_check_with_replica(const std::string &history_name, const std:
         ASSERT_EQ(spec.rfind("balance_freeze", 0), 0u) << name;
         SolverOptions so;
         so.penalty.policy = PenaltyPolicyKind::BalanceFreeze;
+        // the replica's defaults (cuadmm_emu.py v1.2 = the balance_freeze defaults before 2026-11); a case overrides them
+        so.penalty.factor = 2.0;
+        so.penalty.pingpong_window = 8;
+        so.penalty.freeze_value = FreezeValue::BandCentre;
         if (spec.size() > 15 && spec[14] == ':')
         {
             std::stringstream ss(spec.substr(15));
@@ -522,4 +530,79 @@ TEST(PenaltyPolicy, FactoryAndParameters)
     o.factor = 1.2;
     std::unique_ptr<PenaltyPolicy> p = make_penalty_policy(o);
     EXPECT_NE(p->parameters_json().find("\"factor\": 1.2"), std::string::npos);
+}
+
+// The defaults of 2026-11: balance_freeze from sigma_0 = 100 in [1e-3, 1e3], factor 1.35 at every update, no damping,
+// no ping-pong freeze, the freeze after iteration 10000 at the current value, bias 1; the reference policies keep
+// their own factor 2 (2d8a755, 9bb4ba5)
+TEST(PenaltyPolicy, DefaultsAreBalanceFreezeWithFactor135AndTheDeadlineFreeze)
+{
+    const SolverOptions so;
+    const PenaltyOptions &o = so.penalty;
+    EXPECT_EQ(o.policy, PenaltyPolicyKind::BalanceFreeze);
+    EXPECT_EQ(o.sigma0, 100.0);
+    EXPECT_EQ(o.step_schedule, StepSchedule::Constant);
+    EXPECT_EQ(o.pingpong_window, 0);
+    EXPECT_EQ(o.freeze_value, FreezeValue::Last);
+    EXPECT_EQ(o.freeze_bias, 1.0);
+    EXPECT_EQ(effective_factor(o), 1.35);
+    std::unique_ptr<PenaltyPolicy> p = make_penalty_policy(o);
+    EXPECT_EQ(p->name(), "balance_freeze");
+    EXPECT_EQ(p->sigma_min(), 1e-3);
+    EXPECT_EQ(p->sigma_max(), 1e3);
+    const std::string json = p->parameters_json();
+    for (const char *expected : {"\"factor\": 1.35", "\"step_schedule\": \"constant\"", "\"freeze_iteration\": 10000", "\"pingpong_window\": 0",
+                                 "\"freeze_value\": \"last\"", "\"freeze_bias\": 1", "\"win_ratio\": 1.35", "\"guard\": true",
+                                 "\"schedule\": \"200:10,1000:25,5000:50,10000:200,inf:1000\""})
+        EXPECT_NE(json.find(expected), std::string::npos) << expected << " in " << json;
+    PenaltyOptions r = o;
+    r.policy = PenaltyPolicyKind::ResidualBalancing;
+    EXPECT_EQ(effective_factor(r), 2.0);
+    EXPECT_NE(make_penalty_policy(r)->parameters_json().find("\"factor\": 2,"), std::string::npos);
+    r.policy = PenaltyPolicyKind::LegacyAdaptive;
+    EXPECT_EQ(effective_factor(r), 2.0);
+}
+
+// Every update multiplies or divides sigma by exactly 1.35, reversals included; a +,-,+,- pattern (the ping-pong
+// freeze of the old defaults after iteration 1000) does not freeze sigma before iteration 10000; after iteration 10000
+// sigma is frozen at its current value and stays there
+TEST(PenaltyPolicy, DefaultBalanceFreezeUsesAConstantFactorAndFreezesOnlyAfterIteration10000)
+{
+    const SolverOptions so;
+    ResidualBalancingPenalty policy(so.penalty, true);
+    policy.reset(100.0);
+    double sigma = 100.0;
+    bool up = true;
+    std::size_t seen = 0;
+    int reversals = 0;
+    for (int k = 1; k <= 9999; k++)
+    {
+        sigma = policy.update(k, up ? residuals(1e-3, 1e-1) : residuals(1e-1, 1e-3), sigma, false);
+        ASSERT_FALSE(policy.frozen()) << "frozen at iteration " << k;
+        while (seen < policy.log().size())
+        {
+            const SigmaChange &c = policy.log()[seen++];
+            ASSERT_EQ(c.rule, "admm_schedule") << "iteration " << c.iteration;
+            ASSERT_EQ(c.new_sigma, up ? c.old_sigma * 1.35 : c.old_sigma / 1.35) << "iteration " << c.iteration;
+            ASSERT_TRUE(policy.is_check(c.iteration)) << c.iteration;
+            up = !up; // reverse the vote after every change
+            reversals++;
+        }
+        ASSERT_EQ(policy.state().step, 1.35) << "the factor changed at iteration " << k;
+    }
+    EXPECT_GT(reversals, 30);
+    EXPECT_GE(policy.log().back().iteration, 9000); // the changes went on until the last checks before the deadline
+    const double before = sigma;
+    sigma = policy.update(10000, up ? residuals(1e-3, 1e-1) : residuals(1e-1, 1e-3), sigma, false);
+    ASSERT_TRUE(policy.frozen());
+    EXPECT_EQ(policy.freeze_iteration(), 10000);
+    EXPECT_EQ(policy.freeze_reason(), "freeze_iteration");
+    EXPECT_EQ(sigma, before);
+    EXPECT_EQ(policy.log().back().rule, "freeze_freeze_iteration");
+    EXPECT_EQ(policy.log().back().old_sigma, before);
+    EXPECT_EQ(policy.log().back().new_sigma, before);
+    const std::size_t changes = policy.log().size();
+    EXPECT_EQ(drive(policy, sigma, 10001, 20000, true), before);
+    EXPECT_EQ(drive(policy, sigma, 20001, 30000, false), before);
+    EXPECT_EQ(policy.log().size(), changes);
 }

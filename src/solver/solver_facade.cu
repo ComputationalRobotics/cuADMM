@@ -283,7 +283,7 @@ void Solver::setup(const ProblemData &problem)
                       << tiers << "\n  device memory in use after setup: " << im.memory_plan_bytes / mib << " MiB" << std::endl;
     }
     e.sigma_policy = to_engine_policy(o.penalty.policy);
-    e.penalty_factor = o.penalty.factor;
+    e.penalty_factor = admm::effective_factor(o.penalty); // penalty.factor, or the policy's own
     e.penalty_sigma_min = o.penalty.sigma_min;
     e.penalty_sigma_max = o.penalty.sigma_max;
     e.legacy_sgs_tau_reduction = o.algorithm.sgs_tau_reduction;

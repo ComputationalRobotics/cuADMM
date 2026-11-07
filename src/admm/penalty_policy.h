@@ -128,7 +128,9 @@ private:
 /// @brief The October 13 rule of 2d8a755 (residual_balancing: guard max(1, win_ratio * other), factor, bounds
 /// [1e-3, 1e3], no Monitor1, the same sGS-phase rule as LegacyPenalty) and, with freeze enabled, the planned
 /// balance_freeze rule: freeze at freeze_iteration or on ping-pong, band-centre value, bias, step schedule, sigma_0
-/// clamped into the bounds (plan Section 3.5, Table 2).
+/// clamped into the bounds (plan Section 3.5, Table 2). The defaults since 2026-11: factor 1.35 at every update
+/// (constant step, no damping on reversals), no ping-pong freeze (pingpong_window 0), the freeze after iteration
+/// 10000 at the current value (freeze_value last), bias 1.
 class ResidualBalancingPenalty final : public PenaltyPolicy
 {
 public:
@@ -172,6 +174,10 @@ private:
 
 /// @brief The policy of the options (plan Section 7.3): fixed, legacy_adaptive, residual_balancing, balance_freeze.
 std::unique_ptr<PenaltyPolicy> make_penalty_policy(const PenaltyOptions &options);
+
+/// @brief The multiplicative step of the options: penalty.factor, or the policy's own when it is negative
+/// (balance_freeze 1.35; residual_balancing and legacy_adaptive 2, the references 2d8a755 and 9bb4ba5; fixed 1).
+double effective_factor(const PenaltyOptions &options);
 
 } // namespace admm
 } // namespace cuadmm

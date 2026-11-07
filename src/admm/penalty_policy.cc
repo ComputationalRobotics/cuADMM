@@ -244,7 +244,8 @@ std::string LegacyPenalty::parameters_json() const
 // ResidualBalancingPenalty ------------------------------------------------------------------------------------------
 
 ResidualBalancingPenalty::ResidualBalancingPenalty(const PenaltyOptions &o, bool freeze)
-    : options_(o), freeze_enabled_(freeze), guard_(freeze ? o.guard : true), factor_(o.factor), win_ratio_(freeze ? o.win_ratio : 1.35),
+    : options_(o), freeze_enabled_(freeze), guard_(freeze ? o.guard : true),
+      factor_(o.factor > 0 ? o.factor : (freeze ? 1.35 : 2.0)), win_ratio_(freeze ? o.win_ratio : 1.35),
       residual_weight_(o.residual_weight), sigma_min_(o.sigma_min > 0 ? o.sigma_min : 1e-3), sigma_max_(o.sigma_max > 0 ? o.sigma_max : 1e3),
       freeze_bias_(o.freeze_bias), freeze_iteration_opt_(o.freeze_iteration >= 0 ? o.freeze_iteration : (freeze ? 10000 : -1))
 {
@@ -298,8 +299,8 @@ void ResidualBalancingPenalty::freeze(int k, const char *reason, const KktResidu
     if (frozen_)
         return;
     const double before = sigma_;
-    const int W = options_.pingpong_window;
-    if (static_cast<int>(dirs_.size()) >= W)
+    const int W = options_.pingpong_window; // 0: no ping-pong freeze, so no band either
+    if (W > 0 && static_cast<int>(dirs_.size()) >= W)
     {
         int net = 0;
         for (std::size_t i = dirs_.size() - W; i < dirs_.size(); i++)
@@ -388,7 +389,7 @@ double ResidualBalancingPenalty::update(int k, const KktResiduals &r, double sig
     {
         if (freeze_iteration_opt_ >= 0 && k >= freeze_iteration_opt_)
             freeze(k, "freeze_iteration", r, feasratio, prim_before, dual_before);
-        else if (k >= options_.pingpong_min_iter && static_cast<int>(dirs_.size()) >= options_.pingpong_window)
+        else if (options_.pingpong_window > 0 && k >= options_.pingpong_min_iter && static_cast<int>(dirs_.size()) >= options_.pingpong_window)
         {
             int net = 0;
             for (std::size_t i = dirs_.size() - options_.pingpong_window; i < dirs_.size(); i++)
@@ -446,6 +447,23 @@ std::string ResidualBalancingPenalty::parameters_json() const
     }
     o << "}";
     return o.str();
+}
+
+double effective_factor(const PenaltyOptions &o)
+{
+    if (o.factor > 0)
+        return o.factor;
+    switch (o.policy)
+    {
+    case PenaltyPolicyKind::Fixed:
+        return 1.0;
+    case PenaltyPolicyKind::BalanceFreeze:
+        return 1.35;
+    case PenaltyPolicyKind::LegacyAdaptive:
+    case PenaltyPolicyKind::ResidualBalancing:
+        return 2.0;
+    }
+    return 2.0;
 }
 
 std::unique_ptr<PenaltyPolicy> make_penalty_policy(const PenaltyOptions &o)

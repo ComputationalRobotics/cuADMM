@@ -201,14 +201,14 @@ const std::vector<OptionSpec> &option_table()
         {"algorithm.sgs_tau_reduction", "--sgs-tau-reduction", {}, "bool", "", "false",
          "today's hidden sGS rule, tau = max(1.618, tau / 1.1) at sGS iterations whose incoming eta_d is below tol; off: tau is the option (plan)", ""},
         // penalty
-        {"penalty.policy", "--policy", {"--sigma-policy"}, "enum", "fixed, legacy_adaptive, residual_balancing, balance_freeze", "residual_balancing",
+        {"penalty.policy", "--policy", {"--sigma-policy"}, "enum", "fixed, legacy_adaptive, residual_balancing, balance_freeze", "balance_freeze",
          "fixed: sigma_k = sigma0; legacy_adaptive: the rule of 9bb4ba5 (no guard, factor 2, [1e-6, 1e6], Monitor1); "
          "residual_balancing: the October 13 rule of 2d8a755 (guard, factor, [1e-3, 1e3]); balance_freeze: residual "
          "balancing that freezes sigma (plan Section 3.5; Phase 4)", ""},
         {"penalty.sigma0", "--sigma0", {"--sig"}, "double", "", "100", "initial sigma (scaled units)", ""},
         {"penalty.sigma_min", "--sigma-min", {}, "double", "", "policy", "lower bound of the adaptive updates (policy: the policy's own)", ""},
         {"penalty.sigma_max", "--sigma-max", {}, "double", "", "policy", "upper bound of the adaptive updates (policy: the policy's own)", ""},
-        {"penalty.factor", "--factor", {"--penalty-factor"}, "double", "", "2", "multiplicative step of residual_balancing and balance_freeze (1.2 = the October 20 edit of main)", ""},
+        {"penalty.factor", "--factor", {"--penalty-factor"}, "double", "", "policy", "multiplicative step of residual_balancing and balance_freeze: sigma * factor up, sigma / factor down (policy: 1.35 for balance_freeze, 2 for residual_balancing as 2d8a755)", ""},
         {"penalty.step_schedule", "--step-schedule", {}, "enum", "constant, halve_on_reversal", "constant", "balance_freeze: constant factor, or the factor's square root at every reversal", "4"},
         {"penalty.win_ratio", "--win-ratio", {}, "double", "", "1.35", "hysteresis of the win counts (legacy_adaptive and residual_balancing: fixed at 1.35)", ""},
         {"penalty.guard", "--guard", {}, "bool", "", "true", "winner above max(1, win_ratio * other) (true) or above win_ratio * other (false); legacy_adaptive: false, residual_balancing: true", ""},
@@ -216,10 +216,10 @@ const std::vector<OptionSpec> &option_table()
         {"penalty.schedule", "--schedule", {}, "schedule", "", "200:10,1000:25,5000:50,10000:200,inf:1000",
          "check iterations as (up to, period) pairs: a check at every k = 1 mod period while k <= up to (balance_freeze; the reference policies use their own fixed schedule)", "4"},
         {"penalty.freeze_iteration", "--freeze-iteration", {}, "int", "", "policy", "balance_freeze: freeze sigma at this iteration at the latest (policy: 10000); residual_balancing: off", "4"},
-        {"penalty.pingpong_window", "--pingpong-window", {}, "int", "", "8", "balance_freeze: window W of the ping-pong test", "4"},
+        {"penalty.pingpong_window", "--pingpong-window", {}, "int", "", "0", "balance_freeze: window W of the ping-pong freeze (0: no ping-pong freeze)", "4"},
         {"penalty.pingpong_net", "--pingpong-net", {}, "int", "", "2", "balance_freeze: freeze when |net movement over the window| <= this", "4"},
         {"penalty.pingpong_min_iter", "--pingpong-min-iter", {}, "int", "", "1000", "balance_freeze: no ping-pong freeze before this iteration", "4"},
-        {"penalty.freeze_value", "--freeze-value", {}, "enum", "last, band_centre", "band_centre", "balance_freeze: frozen value when sigma bounces in a band", "4"},
+        {"penalty.freeze_value", "--freeze-value", {}, "enum", "last, band_centre", "last", "balance_freeze: frozen value: the current one (last), or the band's centre when sigma bounced over the ping-pong window (band_centre)", "4"},
         {"penalty.freeze_bias", "--freeze-bias", {}, "double", "", "1", "balance_freeze: factor applied to the frozen value", "4"},
         {"penalty.sgs_update_threshold", "--sgs-update-threshold", {"--sig-update-threshold"}, "int", "", "500", "sGS-phase rule of the adaptive policies: checks every stage_1 iterations up to this iteration, every stage_2 after", ""},
         {"penalty.sgs_update_stage_1", "--sgs-update-stage-1", {"--sig-update-stage-1"}, "int", "", "50", "sGS-phase rule: period before the threshold", ""},
@@ -415,7 +415,7 @@ void set_option(SolverOptions &o, const std::string &path, const std::string &va
         else if (p == "penalty.sigma0") o.penalty.sigma0 = parse_double(value);
         else if (p == "penalty.sigma_min") o.penalty.sigma_min = value == "policy" ? -1.0 : parse_double(value);
         else if (p == "penalty.sigma_max") o.penalty.sigma_max = value == "policy" ? -1.0 : parse_double(value);
-        else if (p == "penalty.factor") o.penalty.factor = parse_double(value);
+        else if (p == "penalty.factor") o.penalty.factor = value == "policy" ? -1.0 : parse_double(value);
         else if (p == "penalty.step_schedule") o.penalty.step_schedule = parse_step_schedule(value);
         else if (p == "penalty.win_ratio") o.penalty.win_ratio = parse_double(value);
         else if (p == "penalty.guard") o.penalty.guard = parse_bool(value);
@@ -527,7 +527,7 @@ std::string get_option(const SolverOptions &o, const std::string &p)
     if (p == "penalty.sigma0") return fmt(o.penalty.sigma0);
     if (p == "penalty.sigma_min") return o.penalty.sigma_min < 0 ? "policy" : fmt(o.penalty.sigma_min);
     if (p == "penalty.sigma_max") return o.penalty.sigma_max < 0 ? "policy" : fmt(o.penalty.sigma_max);
-    if (p == "penalty.factor") return fmt(o.penalty.factor);
+    if (p == "penalty.factor") return o.penalty.factor < 0 ? "policy" : fmt(o.penalty.factor);
     if (p == "penalty.step_schedule") return name_of(o.penalty.step_schedule);
     if (p == "penalty.win_ratio") return fmt(o.penalty.win_ratio);
     if (p == "penalty.guard") return fmt(o.penalty.guard);
@@ -635,16 +635,16 @@ void SolverOptions::validate() const
         fail("penalty.sigma_max", "must be positive");
     if (penalty.sigma_min > 0.0 && penalty.sigma_max > 0.0 && penalty.sigma_min > penalty.sigma_max)
         fail("penalty.sigma_min", "must not exceed penalty.sigma_max");
-    if (!(penalty.factor > 1.0) || !std::isfinite(penalty.factor))
-        fail("penalty.factor", "must be greater than 1");
+    if (penalty.factor >= 0.0 && (!(penalty.factor > 1.0) || !std::isfinite(penalty.factor)))
+        fail("penalty.factor", "must be greater than 1 (or 'policy': the policy's own)");
     if (!(penalty.win_ratio >= 1.0))
         fail("penalty.win_ratio", "must be at least 1");
     if (!(penalty.residual_weight > 0.0))
         fail("penalty.residual_weight", "must be positive");
     if (penalty.schedule.empty())
         fail("penalty.schedule", "must not be empty");
-    if (penalty.pingpong_window < 2 || penalty.pingpong_net < 0 || penalty.pingpong_min_iter < 0)
-        fail("penalty.pingpong_window", "window >= 2, net >= 0, min_iter >= 0");
+    if ((penalty.pingpong_window != 0 && penalty.pingpong_window < 2) || penalty.pingpong_net < 0 || penalty.pingpong_min_iter < 0)
+        fail("penalty.pingpong_window", "window 0 (no ping-pong freeze) or >= 2, net >= 0, min_iter >= 0");
     if (!(penalty.freeze_bias > 0.0))
         fail("penalty.freeze_bias", "must be positive");
     if (penalty.sgs_update_threshold < 0 || penalty.sgs_update_stage_1 < 1 || penalty.sgs_update_stage_2 < 1)
@@ -664,7 +664,7 @@ void SolverOptions::validate() const
             fail("penalty.residual_weight", "is fixed at 1 for the reference policies");
         if (penalty.freeze_iteration >= 0)
             fail("penalty.freeze_iteration", "only balance_freeze freezes sigma");
-        if (penalty.policy == PenaltyPolicyKind::LegacyAdaptive && penalty.factor != 2.0)
+        if (penalty.policy == PenaltyPolicyKind::LegacyAdaptive && penalty.factor >= 0.0 && penalty.factor != 2.0)
             fail("penalty.factor", "is fixed at 2 for legacy_adaptive (9bb4ba5)");
         if (penalty.policy == PenaltyPolicyKind::ResidualBalancing && !penalty.guard)
             fail("penalty.guard", "residual_balancing is the guarded rule of 2d8a755; legacy_adaptive is the unguarded one");
