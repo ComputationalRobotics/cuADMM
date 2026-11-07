@@ -57,17 +57,19 @@ bool Lobpcg::project(const LargeBlockJob &job, const double *z, double *s)
         CHECK_CUBLAS(cublasDscal(cublasH, n * n, &minus_one, A, 1));
     }
 
-    // compute the largest eigenpairs (of -A in the negative case), in decreasing order;
-    // the pairs that were above the rank tolerance at the last rank analysis and the pairs currently
-    // above it take part in the convergence test (the remaining relaxation pairs need not converge)
+    // compute the largest eigenpairs (of -A in the negative case), in decreasing order; every returned pair takes
+    // part in the convergence test: the acceptance test below uses the smallest Ritz value as the evidence that no
+    // eigenvalue above the rank tolerance was left out, and the Ritz value of an unconverged relaxation pair is an
+    // underestimate that cannot give it (the rank can grow between two analyses: with only min(rank, k) pairs
+    // checked, a k-th Ritz value below the tolerance accepted results that missed eigenvalues of 1e-4 to 8e-4
+    // above it; RegressionSolver.Large_Free on the H200, 2026-10-29)
     const double rank_tol = st.rank_tol;
-    const int rank = negative ? st.negative_rank : st.positive_rank;
     LobpcgInfo info;
     lobpcg(
         cublasH, ctx.cusolver,
         A, eigenvectors, eigenvalues,
         n, k, true, config_.max_iter, config_.tol, false,
-        &info, rank_tol, std::min(rank, k), workspace);
+        &info, rank_tol, k, workspace);
     e.lobpcg_calls++;
 
     if (negative)
