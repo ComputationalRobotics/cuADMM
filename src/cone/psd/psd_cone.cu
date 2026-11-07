@@ -12,8 +12,11 @@
 #include "cone/psd/psd_cone.h"
 
 #include <algorithm>
+#include <charconv>
 #include <cmath>
+#include <fstream>
 #include <iomanip>
+#include <memory>
 #include <iostream>
 #include <limits>
 #include <sstream>
@@ -22,6 +25,8 @@
 #include <utility>
 
 #include "core/check.h"
+#include "cuadmm_legacy/block_structure.h"
+#include "cuadmm_legacy/matrix_sizes.h"
 #include "cuadmm_legacy/solver.h"
 
 #ifndef CUADMM_NO_LAPACK
@@ -102,6 +107,26 @@ psd::LargeTierConfig large_config(const PsdConeConfig &c, const psd::LargeBlockP
     return t;
 }
 
+// psd.trace: numbers as the shortest decimal that round-trips (JSON null when not finite), the modes and tiers by name
+std::string trace_num(double v)
+{
+    if (!std::isfinite(v))
+        return "null";
+    char buf[64];
+    const std::to_chars_result r = std::to_chars(buf, buf + sizeof(buf), v);
+    return std::string(buf, r.ptr);
+}
+
+const char *mode_name(int mode)
+{
+    return mode == psd::kModeLowRankPositive ? "lowrank_pos" : (mode == psd::kModeLowRankNegative ? "lowrank_neg" : "full");
+}
+
+const char *tier_name(MatrixSizeCategory c)
+{
+    return c == MatrixSizeCategory::SMALL ? "small" : (c == MatrixSizeCategory::MEDIUM ? "medium" : "large");
+}
+
 psd::BatchedTierConfig batched_config(const PsdConeConfig &c)
 {
     psd::BatchedTierConfig b;
@@ -141,6 +166,7 @@ PsdConeConfig PsdConeConfig::from_options(const PsdOptions &o, unsigned long lon
     c.medium_max_batch = o.medium_max_batch;
     c.jacobi_tol = o.jacobi_tol;
     c.jacobi_max_sweeps = o.jacobi_max_sweeps;
+    c.trace_path = o.trace;
     return c;
 }
 
@@ -152,6 +178,136 @@ PsdCone::PsdCone(std::vector<BlockSlice> blocks, SDPSolver &engine, const PsdCon
 {
     for (const BlockSlice &b : blocks_)
         dimension_ += b.length;
+
+    // psd.trace: the input index of each large block (the engine orders the large blocks by size group)
+    SDPSolver &e = engine_;
+    trace_.assign(large_.count(), BlockTrace{});
+    std::vector<int> large_of(e.blk_info.size(), -1);
+    for (std::size_t b = 0; b < e.blk_info.size(); b++)
+    {
+        const BlockInfo &bi = e.blk_info[b];
+        if (bi.type != 's' || bi.category != MatrixSizeCategory::LARGE)
+            continue;
+        int idx = bi.same_size_index;
+        for (int i = 0; i < bi.size_index; i++)
+            idx += e.sizes.large_mat_nums[i];
+        trace_[idx].input_block = static_cast<int>(b);
+        large_of[b] = idx;
+    }
+    if (config_.trace_path.empty())
+        return;
+    trace_out_.reset(new std::ofstream(config_.trace_path, std::ios::out | std::ios::trunc));
+    if (!trace_out_->good())
+        throw std::runtime_error("psd.trace: cannot write " + config_.trace_path);
+    // the settings the events refer to (the tier cutoffs of this setup, the warm-up, the rank analysis and LOBPCG)
+    const psd::LargeBlockPolicyConfig &pc = policy_.config();
+    std::ostringstream os;
+    os << "{\"ev\": \"config\", \"small_max\": " << MatrixSizes::small_limit << ", \"medium_max\": " << MatrixSizes::medium_limit
+       << ", \"warmup\": " << (pc.warmup ? "true" : "false") << ", \"warmup_min_size\": " << pc.warmup_min_size
+       << ", \"warmup_switch_tol\": " << trace_num(pc.switch_tol) << ", \"warmup_switch_iter\": " << pc.switch_iter
+       << ", \"lowrank\": " << (pc.lowrank_enabled ? "true" : "false") << ", \"lowrank_start_iter\": " << pc.lowrank_start_iter
+       << ", \"lowrank_reevaluate\": " << pc.lowrank_reevaluate << ", \"lowrank_ratio\": " << trace_num(config_.rank.ratio)
+       << ", \"lowrank_relaxation\": " << trace_num(config_.rank.relaxation) << ", \"rank_rtol\": " << trace_num(config_.rank.rank_rtol)
+       << ", \"rank_stop_factor\": " << trace_num(config_.rank.rank_stop_factor) << ", \"stop_tol\": " << trace_num(e.stop_tol)
+       << ", \"lobpcg_tol\": " << trace_num(config_.lobpcg.tol) << ", \"lobpcg_max_iter\": " << config_.lobpcg.max_iter << "}";
+    trace_line(os.str());
+    // every PSD block with its tier; the large ones with their warm-up, warm-start capacity and first analysis
+    for (std::size_t b = 0; b < e.blk_info.size(); b++)
+    {
+        const BlockInfo &bi = e.blk_info[b];
+        if (bi.type != 's')
+            continue;
+        std::ostringstream ob;
+        ob << "{\"ev\": \"block\", \"block\": " << b << ", \"n\": " << bi.size << ", \"tier\": \"" << tier_name(bi.category) << "\"";
+        if (large_of[b] >= 0)
+        {
+            const int idx = large_of[b];
+            ob << ", \"large\": " << idx << ", \"warm\": " << (policy_.warm(idx) ? "true" : "false") << ", \"k_alloc\": "
+               << (pc.lowrank_enabled ? large_.k_alloc(idx) : 0) << ", \"lowrank_eligible_below\": " << trace_num(config_.rank.ratio * bi.size);
+        }
+        ob << "}";
+        trace_line(ob.str());
+    }
+}
+
+PsdCone::~PsdCone()
+{
+    if (!trace_out_)
+        return;
+    try
+    {
+        // the totals of each large block; the final mode is the one its last rank analysis set (full before any)
+        int last = -1;
+        for (int idx = 0; idx < static_cast<int>(trace_.size()); idx++)
+        {
+            const BlockTrace &t = trace_[idx];
+            last = std::max(last, t.last_iteration);
+            std::ostringstream o;
+            o << "{\"ev\": \"block_totals\", \"block\": " << t.input_block << ", \"large\": " << idx << ", \"n\": " << large_.size(idx)
+              << ", \"warm\": " << (policy_.warm(idx) ? "true" : "false") << ", \"warmup_exit\": " << (policy_.warm(idx) ? policy_.switch_iteration() : -1)
+              << ", \"composite_calls\": " << t.composite << ", \"composite_rejected\": " << t.composite_rejected
+              << ", \"full_evd_calls\": " << t.full_evd << ", \"rank_analyses\": " << t.analyses << ", \"lobpcg_calls\": " << t.lobpcg
+              << ", \"lobpcg_accepted\": " << (t.lobpcg - t.lobpcg_rejected) << ", \"lobpcg_rejected\": " << t.lobpcg_rejected
+              << ", \"first_composite\": " << t.first_composite << ", \"first_full_evd\": " << t.first_full_evd
+              << ", \"first_rank_analysis\": " << t.first_analysis << ", \"first_low_rank_analysis\": " << t.first_low_rank
+              << ", \"first_lobpcg\": " << t.first_lobpcg << ", \"low_rank_analyses\": " << t.low_rank_analyses << ", \"mode_changes\": " << t.mode_changes
+              << ", \"last_iteration\": " << t.last_iteration << ", \"last_rank_analysis\": " << t.last_analysis << ", \"last_pos\": " << t.last_pos
+              << ", \"last_neg\": " << t.last_neg << ", \"last_rank_tol\": " << trace_num(t.last_rank_tol) << ", \"final_mode\": \"" << mode_name(t.mode)
+              << "\", \"final_k_pairs\": " << (t.mode == psd::kModeFull ? 0 : t.last_k_pairs) << "}";
+            trace_line(o.str());
+        }
+        trace_line("{\"ev\": \"end\", \"last_iteration\": " + std::to_string(last) + ", \"warmup_switch\": " + std::to_string(policy_.switch_iteration()) + "}");
+    }
+    catch (...)
+    {
+        // a destructor never throws; the events written so far stay in the file
+    }
+}
+
+void PsdCone::trace_line(const std::string &json)
+{
+    if (trace_out_)
+        (*trace_out_) << json << "\n" << std::flush;
+}
+
+void PsdCone::trace_switch(int k, double eta)
+{
+    if (trace_out_)
+        trace_line("{\"k\": " + std::to_string(k) + ", \"ev\": \"warmup_switch\", \"eta\": " + trace_num(eta) + ", \"reason\": \"" +
+                   (eta < policy_.config().switch_tol ? "eta" : "iteration") + "\"}");
+}
+
+void PsdCone::trace_analysis(int idx, int mode_before, const char *cause)
+{
+    SDPSolver &e = engine_;
+    BlockTrace &t = trace_[idx];
+    const int k = iteration_;
+    const int mode_after = e.large_mode[idx];
+    t.analyses++;
+    if (t.first_analysis < 0)
+        t.first_analysis = k;
+    if (mode_after != mode_before)
+        t.mode_changes++;
+    if (mode_after != psd::kModeFull)
+    {
+        t.low_rank_analyses++;
+        if (t.first_low_rank < 0)
+            t.first_low_rank = k;
+    }
+    t.mode = mode_after;
+    t.last_analysis = k;
+    t.last_pos = e.cpu_positive_ranks.vals[idx];
+    t.last_neg = e.cpu_negative_ranks.vals[idx];
+    t.last_rank_tol = e.large_rank_tol[idx];
+    t.last_k_pairs = e.large_k[idx];
+    if (!trace_out_)
+        return;
+    std::ostringstream o;
+    o << "{\"k\": " << k << ", \"ev\": \"rank\", \"block\": " << t.input_block << ", \"large\": " << idx << ", \"n\": " << large_.size(idx)
+      << ", \"pos\": " << t.last_pos << ", \"neg\": " << t.last_neg << ", \"rank_tol\": " << trace_num(t.last_rank_tol) << ", \"mode_before\": \""
+      << mode_name(mode_before) << "\", \"mode_after\": \"" << mode_name(mode_after) << "\", \"k_pairs\": " << (mode_after == psd::kModeFull ? 0 : t.last_k_pairs)
+      << ", \"cause\": \"" << cause << "\"}";
+    trace_line(o.str());
 }
 
 void PsdCone::bind()
@@ -182,6 +338,7 @@ bool PsdCone::begin_iteration(int k, double eta, bool verbose)
     const bool switched = policy_.begin_iteration(k, eta);
     if (switched)
     {
+        trace_switch(k, eta);
         // the engine's bookkeeping of the switch (its console line and the warm-up fields it reports)
         if (e.final_proj_method != e.current_proj_method && verbose)
             std::cout << " ---------------- Switching projection method to " << get_projection_method_name(e.final_proj_method) << "------" << std::endl;
@@ -203,8 +360,8 @@ void PsdCone::project_tiers(const double *z, double *s)
     SDPSolver &e = engine_;
     // a cone step without begin_iteration (the tests, a driver of its own): the policy sees the iteration, no
     // residual-based switch
-    if (policy_.iteration() != iteration_)
-        policy_.begin_iteration(iteration_, std::numeric_limits<double>::infinity());
+    if (policy_.iteration() != iteration_ && policy_.begin_iteration(iteration_, std::numeric_limits<double>::infinity()))
+        trace_switch(iteration_, std::numeric_limits<double>::infinity());
 
     /* Step 3.1. The large blocks, one at a time through the arena, with the projector the policy selects */
     const int L = large_.count();
@@ -215,25 +372,55 @@ void PsdCone::project_tiers(const double *z, double *s)
     for (int idx = 0; idx < L; idx++)
     {
         const psd::LargeBlockJob jb = job(idx);
+        // psd.trace bookkeeping (host counters; the projections are unchanged)
+        BlockTrace &t = trace_[idx];
+        const int k = iteration_;
+        const int mode_before = e.large_mode[idx];
+        t.last_iteration = k;
+        auto full_evd_counted = [&t, k]()
+        {
+            t.full_evd++;
+            if (t.first_full_evd < 0)
+                t.first_full_evd = k;
+        };
         large_.unpack(idx, z);
         switch (strategies_[idx])
         {
         case psd::LargeStrategy::CompositeFilter:
+            t.composite++;
+            if (t.first_composite < 0)
+                t.first_composite = k;
             if (!composite_.project(jb, z, s))
+            {
+                t.composite_rejected++;
+                full_evd_counted();
+                if (trace_out_)
+                    trace_line("{\"k\": " + std::to_string(k) + ", \"ev\": \"composite_rejected\", \"block\": " + std::to_string(t.input_block) +
+                               ", \"large\": " + std::to_string(idx) + "}");
                 full_.project(jb, false, z, s); // the input is in M again
+            }
             break;
         case psd::LargeStrategy::FullEvd:
+            full_evd_counted();
             full_.project(jb, false, z, s);
             break;
         case psd::LargeStrategy::FullEvdWithRankAnalysis:
             any_analysis = true;
+            full_evd_counted();
             full_.project(jb, true, z, s);
+            trace_analysis(idx, mode_before, "scheduled");
             break;
         case psd::LargeStrategy::Lobpcg:
+            t.lobpcg++;
+            if (t.first_lobpcg < 0)
+                t.first_lobpcg = k;
             if (!lobpcg_.project(jb, z, s))
             {
                 any_analysis = true;
+                t.lobpcg_rejected++;
+                full_evd_counted();
                 full_.project(jb, true, z, s); // M still holds the input
+                trace_analysis(idx, mode_before, "lobpcg_rejected");
             }
             break;
         }

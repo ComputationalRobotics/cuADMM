@@ -27,6 +27,7 @@
 #include <limits>
 #include <memory>
 #include <random>
+#include <fstream>
 #include <string>
 #include <vector>
 
@@ -584,6 +585,105 @@ TEST(TierCutoffs, DefaultCutoffsMakeTheBlocksAbove64LargeThroughTheFacade)
     EXPECT_EQ(old.lobpcg_calls, 0);
     printf("[ RESULT   ] Tiers_32_33_64_65_128: cutoffs 32/64: %d iterations, switch at %d, LOBPCG calls %d; 32/1000: %d iterations\n",
            r.iterations, r.warmup_switch_iteration, r.lobpcg_calls, old.iterations);
+}
+
+namespace
+{
+// psd.trace lines: the number of key, the string of key ("" when absent)
+double trace_field(const std::string &line, const std::string &key)
+{
+    const std::size_t at = line.find("\"" + key + "\": ");
+    return at == std::string::npos ? std::nan("") : std::strtod(line.c_str() + at + key.size() + 4, nullptr);
+}
+std::string trace_text(const std::string &line, const std::string &key)
+{
+    const std::string head = "\"" + key + "\": \"";
+    const std::size_t at = line.find(head);
+    if (at == std::string::npos)
+        return "";
+    const std::size_t end = line.find('"', at + head.size());
+    return line.substr(at + head.size(), end - at - head.size());
+}
+} // namespace
+
+// psd.trace (2026-11) on the tier problem: the settings, every PSD block with its tier, one line per rank analysis of
+// a large block (scheduled every 100 iterations from its start, or after a rejected LOBPCG result), the warm-up switch,
+// and per-block totals (written when the solver is destroyed) that agree with the counters of the solve and account
+// for one projection per block and iteration
+TEST(PsdTrace, RecordsTiersRankAnalysesAndTotals)
+{
+    cuadmm::SolverOptions o = quiet_options();
+    o.algorithm.max_iter = 5000;
+    const std::string path = psd_strategies::data_dir() + "/psd_trace_tiers.jsonl";
+    o.psd.trace = path;
+    const cuadmm::SolveResult r = solve_generated("Tiers_32_33_64_65_128", o); // the solver is destroyed on return
+    std::ifstream in(path);
+    ASSERT_TRUE(in.good()) << path;
+    std::vector<std::string> config, blocks, ranks, switches, totals, ends;
+    std::string line;
+    while (std::getline(in, line))
+    {
+        const std::string ev = trace_text(line, "ev");
+        (ev == "config" ? config : ev == "block" ? blocks : ev == "rank" ? ranks : ev == "warmup_switch" ? switches : ev == "block_totals" ? totals : ends)
+            .push_back(line);
+    }
+    ASSERT_EQ(config.size(), 1u);
+    EXPECT_EQ(trace_field(config[0], "small_max"), 32);
+    EXPECT_EQ(trace_field(config[0], "medium_max"), 64);
+    EXPECT_EQ(trace_field(config[0], "warmup_min_size"), 128);
+    EXPECT_EQ(trace_field(config[0], "lowrank_ratio"), 0.05);
+    EXPECT_EQ(trace_field(config[0], "lowrank_relaxation"), 1.2);
+    EXPECT_EQ(trace_field(config[0], "lowrank_reevaluate"), 100);
+    ASSERT_EQ(blocks.size(), 5u) << "the five PSD blocks (the LP block is not one)";
+    const char *tiers[] = {"small", "medium", "medium", "large", "large"};
+    for (int b = 0; b < 5; b++)
+        EXPECT_EQ(trace_text(blocks[b], "tier"), tiers[b]) << blocks[b];
+    EXPECT_EQ(trace_text(blocks[3], "warm"), "") << "booleans are not strings";
+    EXPECT_NE(blocks[3].find("\"warm\": false"), std::string::npos) << "65 < 128";
+    EXPECT_NE(blocks[4].find("\"warm\": true"), std::string::npos);
+    EXPECT_EQ(trace_field(blocks[3], "k_alloc"), 4) << "ceil(65 * 0.05 * 1.2)";
+    EXPECT_EQ(trace_field(blocks[4], "k_alloc"), 8) << "ceil(128 * 0.05 * 1.2)";
+    ASSERT_EQ(switches.size(), 1u);
+    EXPECT_EQ(trace_field(switches[0], "k"), r.warmup_switch_iteration);
+    ASSERT_EQ(totals.size(), 2u);
+    ASSERT_EQ(ends.size(), 1u);
+    double lobpcg = 0, rejected = 0, composite_rejected = 0;
+    for (const std::string &t : totals)
+    {
+        const int input = static_cast<int>(trace_field(t, "block"));
+        const bool warm = input == 4;
+        const double K = trace_field(t, "last_iteration");
+        EXPECT_EQ(K, r.iterations) << t;
+        const double start = warm ? r.warmup_switch_iteration : 2;
+        EXPECT_EQ(trace_field(t, "first_rank_analysis"), start) << t;
+        EXPECT_EQ(trace_field(t, "composite_calls"), warm ? r.warmup_switch_iteration - 1 : 0) << t;
+        EXPECT_EQ(trace_field(t, "warmup_exit"), warm ? r.warmup_switch_iteration : -1) << t;
+        // one projection per iteration: an accepted composite or LOBPCG result, or an exact EVD
+        EXPECT_EQ(trace_field(t, "composite_calls") - trace_field(t, "composite_rejected") + trace_field(t, "lobpcg_accepted") + trace_field(t, "full_evd_calls"), K)
+            << t;
+        // the scheduled analyses every 100 iterations from the start, and one per rejected LOBPCG result
+        EXPECT_EQ(trace_field(t, "rank_analyses"), std::floor((K - start) / 100) + 1 + trace_field(t, "lobpcg_rejected")) << t;
+        std::size_t lines = 0;
+        for (const std::string &rk : ranks)
+            if (static_cast<int>(trace_field(rk, "block")) == input)
+                lines++;
+        EXPECT_EQ(static_cast<double>(lines), trace_field(t, "rank_analyses")) << t;
+        lobpcg += trace_field(t, "lobpcg_calls");
+        rejected += trace_field(t, "lobpcg_rejected");
+        composite_rejected += trace_field(t, "composite_rejected");
+    }
+    EXPECT_EQ(lobpcg, r.lobpcg_calls);
+    EXPECT_EQ(rejected, r.lobpcg_fallbacks);
+    EXPECT_EQ(composite_rejected, r.composite_fallbacks);
+    for (const std::string &rk : ranks)
+    {
+        EXPECT_GE(trace_field(rk, "pos"), 0) << rk;
+        EXPECT_GE(trace_field(rk, "rank_tol"), 0) << rk;
+        const std::string cause = trace_text(rk, "cause");
+        EXPECT_TRUE(cause == "scheduled" || cause == "lobpcg_rejected") << rk;
+    }
+    printf("[ RESULT   ] psd.trace of Tiers_32_33_64_65_128: %zu rank analyses, switch at %d, LOBPCG calls %d (%d rejected)\n", ranks.size(),
+           r.warmup_switch_iteration, r.lobpcg_calls, r.lobpcg_fallbacks);
 }
 
 TEST(WarmUp, CompositeWarmupConvergesAndReportsTheSwitch)

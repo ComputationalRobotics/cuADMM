@@ -278,6 +278,7 @@ const std::vector<OptionSpec> &option_table()
         {"psd.lowrank.enabled", "--psd-lowrank-enabled", {"--lobpcg"}, "bool", "", "true", "LOBPCG for large blocks of low positive or negative rank", ""},
         {"psd.lowrank.start_iter", "--psd-lowrank-start-iter", {}, "int", "", "2", "first iteration of the low-rank analysis for blocks without a warm-up (warm-up blocks: the end of the warm-up)", ""},
         {"psd.lowrank.reevaluate", "--psd-lowrank-reevaluate", {}, "int", "", "100", "exact EVD with rank analysis every this many iterations", ""},
+        {"psd.trace", "--psd-trace", {}, "string", "", "none", "one JSON line per rank analysis of a large PSD block (eigenvalue counts of the projection input, mode), LOBPCG and composite rejection and warm-up switch, and per-block totals at the end", ""},
         {"psd.lowrank.ratio", "--psd-lowrank-ratio", {}, "double", "", "0.05", "low-rank threshold as a fraction of n (LOBPCG while 0 < rank < ratio * n); sizes the warm start, ceil(n * ratio * relaxation) columns", ""},
         {"psd.lowrank.relaxation", "--psd-lowrank-relaxation", {}, "double", "", "1.2", "eigenpairs requested: ceil(relaxation * rank)", ""},
         {"psd.lowrank.max_iter", "--psd-lowrank-max-iter", {}, "int", "", "20", "LOBPCG iterations", ""},
@@ -484,6 +485,7 @@ void set_option(SolverOptions &o, const std::string &path, const std::string &va
         else if (p == "psd.lowrank.start_iter") o.psd.lowrank_start_iter = parse_int(value);
         else if (p == "psd.lowrank.reevaluate") o.psd.lowrank_reevaluate = parse_int(value);
         else if (p == "psd.lowrank.ratio") o.psd.lowrank_ratio = parse_double(value);
+        else if (p == "psd.trace") o.psd.trace = value == "none" ? "" : value;
         else if (p == "psd.lowrank.relaxation") o.psd.lowrank_relaxation = parse_double(value);
         else if (p == "psd.lowrank.max_iter") o.psd.lowrank_max_iter = parse_int(value);
         else if (p == "psd.lowrank.tol") o.psd.lowrank_tol = parse_double(value);
@@ -590,6 +592,7 @@ std::string get_option(const SolverOptions &o, const std::string &p)
     if (p == "psd.lowrank.start_iter") return fmt(o.psd.lowrank_start_iter);
     if (p == "psd.lowrank.reevaluate") return fmt(o.psd.lowrank_reevaluate);
     if (p == "psd.lowrank.ratio") return fmt(o.psd.lowrank_ratio);
+    if (p == "psd.trace") return o.psd.trace.empty() ? "none" : o.psd.trace;
     if (p == "psd.lowrank.relaxation") return fmt(o.psd.lowrank_relaxation);
     if (p == "psd.lowrank.max_iter") return fmt(o.psd.lowrank_max_iter);
     if (p == "psd.lowrank.tol") return fmt(o.psd.lowrank_tol);

@@ -159,6 +159,7 @@ struct PsdOptions
     double composite_margin = 1.05;   // safety margin on the Lanczos estimate
     int composite_lanczos_steps = 20; // Lanczos steps of the norm estimate
     double composite_norm_slack = 1e-2; // norm test slack of the composite result (B22)
+    std::string trace;                  // per-block trace of the large blocks (JSON lines; empty: off)
 };
 
 struct SolverOptions

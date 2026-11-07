@@ -18,6 +18,8 @@
 #ifndef CUADMM_CONE_PSD_PSD_CONE_H
 #define CUADMM_CONE_PSD_PSD_CONE_H
 
+#include <fstream>
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -55,6 +57,7 @@ struct PsdConeConfig
     int medium_max_batch = 0;         // psd.medium.max_batch
     double jacobi_tol = 1e-16;        // psd.jacobi_tol
     int jacobi_max_sweeps = 15;       // psd.jacobi_max_sweeps
+    std::string trace_path;           // psd.trace: the per-block trace of the large blocks (JSON lines; empty: off)
     static PsdConeConfig from_options(const PsdOptions &o, unsigned long long seed);
 };
 
@@ -62,6 +65,8 @@ class PsdCone final : public Cone
 {
 public:
     PsdCone(std::vector<BlockSlice> blocks, SDPSolver &engine, const PsdConeConfig &config, core::WorkspaceArena &arena, core::StreamPool &pool);
+    /// Writes the per-block totals of the trace (psd.trace), if any.
+    ~PsdCone() override;
     ConeKind kind() const override { return ConeKind::Psd; }
     std::string_view name() const override { return "psd"; }
     std::int64_t dimension() const override { return dimension_; }
@@ -99,6 +104,22 @@ public:
 
 private:
     void project_tiers(const double *z, double *s);
+    // psd.trace (2026-11): per large block, the projections by strategy, the rejections and the rank analyses (the
+    // eigenvalue counts of the projection input and the mode they set); with a path, one JSON line per rank analysis,
+    // rejection and warm-up switch, and the totals per block when the cone is destroyed. Reads host values only.
+    struct BlockTrace
+    {
+        int input_block = -1;
+        long long composite = 0, composite_rejected = 0, full_evd = 0, analyses = 0, lobpcg = 0, lobpcg_rejected = 0, low_rank_analyses = 0;
+        int first_composite = -1, first_full_evd = -1, first_analysis = -1, first_lobpcg = -1, first_low_rank = -1;
+        int mode = 0, mode_changes = 0, last_iteration = -1, last_analysis = -1, last_pos = -1, last_neg = -1, last_k_pairs = 0;
+        double last_rank_tol = 0.0;
+    };
+    void trace_line(const std::string &json);
+    void trace_switch(int k, double eta);
+    void trace_analysis(int idx, int mode_before, const char *cause);
+    std::vector<BlockTrace> trace_;
+    std::unique_ptr<std::ofstream> trace_out_;
     std::vector<BlockSlice> blocks_;
     SDPSolver &engine_;
     PsdConeConfig config_;
