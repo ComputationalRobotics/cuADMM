@@ -13,21 +13,21 @@ Generated from the option table of `src/options/options.cc` (`cuadmm --print-opt
 | `algorithm.time_limit` | `--time-limit` | double | `inf` | now | seconds of iterations after which the solve stops, returning the best iterate |
 | `algorithm.tol` | `--tol` | double | `1e-4` | now | internal stopping tolerance on eta = max(eta_p, eta_d, eta_g) |
 | `algorithm.sgs_tau_reduction` | `--sgs-tau-reduction` | bool | `false` | now | today's hidden sGS rule, tau = max(1.618, tau / 1.1) at sGS iterations whose incoming eta_d is below tol; off: tau is the option (plan) |
-| `penalty.policy` | `--policy` (`--sigma-policy`) | enum (fixed, legacy_adaptive, residual_balancing, balance_freeze) | `residual_balancing` | now | fixed: sigma_k = sigma0; legacy_adaptive: the rule of 9bb4ba5 (no guard, factor 2, [1e-6, 1e6], Monitor1); residual_balancing: the October 13 rule of 2d8a755 (guard, factor, [1e-3, 1e3]); balance_freeze: residual balancing that freezes sigma (plan Section 3.5; Phase 4) |
+| `penalty.policy` | `--policy` (`--sigma-policy`) | enum (fixed, legacy_adaptive, residual_balancing, balance_freeze) | `balance_freeze` | now | fixed: sigma_k = sigma0; legacy_adaptive: the rule of 9bb4ba5 (no guard, factor 2, [1e-6, 1e6], Monitor1); residual_balancing: the October 13 rule of 2d8a755 (guard, factor, [1e-3, 1e3]); balance_freeze: residual balancing that freezes sigma (plan Section 3.5; Phase 4) |
 | `penalty.sigma0` | `--sigma0` (`--sig`) | double | `100` | now | initial sigma (scaled units) |
 | `penalty.sigma_min` | `--sigma-min` | double | `policy` | now | lower bound of the adaptive updates (policy: the policy's own) |
 | `penalty.sigma_max` | `--sigma-max` | double | `policy` | now | upper bound of the adaptive updates (policy: the policy's own) |
-| `penalty.factor` | `--factor` (`--penalty-factor`) | double | `2` | now | multiplicative step of residual_balancing and balance_freeze (1.2 = the October 20 edit of main) |
+| `penalty.factor` | `--factor` (`--penalty-factor`) | double | `policy` | now | multiplicative step of residual_balancing and balance_freeze: sigma * factor up, sigma / factor down (policy: 1.35 for balance_freeze, 2 for residual_balancing as 2d8a755) |
 | `penalty.step_schedule` | `--step-schedule` | enum (constant, halve_on_reversal) | `constant` | 4 | balance_freeze: constant factor, or the factor's square root at every reversal |
 | `penalty.win_ratio` | `--win-ratio` | double | `1.35` | now | hysteresis of the win counts (legacy_adaptive and residual_balancing: fixed at 1.35) |
 | `penalty.guard` | `--guard` | bool | `true` | now | winner above max(1, win_ratio * other) (true) or above win_ratio * other (false); legacy_adaptive: false, residual_balancing: true |
 | `penalty.residual_weight` | `--residual-weight` | double | `1` | now | weight on eta_p in the vote (today's ratioconst) |
 | `penalty.schedule` | `--schedule` | schedule | `200:10,1000:25,5000:50,10000:200,inf:1000` | 4 | check iterations as (up to, period) pairs: a check at every k = 1 mod period while k <= up to (balance_freeze; the reference policies use their own fixed schedule) |
 | `penalty.freeze_iteration` | `--freeze-iteration` | int | `policy` | 4 | balance_freeze: freeze sigma at this iteration at the latest (policy: 10000); residual_balancing: off |
-| `penalty.pingpong_window` | `--pingpong-window` | int | `8` | 4 | balance_freeze: window W of the ping-pong test |
+| `penalty.pingpong_window` | `--pingpong-window` | int | `0` | 4 | balance_freeze: window W of the ping-pong freeze (0: no ping-pong freeze) |
 | `penalty.pingpong_net` | `--pingpong-net` | int | `2` | 4 | balance_freeze: freeze when |net movement over the window| <= this |
 | `penalty.pingpong_min_iter` | `--pingpong-min-iter` | int | `1000` | 4 | balance_freeze: no ping-pong freeze before this iteration |
-| `penalty.freeze_value` | `--freeze-value` | enum (last, band_centre) | `band_centre` | 4 | balance_freeze: frozen value when sigma bounces in a band |
+| `penalty.freeze_value` | `--freeze-value` | enum (last, band_centre) | `last` | 4 | balance_freeze: frozen value: the current one (last), or the band's centre when sigma bounced over the ping-pong window (band_centre) |
 | `penalty.freeze_bias` | `--freeze-bias` | double | `1` | 4 | balance_freeze: factor applied to the frozen value |
 | `penalty.sgs_update_threshold` | `--sgs-update-threshold` (`--sig-update-threshold`) | int | `500` | now | sGS-phase rule of the adaptive policies: checks every stage_1 iterations up to this iteration, every stage_2 after |
 | `penalty.sgs_update_stage_1` | `--sgs-update-stage-1` (`--sig-update-stage-1`) | int | `50` | now | sGS-phase rule: period before the threshold |
@@ -62,15 +62,15 @@ Generated from the option table of `src/options/options.cc` (`cuadmm --print-opt
 | `output.summary` | `--summary` | string | `none` | now | append a one-line JSON summary of the run |
 | `output.sigma_log` | `--sigma-log` | string | `none` | now | one CSV line per sigma change |
 | `output.tag` | `--tag` | string | `none` | now | label copied to the summary |
-| `psd.small_max` | `--psd-small-max` | int | `32` | now | largest small PSD block (batched Jacobi); fixed |
-| `psd.medium_max` | `--psd-medium-max` | int | `1000` | now | largest medium PSD block; fixed |
+| `psd.small_max` | `--psd-small-max` | int | `32` | now | largest small PSD block (batched Jacobi; at most 32) |
+| `psd.medium_max` | `--psd-medium-max` | int | `64` | now | largest medium PSD block (batched or streamed EVD); the larger blocks form the large tier |
 | `psd.medium_batch_min` | `--psd-medium-batch-min` | int | `2` | now | medium size groups with at least this many blocks use the batched EVD (0: never) |
 | `psd.medium_streams` | `--psd-medium-streams` (`--streams`) | int | `15` | now | CUDA streams of the medium eigendecompositions (>= 1) |
 | `psd.jacobi_tol` | `--psd-jacobi-tol` | double | `1e-16` | now | tolerance of the batched Jacobi EVD; fixed |
 | `psd.jacobi_max_sweeps` | `--psd-jacobi-max-sweeps` | int | `15` | now | sweeps of the batched Jacobi EVD; fixed |
 | `psd.large.memory_budget` | `--psd-large-memory-budget` | double | `0.9` | 6b | fraction of free memory for the large tier (Phase 6b) |
 | `psd.large.warmup` | `--psd-warmup` | enum (none, composite_fp16) | `composite_fp16` | now | low-precision warm-up of the large blocks of at least warmup.min_size (the FP16 composite filter until eta < switch_tol; the Phase 6a benchmark: 6-8x faster than the exact EVD from n = 2000) |
-| `psd.large.warmup.min_size` | `--psd-warmup-min-size` | int | `5000` | now | smallest large block that gets the warm-up (2000 measured as beneficial; 5000 is the plan's default) |
+| `psd.large.warmup.min_size` | `--psd-warmup-min-size` | int | `128` | now | smallest large block that gets the warm-up |
 | `psd.large.warmup.switch_tol` | `--psd-warmup-switch-tol` (`--switch-proj-tol`) | double | `1e-2` | now | the warm-up ends at the first iteration with eta below this |
 | `psd.large.warmup.switch_iter` | `--psd-warmup-switch-iter` (`--switch-proj-iter`) | int | `5000` | now | or after this many iterations |
 | `psd.large.final_product` | `--psd-final-product` | enum (gemm_compat, syrk) | `syrk` | now | final product of the large blocks: syrk (SYRK on the smaller eigen-side) or gemm_compat (the product of main, bit for bit) |
@@ -79,7 +79,8 @@ Generated from the option table of `src/options/options.cc` (`cuadmm --print-opt
 | `psd.lowrank.enabled` | `--psd-lowrank-enabled` (`--lobpcg`) | bool | `true` | now | LOBPCG for large blocks of low positive or negative rank |
 | `psd.lowrank.start_iter` | `--psd-lowrank-start-iter` | int | `2` | now | first iteration of the low-rank analysis for blocks without a warm-up (warm-up blocks: the end of the warm-up) |
 | `psd.lowrank.reevaluate` | `--psd-lowrank-reevaluate` | int | `100` | now | exact EVD with rank analysis every this many iterations |
-| `psd.lowrank.ratio` | `--psd-lowrank-ratio` | double | `0.03` | now | low-rank threshold as a fraction of n |
+| `psd.trace` | `--psd-trace` | string | `none` | now | one JSON line per rank analysis of a large PSD block (eigenvalue counts of the projection input, mode), LOBPCG and composite rejection and warm-up switch, and per-block totals at the end |
+| `psd.lowrank.ratio` | `--psd-lowrank-ratio` | double | `0.05` | now | low-rank threshold as a fraction of n (LOBPCG while 0 < rank < ratio * n); sizes the warm start, ceil(n * ratio * relaxation) columns |
 | `psd.lowrank.relaxation` | `--psd-lowrank-relaxation` | double | `1.2` | now | eigenpairs requested: ceil(relaxation * rank) |
 | `psd.lowrank.max_iter` | `--psd-lowrank-max-iter` | int | `20` | now | LOBPCG iterations |
 | `psd.lowrank.tol` | `--psd-lowrank-tol` | double | `1e-5` | now | LOBPCG convergence tolerance (absolute; the stopping-tolerance-relative rule of B13 is deferred, DECISIONS 45) |

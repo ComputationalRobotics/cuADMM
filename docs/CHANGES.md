@@ -367,3 +367,31 @@ and the existing tests are unchanged.
   as the TXT writer did (test `IoSimplify.TxtSolutionWriterAndFormatDispatch`). Found by the gate run.
 - No solver change; the defaults of 2.0 (Decision 37, `residual_balancing`) are unchanged. Project version 2.0.1.
 
+
+## 2026-11 (unreleased): sigma factor 1.35 frozen after iteration 10000; PSD cutoffs 32 / 64, warm-up from 128, LOBPCG ratio 0.05
+
+Defaults of the facade and the CLI; the legacy `SDPSolver` C++ API (the golden histories of the references) is
+unchanged: its tier cutoffs stay 32 / 1000, its LOBPCG ratio 0.03, its policies as before.
+
+- The default penalty policy is `balance_freeze` (was `residual_balancing`): sigma_0 = 100 in [1e-3, 1e3], the
+  residual vote with win ratio 1.35 and the guard on the check schedule 200:10,1000:25,5000:50,10000:200,inf:1000
+  (all unchanged), every update sigma * 1.35 up or sigma / 1.35 down with a constant step (reversals never change
+  it: no square-root damping), no ping-pong freeze, and the freeze after iteration 10000 at the current value with
+  bias 1. Previous default: `--policy residual_balancing`.
+- `penalty.factor` defaults to `policy`: 1.35 for `balance_freeze` (was 2), 2 for `residual_balancing` and
+  `legacy_adaptive` (unchanged). `penalty.pingpong_window` defaults to 0, which now means "no ping-pong freeze"
+  (was 8); `penalty.freeze_value` defaults to `last` (was `band_centre`). The previous `balance_freeze`:
+  `--factor 2 --pingpong-window 8 --freeze-value band_centre`. `halve_on_reversal` remains an explicit option.
+- `psd.medium_max` defaults to 64 (was 1000, and fixed): the PSD blocks above 64 are large (exact EVD with the
+  rank analysis every 100 iterations, LOBPCG in a low-rank mode). The cutoffs are runtime values (`psd.small_max`
+  in [1, 32], `psd.medium_max` above it, at most 46340). Previous tiers: `--psd-medium-max 1000`.
+- `psd.large.warmup.min_size` defaults to 128 (was 5000): every large block of at least 128 gets the FP16
+  composite warm-up (the exit rules are unchanged). Previous: `--psd-warmup-min-size 5000`.
+- `psd.lowrank.ratio` defaults to 0.05 (was 0.03): LOBPCG while 0 < rank < 0.05 n; the warm start of a large block
+  holds ceil(1.2 * 0.05 * n) eigenpairs and the LOBPCG workspace follows. Previous: `--psd-lowrank-ratio 0.03`.
+- LOBPCG acceptance (D1, found by the H200 correctness gate of 2026-10-29): every returned pair takes part in the
+  convergence test, so the smallest Ritz value used as the acceptance certificate is a converged one; results that
+  missed eigenvalues above the rank tolerance after a rank increase are now rejected and fall back to the exact EVD.
+- New option `psd.trace` (`--psd-trace <file>`): one JSON line per rank analysis of a large PSD block (eigenvalue
+  counts of the projection input, mode), per LOBPCG or composite rejection and per warm-up switch, and per-block
+  totals at the end. Off by default; it reads host values only.
