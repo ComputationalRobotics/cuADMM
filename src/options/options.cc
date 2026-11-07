@@ -261,15 +261,15 @@ const std::vector<OptionSpec> &option_table()
         {"output.sigma_log", "--sigma-log", {}, "string", "", "none", "one CSV line per sigma change", ""},
         {"output.tag", "--tag", {}, "string", "", "none", "label copied to the summary", ""},
         // psd
-        {"psd.small_max", "--psd-small-max", {}, "int", "", "32", "largest small PSD block (batched Jacobi); fixed", ""},
-        {"psd.medium_max", "--psd-medium-max", {}, "int", "", "1000", "largest medium PSD block; fixed", ""},
+        {"psd.small_max", "--psd-small-max", {}, "int", "", "32", "largest small PSD block (batched Jacobi; at most 32)", ""},
+        {"psd.medium_max", "--psd-medium-max", {}, "int", "", "64", "largest medium PSD block (batched or streamed EVD); the larger blocks form the large tier", ""},
         {"psd.medium_batch_min", "--psd-medium-batch-min", {}, "int", "", "2", "medium size groups with at least this many blocks use the batched EVD (0: never)", ""},
         {"psd.medium_streams", "--psd-medium-streams", {"--streams"}, "int", "", "15", "CUDA streams of the medium eigendecompositions (>= 1)", ""},
         {"psd.jacobi_tol", "--psd-jacobi-tol", {}, "double", "", "1e-16", "tolerance of the batched Jacobi EVD; fixed", ""},
         {"psd.jacobi_max_sweeps", "--psd-jacobi-max-sweeps", {}, "int", "", "15", "sweeps of the batched Jacobi EVD; fixed", ""},
         {"psd.large.memory_budget", "--psd-large-memory-budget", {}, "double", "", "0.9", "fraction of free memory for the large tier (Phase 6b)", "6b"},
         {"psd.large.warmup", "--psd-warmup", {}, "enum", "none, composite_fp16", "composite_fp16", "low-precision warm-up of the large blocks of at least warmup.min_size (the FP16 composite filter until eta < switch_tol; the Phase 6a benchmark: 6-8x faster than the exact EVD from n = 2000)", ""},
-        {"psd.large.warmup.min_size", "--psd-warmup-min-size", {}, "int", "", "5000", "smallest large block that gets the warm-up (2000 measured as beneficial; 5000 is the plan's default)", ""},
+        {"psd.large.warmup.min_size", "--psd-warmup-min-size", {}, "int", "", "128", "smallest large block that gets the warm-up", ""},
         {"psd.large.warmup.switch_tol", "--psd-warmup-switch-tol", {"--switch-proj-tol"}, "double", "", "1e-2", "the warm-up ends at the first iteration with eta below this", ""},
         {"psd.large.warmup.switch_iter", "--psd-warmup-switch-iter", {"--switch-proj-iter"}, "int", "", "5000", "or after this many iterations", ""},
         {"psd.large.final_product", "--psd-final-product", {}, "enum", "gemm_compat, syrk", "syrk", "final product of the large blocks: syrk (SYRK on the smaller eigen-side) or gemm_compat (the product of main, bit for bit)", ""},
@@ -278,7 +278,7 @@ const std::vector<OptionSpec> &option_table()
         {"psd.lowrank.enabled", "--psd-lowrank-enabled", {"--lobpcg"}, "bool", "", "true", "LOBPCG for large blocks of low positive or negative rank", ""},
         {"psd.lowrank.start_iter", "--psd-lowrank-start-iter", {}, "int", "", "2", "first iteration of the low-rank analysis for blocks without a warm-up (warm-up blocks: the end of the warm-up)", ""},
         {"psd.lowrank.reevaluate", "--psd-lowrank-reevaluate", {}, "int", "", "100", "exact EVD with rank analysis every this many iterations", ""},
-        {"psd.lowrank.ratio", "--psd-lowrank-ratio", {}, "double", "", "0.03", "low-rank threshold as a fraction of n", ""},
+        {"psd.lowrank.ratio", "--psd-lowrank-ratio", {}, "double", "", "0.05", "low-rank threshold as a fraction of n (LOBPCG while 0 < rank < ratio * n); sizes the warm start, ceil(n * ratio * relaxation) columns", ""},
         {"psd.lowrank.relaxation", "--psd-lowrank-relaxation", {}, "double", "", "1.2", "eigenpairs requested: ceil(relaxation * rank)", ""},
         {"psd.lowrank.max_iter", "--psd-lowrank-max-iter", {}, "int", "", "20", "LOBPCG iterations", ""},
         {"psd.lowrank.tol", "--psd-lowrank-tol", {}, "double", "", "1e-5", "LOBPCG convergence tolerance (absolute; the stopping-tolerance-relative rule of B13 is deferred, DECISIONS 45)", ""},
@@ -712,8 +712,10 @@ void SolverOptions::validate() const
     if (output.verbosity < 0 || output.verbosity > 2)
         fail("output.verbosity", "must be 0, 1 or 2");
 
-    if (psd.small_max != 32 || psd.medium_max != 1000)
-        fail("psd.small_max", "the tier limits are fixed at 32 and 1000 (SMALL_MAT_LIMIT, MEDIUM_MAT_LIMIT of the engine)");
+    if (psd.small_max < 1 || psd.small_max > 32)
+        fail("psd.small_max", "must be in [1, 32]: the small tier is cusolverDnDsyevjBatched, which supports n <= 32");
+    if (psd.medium_max <= psd.small_max || psd.medium_max > 46340)
+        fail("psd.medium_max", "must be above psd.small_max and at most 46340 (n * n fits in an int)");
     if (psd.medium_batch_min < 0)
         fail("psd.medium_batch_min", "must be non-negative");
     if (psd.medium_streams < 1)

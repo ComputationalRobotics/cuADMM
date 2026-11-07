@@ -97,6 +97,32 @@ public:
     size_t small_buffer_offset(int mat_size_index, std::vector<size_t> &buffer_sizes) const;
 
     static MatrixSizeCategory get_size_category(const int mat_size);
+    // The tier cutoffs of get_size_category: SMALL_MAT_LIMIT / MEDIUM_MAT_LIMIT (32 / 1000, the C++ API of main)
+    // unless a setup sets others. The facade sets psd.small_max / psd.medium_max (default 32 / 64) for the duration
+    // of its setup (TierLimitsScope), so the block layout, the tiers and the warm-up decision use the same cutoffs.
+    static int small_limit;
+    static int medium_limit;
+    static void set_limits(int small_max, int medium_max);
+};
+
+/// Sets the tier cutoffs of MatrixSizes for its lifetime and restores the previous ones on exit.
+class TierLimitsScope
+{
+public:
+    TierLimitsScope(int small_max, int medium_max) : small_(MatrixSizes::small_limit), medium_(MatrixSizes::medium_limit)
+    {
+        MatrixSizes::set_limits(small_max, medium_max);
+    }
+    ~TierLimitsScope()
+    {
+        MatrixSizes::small_limit = small_;
+        MatrixSizes::medium_limit = medium_;
+    }
+    TierLimitsScope(const TierLimitsScope &) = delete;
+    TierLimitsScope &operator=(const TierLimitsScope &) = delete;
+
+private:
+    int small_, medium_;
 };
 
 #endif // CUADMM_MATRIX_SIZES_H

@@ -393,6 +393,10 @@ inline ProblemSpec problem_spec(const std::string &name)
         return {{{'s', 1100, 1097, 10, false}}, 1000, 8, 1012};
     if (name == "Large_HalfRank") // rank X* = rank S* = 550: full EVD
         return {{{'s', 1100, 550, 10, true}}, 1000, 8, 1013};
+    if (name == "Tiers_32_33_64_65_128") // the tier boundaries of 2026-11 (32 / 64, warm-up from 128); rank S* = 3 and 4 in the large ones
+        return {{{'s', 32, 16, 0, false}, {'s', 33, 16, 0, false}, {'s', 64, 32, 0, false}, {'s', 65, 62, 0, false}, {'s', 128, 124, 0, false},
+                 {'l', 12, 6, 0, false}},
+                0, 12, 1017};
     if (name == "Large_Two") // two large blocks of different sizes (the per-block warm-up threshold of Phase 6a)
         return {{{'s', 1100, 1097, 10, false}, {'s', 1050, 1047, 10, false}}, 1000, 8, 1016};
     throw std::invalid_argument("unknown regression problem " + name);

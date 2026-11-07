@@ -298,7 +298,8 @@ public:
     bool use_lobpcg;                                 // whether to use LOBPCG
     double lobpcg_tol = 1e-5;                        // LOBPCG convergence tolerance (psd.lowrank.tol; absolute, B13)
     int lobpcg_maxit = 20;                           // LOBPCG iterations (psd.lowrank.max_iter)
-    double lobpcg_ratio = 0.03;                      // low-rank threshold as a fraction of n (psd.lowrank.ratio); sizes the warm start
+    double lobpcg_ratio = 0.03;                      // low-rank threshold as a fraction of n; sizes the warm start (the C++ API of
+                                                     // main; the facade sets psd.lowrank.ratio, default 0.05, before init)
     double lobpcg_relaxation = 1.2;                  // eigenpairs requested: ceil(relaxation * rank) (psd.lowrank.relaxation)
     unsigned long long lanczos_seed = 0;             // seed of the Lanczos start vectors (options.seed; per block: mixed with the block index, B8)
     DeviceDenseVector<int> positive_ranks;           // positive ranks of large matrices

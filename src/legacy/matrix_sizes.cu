@@ -103,13 +103,25 @@ size_t MatrixSizes::small_buffer_offset(int small_idx, std::vector<size_t> &eig_
     return this->small_buffer_start_indices[small_idx];
 }
 
+int MatrixSizes::small_limit = SMALL_MAT_LIMIT;
+int MatrixSizes::medium_limit = MEDIUM_MAT_LIMIT;
+
+void MatrixSizes::set_limits(int small_max, int medium_max)
+{
+    // the small tier is cusolverDnDsyevjBatched (n <= 32); the medium tier starts above the small one
+    if (small_max < 1 || small_max > 32 || medium_max <= small_max || medium_max > MAX_PSD_BLOCK_SIZE)
+        throw std::invalid_argument("MatrixSizes::set_limits: invalid tier cutoffs " + std::to_string(small_max) + " / " + std::to_string(medium_max));
+    small_limit = small_max;
+    medium_limit = medium_max;
+}
+
 MatrixSizeCategory MatrixSizes::get_size_category(const int mat_size)
 {
-    if (mat_size <= SMALL_MAT_LIMIT)
+    if (mat_size <= small_limit)
     {
         return MatrixSizeCategory::SMALL;
     }
-    else if (mat_size <= MEDIUM_MAT_LIMIT)
+    else if (mat_size <= medium_limit)
     {
         return MatrixSizeCategory::MEDIUM;
     }

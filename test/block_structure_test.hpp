@@ -253,6 +253,40 @@ namespace block_structure_test
     }
 }
 
+// The tier cutoffs are runtime values: 32 / 1000 for the C++ API of main, the options' 32 / 64 (2026-11) inside a
+// TierLimitsScope (the facade's setup), restored on exit; invalid cutoffs are rejected without a change
+TEST(BlockStructure, TierCutoffsAreRuntimeAndScoped)
+{
+    EXPECT_EQ(MatrixSizes::get_size_category(32), MatrixSizeCategory::SMALL);
+    EXPECT_EQ(MatrixSizes::get_size_category(33), MatrixSizeCategory::MEDIUM);
+    EXPECT_EQ(MatrixSizes::get_size_category(1000), MatrixSizeCategory::MEDIUM);
+    EXPECT_EQ(MatrixSizes::get_size_category(1001), MatrixSizeCategory::LARGE);
+    {
+        const TierLimitsScope scope(32, 64);
+        EXPECT_EQ(MatrixSizes::get_size_category(32), MatrixSizeCategory::SMALL);
+        EXPECT_EQ(MatrixSizes::get_size_category(33), MatrixSizeCategory::MEDIUM);
+        EXPECT_EQ(MatrixSizes::get_size_category(64), MatrixSizeCategory::MEDIUM);
+        EXPECT_EQ(MatrixSizes::get_size_category(65), MatrixSizeCategory::LARGE);
+        EXPECT_EQ(MatrixSizes::get_size_category(128), MatrixSizeCategory::LARGE);
+        const std::vector<char> types{'s', 's', 's', 's', 'l'};
+        const std::vector<int> sizes{32, 64, 65, 128, 7};
+        const BlockStructure bs(types.data(), sizes.data(), 5);
+        int large = 0, medium = 0, small = 0;
+        for (const BlockInfo &b : bs.blocks)
+            if (b.type == 's')
+                (b.category == MatrixSizeCategory::LARGE ? large : b.category == MatrixSizeCategory::MEDIUM ? medium : small)++;
+        EXPECT_EQ(large, 2);
+        EXPECT_EQ(medium, 1);
+        EXPECT_EQ(small, 1);
+    }
+    EXPECT_EQ(MatrixSizes::get_size_category(65), MatrixSizeCategory::MEDIUM) << "restored on exit";
+    EXPECT_THROW(MatrixSizes::set_limits(0, 64), std::invalid_argument);
+    EXPECT_THROW(MatrixSizes::set_limits(33, 64), std::invalid_argument);
+    EXPECT_THROW(MatrixSizes::set_limits(32, 32), std::invalid_argument);
+    EXPECT_THROW(MatrixSizes::set_limits(32, 46341), std::invalid_argument);
+    EXPECT_EQ(MatrixSizes::get_size_category(1000), MatrixSizeCategory::MEDIUM) << "a rejected call changes nothing";
+}
+
 TEST(BlockStructure, MatchesLegacyOnRandomMixtures)
 {
     using namespace block_structure_test;

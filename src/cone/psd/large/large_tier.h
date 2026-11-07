@@ -45,7 +45,7 @@ struct LargeTierConfig
 {
     bool gemm_compat = false;         // psd.large.final_product = gemm_compat (today's product with an n^2 temporary)
     bool lowrank = true;              // the warm starts V_b, D_b exist (psd.lowrank.enabled and the engine's use_lobpcg)
-    double lowrank_ratio = 0.03;      // k_alloc = ceil(n * ratio * relaxation)
+    double lowrank_ratio = 0.05;      // k_alloc = ceil(n * ratio * relaxation) (psd.lowrank.ratio)
     double lowrank_relaxation = 1.2;
     bool composite = false;           // the FP32/FP16 buffers are part of W (some block gets the warm-up)
     int lanczos_steps = 20;           // psd.composite.lanczos_steps (the Lanczos vectors in W)

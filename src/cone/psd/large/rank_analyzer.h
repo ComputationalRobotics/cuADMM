@@ -32,7 +32,7 @@ class LargeTier;
 
 struct RankAnalyzerConfig
 {
-    double ratio = 0.03;            // psd.lowrank.ratio
+    double ratio = 0.05;            // psd.lowrank.ratio
     double relaxation = 1.2;        // psd.lowrank.relaxation
     double rank_rtol = 1e-8;        // psd.lowrank.rank_rtol
     double rank_stop_factor = 1e-3; // psd.lowrank.rank_stop_factor

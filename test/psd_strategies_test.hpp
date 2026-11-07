@@ -372,12 +372,53 @@ TEST_F(PsdStrategies, LobpcgRejectsAGrownRankAndFallsBackToFullEvd)
     EXPECT_EQ(engine.lobpcg_fallbacks, 1) << "4 pairs cannot cover 30 positive eigenvalues: the certificate rejects";
     EXPECT_LT(relative_error(download(s), 0, svec(after.P, n)), 1e-10) << "the fallback is exact";
     EXPECT_EQ(engine.cpu_positive_ranks.vals[0], 30) << "the fallback analyzed the rank again";
-    EXPECT_EQ(engine.large_mode[0], kModeLowRankPositive) << "30 < 0.03 * 1100";
-    EXPECT_EQ(engine.large_k[0], 36) << "ceil(1.2 * 30) within k_alloc = ceil(1100 * 0.036) = 40";
+    EXPECT_EQ(engine.large_mode[0], kModeLowRankPositive) << "30 < 0.05 * 1100";
+    EXPECT_EQ(engine.large_k[0], 36) << "ceil(1.2 * 30) within k_alloc = ceil(1100 * 0.06) = 66";
     project(cone, 4, 1.0);
     EXPECT_EQ(cone.last_strategies()[0], LargeStrategy::Lobpcg);
     EXPECT_EQ(engine.lobpcg_fallbacks, 1);
     EXPECT_LT(relative_error(download(s), 0, svec(after.P, n)), 1e-8);
+}
+
+// psd.lowrank.ratio = 0.05 (2026-11) from the options: n = 1100 gets a warm start of ceil(1100 * 0.05 * 1.2) = 66 columns;
+// 50 positive eigenvalues are low rank (50 < 55; with 0.03 the bound was 33) and LOBPCG gives the exact projection
+// with ceil(1.2 * 50) = 60 pairs; 56 positive eigenvalues keep the full EVD
+TEST_F(PsdStrategies, LowRankRatioOfTheOptionsSizesTheWarmStartAndDecidesTheMode)
+{
+    using namespace psd_strategies;
+    ASSERT_NO_FATAL_FAILURE(init("Large_LowRankS", true, ProjectionMethod::EIG_FP64));
+    const int n = 1100;
+    cuadmm::SolverOptions so;
+    EXPECT_EQ(so.psd.lowrank_ratio, 0.05);
+    EXPECT_EQ(so.psd.lowrank_relaxation, 1.2);
+    EXPECT_EQ(so.psd.lowrank_reevaluate, 100);
+    so.psd.warmup = cuadmm::WarmupKind::None; // this test is about the rank analysis (no composite warm-up first)
+    cuadmm::cone::PsdCone &cone = make_cone(cuadmm::cone::PsdConeConfig::from_options(so.psd, 0));
+    ASSERT_EQ(cone.large_tier().count(), 1);
+    EXPECT_EQ(cone.large_tier().k_alloc(0), 66);
+    const Spectral fifty = make_spectral(n, spectrum(n, 50, 64.0, -2.0, -1.0, 18), 108);
+    ASSERT_NO_FATAL_FAILURE(upload({&fifty}));
+    project(cone, 2, 1.0); // the first analysis (blocks without a warm-up start at psd.lowrank.start_iter = 2)
+    EXPECT_EQ(cone.last_strategies()[0], LargeStrategy::FullEvdWithRankAnalysis);
+    EXPECT_EQ(engine.cpu_positive_ranks.vals[0], 50);
+    EXPECT_EQ(engine.large_mode[0], kModeLowRankPositive) << "50 < 0.05 * 1100";
+    EXPECT_EQ(engine.large_k[0], 60) << "ceil(1.2 * 50) within k_alloc = 66";
+    EXPECT_LT(relative_error(download(s), 0, svec(fifty.P, n)), 1e-10);
+    for (int k = 3; k <= 5; k++)
+    {
+        project(cone, k, 1.0);
+        EXPECT_EQ(cone.last_strategies()[0], LargeStrategy::Lobpcg) << k;
+        EXPECT_LT(relative_error(download(s), 0, svec(fifty.P, n)), 1e-8) << k;
+    }
+    EXPECT_EQ(engine.lobpcg_calls, 3);
+    EXPECT_EQ(engine.lobpcg_fallbacks, 0);
+    const Spectral fifty_six = make_spectral(n, spectrum(n, 56, 64.0, -2.0, -1.0, 18), 109);
+    ASSERT_NO_FATAL_FAILURE(upload({&fifty_six}));
+    project(cone, 102, 1.0); // the next analysis
+    EXPECT_EQ(cone.last_strategies()[0], LargeStrategy::FullEvdWithRankAnalysis);
+    EXPECT_EQ(engine.cpu_positive_ranks.vals[0], 56);
+    EXPECT_EQ(engine.large_mode[0], kModeFull) << "56 >= 0.05 * 1100";
+    EXPECT_LT(relative_error(download(s), 0, svec(fifty_six.P, n)), 1e-10);
 }
 
 TEST_F(PsdStrategies, CompositeFilterIsAccurateAndDeterministic)
@@ -519,6 +560,31 @@ cuadmm::SolverOptions warmup_options(bool warmup, int min_size)
     return o;
 }
 } // namespace
+
+// The default cutoffs 32 / 64 and warm-up minimum size 128 (2026-11) through the facade: the 128 block is large with
+// the warm-up (a switch is reported); with the medium cutoff of before (1000) no block is large and no warm-up runs.
+// The facade's cutoffs hold during its setup only: afterwards the C++ API of main sees 32 / 1000 again.
+TEST(TierCutoffs, DefaultCutoffsMakeTheBlocksAbove64LargeThroughTheFacade)
+{
+    const regression::RegressionProblem p = regression::generate("Tiers_32_33_64_65_128");
+    cuadmm::SolverOptions o = quiet_options();
+    EXPECT_EQ(o.psd.small_max, 32);
+    EXPECT_EQ(o.psd.medium_max, 64);
+    EXPECT_EQ(o.psd.warmup_min_size, 128);
+    o.algorithm.max_iter = 5000;
+    const cuadmm::SolveResult r = solve_generated("Tiers_32_33_64_65_128", o);
+    EXPECT_TRUE(r.converged) << r.stop_reason;
+    EXPECT_NEAR(r.pobj, p.p_star, 1e-4 * (1.0 + std::abs(p.p_star)));
+    EXPECT_GT(r.warmup_switch_iteration, 1) << "the 128 block had the composite warm-up";
+    EXPECT_EQ(MatrixSizes::get_size_category(65), MatrixSizeCategory::MEDIUM) << "the facade restored the cutoffs of the C++ API";
+    o.psd.medium_max = 1000;
+    const cuadmm::SolveResult old = solve_generated("Tiers_32_33_64_65_128", o);
+    EXPECT_TRUE(old.converged) << old.stop_reason;
+    EXPECT_EQ(old.warmup_switch_iteration, -1) << "no large block with the medium cutoff 1000";
+    EXPECT_EQ(old.lobpcg_calls, 0);
+    printf("[ RESULT   ] Tiers_32_33_64_65_128: cutoffs 32/64: %d iterations, switch at %d, LOBPCG calls %d; 32/1000: %d iterations\n",
+           r.iterations, r.warmup_switch_iteration, r.lobpcg_calls, old.iterations);
+}
 
 TEST(WarmUp, CompositeWarmupConvergesAndReportsTheSwitch)
 {

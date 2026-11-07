@@ -242,6 +242,9 @@ void Solver::setup(const ProblemData &problem)
     im.psd_config = cone::PsdConeConfig::from_options(o.psd, static_cast<unsigned long long>(o.seed));
 
     CHECK_CUDA(cudaSetDevice(o.gpu_device));
+    // the tier cutoffs of the options (psd.small_max / psd.medium_max) for the block layout of the engine's init and
+    // the tiers of the cones; the previous cutoffs are restored when setup() returns
+    const TierLimitsScope tier_limits(o.psd.small_max, o.psd.medium_max);
     im.engine.reset(new SDPSolver());
     SDPSolver &e = *im.engine;
     e.medium_batch_min_count = o.psd.medium_batch_min;
