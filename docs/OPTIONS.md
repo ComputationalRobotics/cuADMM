@@ -63,14 +63,14 @@ Generated from the option table of `src/options/options.cc` (`cuadmm --print-opt
 | `output.sigma_log` | `--sigma-log` | string | `none` | now | one CSV line per sigma change |
 | `output.tag` | `--tag` | string | `none` | now | label copied to the summary |
 | `psd.small_max` | `--psd-small-max` | int | `32` | now | largest small PSD block (batched Jacobi; at most 32) |
-| `psd.medium_max` | `--psd-medium-max` | int | `64` | now | largest medium PSD block (batched or streamed EVD); the larger blocks form the large tier |
+| `psd.medium_max` | `--psd-medium-max` | int | `1000` | now | largest medium PSD block (batched or streamed EVD); the larger blocks form the large tier |
 | `psd.medium_batch_min` | `--psd-medium-batch-min` | int | `2` | now | medium size groups with at least this many blocks use the batched EVD (0: never) |
 | `psd.medium_streams` | `--psd-medium-streams` (`--streams`) | int | `15` | now | CUDA streams of the medium eigendecompositions (>= 1) |
 | `psd.jacobi_tol` | `--psd-jacobi-tol` | double | `1e-16` | now | tolerance of the batched Jacobi EVD; fixed |
 | `psd.jacobi_max_sweeps` | `--psd-jacobi-max-sweeps` | int | `15` | now | sweeps of the batched Jacobi EVD; fixed |
 | `psd.large.memory_budget` | `--psd-large-memory-budget` | double | `0.9` | 6b | fraction of free memory for the large tier (Phase 6b) |
 | `psd.large.warmup` | `--psd-warmup` | enum (none, composite_fp16) | `composite_fp16` | now | low-precision warm-up of the large blocks of at least warmup.min_size (the FP16 composite filter until eta < switch_tol; the Phase 6a benchmark: 6-8x faster than the exact EVD from n = 2000) |
-| `psd.large.warmup.min_size` | `--psd-warmup-min-size` | int | `128` | now | smallest large block that gets the warm-up |
+| `psd.large.warmup.min_size` | `--psd-warmup-min-size` | int | `5000` | now | smallest large block that gets the warm-up |
 | `psd.large.warmup.switch_tol` | `--psd-warmup-switch-tol` (`--switch-proj-tol`) | double | `1e-2` | now | the warm-up ends at the first iteration with eta below this |
 | `psd.large.warmup.switch_iter` | `--psd-warmup-switch-iter` (`--switch-proj-iter`) | int | `5000` | now | or after this many iterations |
 | `psd.large.final_product` | `--psd-final-product` | enum (gemm_compat, syrk) | `syrk` | now | final product of the large blocks: syrk (SYRK on the smaller eigen-side) or gemm_compat (the product of main, bit for bit) |

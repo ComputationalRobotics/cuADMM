@@ -395,3 +395,15 @@ unchanged: its tier cutoffs stay 32 / 1000, its LOBPCG ratio 0.03, its policies 
 - New option `psd.trace` (`--psd-trace <file>`): one JSON line per rank analysis of a large PSD block (eigenvalue
   counts of the projection input, mode), per LOBPCG or composite rejection and per warm-up switch, and per-block
   totals at the end. Off by default; it reads host values only.
+
+## 2026-11-10 (unreleased): PSD cutoff 1000 and the warm-up from 5000 again
+
+Defaults of the facade and the CLI; the rest of the 2026-11 defaults is unchanged.
+
+- `psd.medium_max` defaults to 1000 again (64 from 2026-11-07): the PSD blocks of 33 to 1000 are medium (batched or
+  streamed EVD), the blocks above 1000 large. The cutoffs remain runtime options; by default the facade's cutoffs
+  equal those of the legacy `SDPSolver` C++ API (32 / 1000). The tiers of 2026-11-07: `--psd-medium-max 64`.
+- `psd.large.warmup.min_size` defaults to 5000 again (128 from 2026-11-07): the large blocks of at least 5000 get the
+  FP16 composite warm-up (the exit rules are unchanged). The warm-up of 2026-11-07: `--psd-warmup-min-size 128`.
+- Unchanged: the `balance_freeze` policy with factor 1.35 and the freeze after iteration 10000, `psd.lowrank.ratio`
+  0.05, the D1 LOBPCG fix and `psd.trace`.
