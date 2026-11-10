@@ -56,7 +56,7 @@ enum LargeMode
 struct LargeBlockPolicyConfig
 {
     bool warmup = false;           // psd.large.warmup == composite_fp16
-    int warmup_min_size = 128;     // psd.large.warmup.min_size
+    int warmup_min_size = 5000;    // psd.large.warmup.min_size
     double switch_tol = 1e-2;      // psd.large.warmup.switch_tol
     int switch_iter = 5000;        // psd.large.warmup.switch_iter
     bool lowrank_enabled = true;   // psd.lowrank.enabled

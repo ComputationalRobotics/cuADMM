@@ -253,8 +253,9 @@ namespace block_structure_test
     }
 }
 
-// The tier cutoffs are runtime values: 32 / 1000 for the C++ API of main, the options' 32 / 64 (2026-11) inside a
-// TierLimitsScope (the facade's setup), restored on exit; invalid cutoffs are rejected without a change
+// The tier cutoffs are runtime values: 32 / 1000 for the C++ API of main (and by default for the options), the
+// options' cutoffs (here 32 / 64) inside a TierLimitsScope (the facade's setup), restored on exit; invalid cutoffs
+// are rejected without a change
 TEST(BlockStructure, TierCutoffsAreRuntimeAndScoped)
 {
     EXPECT_EQ(MatrixSizes::get_size_category(32), MatrixSizeCategory::SMALL);

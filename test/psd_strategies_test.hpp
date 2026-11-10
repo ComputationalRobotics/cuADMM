@@ -562,29 +562,32 @@ cuadmm::SolverOptions warmup_options(bool warmup, int min_size)
 }
 } // namespace
 
-// The default cutoffs 32 / 64 and warm-up minimum size 128 (2026-11) through the facade: the 128 block is large with
-// the warm-up (a switch is reported); with the medium cutoff of before (1000) no block is large and no warm-up runs.
+// The default cutoffs 32 / 1000 and warm-up minimum size 5000 (2026-11-10, as before 2026-11-07) through the facade:
+// no block of the tier problem is large, so no warm-up and no LOBPCG run; with the options' cutoffs 32 / 64 and the
+// warm-up from 128 (the defaults of 2026-11-07) the 128 block is large with the warm-up (a switch is reported).
 // The facade's cutoffs hold during its setup only: afterwards the C++ API of main sees 32 / 1000 again.
-TEST(TierCutoffs, DefaultCutoffsMakeTheBlocksAbove64LargeThroughTheFacade)
+TEST(TierCutoffs, DefaultCutoffsKeepTheBlocksUpTo1000MediumThroughTheFacade)
 {
     const regression::RegressionProblem p = regression::generate("Tiers_32_33_64_65_128");
     cuadmm::SolverOptions o = quiet_options();
     EXPECT_EQ(o.psd.small_max, 32);
-    EXPECT_EQ(o.psd.medium_max, 64);
-    EXPECT_EQ(o.psd.warmup_min_size, 128);
+    EXPECT_EQ(o.psd.medium_max, 1000);
+    EXPECT_EQ(o.psd.warmup_min_size, 5000);
     o.algorithm.max_iter = 5000;
+    const cuadmm::SolveResult d = solve_generated("Tiers_32_33_64_65_128", o);
+    EXPECT_TRUE(d.converged) << d.stop_reason;
+    EXPECT_NEAR(d.pobj, p.p_star, 1e-4 * (1.0 + std::abs(p.p_star)));
+    EXPECT_EQ(d.warmup_switch_iteration, -1) << "no large block with the default medium cutoff 1000";
+    EXPECT_EQ(d.lobpcg_calls, 0);
+    o.psd.medium_max = 64;
+    o.psd.warmup_min_size = 128;
     const cuadmm::SolveResult r = solve_generated("Tiers_32_33_64_65_128", o);
     EXPECT_TRUE(r.converged) << r.stop_reason;
     EXPECT_NEAR(r.pobj, p.p_star, 1e-4 * (1.0 + std::abs(p.p_star)));
     EXPECT_GT(r.warmup_switch_iteration, 1) << "the 128 block had the composite warm-up";
     EXPECT_EQ(MatrixSizes::get_size_category(65), MatrixSizeCategory::MEDIUM) << "the facade restored the cutoffs of the C++ API";
-    o.psd.medium_max = 1000;
-    const cuadmm::SolveResult old = solve_generated("Tiers_32_33_64_65_128", o);
-    EXPECT_TRUE(old.converged) << old.stop_reason;
-    EXPECT_EQ(old.warmup_switch_iteration, -1) << "no large block with the medium cutoff 1000";
-    EXPECT_EQ(old.lobpcg_calls, 0);
-    printf("[ RESULT   ] Tiers_32_33_64_65_128: cutoffs 32/64: %d iterations, switch at %d, LOBPCG calls %d; 32/1000: %d iterations\n",
-           r.iterations, r.warmup_switch_iteration, r.lobpcg_calls, old.iterations);
+    printf("[ RESULT   ] Tiers_32_33_64_65_128: cutoffs 32/1000 (default): %d iterations; 32/64 with the warm-up from 128: %d iterations, switch at %d, LOBPCG calls %d\n",
+           d.iterations, r.iterations, r.warmup_switch_iteration, r.lobpcg_calls);
 }
 
 namespace
@@ -606,7 +609,8 @@ std::string trace_text(const std::string &line, const std::string &key)
 }
 } // namespace
 
-// psd.trace (2026-11) on the tier problem: the settings, every PSD block with its tier, one line per rank analysis of
+// psd.trace (2026-11) on the tier problem with the cutoffs 32 / 64 and the warm-up from 128 (options; the defaults
+// 1000 / 5000 make no block large): the settings, every PSD block with its tier, one line per rank analysis of
 // a large block (scheduled every 100 iterations from its start, or after a rejected LOBPCG result), the warm-up switch,
 // and per-block totals (written when the solver is destroyed) that agree with the counters of the solve and account
 // for one projection per block and iteration
@@ -614,6 +618,8 @@ TEST(PsdTrace, RecordsTiersRankAnalysesAndTotals)
 {
     cuadmm::SolverOptions o = quiet_options();
     o.algorithm.max_iter = 5000;
+    o.psd.medium_max = 64;       // blocks 65 and 128 are large
+    o.psd.warmup_min_size = 128; // the 128 block has the warm-up
     const std::string path = psd_strategies::data_dir() + "/psd_trace_tiers.jsonl";
     o.psd.trace = path;
     const cuadmm::SolveResult r = solve_generated("Tiers_32_33_64_65_128", o); // the solver is destroyed on return
