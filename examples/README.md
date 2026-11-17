@@ -1,29 +1,29 @@
 # Examples
 
-Command lines on the new options (every option is in `docs/OPTIONS.md`; `cuadmm_exe --print-options` prints the
-table of the build). `<problem>` is a TXT directory (the format of 1.x and of the data below), a native `.h5` file, an SDPA `.dat-s[.gz]` file, or a
+Command lines on the options (every option is in `docs/OPTIONS.md`; `cuadmm_exe --print-options` prints the table of
+the build). `<problem>` is a TXT directory (the format of 1.x and of the data below), a native `.h5` file, an SDPA `.dat-s[.gz]` file, or a
 SeDuMi / SDPT3 / MOSEK `.mat` file; `--formats` lists the readers compiled in. The scripts of this directory run the
 same lines on the generator's problems (`cuadmm_gen_problems <dir>` writes them).
 
-## The defaults of 2.0
+## The defaults
 
-    cuadmm_exe <problem> --tol 1e-6 --summary summary.json --history history.csv --save-solution solution/
+    cuadmm_exe <problem> --tol 1e-6 --summary summary.json --history history.csv --save-dir solution/
 
-Plain ADMM with the residual-balancing penalty rule (`penalty.policy = residual_balancing`, sigma0 100), the FP16
+Plain ADMM with the penalty rule `balance_freeze` (sigma0 100, factor 1.35 in [1e-3, 1e3], frozen at iteration 10000), the FP16
 composite warm-up of the PSD blocks of at least 5000 (`psd.large.warmup = composite_fp16`,
 `psd.large.warmup.min_size = 5000`), LOBPCG for the large blocks of low rank (`psd.lowrank.enabled`), the SYRK /
 scaled products of the projections, CHOLMOD on the host for the normal equations (the dense factor on the GPU when
 it is dense: `linsys.backend = auto`), the arena-sized PSD workspaces (the plan printed at `--verbosity 1`).
 
-## The arithmetic of main, bit for bit
+## The penalty parameter
 
-    cuadmm_exe <problem> --psd-warmup none --psd-final-product gemm_compat --psd-batched-final-product gemm_compat \
-        --policy residual_balancing --sigma0 100
+    cuadmm_exe <problem> --sigma0 1                         # another starting sigma (scaled units)
+    cuadmm_exe <problem> --freeze-iteration 100000          # sigma keeps adapting until iteration 100000
+    cuadmm_exe <problem> --factor 1.2 --sigma-min 1e-2      # smaller steps, a higher lower bound
+    cuadmm_exe <problem> --policy fixed --sigma0 10         # sigma = 10 throughout
 
-The reference builds of 1.x reproduce these runs bit for bit on the 53 baseline cases (the GPU evidence:
-`c4eb89b:cuADMM-reorg/docs/PROGRESS.md`, at that commit only).
-`--policy legacy_adaptive --sigma0 1` is the rule of the published PLATO runs (9bb4ba5, with Monitor1);
-`--policy fixed --sigma0 <x>` keeps sigma.
+The summary reports the policy and its parameters (`sigma_policy_parameters`), the final sigma and the freeze;
+`--sigma-log <file>` writes every change of sigma.
 
 ## The warm-up on smaller blocks
 
@@ -39,25 +39,17 @@ the filter 6x faster than the exact EVD at n = 2000; the warm-up ends at the fir
 
     cuadmm_exe <problem> --backend cudss          # cuDSS on the device (when the build has it: CUADMM_WITH_CUDSS)
     cuadmm_exe <problem> --backend dense          # cuSOLVER Cholesky on the device (8 m^2 bytes)
-    cuadmm_exe <problem> --backend cholmod        # CHOLMOD on the host, the dense factor on the GPU by today's rule
+    cuadmm_exe <problem> --backend cholmod        # CHOLMOD on the host, the dense factor on the GPU when it is dense
 
 `cuadmm_linsys_bench` measures the factorization time and the time per solve of every backend on problem
 directories; `linsys.presolve` removes dependent constraint rows before the factorization:
 
     cuadmm_exe <problem> --presolve 1 --verbosity 1
 
-## The hybrid scheme and the external validation
+## The external validation
 
-    cuadmm_exe <problem> --scheme sgs_admm --tau 1.95                 # sGS-ADMM throughout
-    cuadmm_exe <problem> --sgs-iterations 5000 --sgs-tau 1.95         # 5000 sGS-ADMM iterations, then plain ADMM
     cuadmm_exe <problem> --validation-interval 100 --tol 1e-6          # stop on the residuals recomputed on the CPU
-
-## The penalty rule of Phase 4 (not the default: DECISIONS 37)
-
-    cuadmm_exe <problem> --policy balance_freeze --factor 1.2 --step-schedule halve_on_reversal --freeze-bias 4
-
-The CPU screen of Phase 4b chose this setting; the H200 gates kept `residual_balancing` as the default
-(DECISIONS 37).
+    cuadmm_exe <problem> --validation-interval 1000 --strict-dimacs-tol 1e-6 --final-save-dir final/
 
 ## The C++ API
 
@@ -75,8 +67,7 @@ cuadmm::SolveResult result = solver.solve();           // result.best.X / y / S,
     [X, y, S, info] = cuadmm.solve(At, b, C, K, opts)   % the +cuadmm package of matlab/; opts: the option paths
 
 The gateway is built with `-DCUADMM_BUILD_MATLAB=ON` (`matlab/`); it has not been built against MATLAB on the
-development machines yet. See `docs/MIGRATION.md` for the signature of the 1.x MEX function and the options that
-changed.
+development machines yet. See `docs/MIGRATION.md` for the MEX function of 1.x and the options that changed.
 
 ## Problem data
 

@@ -8,6 +8,11 @@ implementation, deviations from its letter, and open questions, each with its re
 > `docs/phase*.md` with their data, `tools/sigma_screen/`, `tools/slurm/build_and_compare.sh` and the other campaign
 > scripts) were removed from the tree by the 2.0 cleanup; they exist at commit `c4eb89b`, for example
 > `git show c4eb89b:cuADMM-reorg/docs/PROGRESS.md`.
+>
+> cuADMM 2.1 (2026-11-17) removed the reference penalty policies `legacy_adaptive` and `residual_balancing`, sGS-ADMM
+> and the hybrid mode, the `gemm_compat` products, the knobs of `balance_freeze` other than sigma_0, the bounds, the
+> factor and the freeze iteration, and the comparison tooling (`tools/compare_runs.py`, `tools/baselines/`,
+> `tools/reference/`): the entries below that refer to them describe 2.0 (docs/CHANGES.md, "2.1.0").
 
 ## 2026-10-21
 

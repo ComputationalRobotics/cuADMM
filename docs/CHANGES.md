@@ -2,8 +2,9 @@
 
 Plan principle 4 and the developer prompt: no silent behavior change. Every change of results, option meaning or
 default is listed here with the phase that introduced it and the new name or value that selects it. Structural
-changes that reproduce the reference iterates bit for bit are not listed (they are verified by
-`tools/compare_runs.py`; the evidence: `c4eb89b:cuADMM-reorg/docs/PROGRESS.md`, at that commit only).
+changes that reproduce the reference iterates bit for bit are not listed (they were verified by
+`tools/compare_runs.py`, removed in 2.1.0 and kept at 8fd203c; the evidence: `c4eb89b:cuADMM-reorg/docs/PROGRESS.md`,
+at that commit only).
 
 > Written during the reorganization, when the project lived in `cuADMM-reorg/` beside the 1.x tree:
 > `cuADMM-reorg/<path>` is today's `<path>`. The working records named below (`docs/PROGRESS.md`, the phase reports
@@ -368,7 +369,7 @@ and the existing tests are unchanged.
 - No solver change; the defaults of 2.0 (Decision 37, `residual_balancing`) are unchanged. Project version 2.0.1.
 
 
-## 2026-11 (unreleased): sigma factor 1.35 frozen after iteration 10000; PSD cutoffs 32 / 64, warm-up from 128, LOBPCG ratio 0.05
+## 2026-11 (released in 2.1.0): sigma factor 1.35 frozen after iteration 10000; PSD cutoffs 32 / 64, warm-up from 128, LOBPCG ratio 0.05
 
 Defaults of the facade and the CLI; the legacy `SDPSolver` C++ API (the golden histories of the references) is
 unchanged: its tier cutoffs stay 32 / 1000, its LOBPCG ratio 0.03, its policies as before.
@@ -396,7 +397,7 @@ unchanged: its tier cutoffs stay 32 / 1000, its LOBPCG ratio 0.03, its policies 
   counts of the projection input, mode), per LOBPCG or composite rejection and per warm-up switch, and per-block
   totals at the end. Off by default; it reads host values only.
 
-## 2026-11-10 (unreleased): PSD cutoff 1000 and the warm-up from 5000 again
+## 2026-11-10 (released in 2.1.0): PSD cutoff 1000 and the warm-up from 5000 again
 
 Defaults of the facade and the CLI; the rest of the 2026-11 defaults is unchanged.
 
@@ -407,3 +408,43 @@ Defaults of the facade and the CLI; the rest of the 2026-11 defaults is unchange
   FP16 composite warm-up (the exit rules are unchanged). The warm-up of 2026-11-07: `--psd-warmup-min-size 128`.
 - Unchanged: the `balance_freeze` policy with factor 1.35 and the freeze after iteration 10000, `psd.lowrank.ratio`
   0.05, the D1 LOBPCG fix and `psd.trace`.
+
+## 2.1.0 (2026-11-17): the final version
+
+The defaults of 2.0.1 at main 8fd203c, with everything else of the 2.0 reorganization that only served the
+comparison with 1.x or the experiments removed. A run with the defaults gives the same iterates as 8fd203c, bit for
+bit: checked end to end on an H200 with a SPOT example and five PLATO runs (mater-1 with and without validation,
+trto3 and buck3 past the freeze, G55mc with the warm-up and LOBPCG), whose histories, sigma logs, validation
+histories and summaries are identical, and on recorded residual sequences for the penalty policy (test
+`PenaltyPolicy.BalanceFreezeReproducesTheRecordedTrajectories*`).
+
+- Penalty: `penalty.policy` is `balance_freeze` (default) or `fixed`. Removed: `legacy_adaptive` (the rule of
+  9bb4ba5 with Monitor1) and `residual_balancing` (the rule of 2d8a755), and the knobs `penalty.step_schedule`,
+  `win_ratio`, `guard`, `residual_weight`, `schedule`, `pingpong_window`, `pingpong_net`, `pingpong_min_iter`,
+  `freeze_value`, `freeze_bias` (fixed at the values of the 2.0.1 defaults). `penalty.sigma_min`, `sigma_max`,
+  `factor` and `freeze_iteration` have numeric defaults (1e-3, 1e3, 1.35, 10000) instead of `policy`.
+- Algorithm: plain ADMM only. Removed: sGS-ADMM and the hybrid mode (`algorithm.scheme`, `algorithm.sgs_tau`,
+  `algorithm.scheme_switch_iteration`, `algorithm.sgs_iterations`, `algorithm.sgs_tau_reduction`,
+  `penalty.sgs_update_threshold`, `penalty.sgs_update_stage_1`, `penalty.sgs_update_stage_2`, `penalty.sgs_factor`).
+- PSD: the SYRK and scaled-GEMM final products only (removed: `psd.large.final_product`, `psd.batched.final_product`
+  and their `gemm_compat` code paths); the low-rank analysis of a block without a warm-up starts at
+  `psd.lowrank.start_iter` in the engine's own driver too (the global start of the 1.x C++ API is gone).
+- Removed options that were fixed or not implemented: `scaling.enabled`, `determinism` (cuDSS runs in its
+  deterministic mode), `linsys.autotune`, `psd.jacobi_tol`, `psd.jacobi_max_sweeps`.
+- Command line: the flags of 1.x (`--sig`, `--sigma-policy`, `--switch-admm`, `--algorithm`, `--streams`, `--lobpcg`,
+  `--switch-proj-iter`, `--switch-proj-tol`, `--validate-*`, `--checkpoint-iters`, `--save-final-dir`,
+  `--save-solution`, `--penalty-factor`, `--sigscale`, `--sig-update-*`) are no longer accepted; `OptionSpec` has no
+  aliases and no phase column. MATLAB: `cuadmm.solve(At, b, C, K, opts)` only (the positional call of 1.x is gone).
+- Outputs: the history CSV has no `phase` column; the summary has no `scheme`, `switch_admm`,
+  `sgs_iterations_requested`, `sgs_phase_iterations`, `admm_phase_iterations`, `switch_iteration` (the `algorithm`
+  field is always "plain ADMM"); `sigma_policy_parameters` lists the parameters of the policy in use.
+  `SolveResult` has no `scheme`, `sgs_iterations`, `admm_iterations`, `switch_iteration`; `HistoryRow` has no `sgs`.
+- The engine `SDPSolver` (internal) keeps a plain-ADMM `solve(max_iter, stop_tol, switch_proj_max_iter,
+  switch_proj_tol, if_first)` for the tests, configured by a `cuadmm::PenaltyOptions` member; its LOBPCG ratio
+  defaults to 0.05 as the option.
+- Removed with the 1.x comparison: `tools/compare_runs.py`, `tools/recheck_retained.sh`, `tools/baselines/`,
+  `tools/reference/`, `tools/slurm/compare_build.sh`, `tools/io/check_formats.py` (the format acceptance runs, which
+  used `compare_runs.py` and `tools/baselines/`), the golden histories of 1.x (`test/data/legacy_golden.txt`,
+  the reference histories and replica cases of `test/data/golden/`) and the tests that replayed them, the tests of
+  sGS-ADMM, of the hybrid mode and of Monitor1. New golden data: the balance_freeze trajectories of 8fd203c on two
+  recorded residual sequences (`test/data/golden/balance_freeze_changes_*.csv`, `residuals_*.csv`).
