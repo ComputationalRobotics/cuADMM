@@ -1,0 +1,101 @@
+name: CUDA tests (simulated H100)
+
+# Optional, non-required check. The hosted runners have no GPU, so this builds
+# cuADMM with CUDA and runs a subset of the tests on a simulated NVIDIA H100
+# (https://github.com/pantheongpu/pantheonsim). A simulator cannot reproduce
+# hardware-specific behavior or timing, so it complements real-GPU testing and
+# does not replace it.
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - "src/**"
+      - "include/**"
+      - "test/**"
+      - "cmake/**"
+      - "CMakeLists.txt"
+      - ".github/workflows/gpu-sim.yml"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  cuda-sim:
+    name: CUDA 13.0, simulated H100
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+
+      - name: Set up the simulated GPU and CUDA toolkit
+        uses: pantheongpu/setup-pantheonsim@ca87fe3143b29166822b923d6050945c5179408c # v0.1.5
+        with:
+          gpu: nvidia/h100
+          cuda-toolkit: "13.0"
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends ccache ninja-build \
+                libsuitesparse-dev libopenblas-dev
+
+      - name: Restore ccache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/ccache
+          key: ccache-gpu-sim-${{ github.sha }}
+          restore-keys: |
+            ccache-gpu-sim-
+
+      # The simulator runs PTX only (90-virtual) and needs a shared CUDA
+      # runtime.
+      - name: Configure project
+        run: |
+          cmake -B build -S . -GNinja \
+                -DCMAKE_BUILD_TYPE=Release \
+                -DCMAKE_CUDA_COMPILER=/usr/local/cuda-13.0/bin/nvcc \
+                -DCUDAToolkit_ROOT=/usr/local/cuda-13.0 \
+                -DCMAKE_CUDA_COMPILER_LAUNCHER=ccache \
+                -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
+                -DCMAKE_CUDA_ARCHITECTURES=90-virtual \
+                -DCMAKE_CUDA_RUNTIME_LIBRARY=Shared \
+                -DCUADMM_BUILD_CLI=OFF \
+                -DCUADMM_BUILD_BENCH=OFF
+
+      - name: Build tests
+        run: |
+          ccache -z
+          cmake --build build -j3 --target \
+                cuadmm_tests cuadmm_cpu_tests cuadmm_linsys_tests cuadmm_presolve_tests
+          ccache -s
+
+      - name: Run the small test programs
+        working-directory: build
+        run: |
+          for t in cuadmm_cpu_tests cuadmm_linsys_tests cuadmm_presolve_tests; do
+            echo "::group::$t"
+            vgpu run ./$t
+            echo "::endgroup::"
+          done
+
+      # A subset of cuadmm_tests: the suites that finish in seconds on the
+      # simulator. Left out:
+      # - AAtFactorization.RankDeficientRangeSolves fails in CHOLMOD alone
+      #   ("not positive definite"), which does not use the GPU.
+      # - BatchedMediumEVD.MatchesStreamedEVD did not finish in 15 minutes.
+      # - RegressionSolver.Large_*, the *Cli tests (they need the cuadmm
+      #   executable, which is not built here), DenseYStep, LargeProjection,
+      #   FixedSigma, PsdStrategies, PsdMemory*, PsdTrace, TierCutoffs, WarmUp
+      #   and LinsysIntegration fail or take minutes each on the simulator.
+      - name: Run a subset of cuadmm_tests
+        working-directory: build
+        run: |
+          vgpu run ./cuadmm_tests --gtest_filter='AAtFactorization.*:BlockStructure.*:Certificate.*:ConeLayer.*:CoreRuntime.*:CuBLAS.*:DimacsValidator.*:EmptyObjective.*:FreeVariables.*:HybridSwitch.*:IORegression.*:PlainAdmm.*:ProblemLoader.*:PsdKernels.*:SigmaLog.*:SlidingDiffQueue.*:StrictStage.*:ValidationStopping.*:WarmRestart.*:RegressionSolver.*-AAtFactorization.RankDeficientRangeSolves:BatchedMediumEVD.*:RegressionSolver.Large_*'
