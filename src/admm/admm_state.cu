@@ -64,23 +64,6 @@ void AdmmState::update_smc()
     axpby_cusparse(e.cusparseH, e.C, e.SmC, -1.0, 1.0);
 }
 
-void AdmmState::second_y_step(double sigma)
-{
-    SDPSolver &e = engine_;
-    // rhsy <-- -1.0 * A * SmC + 0.0 * rhsy, hence rhsy = - A(S - C)
-    SpMV_cusparse(e.cusparseH, e.A_csr, e.SmC, e.rhsy, -1.0, 0.0, e.SpMV_AX_buffer);
-    // rhsy <-- 1/sig * Rp + rhsy, hence rhsy = 1/sigma b - A(X^k /sigma + S^{k+1} - C)
-    axpy_cublas(e.cublasH, e.Rp, e.rhsy, 1 / sigma);
-    // y <-- linsys(rhsy)
-    e.linsys->solve(e.rhsy.vals, e.y.vals, e.con_num, cuadmm::linsys::SolveRequest(), nullptr);
-    y_solves_++;
-    // Aty <-- 1.0 * At * y + 0.0 * Aty, hence Aty = A^T y^{k+1}
-    SpMV_cusparse(e.cusparseH, e.At_csr, e.y, e.Aty, 1.0, 0.0, e.SpMV_Aty_buffer);
-    // Rd1 <-- Aty; Rd1 <-- (-1.0) * C + 1.0 * Rd1, hence Rd1 = A^T y^{k+1} - C
-    CHECK_CUDA(cudaMemcpy(e.Rd1.vals, e.Aty.vals, sizeof(double) * e.vec_len, D2D));
-    axpby_cusparse(e.cusparseH, e.C, e.Rd1, -1.0, 1.0);
-}
-
 void AdmmState::multiplier_step(double sigma, double tau)
 {
     SDPSolver &e = engine_;

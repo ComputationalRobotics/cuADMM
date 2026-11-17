@@ -2,22 +2,16 @@
 
     fixed_sigma_validation_test.hpp
 
-    Tests of the explicit sigma policy (SigmaPolicy::FIXED / LEGACY_ADAPTIVE) and of the validation-aware stopping of
-    solve() (ValidationConfig, ExternalValidator):
-      - fixed sigma is exactly constant for the whole solve, in pure sGS and in plain ADMM;
-      - the legacy adaptive policy (and plain ADMM) reproduces the histories of the pre-change solver 290660f
-        (test/data/legacy_golden.txt, generated on an H200 by gen_legacy_golden.cu of the fixed-sigma campaign:
-        dd4babe:experiments/2026-09-28_fixed_sigma_to_tolerance/scripts/gen_legacy_golden.cu, a commit of the local
-        branch feat/hybrid-sgs-to-admm that is not on the GitHub remote; regenerate it on another GPU
-        architecture, whose rounding may differ);
-      - pure sGS never takes a plain ADMM step;
+    Tests of the fixed sigma policy and of the validation-aware stopping of the solve (ValidationConfig,
+    ExternalValidator), on the engine's driver SDPSolver::solve() and on the command line:
+      - fixed sigma is exactly constant for the whole solve;
       - validation continues beyond iteration 10000, the solve stops on the validated accuracy, not on the internal
         KKT residual, and not when the cone criterion fails;
       - non-finite values fail closed;
       - the returned iterate is the validated one or, without validation success, the best externally evaluated one
         (also after non-finite residuals);
-      - checkpoints, the starting point, the solve time and the command-line interface (previous defaults kept, new
-        flags checked, JSON parseable).
+      - checkpoints, the starting point, the solve time and the command-line interface (the default policy, the
+        validation flags, the removed options rejected, JSON parseable).
 
 */
 
@@ -26,7 +20,6 @@
 #include <cuda_runtime.h>
 #include <sys/stat.h>
 
-#include <climits>
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
@@ -44,12 +37,6 @@
 #ifndef CUADMM_TEST_DATA_DIR
 #define CUADMM_TEST_DATA_DIR "test/data"
 #endif
-
-// sGS-ADMM is a runtime option (B5: the compile-time switch CUADMM_PLAIN_ADMM_ONLY of main is gone); the validation
-// tests run on pure sGS and on plain ADMM
-#define CUADMM_SGS_OR_PLAIN INT_MAX
-#define CUADMM_ALGORITHM_FLAG "sgs"
-static const std::vector<int> CUADMM_SGS_AND_PLAIN = {INT_MAX, 0};
 
 namespace fixed_sigma_test
 {
@@ -94,141 +81,6 @@ inline void returned_iterate(const SDPSolver &s, std::vector<double> &X, std::ve
     cudaMemcpy(S.data(), s.S.vals, sizeof(double) * S.size(), cudaMemcpyDeviceToHost);
 }
 
-struct GoldenCase
-{
-    std::string name, problem;
-    int switch_admm = 0, max_iter = 0, iterations = 0;
-    double stop_tol = 0, sig0 = 0, sigscale = 0;
-    std::vector<std::pair<int, double>> sigma;                 // (iteration, sigma) where sigma changes
-    std::vector<std::vector<double>> samples;                   // iter, pobj, dobj, errRp, errRd, relgap
-    std::vector<double> final_state; // converged, returned_best_iterate, errRp, errRd, relgap, pobj, dobj, sums of X, y, S
-};
-
-// The golden file was generated on an H200: there the comparison is exact (bitwise); another GPU model may round
-// differently, and the histories are then compared to 1e-9 (relative).
-inline bool same_gpu_as_golden()
-{
-    cudaDeviceProp prop;
-    return cudaGetDeviceProperties(&prop, 0) == cudaSuccess && std::string(prop.name).find("H200") != std::string::npos;
-}
-
-// sum and sum of squares of a device vector (as in gen_legacy_golden.cu)
-inline void device_sums(const DeviceDenseVector<double> &v, double &sum, double &sq)
-{
-    std::vector<double> h(v.size);
-    cudaMemcpy(h.data(), v.vals, sizeof(double) * v.size, cudaMemcpyDeviceToHost);
-    long double s = 0, q = 0;
-    for (double x : h)
-    {
-        s += x;
-        q += (long double)x * x;
-    }
-    sum = (double)s;
-    sq = (double)q;
-}
-
-inline std::vector<GoldenCase> read_golden(const std::string &file)
-{
-    std::ifstream in(file);
-    std::vector<GoldenCase> cases;
-    std::string tok;
-    while (in >> tok)
-    {
-        if (tok[0] == '#')
-        {
-            std::getline(in, tok);
-            continue;
-        }
-        if (tok != "case")
-            continue;
-        GoldenCase c;
-        in >> c.name >> c.problem >> c.switch_admm >> c.max_iter >> c.stop_tol >> c.sig0 >> c.sigscale;
-        size_t n;
-        in >> tok >> c.iterations >> tok >> n;
-        for (size_t k = 0; k < n; k++)
-        {
-            int it;
-            double s;
-            in >> it >> s;
-            c.sigma.push_back({it, s});
-        }
-        in >> tok >> n;
-        for (size_t k = 0; k < n; k++)
-        {
-            std::vector<double> row(6);
-            for (double &v : row)
-                in >> v;
-            c.samples.push_back(row);
-        }
-        in >> tok; // final or end
-        if (tok == "final")
-        {
-            c.final_state.resize(13);
-            for (double &v : c.final_state)
-                in >> v;
-            in >> tok; // end
-        }
-        cases.push_back(c);
-    }
-    return cases;
-}
-
-// Solves a golden case with the current code and compares with the pre-change solver: the sigma history exactly,
-// the sampled objectives and residuals and the returned iterate (after the internal stop or the legacy best-iterate
-// return) exactly on the golden GPU model, else to 1e-9 (relative).
-inline void check_golden(const GoldenCase &c)
-{
-    const bool exact = same_gpu_as_golden();
-    const double tol = exact ? 0.0 : 1e-9;
-    SCOPED_TRACE(c.name);
-    const regression::RegressionProblem p = regression::generate(c.problem);
-    SDPSolver s;
-    ASSERT_NO_THROW(solver_setup::init_solver(p, s, true, c.sig0));
-    s.sigma_policy = SigmaPolicy::LEGACY_ADAPTIVE; // the golden histories are those of 9bb4ba5 / 290660f
-    ASSERT_NO_THROW(s.solve(c.max_iter, c.stop_tol, 500, 50, 100, c.switch_admm, 0, 1e-2, c.sigscale));
-    ASSERT_EQ(s.info_iter_num, c.iterations);
-    const std::vector<double> sig = last_solve(s.info_sig_arr, s.info_iter_num);
-    std::vector<std::pair<int, double>> changes;
-    for (int k = 0; k < s.info_iter_num; k++)
-        if (k == 0 || sig[k] != sig[k - 1])
-            changes.push_back({k + 1, sig[k]});
-    ASSERT_EQ(changes.size(), c.sigma.size());
-    for (size_t k = 0; k < changes.size(); k++)
-    {
-        EXPECT_EQ(changes[k].first, c.sigma[k].first) << "sigma change " << k;
-        EXPECT_EQ(changes[k].second, c.sigma[k].second) << "sigma change " << k;
-    }
-    const std::vector<double> pobj = last_solve(s.info_pobj_arr, s.info_iter_num), dobj = last_solve(s.info_dobj_arr, s.info_iter_num),
-                              rp = last_solve(s.info_errRp_arr, s.info_iter_num), rd = last_solve(s.info_errRd_arr, s.info_iter_num),
-                              gap = last_solve(s.info_relgap_arr, s.info_iter_num);
-    double worst = 0.0;
-    for (const std::vector<double> &row : c.samples)
-    {
-        const int k = (int)row[0] - 1;
-        const double now[5] = {pobj[k], dobj[k], rp[k], rd[k], gap[k]};
-        for (int j = 0; j < 5; j++)
-            worst = std::max(worst, std::abs(now[j] - row[j + 1]) / std::max(std::abs(row[j + 1]), 1e-300));
-    }
-    double worst_final = 0.0;
-    if (!c.final_state.empty())
-    {
-        EXPECT_EQ(s.converged ? 1.0 : 0.0, c.final_state[0]);
-        EXPECT_EQ(s.returned_best_iterate ? 1.0 : 0.0, c.final_state[1]);
-        double now[11] = {s.errRp, s.errRd, s.relgap, s.pobj, s.dobj};
-        device_sums(s.X, now[5], now[6]);
-        device_sums(s.y, now[7], now[8]);
-        device_sums(s.S, now[9], now[10]);
-        for (int j = 0; j < 11; j++)
-            worst_final = std::max(worst_final, std::abs(now[j] - c.final_state[j + 2]) / std::max(std::abs(c.final_state[j + 2]), 1e-300));
-    }
-    printf("[ GOLDEN   ] %s: %d iterations, %zu sigma values identical, max relative difference: samples %.2e, returned "
-           "iterate %.2e (%s; converged %d, best-iterate return %d)\n",
-           c.name.c_str(), s.info_iter_num, changes.size(), worst, worst_final, exact ? "exact comparison on the golden GPU" : "tolerance 1e-9",
-           s.converged ? 1 : 0, s.returned_best_iterate ? 1 : 0);
-    EXPECT_LE(worst, tol);
-    EXPECT_LE(worst_final, tol);
-}
-
 // copies a device vector to the host, applies f, copies it back (fault injection from a validation callback)
 template <typename F>
 inline void modify_device(DeviceDenseVector<double> &v, F f)
@@ -243,60 +95,21 @@ inline void modify_device(DeviceDenseVector<double> &v, F f)
 
 using namespace fixed_sigma_test;
 
-// 1. Fixed sigma stays exactly sigma_0 for the whole solve, in pure sGS and in plain ADMM (whose adaptive schedule
-//    and Monitor1 correction would otherwise change it; 6000 iterations reach the Monitor1 region).
+// 1. Fixed sigma stays exactly sigma_0 for the whole solve (6000 iterations, where balance_freeze would change it).
 TEST(FixedSigma, ConstantForTheWholeSolve)
 {
     const regression::RegressionProblem p = regression::generate("PSD_Free");
-    for (int switch_admm : CUADMM_SGS_AND_PLAIN)
-    {
-        SCOPED_TRACE(switch_admm == 0 ? "plain ADMM" : "pure sGS");
-        SDPSolver s;
-        ASSERT_NO_THROW(solver_setup::init_solver(p, s, true, 3.0));
-        s.sigma_policy = SigmaPolicy::FIXED;
-        ASSERT_NO_THROW(s.solve(6000, 0.0, 500, 50, 100, switch_admm, 0, 1e-2, 2.0));
-        ASSERT_EQ(s.info_iter_num, 6000);
-        for (double v : last_solve(s.info_sig_arr, s.info_iter_num))
-            ASSERT_EQ(v, 3.0);
-        EXPECT_EQ(s.sigma0, 3.0);
-        EXPECT_EQ(s.sig, 3.0);
-        EXPECT_EQ(s.sigma_changes, 0);
-    }
-}
-
-// 2 and 9. The legacy adaptive policy reproduces the sigma histories of the pre-change solver, and plain ADMM (and
-//    pure sGS and the hybrid) give the same objectives and residuals.
-TEST(FixedSigma, LegacyAdaptiveAndPlainAdmmUnchanged)
-{
-    const std::vector<GoldenCase> cases = read_golden(std::string(CUADMM_TEST_DATA_DIR) + "/legacy_golden.txt");
-    ASSERT_EQ(cases.size(), 6u);
-    for (const GoldenCase &c : cases)
-        check_golden(c);
-}
-
-// 3. Pure sGS (switch_admm = INT_MAX, as --algorithm sgs) never takes a plain ADMM step: the counter stays 0 and the
-//    primal residual contracts by |1 - tau| = 0.95 at every iteration (tau = 1.95 of the sGS branch).
-TEST(FixedSigma, PureSgsNeverSwitchesToAdmm)
-{
-    const regression::RegressionProblem p = regression::generate("PSD_Free");
     SDPSolver s;
-    ASSERT_NO_THROW(solver_setup::init_solver(p, s, true, 1.0));
-    s.sigma_policy = SigmaPolicy::FIXED;
-    ASSERT_NO_THROW(s.solve(5000, 0.0, 500, 50, 100, INT_MAX, 0, 1e-2, 2.0));
-    EXPECT_EQ(s.admm_phase_iterations, 0);
-    EXPECT_EQ(admm_mode_name(INT_MAX, 5000), "pure sGS-ADMM (Algorithm 1)");
-    const std::vector<double> rp = last_solve(s.info_errRp_arr, s.info_iter_num);
-    int checked = 0;
-    // exact while the residual is far above the floor of the eps*y term of the y-solve (b - A X^{k+1} =
-    // (1 - tau)(b - A X^k) + tau sigma eps y^{k+1}); below about 1e-9 that term shows up in the ratio
-    for (size_t k = 1; k < rp.size() && rp[k - 1] > 1e-9; k++, checked++)
-        ASSERT_NEAR(rp[k] / rp[k - 1], 0.95, 1e-6) << "iteration " << k + 1;
-    EXPECT_GT(checked, 100);
-    // and plain ADMM counts its steps
-    SDPSolver a;
-    ASSERT_NO_THROW(solver_setup::init_solver(p, a, true, 1.0));
-    ASSERT_NO_THROW(a.solve(300, 0.0, 500, 50, 100, 0, 0, 1e-2, 2.0));
-    EXPECT_EQ(a.admm_phase_iterations, 300);
+    ASSERT_NO_THROW(solver_setup::init_solver(p, s, true, 3.0));
+    s.penalty.policy = cuadmm::PenaltyPolicyKind::Fixed;
+    ASSERT_NO_THROW(s.solve(6000, 0.0, 0, 1e-2));
+    ASSERT_EQ(s.info_iter_num, 6000);
+    EXPECT_EQ(s.iterations, 6000);
+    for (double v : last_solve(s.info_sig_arr, s.info_iter_num))
+        ASSERT_EQ(v, 3.0);
+    EXPECT_EQ(s.sigma0, 3.0);
+    EXPECT_EQ(s.sig, 3.0);
+    EXPECT_EQ(s.sigma_changes, 0);
 }
 
 // 4. The validation keeps running beyond iteration 10000 (no hidden 10000-iteration stop) and records the requested
@@ -306,11 +119,11 @@ TEST(ValidationStopping, ChecksBeyondIteration10000)
     const regression::RegressionProblem p = regression::generate("PSD_Free");
     SDPSolver s;
     ASSERT_NO_THROW(solver_setup::init_solver(p, s, true, 1.0));
-    s.sigma_policy = SigmaPolicy::FIXED;
+    s.penalty.policy = cuadmm::PenaltyPolicyKind::Fixed;
     s.validation.interval = 100;
     s.validation.tol = ValidationTolerances::all(1e-30); // unattainable
     s.validation.checkpoint_iterations = {10000};
-    ASSERT_NO_THROW(s.solve(10500, 1e-4, 500, 50, 100, CUADMM_SGS_OR_PLAIN, 0, 1e-2, 2.0));
+    ASSERT_NO_THROW(s.solve(10500, 1e-4, 0, 1e-2));
     EXPECT_EQ(s.stop_reason, "max_iter");
     EXPECT_FALSE(s.externally_validated_converged);
     EXPECT_EQ(s.info_iter_num, 10500);
@@ -332,16 +145,16 @@ TEST(ValidationStopping, ChecksBeyondIteration10000)
 TEST(ValidationStopping, StopsOnValidatedAccuracyAndReturnsIt)
 {
     const regression::RegressionProblem p = regression::generate("PSD_Free");
-    for (int switch_admm : CUADMM_SGS_AND_PLAIN)
+    for (const cuadmm::PenaltyPolicyKind policy : {cuadmm::PenaltyPolicyKind::BalanceFreeze, cuadmm::PenaltyPolicyKind::Fixed})
     {
-        SCOPED_TRACE(switch_admm == 0 ? "plain ADMM" : "pure sGS");
+        SCOPED_TRACE(cuadmm::name_of(policy));
         SDPSolver s;
         ASSERT_NO_THROW(solver_setup::init_solver(p, s, true, 1.0));
-        s.sigma_policy = switch_admm == 0 ? SigmaPolicy::LEGACY_ADAPTIVE : SigmaPolicy::FIXED;
+        s.penalty.policy = policy;
         s.validation.interval = 100;
         s.validation.tol = ValidationTolerances::all(1e-4);
         s.validation.checkpoint_iterations = {10000};
-        ASSERT_NO_THROW(s.solve(1000000, 1e-4, 500, 50, 100, switch_admm, 0, 1e-2, 2.0));
+        ASSERT_NO_THROW(s.solve(1000000, 1e-4, 0, 1e-2));
         ASSERT_EQ(s.stop_reason, "externally_validated");
         ASSERT_TRUE(s.externally_validated_converged);
         EXPECT_LT(s.info_iter_num, 1000000);
@@ -362,7 +175,7 @@ TEST(ValidationStopping, StopsOnValidatedAccuracyAndReturnsIt)
         EXPECT_GE(s.solve_time, last.time_s + last.validation_s);
         EXPECT_GE(s.solve_time, s.validation_time_s);
         printf("[ VALID    ] %s: validated at iteration %d (internal KKT first below 1e-4 at %d), %zu validations, %.3f s\n",
-               switch_admm == 0 ? "ADMM" : "sGS", s.first_validated_iteration, s.first_internal_below_tol,
+               cuadmm::name_of(policy), s.first_validated_iteration, s.first_internal_below_tol,
                s.validation_history.size(), s.validation_time_s);
     }
 }
@@ -374,7 +187,7 @@ TEST(ValidationStopping, NoStopWhenConeFailsAndBestIterateReturned)
     const regression::RegressionProblem p = regression::generate("PSD_Free");
     SDPSolver s;
     ASSERT_NO_THROW(solver_setup::init_solver(p, s, true, 1.0));
-    s.sigma_policy = SigmaPolicy::FIXED;
+    s.penalty.policy = cuadmm::PenaltyPolicyKind::Fixed;
     s.validation.interval = 100;
     s.validation.tol = ValidationTolerances::all(1e-4);
     s.validation.tol.cone = -1.0; // the X cone violation is >= 0: this criterion always fails
@@ -387,7 +200,7 @@ TEST(ValidationStopping, NoStopWhenConeFailsAndBestIterateReturned)
             modify_device(s.X, [](std::vector<double> &h)
                           { for (double &x : h) x *= 1e3; });
     };
-    ASSERT_NO_THROW(s.solve(3000, 1e-4, 500, 50, 100, CUADMM_SGS_OR_PLAIN, 0, 1e-2, 2.0));
+    ASSERT_NO_THROW(s.solve(3000, 1e-4, 0, 1e-2));
     ASSERT_GT(s.first_internal_below_tol, 0) << "the internal KKT residual must pass for this test";
     EXPECT_LT(s.first_internal_below_tol, 3000);
     EXPECT_EQ(s.stop_reason, "max_iter");
@@ -427,15 +240,14 @@ TEST(ValidationStopping, NoStopWhenConeFailsAndBestIterateReturned)
     EXPECT_EQ(std::max(std::max(s.errRp, s.errRd), s.relgap), s.best_validation.internal_kkt);
 }
 
-// 7b and 8c. Non-finite residuals during a validating solve (NaN injected into X after the snapshot at 1000; the
-//    sGS y-step recomputes y from scratch, so X is where a NaN persists): the
+// 7b and 8c. Non-finite residuals during a validating solve (NaN injected into X after the snapshot at 1000): the
 //    solve stops with stop_reason "non_finite" and returns the best externally evaluated iterate, which is finite.
 TEST(ValidationStopping, NonFiniteIterateStopsWithTheBestIterate)
 {
     const regression::RegressionProblem p = regression::generate("PSD_Free");
     SDPSolver s;
     ASSERT_NO_THROW(solver_setup::init_solver(p, s, true, 1.0));
-    s.sigma_policy = SigmaPolicy::FIXED;
+    s.penalty.policy = cuadmm::PenaltyPolicyKind::Fixed;
     s.validation.interval = 100;
     s.validation.tol = ValidationTolerances::all(1e-30); // never validated
     s.validation.on_validation = [&s](const ValidationRecord &rec, const std::vector<double> &, const std::vector<double> &,
@@ -445,7 +257,7 @@ TEST(ValidationStopping, NonFiniteIterateStopsWithTheBestIterate)
             modify_device(s.X, [](std::vector<double> &h)
                           { h[0] = std::numeric_limits<double>::quiet_NaN(); });
     };
-    ASSERT_NO_THROW(s.solve(3000, 1e-4, 500, 50, 100, CUADMM_SGS_OR_PLAIN, 0, 1e-2, 2.0));
+    ASSERT_NO_THROW(s.solve(3000, 1e-4, 0, 1e-2));
     EXPECT_EQ(s.stop_reason, "non_finite");
     EXPECT_FALSE(s.externally_validated_converged);
     EXPECT_FALSE(s.converged);
@@ -467,10 +279,10 @@ TEST(ValidationStopping, StopsOnExternalAccuracyNotOnTheInternalResidual)
     const regression::RegressionProblem p = regression::generate("PSD_Free");
     SDPSolver s;
     ASSERT_NO_THROW(solver_setup::init_solver(p, s, true, 1.0));
-    s.sigma_policy = SigmaPolicy::FIXED;
+    s.penalty.policy = cuadmm::PenaltyPolicyKind::Fixed;
     s.validation.interval = 100;
     s.validation.tol = ValidationTolerances::all(1e-3);
-    ASSERT_NO_THROW(s.solve(100000, 1e-8, 500, 50, 100, CUADMM_SGS_OR_PLAIN, 0, 1e-2, 2.0));
+    ASSERT_NO_THROW(s.solve(100000, 1e-8, 0, 1e-2));
     ASSERT_EQ(s.stop_reason, "externally_validated");
     EXPECT_EQ(s.first_internal_below_tol, -1);
     EXPECT_FALSE(s.internal_converged_at_return);
@@ -485,7 +297,7 @@ TEST(ValidationStopping, CheckpointFlaggedWhateverTheTrigger)
     const regression::RegressionProblem p = regression::generate("PSD_Free");
     SDPSolver s;
     ASSERT_NO_THROW(solver_setup::init_solver(p, s, true, 1.0));
-    s.sigma_policy = SigmaPolicy::FIXED;
+    s.penalty.policy = cuadmm::PenaltyPolicyKind::Fixed;
     s.validation.interval = 100;
     s.validation.tol = ValidationTolerances::all(1e-30);
     s.validation.checkpoint_iterations = {150, 400};
@@ -496,20 +308,20 @@ TEST(ValidationStopping, CheckpointFlaggedWhateverTheTrigger)
         if (rec.checkpoint && !X.empty())
             seen.push_back(rec.iter);
     };
-    ASSERT_NO_THROW(s.solve(400, 1e-4, 500, 50, 100, CUADMM_SGS_OR_PLAIN, 0, 1e-2, 2.0));
+    ASSERT_NO_THROW(s.solve(400, 1e-4, 0, 1e-2));
     ASSERT_EQ(seen, (std::vector<int>{150, 400}));
     EXPECT_EQ(s.validation_history.back().trigger, "max_iter");
     EXPECT_TRUE(s.validation_history.back().checkpoint);
     // a callback that throws is reported and counted; the solve goes on
     SDPSolver t;
     ASSERT_NO_THROW(solver_setup::init_solver(p, t, true, 1.0));
-    t.sigma_policy = SigmaPolicy::FIXED;
+    t.penalty.policy = cuadmm::PenaltyPolicyKind::Fixed;
     t.validation.interval = 100;
     t.validation.tol = ValidationTolerances::all(1e-30);
     t.validation.on_validation = [](const ValidationRecord &, const std::vector<double> &, const std::vector<double> &,
                                     const std::vector<double> &)
     { throw std::runtime_error("disk full"); };
-    ASSERT_NO_THROW(t.solve(300, 1e-4, 500, 50, 100, CUADMM_SGS_OR_PLAIN, 0, 1e-2, 2.0));
+    ASSERT_NO_THROW(t.solve(300, 1e-4, 0, 1e-2));
     EXPECT_GE(t.validation_history.size(), 3u); // 100, 200, 300 and the internal crossing
     EXPECT_EQ(t.callback_failures, (int)t.validation_history.size());
     EXPECT_EQ(t.info_iter_num, 300);
@@ -523,10 +335,10 @@ TEST(ValidationStopping, StartingPointIsValidated)
     {
         SDPSolver z;
         ASSERT_NO_THROW(solver_setup::init_solver(p, z, true, 1.0));
-        z.sigma_policy = SigmaPolicy::FIXED;
+        z.penalty.policy = cuadmm::PenaltyPolicyKind::Fixed;
         z.validation.interval = 100;
         z.validation.tol = ValidationTolerances::all(1e-4);
-        ASSERT_NO_THROW(z.solve(0, 1e-4, 500, 50, 100, CUADMM_SGS_OR_PLAIN, 0, 1e-2, 2.0));
+        ASSERT_NO_THROW(z.solve(0, 1e-4, 0, 1e-2));
         ASSERT_EQ(z.validation_history.size(), 1u);
         EXPECT_EQ(z.validation_history[0].iter, 0);
         EXPECT_EQ(z.validation_history[0].trigger, "max_iter");
@@ -535,12 +347,12 @@ TEST(ValidationStopping, StartingPointIsValidated)
     // solve to the validated accuracy, then restart from that point (if_first = false)
     SDPSolver s;
     ASSERT_NO_THROW(solver_setup::init_solver(p, s, true, 1.0));
-    s.sigma_policy = SigmaPolicy::FIXED;
+    s.penalty.policy = cuadmm::PenaltyPolicyKind::Fixed;
     s.validation.interval = 100;
     s.validation.tol = ValidationTolerances::all(1e-4);
-    ASSERT_NO_THROW(s.solve(100000, 1e-4, 500, 50, 100, CUADMM_SGS_OR_PLAIN, 0, 1e-2, 2.0));
+    ASSERT_NO_THROW(s.solve(100000, 1e-4, 0, 1e-2));
     ASSERT_TRUE(s.externally_validated_converged);
-    ASSERT_NO_THROW(s.solve(100000, 1e-4, 500, 50, 100, CUADMM_SGS_OR_PLAIN, 0, 1e-2, 2.0, false));
+    ASSERT_NO_THROW(s.solve(100000, 1e-4, 0, 1e-2, false));
     EXPECT_TRUE(s.externally_validated_converged);
     EXPECT_EQ(s.info_iter_num, 0);
     ASSERT_EQ(s.validation_history.size(), 1u);
@@ -571,9 +383,11 @@ TEST(ValidationStopping, NonFiniteValuesFailClosed)
         }
 }
 
-// 10. Command-line compatibility: the old flags keep their meaning (default legacy_adaptive, internal stopping), the
-//     new flags work, and conflicting flags are rejected. Runs ./cuadmm_exe from the build directory.
-TEST(FixedSigmaCli, BackwardCompatibleAndNewFlags)
+// 10. The command line: the default policy (balance_freeze; explicit and implicit runs identical), its parameters in
+//     the summary, the fixed policy with validation-aware stopping, checkpoints, and the options of 2.0 that are gone
+//     (the sGS scheme, the reference policies, the experiment knobs, the flags of 1.x) rejected. Runs ./cuadmm_exe from
+//     the build directory.
+TEST(Cli, DefaultPolicyValidationAndRemovedOptions)
 {
     const regression::RegressionProblem p = regression::generate("PSD_Free");
     const std::string dir = "fixed_sigma_cli/PSD_Free";
@@ -593,10 +407,11 @@ TEST(FixedSigmaCli, BackwardCompatibleAndNewFlags)
         ss << in.rdbuf();
         return ss.str();
     };
-    // the default policy is balance_freeze (2026-11: factor 1.35, freeze after iteration 10000 at the current value):
-    // explicit and implicit runs are identical
-    ASSERT_EQ(run("--max-iter 400 --tol 1e-9", "legacy"), 0);
-    ASSERT_EQ(run("--max-iter 400 --tol 1e-9 --sigma-policy balance_freeze", "explicit"), 0);
+    ASSERT_EQ(run("--max-iter 400 --tol 1e-9", "default"), 0);
+    ASSERT_EQ(run("--max-iter 400 --tol 1e-9 --policy balance_freeze --sigma0 100 --factor 1.35 --sigma-min 1e-3 --sigma-max 1e3 "
+                  "--freeze-iteration 10000",
+                  "explicit"),
+              0);
     // identical histories apart from the time column
     auto strip_time = [](const std::string &csv)
     {
@@ -609,55 +424,45 @@ TEST(FixedSigmaCli, BackwardCompatibleAndNewFlags)
         }
         return out.str();
     };
-    EXPECT_EQ(strip_time(read("fixed_sigma_cli/legacy.csv")), strip_time(read("fixed_sigma_cli/explicit.csv")));
-    const std::string legacy = read("fixed_sigma_cli/legacy.json");
-    EXPECT_NE(legacy.find("\"sigma_policy\": \"balance_freeze\""), std::string::npos);
-    EXPECT_NE(legacy.find("\"sigma_policy_parameters\": {\"factor\": 1.35, \"sigma_min\": 0.001, \"sigma_max\": 1000"), std::string::npos);
-    EXPECT_NE(legacy.find("\"step_schedule\": \"constant\", \"freeze_iteration\": 10000, \"pingpong_window\": 0"), std::string::npos);
-    EXPECT_NE(legacy.find("\"freeze_value\": \"last\", \"freeze_bias\": 1"), std::string::npos);
-    // residual_balancing keeps the factor of its reference 2d8a755
-    ASSERT_EQ(run("--max-iter 400 --tol 1e-9 --sigma-policy residual_balancing", "residual_balancing"), 0);
-    EXPECT_NE(read("fixed_sigma_cli/residual_balancing.json").find("\"sigma_policy_parameters\": {\"factor\": 2, \"sigma_min\": 0.001, \"sigma_max\": 1000"),
-              std::string::npos);
-    EXPECT_NE(legacy.find("\"build_commit\": \""), std::string::npos);
-    // the historical rule is selectable under its historical name, with its own bounds and Monitor1
-    ASSERT_EQ(run("--max-iter 400 --tol 1e-9 --sigma-policy legacy_adaptive", "historical"), 0);
-    const std::string historical = read("fixed_sigma_cli/historical.json");
-    EXPECT_NE(historical.find("\"sigma_policy\": \"legacy_adaptive\""), std::string::npos);
-    EXPECT_NE(historical.find("\"sigma_min\": 1e-06, \"sigma_max\": 1000000, \"win_ratio\": 1.35, \"guard\": false"), std::string::npos);
-    // (JSON numbers are the shortest decimals that round-trip exactly: 1e-06, 1.35)
-    EXPECT_NE(historical.find("\"monitor1\": true"), std::string::npos);
-    // the October 20 factor is an option value, never the meaning of a policy name
-    ASSERT_EQ(run("--max-iter 400 --tol 1e-9 --penalty-factor 1.2", "factor12"), 0);
+    EXPECT_EQ(strip_time(read("fixed_sigma_cli/default.csv")), strip_time(read("fixed_sigma_cli/explicit.csv")));
+    const std::string history = read("fixed_sigma_cli/default.csv");
+    EXPECT_EQ(history.substr(0, history.find('\n')), "iter,time_s,pobj,dobj,eta_p,eta_d,eta_g,sigma,tau");
+    const std::string def = read("fixed_sigma_cli/default.json");
+    EXPECT_NE(def.find("\"sigma_policy\": \"balance_freeze\""), std::string::npos);
+    EXPECT_NE(def.find("\"sigma_policy_parameters\": {\"factor\": 1.35, \"sigma_min\": 0.001, \"sigma_max\": 1000, \"freeze_iteration\": 10000"),
+              std::string::npos)
+        << def;
+    EXPECT_NE(def.find("\"build_commit\": \""), std::string::npos);
+    EXPECT_NE(def.find("\"validation_interval\": 0"), std::string::npos);
+    EXPECT_NE(def.find("\"algorithm\": \"plain ADMM\""), std::string::npos);
+    ASSERT_EQ(run("--max-iter 400 --tol 1e-9 --factor 1.2", "factor12"), 0);
     EXPECT_NE(read("fixed_sigma_cli/factor12.json").find("\"sigma_policy_parameters\": {\"factor\": 1.2"), std::string::npos);
-    EXPECT_NE(run("--penalty-factor 0", "bad_factor"), 0);
+    EXPECT_NE(run("--factor 1", "bad_factor"), 0);
     EXPECT_NE(run("--sigma-min 10 --sigma-max 1", "bad_bounds"), 0);
-    EXPECT_NE(legacy.find("\"validation_interval\": 0"), std::string::npos);
-    EXPECT_NE(legacy.find("\"algorithm\": \"plain ADMM\""), std::string::npos);
+    EXPECT_NE(run("--freeze-iteration -1", "bad_freeze"), 0);
 
-    ASSERT_EQ(run("--algorithm " CUADMM_ALGORITHM_FLAG " --sigma-policy fixed --sig 1 --max-iter 1000000 --validate-interval 100 --validate-tol 1e-4 "
-                  "--validation-history fixed_sigma_cli/new_validation.csv",
-                  "new"),
+    ASSERT_EQ(run("--policy fixed --sigma0 1 --max-iter 1000000 --validation-interval 100 --validation-tol 1e-4 "
+                  "--validation-history fixed_sigma_cli/fixed_validation.csv",
+                  "fixed"),
               0);
-    EXPECT_FALSE(read("fixed_sigma_cli/new.csv").empty());
-    const std::string fresh = read("fixed_sigma_cli/new.json");
-    EXPECT_NE(fresh.find("\"sigma_policy\": \"fixed\""), std::string::npos);
-    EXPECT_NE(fresh.find("\"sigma_changes\": 0"), std::string::npos);
-    EXPECT_NE(fresh.find("\"admm_phase_iterations\": 0"), std::string::npos);
-    EXPECT_NE(fresh.find("\"stop_reason\": \"externally_validated\""), std::string::npos);
-    EXPECT_NE(fresh.find("\"externally_validated_converged\": true"), std::string::npos);
-    EXPECT_NE(read("fixed_sigma_cli/new.log").find("Algorithm: pure sGS-ADMM"), std::string::npos);
-    EXPECT_FALSE(read("fixed_sigma_cli/new_validation.csv").empty());
+    EXPECT_FALSE(read("fixed_sigma_cli/fixed.csv").empty());
+    const std::string fixed = read("fixed_sigma_cli/fixed.json");
+    EXPECT_NE(fixed.find("\"sigma_policy\": \"fixed\""), std::string::npos);
+    EXPECT_NE(fixed.find("\"sigma_changes\": 0"), std::string::npos);
+    EXPECT_NE(fixed.find("\"stop_reason\": \"externally_validated\""), std::string::npos);
+    EXPECT_NE(fixed.find("\"externally_validated_converged\": true"), std::string::npos);
+    EXPECT_NE(read("fixed_sigma_cli/fixed.log").find("Algorithm: plain ADMM"), std::string::npos);
+    EXPECT_FALSE(read("fixed_sigma_cli/fixed_validation.csv").empty());
 
     // no JSON value may be nan or inf
-    for (const std::string &json : {legacy, fresh})
+    for (const std::string &json : {def, fixed})
         for (const char *bad : {": nan", ": -nan", ": inf", ": -inf"})
             EXPECT_EQ(json.find(bad), std::string::npos) << bad;
 
     // checkpoints are saved even when one is the safety-cap iteration (unattainable tolerance: no early stop)
     std::system("rm -rf fixed_sigma_cli/ck");
-    ASSERT_EQ(run("--algorithm " CUADMM_ALGORITHM_FLAG " --sigma-policy fixed --sig 1 --max-iter 300 --validate-interval 100 --validate-tol 1e-12 "
-                  "--checkpoint-iters 150,300 --checkpoint-dir fixed_sigma_cli/ck",
+    ASSERT_EQ(run("--policy fixed --sigma0 1 --max-iter 300 --validation-interval 100 --validation-tol 1e-12 "
+                  "--checkpoint-iterations 150,300 --checkpoint-dir fixed_sigma_cli/ck",
                   "checkpoints"),
               0);
     struct stat st;
@@ -665,9 +470,14 @@ TEST(FixedSigmaCli, BackwardCompatibleAndNewFlags)
     EXPECT_EQ(stat("fixed_sigma_cli/ck/iter_300/y.txt", &st), 0);
     EXPECT_NE(read("fixed_sigma_cli/checkpoints.json").find("\"stop_reason\": \"max_iter\""), std::string::npos);
 
-    EXPECT_NE(run("--algorithm sgs --switch-admm 5", "conflict"), 0);
-    EXPECT_NE(run("--sigma-policy adaptive2", "bad_policy"), 0);
-    EXPECT_NE(run("--checkpoint-iters 100", "checkpoint_without_validation"), 0);
-    EXPECT_NE(run("--validate-tol 1e-4", "tol_without_validation"), 0);
-    EXPECT_NE(run("--validate-interval 100 --checkpoint-iters 1e4", "bad_checkpoint"), 0);
+    EXPECT_NE(run("--policy adaptive2", "bad_policy"), 0);
+    EXPECT_NE(run("--checkpoint-iterations 100", "checkpoint_without_validation"), 0);
+    EXPECT_NE(run("--validation-tol 1e-4", "tol_without_validation"), 0);
+    EXPECT_NE(run("--validation-interval 100 --checkpoint-iterations 1e4", "bad_checkpoint"), 0);
+    // the options of 2.0 that are gone, and the flags of 1.x
+    for (const char *removed : {"--policy residual_balancing", "--policy legacy_adaptive", "--scheme sgs_admm", "--sgs-iterations 10",
+                                "--pingpong-window 8", "--step-schedule constant", "--freeze-value last", "--schedule 200:10",
+                                "--psd-final-product syrk", "--determinism strict", "--autotune 0", "--sig 1", "--sigma-policy fixed",
+                                "--algorithm sgs", "--switch-admm 5", "--validate-interval 100", "--streams 4"})
+        EXPECT_NE(run(removed, "removed"), 0) << removed;
 }

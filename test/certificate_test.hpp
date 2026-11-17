@@ -9,7 +9,6 @@
 
 */
 
-#define CUADMM_PLAIN_AND_SGS_SWITCHES {0, 100000} // plain ADMM and pure sGS-ADMM (a runtime option since B5)
 #include <gtest/gtest.h>
 
 #include <algorithm>
@@ -160,7 +159,7 @@ TEST(Certificate, ConeMeasuresMatchKnownSpectra)
 }
 
 // The certified lower bound is valid (<= p* for the true bounds of the known optimal X*) and tight after
-// convergence, for plain ADMM and for sGS-ADMM, on layouts with 's', 'l' and 'u' blocks.
+// convergence, on layouts with 's', 'l' and 'u' blocks.
 TEST(Certificate, CertifiedLowerBoundIsValidAndTight)
 {
     using namespace certificate_test;
@@ -168,30 +167,27 @@ TEST(Certificate, CertifiedLowerBoundIsValidAndTight)
     {
         const regression::RegressionProblem p = regression::generate(name);
         const std::vector<double> bounds = optimal_block_bounds(p);
-        for (int switch_admm : CUADMM_PLAIN_AND_SGS_SWITCHES)
-        {
-            SCOPED_TRACE(name + (switch_admm > 0 ? ", sGS-ADMM" : ", ADMM"));
-            SDPSolver solver;
-            ASSERT_NO_THROW(init_solver(p, solver));
-            ASSERT_NO_THROW(solver.solve(20000, 1e-6, 500, 50, 100, switch_admm, 0));
-            ASSERT_TRUE(solver.converged);
-            ASSERT_EQ(solver.dual_cone_coef.size(), p.blk_types.size());
+        SCOPED_TRACE(name);
+        SDPSolver solver;
+        ASSERT_NO_THROW(init_solver(p, solver));
+        ASSERT_NO_THROW(solver.solve(20000, 1e-6, 0));
+        ASSERT_TRUE(solver.converged);
+        ASSERT_EQ(solver.dual_cone_coef.size(), p.blk_types.size());
 
-            const double scale = 1.0 + std::abs(p.p_star);
-            const double bound = solver.certified_lower_bound(bounds);
-            printf("[ CERT     ] %s switch_admm=%d: p* = %.10e, <b,y> = %.10e, certified bound = %.10e, "
-                   "(p* - bound)/(1+|p*|) = %.2e, errPSD_X = %.2e\n",
-                   name.c_str(), switch_admm, p.p_star, solver.dobj, bound, (p.p_star - bound) / scale, solver.errPSD_X);
-            EXPECT_LE(bound, p.p_star + 1e-8 * scale) << "the certified bound must not exceed the optimal value";
-            EXPECT_GE(bound, p.p_star - 1e-4 * scale) << "the certified bound should be tight after convergence";
-            // larger bounds give smaller (still valid) lower bounds
-            std::vector<double> larger = bounds;
-            for (double &r : larger)
-                r *= 10.0;
-            EXPECT_LE(solver.certified_lower_bound(larger), bound + 1e-12 * scale);
-            EXPECT_GE(solver.errPSD_X, 0.0);
-            EXPECT_GE(solver.errPSD_S, 0.0);
-        }
+        const double scale = 1.0 + std::abs(p.p_star);
+        const double bound = solver.certified_lower_bound(bounds);
+        printf("[ CERT     ] %s: p* = %.10e, <b,y> = %.10e, certified bound = %.10e, "
+               "(p* - bound)/(1+|p*|) = %.2e, errPSD_X = %.2e\n",
+               name.c_str(), p.p_star, solver.dobj, bound, (p.p_star - bound) / scale, solver.errPSD_X);
+        EXPECT_LE(bound, p.p_star + 1e-8 * scale) << "the certified bound must not exceed the optimal value";
+        EXPECT_GE(bound, p.p_star - 1e-4 * scale) << "the certified bound should be tight after convergence";
+        // larger bounds give smaller (still valid) lower bounds
+        std::vector<double> larger = bounds;
+        for (double &r : larger)
+            r *= 10.0;
+        EXPECT_LE(solver.certified_lower_bound(larger), bound + 1e-12 * scale);
+        EXPECT_GE(solver.errPSD_X, 0.0);
+        EXPECT_GE(solver.errPSD_S, 0.0);
     }
 }
 
@@ -202,7 +198,7 @@ TEST(Certificate, RejectsWrongNumberOfBounds)
     const regression::RegressionProblem p = regression::generate("PSD_Free");
     SDPSolver solver;
     ASSERT_NO_THROW(init_solver(p, solver));
-    ASSERT_NO_THROW(solver.solve(50, 1e-6, 500, 50, 100, 0, 0));
+    ASSERT_NO_THROW(solver.solve(50, 1e-6, 0));
     EXPECT_THROW(solver.certified_lower_bound(std::vector<double>(p.blk_types.size() + 1, 1.0)), std::invalid_argument);
     EXPECT_NO_THROW(solver.certified_lower_bound(1.0));
 }

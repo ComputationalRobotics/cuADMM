@@ -2,10 +2,9 @@
 
     cone/psd/psd_cone.cu
 
-    Phase 6b: the tiers on the cone's own memory (the WorkspaceArena) and the StreamPool, the large blocks through
-    one arena region, the final products by SYRK / scaled GEMM (psd.*.final_product = gemm_compat keeps the
-    products of Milestone 1 bit for bit). measure() is the PSD part of SDPSolver::cone_measures() of main on the
-    tiers' decompositions.
+    The PSD cone: the tiers on the cone's own memory (the WorkspaceArena) and the StreamPool, the large blocks through
+    one arena region, the final products by SYRK / scaled GEMM. measure() gives the cone measures of a vector from
+    the tiers' decompositions.
 
 */
 
@@ -98,7 +97,6 @@ psd::LargeBlockPolicyConfig effective_policy(const PsdConeConfig &c, const SDPSo
 psd::LargeTierConfig large_config(const PsdConeConfig &c, const psd::LargeBlockPolicy &policy)
 {
     psd::LargeTierConfig t;
-    t.gemm_compat = c.gemm_compat;
     t.lowrank = policy.config().lowrank_enabled;
     t.lowrank_ratio = c.rank.ratio;
     t.lowrank_relaxation = c.rank.relaxation;
@@ -130,7 +128,6 @@ const char *tier_name(MatrixSizeCategory c)
 psd::BatchedTierConfig batched_config(const PsdConeConfig &c)
 {
     psd::BatchedTierConfig b;
-    b.gemm_compat = c.batched_gemm_compat;
     b.medium_batch_min = c.medium_batch_min;
     b.medium_max_batch = c.medium_max_batch;
     b.jacobi_tol = c.jacobi_tol;
@@ -149,7 +146,6 @@ PsdConeConfig PsdConeConfig::from_options(const PsdOptions &o, unsigned long lon
     c.policy.lowrank_enabled = o.lowrank_enabled;
     c.policy.lowrank_start_iter = o.lowrank_start_iter;
     c.policy.lowrank_reevaluate = o.lowrank_reevaluate;
-    c.policy.legacy_global_start = false;
     c.rank.ratio = o.lowrank_ratio;
     c.rank.relaxation = o.lowrank_relaxation;
     c.rank.rank_rtol = o.lowrank_rank_rtol;
@@ -160,12 +156,8 @@ PsdConeConfig PsdConeConfig::from_options(const PsdOptions &o, unsigned long lon
     c.composite.lanczos_steps = o.composite_lanczos_steps;
     c.composite.norm_slack = o.composite_norm_slack;
     c.composite.seed = seed;
-    c.gemm_compat = o.large_final_product == FinalProductKind::GemmCompat;
-    c.batched_gemm_compat = o.batched_final_product == BatchedProductKind::GemmCompat;
     c.medium_batch_min = o.medium_batch_min;
     c.medium_max_batch = o.medium_max_batch;
-    c.jacobi_tol = o.jacobi_tol;
-    c.jacobi_max_sweeps = o.jacobi_max_sweeps;
     c.trace_path = o.trace;
     return c;
 }

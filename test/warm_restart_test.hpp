@@ -24,7 +24,7 @@ TEST(WarmRestart, SecondSolveRecomputesResiduals)
     const regression::RegressionProblem p = regression::generate("PSD_Free");
     SDPSolver solver;
     ASSERT_NO_THROW(init_solver(p, solver));
-    ASSERT_NO_THROW(solver.solve(20000, 1e-6, 500, 50, 100, 0, 0));
+    ASSERT_NO_THROW(solver.solve(20000, 1e-6, 0));
     ASSERT_TRUE(solver.converged);
     const double pobj = solver.pobj, dobj = solver.dobj;
 
@@ -38,7 +38,7 @@ TEST(WarmRestart, SecondSolveRecomputesResiduals)
     ASSERT_EQ(cudaMemset(solver.X.vals, 0, sizeof(double) * p.vec_len), cudaSuccess);
     ASSERT_EQ(cudaMemset(solver.y.vals, 0, sizeof(double) * p.con_num), cudaSuccess);
     ASSERT_EQ(cudaMemset(solver.S.vals, 0, sizeof(double) * p.vec_len), cudaSuccess);
-    ASSERT_NO_THROW(solver.solve(0, 1e-6, 500, 50, 100, 0, 0, 1e-2, 2, false));
+    ASSERT_NO_THROW(solver.solve(0, 1e-6, 0, 1e-2, false));
     EXPECT_FALSE(solver.converged);
     EXPECT_GT(std::max(solver.errRp, std::max(solver.errRd, solver.relgap)), 1e-2);
 
@@ -46,7 +46,7 @@ TEST(WarmRestart, SecondSolveRecomputesResiduals)
     ASSERT_EQ(cudaMemcpy(solver.X.vals, X.data(), sizeof(double) * p.vec_len, cudaMemcpyHostToDevice), cudaSuccess);
     ASSERT_EQ(cudaMemcpy(solver.y.vals, y.data(), sizeof(double) * p.con_num, cudaMemcpyHostToDevice), cudaSuccess);
     ASSERT_EQ(cudaMemcpy(solver.S.vals, S.data(), sizeof(double) * p.vec_len, cudaMemcpyHostToDevice), cudaSuccess);
-    ASSERT_NO_THROW(solver.solve(0, 1e-6, 500, 50, 100, 0, 0, 1e-2, 2, false));
+    ASSERT_NO_THROW(solver.solve(0, 1e-6, 0, 1e-2, false));
     EXPECT_TRUE(solver.converged);
     EXPECT_EQ(solver.info_iter_num, 0);
     EXPECT_NEAR(solver.pobj, pobj, 1e-9 * (1 + std::abs(pobj)));

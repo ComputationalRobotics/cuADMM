@@ -10,9 +10,8 @@
     the residual norm (an eigenvalue of the wanted sign may otherwise have been left out: the rank grew since
     the last analysis); a rejected block falls back to FullEvd with a new rank analysis (the policy's rule).
 
-    Final product: syrk (B = V diag(sqrt(max(D, 0))), P = B B^T, the input slice added while packing in the
-    negative mode) or gemm_compat (today's V diag(max(D, 0)) V^T with a GEMM, Z copied into P first in the
-    negative mode: bit for bit the reference).
+    Final product: B = V diag(sqrt(max(D, 0))), P = B B^T by SYRK, the input slice added while packing in the
+    negative mode.
 
 */
 

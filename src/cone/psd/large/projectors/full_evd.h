@@ -5,13 +5,10 @@
     FullEvd (plan Table "PSD projection strategies", Section 10.5): the exact projection of a large block with
     cusolverDnXsyevd in place (M <- Q, the eigenvalues increasing), then the final product into the tier's W:
 
-    - syrk (the default since Phase 6b): with r_+ positive and r_- negative eigenvalues, if r_+ <= r_- the last
-      r_+ columns of Q are scaled in place by sqrt(lambda_i) and P = B B^T comes from one SYRK (the upper triangle,
-      the one the packing reads, as main's map_M1 did);
-      otherwise the first r_- columns are scaled by sqrt(-lambda_i), P' = B B^T, and the result is Z + P', the
-      input slice added while packing. n^2 min(r_+, r_-) flops, no n^2 temporary, only the triangle svec stores.
-    - gemm_compat: today's product, Q max(lambda, 0) into an n^2 temporary and one GEMM (bit for bit the
-      reference on the exact path).
+    with r_+ positive and r_- negative eigenvalues, if r_+ <= r_- the last r_+ columns of Q are scaled in place by
+    sqrt(lambda_i) and P = B B^T comes from one SYRK (the upper triangle, the one the packing reads); otherwise the
+    first r_- columns are scaled by sqrt(-lambda_i), P' = B B^T, and the result is Z + P', the input slice added
+    while packing. n^2 min(r_+, r_-) flops, no n^2 temporary, only the triangle svec stores.
 
     It is the exact phase, the fallback of every large strategy, and the provider of eigenvalues for
     RankAnalyzer (the analysis runs before the in-place scaling).

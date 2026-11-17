@@ -2,16 +2,15 @@
 
     outputs_test.hpp
 
-    Tests of the outputs added for the PLATO campaign (formerly plain_admm_only_test.hpp of the plain-ADMM-only build
-    of main; sGS-ADMM is a runtime option since B5, so the build-rejection tests are gone):
-      - a plain-ADMM solve performs exactly one y linear solve per iteration and no sGS step, an sGS-ADMM solve two;
-      - the sigma log records every change of the adaptive rules and reproduces the per-iteration sigma history;
-        fixed sigma never changes;
+    Tests of the solver outputs:
+      - a solve performs exactly one y linear solve per iteration, with tau = 1.618;
+      - the sigma log records every change of balance_freeze and reproduces the per-iteration sigma history; fixed
+        sigma never changes;
       - the six DIMACS error measures of ExternalValidator on a small problem with hand-computed values, including the
         block kinds of the DIMACS norm;
       - the strict stage (ValidationConfig::strict_dimacs_tol): practical criteria first, then max_abs_DIMACS, and the
         returned iterate at a safety limit;
-      - the CLI options --strict-dimacs-tol, --save-final-dir, --sigma-log.
+      - the CLI options --strict-dimacs-tol, --final-save-dir, --sigma-log.
     Uses the helpers of fixed_sigma_validation_test.hpp (included before this file).
 
 */
@@ -48,78 +47,66 @@ inline std::string read_file(const std::string &f)
 
 using namespace plain_test;
 
-// Plain ADMM: exactly one y linear solve per iteration, no sGS iteration, tau = 1.618 at every iteration; pure
-// sGS-ADMM: two y solves per iteration, tau = 1.95 (stop_tol 0: the tau reduction never fires).
-TEST(PlainAdmm, OneYSolvePerIterationNoSgsStep)
+// Exactly one y linear solve per iteration and tau = 1.618 at every iteration, with either policy.
+TEST(PlainAdmm, OneYSolvePerIteration)
 {
     const regression::RegressionProblem p = regression::generate("PSD_Free");
-    for (SigmaPolicy pol : {SigmaPolicy::LEGACY_ADAPTIVE, SigmaPolicy::RESIDUAL_BALANCING, SigmaPolicy::FIXED})
+    for (cuadmm::PenaltyPolicyKind pol : {cuadmm::PenaltyPolicyKind::BalanceFreeze, cuadmm::PenaltyPolicyKind::Fixed})
     {
+        SCOPED_TRACE(cuadmm::name_of(pol));
         SDPSolver s;
         ASSERT_NO_THROW(solver_setup::init_solver(p, s, true, 1.0));
-        s.sigma_policy = pol;
-        ASSERT_NO_THROW(s.solve(700, 0.0, 500, 50, 100, 0, 0, 1e-2, 2.0));
+        s.penalty.policy = pol;
+        ASSERT_NO_THROW(s.solve(700, 0.0, 0, 1e-2));
         ASSERT_EQ(s.info_iter_num, 700);
         EXPECT_EQ(s.y_solves, 700);
-        EXPECT_EQ(s.sgs_phase_iterations, 0);
-        EXPECT_EQ(s.admm_phase_iterations, 700);
+        EXPECT_EQ(s.iterations, 700);
         for (double t : last_solve(s.info_tau_arr, s.info_iter_num))
             ASSERT_EQ(t, 1.618);
     }
-    SDPSolver g;
-    ASSERT_NO_THROW(solver_setup::init_solver(p, g, true, 1.0));
-    g.sigma_policy = SigmaPolicy::FIXED;
-    ASSERT_NO_THROW(g.solve(300, 0.0, 500, 50, 100, INT_MAX, 0, 1e-2, 2.0));
-    ASSERT_EQ(g.info_iter_num, 300);
-    EXPECT_EQ(g.y_solves, 600);
-    EXPECT_EQ(g.sgs_phase_iterations, 300);
-    EXPECT_EQ(g.admm_phase_iterations, 0);
-    for (double t : last_solve(g.info_tau_arr, g.info_iter_num))
-        ASSERT_EQ(t, 1.95);
 }
 
-// The sigma log reproduces the per-iteration sigma history of both adaptive policies (6000 iterations reach the
-// Monitor1 region of legacy_adaptive, whose log also records the monitor's changes); fixed sigma logs nothing and
-// never changes.
+// The sigma log reproduces the per-iteration sigma history of balance_freeze (6000 iterations; with the freeze
+// moved to iteration 3000, the log ends with the freeze entry); fixed sigma logs nothing and never changes.
 TEST(SigmaLog, ReproducesTheHistory)
 {
     const regression::RegressionProblem p = regression::generate("PSD_Free");
-    for (SigmaPolicy pol : {SigmaPolicy::LEGACY_ADAPTIVE, SigmaPolicy::RESIDUAL_BALANCING})
+    for (int freeze : {10000, 3000})
     {
-        SCOPED_TRACE(sigma_policy_name(pol));
+        SCOPED_TRACE(freeze);
         SDPSolver s;
         ASSERT_NO_THROW(solver_setup::init_solver(p, s, true, 1.0));
-        s.sigma_policy = pol;
-        ASSERT_NO_THROW(s.solve(6000, 0.0, 500, 50, 100, 0, 0, 1e-2, 2.0));
+        s.penalty.freeze_iteration = freeze;
+        ASSERT_NO_THROW(s.solve(6000, 0.0, 0, 1e-2));
         ASSERT_GT(s.sigma_changes, 10);
-        EXPECT_EQ((int)s.sigma_log.size(), s.sigma_changes);
+        // the freeze is logged although it does not change sigma
+        EXPECT_EQ((int)s.sigma_log.size(), s.sigma_changes + (freeze < 6000 ? 1 : 0));
         const std::vector<double> sig = last_solve(s.info_sig_arr, s.info_iter_num);
         double cur = s.sigma0;
         size_t e = 0;
-        int monitor_entries = 0;
         for (int k = 1; k <= s.info_iter_num; k++)
         {
             while (e < s.sigma_log.size() && s.sigma_log[e].iter == k)
             {
                 ASSERT_EQ(s.sigma_log[e].old_sigma, cur) << "entry " << e;
                 cur = s.sigma_log[e].new_sigma;
-                EXPECT_TRUE(s.sigma_log[e].rule == "admm_schedule" || s.sigma_log[e].rule == "monitor1");
-                monitor_entries += s.sigma_log[e].rule == "monitor1";
+                if (k == freeze)
+                    EXPECT_EQ(s.sigma_log[e].rule, "freeze_freeze_iteration");
+                else
+                    EXPECT_EQ(s.sigma_log[e].rule, "admm_schedule");
+                EXPECT_LE(k, freeze) << "no change after the freeze";
                 e++;
             }
             ASSERT_EQ(sig[k - 1], cur) << "iteration " << k;
-            // the bounds of each policy hold for every iteration
-            EXPECT_GE(sig[k - 1], pol == SigmaPolicy::LEGACY_ADAPTIVE ? 1e-6 : 1e-3);
-            EXPECT_LE(sig[k - 1], pol == SigmaPolicy::LEGACY_ADAPTIVE ? 1e6 : 1e3);
+            EXPECT_GE(sig[k - 1], 1e-3); // the bounds hold for every iteration
+            EXPECT_LE(sig[k - 1], 1e3);
         }
         EXPECT_EQ(e, s.sigma_log.size());
-        if (pol == SigmaPolicy::RESIDUAL_BALANCING)
-            EXPECT_EQ(monitor_entries, 0); // Monitor1 lives only in legacy_adaptive
     }
     SDPSolver f;
     ASSERT_NO_THROW(solver_setup::init_solver(p, f, true, 1.0));
-    f.sigma_policy = SigmaPolicy::FIXED;
-    ASSERT_NO_THROW(f.solve(6000, 0.0, 500, 50, 100, 0, 0, 1e-2, 2.0));
+    f.penalty.policy = cuadmm::PenaltyPolicyKind::Fixed;
+    ASSERT_NO_THROW(f.solve(6000, 0.0, 0, 1e-2));
     EXPECT_TRUE(f.sigma_log.empty());
     EXPECT_EQ(f.sigma_changes, 0);
     EXPECT_EQ(f.sig, f.sigma0);
@@ -197,7 +184,7 @@ TEST(StrictStage, PracticalThenStrictAndTheReturnedIterate)
     s.validation.interval = 100;
     s.validation.tol = ValidationTolerances::all(1e-4);
     s.validation.strict_dimacs_tol = 1e-6;
-    ASSERT_NO_THROW(s.solve(200000, 1e-4, 500, 50, 100, 0, 0, 1e-2, 2.0));
+    ASSERT_NO_THROW(s.solve(200000, 1e-4, 0, 1e-2));
     ASSERT_TRUE(s.practical_validated);
     ASSERT_EQ(s.stop_reason, "strict_validated");
     EXPECT_TRUE(s.strict_validated);
@@ -217,7 +204,7 @@ TEST(StrictStage, PracticalThenStrictAndTheReturnedIterate)
     t.validation.interval = 100;
     t.validation.tol = ValidationTolerances::all(1e-4);
     t.validation.strict_dimacs_tol = 1e-300;
-    ASSERT_NO_THROW(t.solve(s.first_practical_iteration + 1500, 1e-4, 500, 50, 100, 0, 0, 1e-2, 2.0));
+    ASSERT_NO_THROW(t.solve(s.first_practical_iteration + 1500, 1e-4, 0, 1e-2));
     EXPECT_EQ(t.stop_reason, "max_iter");
     EXPECT_TRUE(t.practical_validated);
     EXPECT_FALSE(t.strict_validated);
@@ -234,8 +221,8 @@ TEST(StrictStage, PracticalThenStrictAndTheReturnedIterate)
     EXPECT_EQ(u.max_abs_dimacs, best);
 }
 
-// Command line: a plain-ADMM run reports one y solve per iteration, writes the sigma log and, at a safety limit, the
-// final iterate; an sGS-ADMM run reports two y solves per iteration.
+// Command line: a run reports one y solve per iteration, writes the sigma log and, at a safety limit, the final
+// iterate.
 TEST(OutputsCli, WritesTheSigmaLogAndTheFinalIterate)
 {
     const std::string dir = "fixed_sigma_cli/PSD_Free";
@@ -248,9 +235,7 @@ TEST(OutputsCli, WritesTheSigmaLogAndTheFinalIterate)
                                 ".log 2>&1";
         return std::system(cmd.c_str());
     };
-    ASSERT_EQ(run("--algorithm sgs --max-iter 50 --tol 1e-12 --sig 1", "sgs"), 0);
-    EXPECT_NE(read_file("fixed_sigma_cli/sgs.json").find("\"y_solves_per_iteration\": 2,"), std::string::npos);
-    ASSERT_EQ(run("--algorithm admm --max-iter 600 --tol 1e-12 --sig 1 --sigma-log fixed_sigma_cli/plain_sigma.csv", "plain"), 0);
+    ASSERT_EQ(run("--max-iter 600 --tol 1e-12 --sigma0 1 --sigma-log fixed_sigma_cli/plain_sigma.csv", "plain"), 0);
     const std::string js = read_file("fixed_sigma_cli/plain.json"), log = read_file("fixed_sigma_cli/plain.log");
     EXPECT_NE(log.find("Algorithm: plain ADMM"), std::string::npos);
     // the run may converge before the cap (internal KKT < 1e-12): one y solve per completed iteration
@@ -265,8 +250,8 @@ TEST(OutputsCli, WritesTheSigmaLogAndTheFinalIterate)
     EXPECT_EQ(sl.substr(0, sl.find('\n')), "iter,old_sigma,new_sigma,rule,eta_p,eta_d,eta_g,feasratio,prim_win,dual_win");
     // the final iterate at the safety cap (unattainable tolerance)
     std::system("rm -rf fixed_sigma_cli/final_iterate");
-    ASSERT_EQ(run("--algorithm admm --max-iter 300 --tol 1e-4 --validate-interval 100 --validate-tol 1e-14 --strict-dimacs-tol 1e-8 "
-                  "--save-final-dir fixed_sigma_cli/final_iterate", "final"), 0);
+    ASSERT_EQ(run("--max-iter 300 --tol 1e-4 --validation-interval 100 --validation-tol 1e-14 --strict-dimacs-tol 1e-8 "
+                  "--final-save-dir fixed_sigma_cli/final_iterate", "final"), 0);
     struct stat st;
     EXPECT_EQ(stat("fixed_sigma_cli/final_iterate/X.txt", &st), 0);
     EXPECT_EQ(read_file("fixed_sigma_cli/final_iterate/iteration.txt"), "300\n");
@@ -274,6 +259,6 @@ TEST(OutputsCli, WritesTheSigmaLogAndTheFinalIterate)
     EXPECT_NE(fj.find("\"best_max_abs_dimacs\": "), std::string::npos);
     EXPECT_NE(fj.find("\"strict_dimacs_tol\": 1e-08"), std::string::npos);
     EXPECT_NE(run("--strict-dimacs-tol 1e-6", "strict_without_validation"), 0);
-    EXPECT_NE(run("--save-final-dir fixed_sigma_cli/x", "final_without_validation"), 0);
+    EXPECT_NE(run("--final-save-dir fixed_sigma_cli/x", "final_without_validation"), 0);
 }
 

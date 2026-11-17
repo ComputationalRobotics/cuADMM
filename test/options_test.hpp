@@ -3,8 +3,8 @@
     options_test.hpp  (CPU only)
 
     SolverOptions and the option table: every entry round-trips through set_option / get_option, defaults match the
-    table, aliases resolve, unknown names and values are errors, validate() rejects what the plan says it must, the
-    documentation generators produce every option.
+    table, unknown names and values are errors (the options removed in 2.1 among them), validate() rejects what it
+    must, the documentation generators produce every option.
 
 */
 
@@ -31,11 +31,7 @@ TEST(Options, TableIsConsistentAndRoundTrips)
         SCOPED_TRACE(s.path);
         EXPECT_TRUE(paths.insert(s.path).second) << "duplicate path";
         EXPECT_TRUE(flags.insert(s.flag).second) << "duplicate flag";
-        for (const std::string &a : s.aliases)
-            EXPECT_TRUE(flags.insert(a).second) << "duplicate alias " << a;
         EXPECT_EQ(find_flag(s.flag), &s);
-        for (const std::string &a : s.aliases)
-            EXPECT_EQ(find_flag(a), &s);
         // the default of the table is the default of the struct (numbers compared as numbers: 1e-4 vs 0.0001)
         const std::string v = get_option(o, s.path);
         if ((s.type == "double" || s.type == "int") && v != s.default_value)
@@ -55,20 +51,36 @@ TEST(Options, TableIsConsistentAndRoundTrips)
     EXPECT_EQ(find_flag("--no-such-flag"), nullptr);
     EXPECT_THROW(set_option(o, "penalty.nonexistent", "1"), std::invalid_argument);
     EXPECT_THROW(get_option(o, "nonexistent"), std::invalid_argument);
+    // the options of 2.0 removed in 2.1, and the command-line flags of 1.x
+    for (const char *path : {"algorithm.scheme", "algorithm.sgs_tau", "algorithm.scheme_switch_iteration", "algorithm.sgs_iterations",
+                             "algorithm.sgs_tau_reduction", "penalty.step_schedule", "penalty.win_ratio", "penalty.guard", "penalty.residual_weight",
+                             "penalty.schedule", "penalty.pingpong_window", "penalty.pingpong_net", "penalty.pingpong_min_iter",
+                             "penalty.freeze_value", "penalty.freeze_bias", "penalty.sgs_update_threshold", "penalty.sgs_update_stage_1",
+                             "penalty.sgs_update_stage_2", "penalty.sgs_factor", "scaling.enabled", "linsys.autotune", "psd.jacobi_tol",
+                             "psd.jacobi_max_sweeps", "psd.large.final_product", "psd.batched.final_product", "determinism"})
+        EXPECT_THROW(set_option(o, path, "1"), std::invalid_argument) << path;
+    // the 19 flags of 1.x that 2.0 accepted as aliases
+    for (const char *flag : {"--algorithm", "--checkpoint-iters", "--lobpcg", "--penalty-factor", "--save-final-dir", "--save-solution",
+                             "--sig", "--sig-update-stage-1", "--sig-update-stage-2", "--sig-update-threshold", "--sigma-policy",
+                             "--sigscale", "--streams", "--switch-admm", "--switch-proj-iter", "--switch-proj-tol",
+                             "--validate-interval", "--validate-threads", "--validate-tol"})
+        EXPECT_EQ(find_flag(flag), nullptr) << flag;
 }
 
 TEST(Options, ValuesParseAndPrint)
 {
     SolverOptions o;
-    set_option(o, "algorithm.scheme", "sgs");
-    EXPECT_EQ(o.algorithm.scheme, SchemeKind::SgsAdmm);
-    set_option(o, "algorithm.scheme", "admm");
-    EXPECT_EQ(o.algorithm.scheme, SchemeKind::Admm);
-    EXPECT_THROW(set_option(o, "algorithm.scheme", "sgs-admm"), std::invalid_argument);
-    set_option(o, "penalty.policy", "legacy_adaptive");
-    EXPECT_EQ(o.penalty.policy, PenaltyPolicyKind::LegacyAdaptive);
-    EXPECT_THROW(set_option(o, "penalty.policy", "fixed_sgs_then_legacy_admm"), std::invalid_argument);
-    EXPECT_THROW(set_option(o, "penalty.policy", "adaptive2"), std::invalid_argument);
+    set_option(o, "penalty.policy", "fixed");
+    EXPECT_EQ(o.penalty.policy, PenaltyPolicyKind::Fixed);
+    set_option(o, "penalty.policy", "balance_freeze");
+    EXPECT_EQ(o.penalty.policy, PenaltyPolicyKind::BalanceFreeze);
+    for (const char *removed : {"legacy_adaptive", "residual_balancing", "fixed_sgs_then_legacy_admm", "adaptive2"})
+        EXPECT_THROW(set_option(o, "penalty.policy", removed), std::invalid_argument) << removed;
+    set_option(o, "penalty.freeze_iteration", "100000");
+    EXPECT_EQ(o.penalty.freeze_iteration, 100000);
+    EXPECT_EQ(get_option(o, "penalty.freeze_iteration"), "100000");
+    set_option(o, "penalty.factor", "1.2");
+    EXPECT_EQ(get_option(o, "penalty.factor"), "1.2");
     set_option(o, "penalty.sigma0", "1e-4");
     EXPECT_EQ(o.penalty.sigma0, 1e-4);
     EXPECT_EQ(std::strtod(get_option(o, "penalty.sigma0").c_str(), nullptr), 1e-4);
@@ -84,17 +96,6 @@ TEST(Options, ValuesParseAndPrint)
     EXPECT_EQ(o.validation.checkpoint_iterations, (std::vector<int>{150, 300}));
     EXPECT_EQ(get_option(o, "validation.checkpoint_iterations"), "150,300");
     EXPECT_THROW(set_option(o, "validation.checkpoint_iterations", "1e4"), std::invalid_argument);
-    set_option(o, "penalty.schedule", "100:5,inf:50");
-    ASSERT_EQ(o.penalty.schedule.size(), 2u);
-    EXPECT_EQ(o.penalty.schedule[1].second, 50);
-    EXPECT_EQ(get_option(o, "penalty.schedule"), "100:5,inf:50");
-    EXPECT_THROW(set_option(o, "penalty.schedule", "100:5,50:2"), std::invalid_argument); // not increasing
-    set_option(o, "algorithm.sgs_iterations", "100");
-    EXPECT_EQ(o.algorithm.scheme_switch_iteration, 101);
-    EXPECT_EQ(get_option(o, "algorithm.sgs_iterations"), "100");
-    set_option(o, "algorithm.sgs_iterations", "0");
-    EXPECT_EQ(o.algorithm.scheme_switch_iteration, 0);
-    EXPECT_THROW(set_option(o, "algorithm.sgs_iterations", "-5"), std::invalid_argument);
     set_option(o, "psd.lowrank.enabled", "0");
     EXPECT_FALSE(o.psd.lowrank_enabled);
     set_option(o, "io.sense", "max");
@@ -231,25 +232,26 @@ TEST(Options, OptionsJsonIsValidJson)
     EXPECT_TRUE(is_valid_json("{\"a\": 1, \"b\": [1.5e-3, \"x\", true, null], \"c\": {}}"));
     EXPECT_FALSE(is_valid_json("{\"a\": tau}"));
     EXPECT_FALSE(is_valid_json("{\"a\": 1,}"));
-    SolverOptions o; // the defaults carry the symbolic values "tau", "policy", "inf", "none", "algorithm.tol", ...
+    SolverOptions o; // the defaults carry the symbolic values "inf", "none", "algorithm.tol", ...
     const std::string js = options_json(o);
     EXPECT_TRUE(is_valid_json(js)) << js;
-    EXPECT_NE(js.find("\"algorithm.sgs_tau\": \"tau\""), std::string::npos) << js;
     EXPECT_NE(js.find("\"algorithm.time_limit\": \"inf\""), std::string::npos) << js;
-    EXPECT_NE(js.find("\"penalty.sigma_min\": \"policy\""), std::string::npos) << js;
+    EXPECT_NE(js.find("\"validation.tol\": \"algorithm.tol\""), std::string::npos) << js;
+    EXPECT_NE(js.find("\"penalty.sigma_min\": 0.001"), std::string::npos) << js;
+    EXPECT_NE(js.find("\"penalty.freeze_iteration\": 10000"), std::string::npos) << js;
     EXPECT_NE(js.find("\"algorithm.tau\": 1.618"), std::string::npos) << js;
-    EXPECT_NE(js.find("\"penalty.guard\": true"), std::string::npos) << js;
-    set_option(o, "algorithm.sgs_tau", "1.95");
+    EXPECT_NE(js.find("\"psd.lowrank.enabled\": true"), std::string::npos) << js;
+    set_option(o, "penalty.factor", "1.2");
     set_option(o, "algorithm.time_limit", "600");
     set_option(o, "validation.checkpoint_iterations", "10,20");
     set_option(o, "output.tag", "a \"quoted\" tag");
     const std::string js2 = options_json(o);
     EXPECT_TRUE(is_valid_json(js2)) << js2;
-    EXPECT_NE(js2.find("\"algorithm.sgs_tau\": 1.95"), std::string::npos) << js2;
+    EXPECT_NE(js2.find("\"penalty.factor\": 1.2"), std::string::npos) << js2;
     EXPECT_NE(js2.find("\"algorithm.time_limit\": 600"), std::string::npos) << js2;
 }
 
-TEST(Options, ValidateRejectsWhatThePlanForbids)
+TEST(Options, ValidateRejectsInvalidValues)
 {
     auto rejects = [](const std::string &path, const std::string &value)
     {
@@ -268,39 +270,19 @@ TEST(Options, ValidateRejectsWhatThePlanForbids)
     rejects("penalty.factor", "0");
     rejects("penalty.factor", "1");
     rejects("penalty.sigma_min", "0");
-    rejects("psd.medium_streams", "0"); // B17
+    rejects("penalty.sigma_max", "1e-4"); // below sigma_min
+    rejects("penalty.freeze_iteration", "-1");
+    rejects("psd.medium_streams", "0");
     rejects("validation.tol", "1e-4");  // needs an interval
     rejects("validation.checkpoint_iterations", "100");
     rejects("validation.strict_dimacs_tol", "1e-6");
-    rejects("linsys.autotune", "1");       // not implemented (DECISIONS 57)
     rejects("linsys.regularization", "1"); // out of [0, 1e-3]
-    rejects("scaling.enabled", "0");
-    rejects("psd.small_max", "64");     // fixed tier limits
+    rejects("psd.small_max", "64");        // the small tier holds n <= 32
+    rejects("psd.medium_max", "32");       // above psd.small_max
     rejects("psd.medium.max_batch", "-1");
     rejects("psd.lowrank.ratio", "0");
     rejects("psd.composite.margin", "0.5");
-    rejects("determinism", "fast");
     rejects("psd.lowrank.start_iter", "1");
-    // the reference policies have fixed hysteresis parameters
-    {
-        SolverOptions o;
-        set_option(o, "penalty.policy", "legacy_adaptive");
-        set_option(o, "penalty.factor", "1.2");
-        EXPECT_THROW(o.validate(), std::invalid_argument);
-    }
-    {
-        SolverOptions o;
-        set_option(o, "penalty.policy", "residual_balancing");
-        set_option(o, "penalty.factor", "1.2"); // the October 20 edit is an option value
-        EXPECT_NO_THROW(o.validate());
-        set_option(o, "penalty.guard", "0");
-        EXPECT_THROW(o.validate(), std::invalid_argument);
-    }
-    {
-        SolverOptions o;
-        set_option(o, "penalty.policy", "legacy_adaptive"); // the default guard (true) does not contradict it: it ignores the option
-        EXPECT_NO_THROW(o.validate());
-    }
     {
         SolverOptions o;
         set_option(o, "penalty.sigma_min", "10");
@@ -323,8 +305,7 @@ TEST(Options, DocumentationCoversEveryOption)
     {
         EXPECT_NE(md.find("`" + s.path + "`"), std::string::npos) << s.path;
         EXPECT_NE(help.find(s.flag), std::string::npos) << s.flag;
-        if (s.path != "algorithm.sgs_iterations")
-            EXPECT_NE(json.find("\"" + s.path + "\": "), std::string::npos) << s.path;
+        EXPECT_NE(json.find("\"" + s.path + "\": "), std::string::npos) << s.path;
     }
     EXPECT_NE(json.find("\"penalty.policy\": \"balance_freeze\""), std::string::npos);
     EXPECT_NE(json.find("\"algorithm.tau\": 1.618"), std::string::npos);

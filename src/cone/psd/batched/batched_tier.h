@@ -9,14 +9,12 @@
     resident batch buffers of the WorkspaceArena:
 
         mats: sum n^2 (the blocks, overwritten by their eigenvectors)   W: sum n (eigenvalues)
-        P:    sum n^2 (the results)                                     tmp: sum n^2, gemm_compat only
+        P:    sum n^2 (the results)
         the EVD workspaces: one per medium stream (sized for the largest medium block), one for the batched
         chunks (sized for the largest chunk), one per small size group (B20: not one per block)
 
-    Final product: scaled_gemm (default since Phase 6b: the columns of Q scaled in place by sqrt(max(lambda, 0)),
-    P = B B^T with one strided-batched GEMM per group; the third buffer dropped, B19) or gemm_compat (today's
-    Q max(Lambda, 0) into tmp and the GEMM: bit for bit the reference). The termination measures use
-    decompose() with the streamed EVD for every medium block, as the engine's cone_measures did.
+    Final product: the columns of Q scaled in place by sqrt(max(lambda, 0)), P = B B^T with one strided-batched
+    GEMM per group. The termination measures use decompose() with the streamed EVD for every medium block.
 
 */
 
@@ -49,11 +47,10 @@ enum class TierKind
 
 struct BatchedTierConfig
 {
-    bool gemm_compat = false;    // psd.batched.final_product = gemm_compat
     int medium_batch_min = 2;    // psd.medium_batch_min (0: never batched)
     int medium_max_batch = 0;    // psd.medium.max_batch: blocks per batched call (0: the whole group)
-    double jacobi_tol = 1e-16;   // psd.jacobi_tol
-    int jacobi_max_sweeps = 15;  // psd.jacobi_max_sweeps
+    double jacobi_tol = 1e-16;   // the batched Jacobi EVD (cusolverDnDsyevjBatched)
+    int jacobi_max_sweeps = 15;
 };
 
 class BatchedTier
@@ -106,8 +103,8 @@ private:
     std::size_t chunk_ws_bytes_ = 0, chunk_host_bytes_ = 0;      // medium: the batched chunks
     std::vector<std::vector<unsigned char>> host_ws_;
     std::vector<unsigned char> chunk_host_ws_;
-    int h_mats_ = -1, h_W_ = -1, h_P_ = -1, h_tmp_ = -1, h_info_ = -1, h_ws_ = -1, h_chunk_ws_ = -1;
-    double *mats_ = nullptr, *W_ = nullptr, *P_ = nullptr, *tmp_ = nullptr;
+    int h_mats_ = -1, h_W_ = -1, h_P_ = -1, h_info_ = -1, h_ws_ = -1, h_chunk_ws_ = -1;
+    double *mats_ = nullptr, *W_ = nullptr, *P_ = nullptr;
     int *info_ = nullptr;
     unsigned char *ws_ = nullptr, *chunk_ws_ = nullptr;
     bool bound_ = false;

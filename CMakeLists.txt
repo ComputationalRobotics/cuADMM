@@ -1,11 +1,11 @@
 cmake_minimum_required(VERSION 3.18)
 
-# cuADMM 2.0: a GPU ADMM solver for semidefinite programs, built as a self-contained project (the cuadmm library, the
+# cuADMM: a GPU ADMM solver for semidefinite programs, built as a self-contained project (the cuadmm library, the
 # command-line interface, the MATLAB gateway, the tests and the benchmarks). The ported engine of cuADMM 1.x lives in
 # src/legacy/ behind the facade cuadmm::Solver; the PSD kernels of src/cone/psd/kernels/ come from the psd_projection
-# repository (b566590, formerly a submodule). Layout: plan Section 6.1 (c23e67e:reorg-plan/cuadmm_reorg_plan.tex).
+# repository (b566590, formerly a submodule).
 
-project(cuADMM VERSION 2.0.1 LANGUAGES CXX CUDA)
+project(cuADMM VERSION 2.1.0 LANGUAGES CXX CUDA)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -14,8 +14,8 @@ set(CMAKE_CUDA_STANDARD_REQUIRED ON)
 if(NOT CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE RelWithDebInfo CACHE STRING "Build type" FORCE)
 endif()
-# Explicit CUDA architectures (plan Section 16, CI): the references are built with -gencode arch=compute_80,code=sm_80;
-# a bitwise comparison needs the same code generation on both sides.
+# Explicit CUDA architectures (default sm_80; pass e.g. -DCMAKE_CUDA_ARCHITECTURES="80-real;90-real" for A100 and H100/H200).
+# Bitwise reproducibility needs the same code generation.
 if(NOT DEFINED CMAKE_CUDA_ARCHITECTURES OR CMAKE_CUDA_ARCHITECTURES STREQUAL "")
   set(CMAKE_CUDA_ARCHITECTURES 80-real CACHE STRING "CUDA architectures" FORCE)
 endif()
@@ -216,7 +216,7 @@ if(CUADMM_BUILD_CLI)
   target_link_libraries(cuadmm_exe PRIVATE cuadmm)
   target_include_directories(cuadmm_exe PRIVATE src ${CMAKE_BINARY_DIR}/generated)
   add_dependencies(cuadmm_exe cuadmm_version)
-  # generator of the known-optimum TXT problems (test/regression_problems.hpp), for the reference comparisons
+  # generator of the known-optimum TXT problems (test/regression_problems.hpp)
   add_executable(cuadmm_gen_problems apps/cli/gen_problems.cpp)
   target_include_directories(cuadmm_gen_problems PRIVATE test)
   # cuadmm-convert: any supported input format to the native HDF5 file or a TXT directory (plan Section 12)

@@ -331,7 +331,7 @@ void write_solution_mosek(const std::string &path, const ProblemData &, const So
 
 namespace detail
 {
-// The directory of a solution file is created when it does not exist yet (the CLI's --save-solution <dir> with an
+// The directory of a solution file is created when it does not exist yet (the CLI's --save-dir <dir> with an
 // SDPA, HDF5 or .mat input names a directory, as it does for TXT, whose writer creates it itself).
 std::string with_parent_directory(const std::string &file)
 {

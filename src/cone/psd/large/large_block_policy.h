@@ -17,9 +17,7 @@
 
     The policy is host logic without CUDA, so it is tested on the CPU (test/large_block_policy_test.hpp). The
     switch k_sw is decided at the beginning of iteration k with the KKT residual eta of the current iterate, as
-    the engine's switched_proj_method was. `legacy_global_start` reproduces the C++ API of main, where blocks
-    without a warm-up also start the low-rank analysis at k_sw (B3: the single flag of today); the facade uses
-    the per-block rule above.
+    the engine's switched_proj_method was.
 
 */
 
@@ -62,7 +60,6 @@ struct LargeBlockPolicyConfig
     bool lowrank_enabled = true;   // psd.lowrank.enabled
     int lowrank_start_iter = 2;    // psd.lowrank.start_iter (blocks without a warm-up)
     int lowrank_reevaluate = 100;  // psd.lowrank.reevaluate
-    bool legacy_global_start = false; // C++ API of main: every block starts the low-rank analysis at k_sw
 };
 
 class LargeBlockPolicy

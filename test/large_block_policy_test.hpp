@@ -136,37 +136,6 @@ TEST(LargeBlockPolicy, LowrankDisabledKeepsTheExactProjection)
     EXPECT_EQ(p.decide(1, kModeFull), LargeStrategy::FullEvd);
 }
 
-TEST(LargeBlockPolicy, LegacyGlobalStartFollowsTheSwitchForEveryBlock)
-{
-    // the C++ API of main: no warm-up (EIG_FP64), switch_proj_max_iter 5000, switch_proj_tol 1e-2
-    LargeBlockPolicyConfig c;
-    c.warmup = false;
-    c.switch_tol = 1e-2;
-    c.switch_iter = 5000;
-    c.legacy_global_start = true;
-    LargeBlockPolicy p(c, {1100});
-    p.begin_iteration(2, 1.0);
-    EXPECT_EQ(p.decide(0, kModeFull), LargeStrategy::FullEvd) << "no analysis before the switch";
-    EXPECT_EQ(p.start(0), -1);
-    EXPECT_TRUE(p.begin_iteration(5, 1e-3));
-    EXPECT_EQ(p.start(0), 5);
-    EXPECT_EQ(p.decide(0, kModeFull), LargeStrategy::FullEvdWithRankAnalysis);
-    p.begin_iteration(105, 1e-3);
-    EXPECT_EQ(p.decide(0, kModeLowRankNegative), LargeStrategy::FullEvdWithRankAnalysis);
-    p.begin_iteration(106, 1e-3);
-    EXPECT_EQ(p.decide(0, kModeLowRankNegative), LargeStrategy::Lobpcg);
-
-    // today's CLI (switch_proj_max_iter 0): the switch at iteration 2, as the per-block default
-    LargeBlockPolicyConfig cli = c;
-    cli.switch_iter = 0;
-    LargeBlockPolicy q(cli, {1100});
-    EXPECT_FALSE(q.begin_iteration(1, 1.0));
-    EXPECT_TRUE(q.begin_iteration(2, 1.0));
-    EXPECT_EQ(q.decide(0, kModeFull), LargeStrategy::FullEvdWithRankAnalysis);
-    q.begin_iteration(102, 1.0);
-    EXPECT_EQ(q.decide(0, kModeFull), LargeStrategy::FullEvdWithRankAnalysis);
-}
-
 TEST(LargeBlockPolicy, ArgumentChecks)
 {
     LargeBlockPolicyConfig c;

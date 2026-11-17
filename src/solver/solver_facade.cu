@@ -2,14 +2,13 @@
 
     solver_facade.cu
 
-    The Solver facade of Phase 2 over the ported SDPSolver (src/legacy/). It maps SolverOptions and ProblemData onto
-    init()/solve() of the engine exactly as today's CLI did, so that the iterates are bit for bit those of the
-    references for equivalent options, and collects a SolveResult. Phase 4 replaces the engine's loop.
+    The Solver facade over the ported engine SDPSolver (src/legacy/): setup() maps SolverOptions and ProblemData
+    onto the engine's init(), the cones and the normal-equation backend; solve() runs the ADMM loop of the algorithm
+    layer (admm::AdmmSolver) and collects a SolveResult.
 
-    Option mapping (today's CLI, src/legacy/main.cu of main):
-      algorithm.scheme admm / sgs_admm        -> switch_admm 0 / INT_MAX; scheme_switch_iteration n -> switch_admm n
-      algorithm.tau                           -> the step length of both schemes (the references used 1.618 / 1.95)
-      penalty.*                               -> sigma_policy, sig, penalty_factor, penalty_sigma_min/max, the sGS rule
+    Option mapping:
+      algorithm.*                             -> the loop (tau, max_iter, tol, time limit)
+      penalty.*                               -> the penalty policy (admm::make_penalty_policy), sigma_0 of init()
       psd.large.warmup none                   -> initial = final = EIG_FP64; the low-rank analysis starts at
                                                  psd.lowrank.start_iter (the PSD cone's LargeBlockPolicy, Phase 6a)
       psd.large.warmup composite_fp16         -> initial COMPOSITE_FP16 when a large block reaches warmup.min_size
@@ -70,8 +69,6 @@ struct Solver::Impl
     std::string source_format;
     std::size_t num_blocks = 0;
     bool has_free_block = false;
-    // engine call parameters (fixed at setup)
-    int switch_admm = 0;
     cone::PsdConeConfig psd_config; // the PSD cone's policy and projector settings (Phase 6a)
     std::unique_ptr<core::StreamPool> pool;   // the named streams (Phase 6b)
     core::WorkspaceArena arena;               // the workspace regions of the cones (Phase 6b), committed at setup
@@ -94,21 +91,6 @@ int checked_int(std::int64_t v, const char *what)
         throw std::invalid_argument(std::string(what) + " = " + std::to_string(v) +
                                     " does not fit the 32-bit indexing of the current engine (plan: 64-bit sizes are a later phase)");
     return static_cast<int>(v);
-}
-
-// the engine's own policy field (read by its summary helpers); balance_freeze is a ResidualBalancingPenalty with the
-// freeze options and has no engine value
-SigmaPolicy to_engine_policy(PenaltyPolicyKind k)
-{
-    switch (k)
-    {
-    case PenaltyPolicyKind::Fixed:
-        return SigmaPolicy::FIXED;
-    case PenaltyPolicyKind::LegacyAdaptive:
-        return SigmaPolicy::LEGACY_ADAPTIVE;
-    default:
-        return SigmaPolicy::RESIDUAL_BALANCING;
-    }
 }
 
 std::vector<double> device_to_host(const DeviceDenseVector<double> &v)
@@ -198,8 +180,6 @@ void Solver::setup(const ProblemData &problem)
         throw std::invalid_argument("certificate.block_bounds: " + std::to_string(o.certificate.block_bounds.size()) + " bounds for " +
                                     std::to_string(im.num_blocks) + " blocks");
 
-    // scheme and projection schedule
-    im.switch_admm = o.algorithm.scheme == SchemeKind::SgsAdmm ? std::numeric_limits<int>::max() : o.algorithm.scheme_switch_iteration;
     // the presolve (plan Section 11.7): dependent constraint rows removed before the factorization, off by default
     im.row_map.reset();
     im.presolve_removed = 0;
@@ -285,11 +265,7 @@ void Solver::setup(const ProblemData &problem)
             std::cout << " PSD memory plan: " << planned / mib << " MiB in the workspace arena (budget " << budget / mib << " MiB)\n"
                       << tiers << "\n  device memory in use after setup: " << im.memory_plan_bytes / mib << " MiB" << std::endl;
     }
-    e.sigma_policy = to_engine_policy(o.penalty.policy);
-    e.penalty_factor = admm::effective_factor(o.penalty); // penalty.factor, or the policy's own
-    e.penalty_sigma_min = o.penalty.sigma_min;
-    e.penalty_sigma_max = o.penalty.sigma_max;
-    e.legacy_sgs_tau_reduction = o.algorithm.sgs_tau_reduction;
+    e.penalty = o.penalty;
     e.lanczos_seed = static_cast<unsigned long long>(o.seed);
     e.lobpcg_tol = o.psd.lowrank_tol;
     e.lobpcg_maxit = o.psd.lowrank_max_iter;
@@ -336,7 +312,7 @@ void Solver::setup(const ProblemData &problem)
         {
 #ifdef CUADMM_HAVE_CUDSS
             linsys::CudssSolver::Options c;
-            c.determinism_strict = o.determinism == Determinism::Strict;
+            c.determinism_strict = true; // deterministic analysis and factorization
             alt.reset(new linsys::CudssSolver(c));
 #else
             throw std::runtime_error("linsys.backend = cudss: this build has no cuDSS (configure with CUADMM_WITH_CUDSS=ON and CUDSS_ROOT)");
@@ -393,7 +369,6 @@ SolveResult Solver::solve(const WarmStart *warm_start)
 
     // the components of the algorithm layer (plan Section 7) on the engine's data
     e.stop_tol = o.algorithm.tol;
-    e.switch_admm = im.switch_admm;
     admm::AdmmState state(e, *im.cones);
     termination::BestIterateTracker tracker(e);
     std::unique_ptr<termination::StoppingRule> rule;
@@ -410,10 +385,7 @@ SolveResult Solver::solve(const WarmStart *warm_start)
     admm::RunConfig cfg;
     cfg.max_iter = o.algorithm.max_iter;
     cfg.tol = o.algorithm.tol;
-    cfg.switch_admm = im.switch_admm;
-    cfg.tau_admm = o.algorithm.tau;
-    cfg.tau_sgs = o.algorithm.sgs_tau >= 0 ? o.algorithm.sgs_tau : o.algorithm.tau;
-    cfg.legacy_sgs_tau_reduction = o.algorithm.sgs_tau_reduction;
+    cfg.tau = o.algorithm.tau;
     cfg.verbose = o.output.verbosity >= 1;
     admm::AdmmSolver loop(state, *im.penalty, *rule, tracker, observers, cfg);
     loop.run(e.sig, rescale);
@@ -476,10 +448,6 @@ SolveResult Solver::solve(const WarmStart *warm_start)
             r.sigma_changes_after_1e4++;
         r.sigma_total_variation_log2 += std::abs(std::log2(u.new_sigma / u.old_sigma));
     }
-    r.scheme = name_of(o.algorithm.scheme);
-    r.sgs_iterations = e.sgs_phase_iterations;
-    r.admm_iterations = e.admm_phase_iterations;
-    r.switch_iteration = e.switch_iteration;
     r.dual_block_min = e.dual_block_min;
     r.dual_cone_coef = e.dual_cone_coef;
     // the certificate (Phase 5: termination::Certificate on the product cone's measures, explicit per-block bounds, B24)

@@ -32,7 +32,6 @@ struct IterationEvent
     double sigma_used = 0.0;   // sigma of this iteration
     double sigma_next = 0.0;   // sigma of the next iteration (what the history records, as today)
     double tau = 0.0;          // step length of this iteration
-    bool sgs = false;          // the iteration used the sGS step
     double time_s = 0.0;       // seconds since the start of the iterations, after this iteration
 };
 

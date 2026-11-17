@@ -2,8 +2,8 @@
 
     cone/psd/large/projectors/lobpcg_projector.cu
 
-    SDPSolver::large_lobpcg_project of Milestone 1 on the tier's regions: the LOBPCG workspace, the scaled
-    eigenvectors and the result P are carved from W (B7); the gemm_compat product keeps the calls of Milestone 1.
+    The LOBPCG projection of a large block on the tier's regions: the LOBPCG workspace, the scaled eigenvectors and
+    the result P are carved from W.
 
 */
 
@@ -47,8 +47,8 @@ bool Lobpcg::project(const LargeBlockJob &job, const double *z, double *s)
     // W: P (n^2), the scaled eigenvectors (n x k), the ReLU'd eigenvalues (k), then LOBPCG's workspace
     double *P = tier_.W();
     double *scaled_eigenvectors = P + nn;
-    double *relu_eigenvalues = scaled_eigenvectors + static_cast<std::size_t>(n) * k;
-    double *workspace = relu_eigenvalues + k;
+    // k doubles stay unused here (a former product buffer), so that the LOBPCG workspace keeps its offset and alignment
+    double *workspace = scaled_eigenvectors + static_cast<std::size_t>(n) * k + k;
 
     if (negative)
     {
@@ -93,36 +93,6 @@ bool Lobpcg::project(const LargeBlockJob &job, const double *z, double *s)
     {
         e.lobpcg_fallbacks++;
         return false;
-    }
-
-    if (tier_.config().gemm_compat)
-    {
-        // V diag(max(D, 0))
-        CHECK_CUDA(cudaMemcpy(relu_eigenvalues, eigenvalues, sizeof(double) * k, cudaMemcpyDeviceToDevice));
-        max_dense_vector_zero(relu_eigenvalues, k, ctx.stream);
-        CHECK_CUBLAS(cublasDdgmm(
-            cublasH, CUBLAS_SIDE_RIGHT, n, k,
-            eigenvectors, n, relu_eigenvalues, 1,
-            scaled_eigenvectors, n));
-
-        // positive case: P = V max(D, 0) V^T
-        // negative case: P = A + V max(-D', 0) V^T = A + proj(-A), where D' are the eigenvalues of -A
-        double beta = 0.0;
-        if (negative)
-        {
-            CHECK_CUDA(cudaMemcpy(P, A, sizeof(double) * n * n, cudaMemcpyDeviceToDevice));
-            beta = 1.0;
-        }
-        CHECK_CUBLAS(cublasDgemm(
-            cublasH, CUBLAS_OP_N, CUBLAS_OP_T,
-            n, n, k,
-            &one,
-            scaled_eigenvectors, n,
-            eigenvectors, n,
-            &beta,
-            P, n));
-        tier_.pack(st.idx, P, s, nullptr);
-        return true;
     }
 
     // SYRK: B = V diag(sqrt(max(D, 0))), P = B B^T (the upper triangle); the negative mode adds the input slice while packing

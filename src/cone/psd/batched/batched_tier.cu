@@ -3,7 +3,7 @@
     cone/psd/batched/batched_tier.cu
 
     Steps 3.2 and 3.3 of SDPSolver::solve() of main (the medium and small tiers), on the arena with the pool's
-    streams; the call sequences of Milestone 1 under gemm_compat, the scaled product otherwise.
+    streams; the scaled final product.
 
 */
 
@@ -69,8 +69,6 @@ BatchedTier::BatchedTier(SDPSolver &engine, TierKind kind, const BatchedTierConf
     h_mats_ = arena_.request(small ? "psd.small.mats" : "psd.medium.mats", total_nn_ * sizeof(double));
     h_W_ = arena_.request(small ? "psd.small.W" : "psd.medium.W", sum_n_ * sizeof(double));
     h_P_ = arena_.request(small ? "psd.small.P" : "psd.medium.P", total_nn_ * sizeof(double));
-    if (config_.gemm_compat)
-        h_tmp_ = arena_.request(small ? "psd.small.tmp" : "psd.medium.tmp", total_nn_ * sizeof(double));
     h_info_ = arena_.request(small ? "psd.small.info" : "psd.medium.info", static_cast<std::size_t>(total) * sizeof(int));
 
     core::DeviceBuffer<double> dummy(16);
@@ -140,7 +138,6 @@ void BatchedTier::bind()
     mats_ = static_cast<double *>(arena_.data(h_mats_));
     W_ = static_cast<double *>(arena_.data(h_W_));
     P_ = static_cast<double *>(arena_.data(h_P_));
-    tmp_ = h_tmp_ >= 0 ? static_cast<double *>(arena_.data(h_tmp_)) : nullptr;
     info_ = static_cast<int *>(arena_.data(h_info_));
     ws_ = static_cast<unsigned char *>(arena_.data(h_ws_));
     chunk_ws_ = h_chunk_ws_ >= 0 ? static_cast<unsigned char *>(arena_.data(h_chunk_ws_)) : nullptr;
@@ -250,21 +247,10 @@ void BatchedTier::project(const double *z, double *s)
         const BlockRef &first = refs_[group_first_[i]];
         const long long nn = static_cast<long long>(n) * n;
         const double *Q = mats_ + first.mat_offset;
-        double *B;
-        if (config_.gemm_compat)
-        {
-            // today's product: tmp = Q max(Lambda, 0), P = tmp Q^T
-            B = tmp_ + first.mat_offset;
-            scale_columns_batch(Q, B, n, cnt, W_ + first.w_offset, SCALE_RELU, ctx_.stream);
-        }
-        else
-        {
-            // B = Q diag(sqrt(max(lambda, 0))) in place, P = B B^T
-            B = mats_ + first.mat_offset;
-            scale_columns_batch(Q, B, n, cnt, W_ + first.w_offset, SCALE_SQRT_RELU, ctx_.stream);
-        }
-        const double *right = config_.gemm_compat ? Q : B;
-        CUADMM_CHECK_CUBLAS(cublasDgemmStridedBatched(ctx_.cublas, CUBLAS_OP_N, CUBLAS_OP_T, n, n, n, &one, B, n, nn, right, n, nn, &zero,
+        // B = Q diag(sqrt(max(lambda, 0))) in place, P = B B^T
+        double *B = mats_ + first.mat_offset;
+        scale_columns_batch(Q, B, n, cnt, W_ + first.w_offset, SCALE_SQRT_RELU, ctx_.stream);
+        CUADMM_CHECK_CUBLAS(cublasDgemmStridedBatched(ctx_.cublas, CUBLAS_OP_N, CUBLAS_OP_T, n, n, n, &one, B, n, nn, B, n, nn, &zero,
                                                       P_ + first.mat_offset, n, nn, cnt));
     }
     dense_to_svec_batch(table_, P_, s, ctx_.stream);
@@ -275,7 +261,7 @@ std::string BatchedTier::memory_text() const
     std::ostringstream os;
     const double mib = 1024.0 * 1024.0;
     os << (kind_ == TierKind::Small ? "small" : "medium") << " tier: " << count() << " block(s) in " << group_count() << " size group(s): matrices "
-       << total_nn_ * sizeof(double) / mib << " MiB x " << (config_.gemm_compat ? 3 : 2) << ", eigenvalues " << sum_n_ * sizeof(double) / mib << " MiB";
+       << total_nn_ * sizeof(double) / mib << " MiB x 2, eigenvalues " << sum_n_ * sizeof(double) / mib << " MiB";
     if (kind_ == TierKind::Medium)
         os << ", streamed workspace " << stream_ws_bytes_ * std::max(1, pool_.medium_count()) / mib << " MiB, batched workspace " << chunk_ws_bytes_ / mib << " MiB";
     else

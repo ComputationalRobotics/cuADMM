@@ -7,7 +7,7 @@
 
         M:   n_max^2 doubles, the dense input block (unpacked from its svec slice); the EVD overwrites it with Q
         W:   the largest workspace of any strategy at n_max: the cusolverDnXsyevd workspace (about 4 n^2), or the
-             final product P (n^2; plus the n^2 temporary of gemm_compat), or P with the LOBPCG buffers, or the
+             final product P (n^2), or P with the LOBPCG buffers, or the
              FP32/FP16 buffers of the composite filter with the Lanczos vectors (B7: nothing is allocated per call)
         eig: n_max eigenvalues; info: one cuSOLVER status
         per block: the LOBPCG warm start V_b (n_b x k_alloc_b) and D_b (k_alloc_b), k_alloc = ceil(1.2 rho n_b)
@@ -43,7 +43,6 @@ namespace psd
 
 struct LargeTierConfig
 {
-    bool gemm_compat = false;         // psd.large.final_product = gemm_compat (today's product with an n^2 temporary)
     bool lowrank = true;              // the warm starts V_b, D_b exist (psd.lowrank.enabled and the engine's use_lobpcg)
     double lowrank_ratio = 0.05;      // k_alloc = ceil(n * ratio * relaxation) (psd.lowrank.ratio)
     double lowrank_relaxation = 1.2;

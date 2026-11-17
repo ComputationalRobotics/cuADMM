@@ -76,7 +76,7 @@ bool LargeBlockPolicy::any_warm() const
 
 int LargeBlockPolicy::start(int b) const
 {
-    if (warm(b) || config_.legacy_global_start)
+    if (warm(b))
         return k_sw_; // -1 until the switch
     return config_.lowrank_start_iter;
 }

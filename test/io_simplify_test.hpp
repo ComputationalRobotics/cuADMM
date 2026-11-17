@@ -129,7 +129,7 @@ TEST(IoSimplify, TxtSolutionWriterAndFormatDispatch)
     s.source.format = "sdpa";
     io::write_solution(temp_dir("txt_writer/forced"), s, r, "txt"); // io.save_format forces the TXT convention
     EXPECT_TRUE(std::filesystem::exists(temp_dir("txt_writer/forced") + "/X.txt"));
-    // --save-solution <dir> with an SDPA input names a directory that may not exist yet: the writer creates it, as
+    // --save-dir <dir> with an SDPA input names a directory that may not exist yet: the writer creates it, as
     // the TXT writer does (2.0.0 failed with "could not open .../solution.ini-s for writing")
     const std::string fresh = temp_dir("txt_writer") + "/fresh_sdpa_dir";
     std::filesystem::remove_all(fresh);

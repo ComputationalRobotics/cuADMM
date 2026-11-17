@@ -1,6 +1,6 @@
 #!/bin/bash
 # usage: tools/build.sh <build_dir> [extra cmake args]   -- configure (once) and build cuADMM
-# Pinned configuration of tools/reference/pinned_config.md: paths come from the environment, with the FASRC defaults.
+# Paths come from the environment, with the FASRC defaults.
 #   CUADMM_SUITESPARSE_DIR  prefix with include/suitesparse and lib/{libcholmod,libcamd,libccolamd}.so  [$HOME/cuadmm-env]
 #   CUADMM_BLAS             BLAS library (OpenBLAS provides LAPACK too)                                  [$CUADMM_SUITESPARSE_DIR/lib/libblas.so]
 #   CUADMM_GTEST_SRC        googletest source directory for offline builds (FETCHCONTENT_SOURCE_DIR_GOOGLETEST) [optional]

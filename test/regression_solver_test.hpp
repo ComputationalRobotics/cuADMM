@@ -34,10 +34,10 @@ std::string regression_data_dir()
 
 // Generates the named problem into gen, writes it as a TXT directory, loads it back with Problem::from_txt
 // and solves it like src/main.cu does: standard ADMM, switch to the final projection method (LOBPCG phase)
-// at iteration 2. sig: initial sigma; switch_admm: sGS-ADMM for iter < switch_admm (0: plain ADMM)
+// at iteration 2. sig: initial sigma
 void solve_regression(
     const std::string &name, bool use_lobpcg, double sig, int max_iter, double stop_tol,
-    regression::RegressionProblem &gen, SDPSolver &solver, int switch_admm = 0)
+    regression::RegressionProblem &gen, SDPSolver &solver)
 {
     gen = regression::generate(name);
     std::string dir = regression_data_dir() + "/" + name;
@@ -67,7 +67,7 @@ void solve_regression(
         ProjectionMethod::EIG_FP64,
         nullptr, nullptr, nullptr,
         sig, use_lobpcg);
-    solver.solve(max_iter, stop_tol, 500, 50, 100, switch_admm, 0);
+    solver.solve(max_iter, stop_tol, 0);
 }
 
 // residuals and objectives of the returned iterate, recomputed on the host
@@ -132,8 +132,8 @@ void expect_best_iterate_returned(const SDPSolver &solver, const HostKKT &host)
 
 // Generates, writes, loads and solves the named problem, and checks the returned solution.
 // sig: initial sigma; expected_large_mode: projection mode of the large matrices after the last rank
-// analysis (-1: no check); switch_admm: sGS-ADMM for iter < switch_admm (0: plain ADMM)
-void run_regression(const std::string &name, bool use_lobpcg, double sig, int expected_large_mode, int switch_admm = 0)
+// analysis (-1: no check)
+void run_regression(const std::string &name, bool use_lobpcg, double sig, int expected_large_mode)
 {
     // with exact projections every problem converges in a few hundred iterations; max_iter only bounds
     // the runs that stall above stop_tol, which then return their best iterate
@@ -142,7 +142,7 @@ void run_regression(const std::string &name, bool use_lobpcg, double sig, int ex
 
     regression::RegressionProblem gen;
     SDPSolver solver;
-    solve_regression(name, use_lobpcg, sig, max_iter, stop_tol, gen, solver, switch_admm);
+    solve_regression(name, use_lobpcg, sig, max_iter, stop_tol, gen, solver);
     if (testing::Test::HasFatalFailure())
         return;
     const HostKKT host = host_kkt(gen, solver);
@@ -151,10 +151,10 @@ void run_regression(const std::string &name, bool use_lobpcg, double sig, int ex
     const double obj_tol = 1e-4 * (1.0 + std::abs(p_star));
     // no iterate of a run stopped by max_iter is below stop_tol, not even the returned best one
     const bool converged = std::max({solver.errRp, solver.errRd, solver.relgap}) < stop_tol;
-    printf("[ RESULT   ] %s lobpcg=%d switch_admm=%d: %s, iter = %d, time = %.2fs, p* = %.10e, pobj - p* = %.2e, dobj - p* = %.2e, "
+    printf("[ RESULT   ] %s lobpcg=%d: %s, iter = %d, time = %.2fs, p* = %.10e, pobj - p* = %.2e, dobj - p* = %.2e, "
            "errRp = %.2e, errRd = %.2e, relgap = %.2e, errPSD_X = %.2e, errPSD_S = %.2e, host errRp = %.2e, "
            "host errRd = %.2e, LOBPCG calls = %d, fallbacks = %d\n",
-           name.c_str(), int(use_lobpcg), switch_admm, converged ? "converged" : "max_iter reached",
+           name.c_str(), int(use_lobpcg), converged ? "converged" : "max_iter reached",
            solver.info_iter_num, solver.total_time, p_star, solver.pobj - p_star, solver.dobj - p_star,
            solver.errRp, solver.errRd, solver.relgap, solver.errPSD_X, solver.errPSD_S,
            host.errRp, host.errRd, solver.lobpcg_calls, solver.lobpcg_fallbacks);
@@ -165,7 +165,7 @@ void run_regression(const std::string &name, bool use_lobpcg, double sig, int ex
     EXPECT_LE(solver.errRd, 1e-5);
     EXPECT_LE(solver.relgap, 1e-5);
     EXPECT_LE(solver.errPSD_S, 1e-6);
-    // X is not a projection (tau != 1, and sGS Step 3): its cone violation is measured over all blocks
+    // X is not a projection (tau != 1): its cone violation is measured over all blocks
     EXPECT_LE(solver.errPSD_X, 1e-5);
     EXPECT_LE(host.errRp, 1e-4);
 
@@ -211,61 +211,6 @@ REGRESSION_SOLVER_TEST(Large_Free, 1e-4, LargeProjectionMode::LOBPCG_POSITIVE) /
 REGRESSION_SOLVER_TEST(Large_HalfRank, 1e2, LargeProjectionMode::FULL)
 
 #undef REGRESSION_SOLVER_TEST
-
-// The same problems solved with the paper's sGS-ADMM (Algorithm 1: sGS Step 3 at every iteration, tau = 1.95,
-// sGS sigma rule), and one hybrid run (sGS-ADMM for 49 iterations, then plain ADMM).
-#define REGRESSION_SOLVER_SGS_TEST(name)                   \
-    TEST(RegressionSolver, name##_sGS)                     \
-    {                                                      \
-        run_regression(#name, true, 1e2, -1, 100000);      \
-    }
-
-REGRESSION_SOLVER_SGS_TEST(PSD)
-REGRESSION_SOLVER_SGS_TEST(Free)
-REGRESSION_SOLVER_SGS_TEST(PSD_Free)
-REGRESSION_SOLVER_SGS_TEST(Free_PSD)
-REGRESSION_SOLVER_SGS_TEST(PSD_Free_PSD)
-REGRESSION_SOLVER_SGS_TEST(Nonneg_Free_PSD)
-REGRESSION_SOLVER_SGS_TEST(Free_Free_PSD)
-REGRESSION_SOLVER_SGS_TEST(PSD_Nonneg)
-REGRESSION_SOLVER_SGS_TEST(SmallBatch_Free)
-REGRESSION_SOLVER_SGS_TEST(Medium_Free)
-
-#undef REGRESSION_SOLVER_SGS_TEST
-
-TEST(RegressionSolver, Nonneg_Free_PSD_Hybrid)
-{
-    run_regression("Nonneg_Free_PSD", true, 1e2, -1, 50);
-}
-
-TEST(RegressionSolver, AdmmModeName)
-{
-    EXPECT_EQ(admm_mode_name(0, 100), "plain ADMM");
-    EXPECT_EQ(admm_mode_name(1, 100), "plain ADMM");
-    EXPECT_EQ(admm_mode_name(101, 100), "pure sGS-ADMM (Algorithm 1)");
-    EXPECT_EQ(admm_mode_name(50, 100), "hybrid: sGS-ADMM for iterations 1-49, then plain ADMM");
-}
-
-// In the sGS phase, Step 3 solves AA^T y^{k+1} = b/sigma - A(X^k/sigma + S^{k+1} - C) exactly (up to the eps*I of
-// the factorization), so Step 4 gives b - A X^{k+1} = (1 - tau)(b - A X^k): the primal residual contracts by exactly
-// |1 - tau| = 0.95 per iteration, whatever sigma and the projection do. A stale Rp or S in Step 3, or a wrong tau,
-// breaks this; plain ADMM has no such invariant.
-TEST(RegressionSolver, SgsPrimalContraction)
-{
-    regression::RegressionProblem gen;
-    SDPSolver solver;
-    // stop_tol 1e-14: the tau rule for errRd < stop_tol never fires, so tau stays 1.95
-    solve_regression("PSD_Free", true, 1e2, 40, 1e-14, gen, solver, 1000);
-    if (testing::Test::HasFatalFailure())
-        return;
-    ASSERT_EQ(solver.info_iter_num, 40);
-    const size_t first = solver.info_errRp_arr.size() - solver.info_iter_num;
-    for (int k = 1; k < solver.info_iter_num; k++)
-    {
-        const double ratio = solver.info_errRp_arr[first + k] / solver.info_errRp_arr[first + k - 1];
-        EXPECT_NEAR(ratio, 0.95, 1e-6) << "iteration " << k + 1;
-    }
-}
 
 // Bug 2.2 on a run stopped by max_iter: the best iterate must be returned with its own residuals and
 // objectives. A converged run returns its last iterate (the first one below stop_tol, hence the best),

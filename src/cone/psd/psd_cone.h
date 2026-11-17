@@ -51,12 +51,10 @@ struct PsdConeConfig
     psd::RankAnalyzerConfig rank;
     psd::LobpcgConfig lobpcg;
     psd::CompositeFilterConfig composite;
-    bool gemm_compat = false;         // psd.large.final_product = gemm_compat (syrk otherwise)
-    bool batched_gemm_compat = false; // psd.batched.final_product = gemm_compat (scaled_gemm otherwise)
     int medium_batch_min = 2;         // psd.medium_batch_min
     int medium_max_batch = 0;         // psd.medium.max_batch
-    double jacobi_tol = 1e-16;        // psd.jacobi_tol
-    int jacobi_max_sweeps = 15;       // psd.jacobi_max_sweeps
+    double jacobi_tol = 1e-16;        // the batched Jacobi EVD of the small tier
+    int jacobi_max_sweeps = 15;
     std::string trace_path;           // psd.trace: the per-block trace of the large blocks (JSON lines; empty: off)
     static PsdConeConfig from_options(const PsdOptions &o, unsigned long long seed);
 };

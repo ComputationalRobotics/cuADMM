@@ -124,8 +124,6 @@ __global__ void dense_to_svec_batch_kernel(const long long *svec_offset, const l
 
 __device__ inline double scale_factor(double w, int mode)
 {
-    if (mode == SCALE_RELU)
-        return max(w, 0.0);
     if (mode == SCALE_SQRT_RELU)
         return sqrt(max(w, 0.0));
     return sqrt(max(-w, 0.0));

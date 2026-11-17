@@ -2,7 +2,7 @@
 
     cuadmm_mex.cu
 
-    MEX gateway of cuADMM 2.0 on SolverOptions (plan Phase 2, decision Q6):
+    MEX gateway of cuADMM on SolverOptions:
 
         [X, y, S, info] = cuadmm_mex(At, b, C, K, opts)
 
@@ -17,9 +17,6 @@
     cone_violation_S, sigma0, sigma_final, sigma_changes, time_s, setup_time_s, solve_time_s, history (matrix with the
     columns iter, time_s, pobj, dobj, eta_p, eta_d, eta_g, sigma, tau), sigma_log (matrix iter, old, new),
     certificate (struct dual_block_min, dual_cone_coef), penalty_policy, build_commit.
-
-    The positional signature of main, cuadmm_MATLAB(eig_stream_num_per_gpu, max_iter, stop_tol, At, b, C, blk_types,
-    blk_sizes, X0, y0, S0, sig, ...), is served by the MATLAB shim +cuadmm/solve.m for one release.
 
     Not yet built or tested against MATLAB (no MATLAB on the development machines); the source compiles against
     stub declarations of the MEX API (nvcc -c with -Wall, 2026-10-23).

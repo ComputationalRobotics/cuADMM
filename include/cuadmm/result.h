@@ -34,7 +34,6 @@ struct HistoryRow
 {
     int iteration;
     double time_s, pobj, dobj, eta_p, eta_d, eta_g, sigma, tau;
-    bool sgs; // the iteration used the sGS step
 };
 
 struct SigmaChange
@@ -74,9 +73,6 @@ struct SolveResult
     int freeze_iteration = -1;
     std::string freeze_reason;
     std::vector<SigmaChange> sigma_log;
-    // scheme
-    std::string scheme;
-    int sgs_iterations = 0, admm_iterations = 0, switch_iteration = -1;
     // certificate (original units): per block lambda_min / min entry / max |entry| of C - A^T y, and c_b
     std::vector<double> dual_block_min, dual_cone_coef;
     double certified_lower_bound = 0.0; // with certificate.trace_bound (NaN if none)

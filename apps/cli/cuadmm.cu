@@ -2,13 +2,13 @@
 
     cuadmm.cu
 
-    The command-line front-end of cuADMM 2.0 (plan Phase 2): every flag comes from the option table of
-    include/cuadmm/options.h (`--print-options` lists it; today's flags are accepted as aliases for one release).
+    The command-line front-end of cuADMM: every flag comes from the option table of include/cuadmm/options.h
+    (`--print-options` lists it).
 
     usage: cuadmm_exe <problem> [--option value ...]
       <problem>: a legacy TXT directory (blk.txt, At.txt, b.txt, C.txt, con_num.txt), a native .h5 file, an SDPA
-      .dat-s / .dat-s.gz file, or a SeDuMi / SDPT3 / MOSEK prob .mat file (plan Section 12; --formats lists what
-      this build reads; --format forces one). The conversion report of the reader is printed and goes into the
+      .dat-s / .dat-s.gz file, or a SeDuMi / SDPT3 / MOSEK prob .mat file (--formats lists what this build reads;
+      --format forces one). The conversion report of the reader is printed and goes into the
       summary.
 
 */
@@ -41,7 +41,7 @@ void print_usage(const char *exe)
     std::cerr << "usage: " << exe << " <problem> [options]\n"
               << "  <problem>: a TXT directory (blk.txt, At.txt, b.txt, C.txt, con_num.txt), a native .h5 file, an SDPA .dat-s[.gz] file,\n"
               << "             or a SeDuMi / SDPT3 / MOSEK prob .mat file; formats compiled in: " << formats << "\n"
-              << "options (--flag value; booleans take 0/1; every option of the table, with today's flags as aliases):\n"
+              << "options (--flag value; booleans take 0/1):\n"
               << option_table_help()
               << "\n  --help                     this text\n"
               << "  --print-options [markdown] the option table (plain or as a Markdown table)\n"
@@ -87,19 +87,6 @@ Parsed parse(int argc, char *argv[])
     }
     if (p.problem.empty())
         throw std::invalid_argument("missing problem path");
-    // combinations that today's CLI rejects
-    const bool sgs_count = p.given.count("algorithm.sgs_iterations") > 0;
-    const bool switch_given = p.given.count("algorithm.scheme_switch_iteration") > 0;
-    const bool scheme_given = p.given.count("algorithm.scheme") > 0;
-    if (sgs_count && (switch_given || scheme_given))
-        throw std::invalid_argument("--sgs-iterations cannot be combined with --scheme-switch-iteration/--switch-admm or --scheme/--algorithm");
-    if (switch_given && scheme_given)
-        throw std::invalid_argument("use either --scheme/--algorithm or --scheme-switch-iteration/--switch-admm, not both");
-    // the step lengths of main for the sGS paths unless given: 1.95 for pure sGS-ADMM, 1.95 then 1.618 for the hybrid
-    if (p.options.algorithm.scheme == SchemeKind::SgsAdmm && p.given.count("algorithm.tau") == 0)
-        p.options.algorithm.tau = 1.95;
-    if (p.options.algorithm.scheme_switch_iteration > 1 && p.given.count("algorithm.sgs_tau") == 0)
-        p.options.algorithm.sgs_tau = 1.95;
     p.options.validate();
     return p;
 }

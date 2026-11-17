@@ -3,7 +3,7 @@
     solver.cu
 
     Main solver, works for any sizes of matrices.
-    Uses the sGS-ADMM algorithm to solve an SDP problem.
+    Uses plain two-block ADMM to solve an SDP problem.
 
 */
 
@@ -12,7 +12,6 @@
 #include "cuadmm_legacy/kernels.h"
 #include "cuadmm_legacy/rank.h"
 #include "cuadmm_legacy/matrix_sizes.h"
-#include "cuadmm_legacy/monitors.h"
 
 #include "admm/admm_solver.h"
 #include "report/observers.h"
@@ -35,51 +34,6 @@
 #include <vector>
 #include <set>
 
-
-SigmaPolicyParameters SDPSolver::sigma_policy_parameters() const
-{
-    SigmaPolicyParameters p;
-    switch (this->sigma_policy)
-    {
-    case SigmaPolicy::FIXED:
-        p.factor = 1.0;
-        p.sigma_min = p.sigma_max = this->sig; // sigma_k = sigma_0
-        p.guard = false;
-        p.monitor1 = false;
-        p.sgs_rule = "";
-        break;
-    case SigmaPolicy::LEGACY_ADAPTIVE: // 9bb4ba5
-        p.factor = 2.0;
-        p.sigma_min = 1e-6;
-        p.sigma_max = 1e6;
-        p.guard = false;
-        p.monitor1 = true;
-        p.sgs_rule = "legacy_sgs";
-        break;
-    case SigmaPolicy::RESIDUAL_BALANCING: // 2d8a755 with the factor as an option
-        p.factor = this->penalty_factor;
-        p.sigma_min = 1e-3;
-        p.sigma_max = 1e3;
-        p.guard = true;
-        p.monitor1 = false;
-        p.sgs_rule = "legacy_sgs";
-        break;
-    }
-    if (this->sigma_policy != SigmaPolicy::FIXED)
-    {
-        if (this->penalty_sigma_min > 0)
-            p.sigma_min = this->penalty_sigma_min;
-        if (this->penalty_sigma_max > 0)
-            p.sigma_max = this->penalty_sigma_max;
-        if (!(p.sigma_min > 0) || !(p.sigma_max >= p.sigma_min) || !(p.factor > 0))
-            throw std::invalid_argument("sigma policy parameters: need 0 < sigma_min <= sigma_max and factor > 0 (got " +
-                                        std::to_string(p.sigma_min) + ", " + std::to_string(p.sigma_max) + ", " +
-                                        std::to_string(p.factor) + ")");
-    }
-    p.win_ratio = 1.35;
-    p.residual_weight = this->ratioconst;
-    return p;
-}
 
 void SDPSolver::synchronize_gpu0_streams()
 {
@@ -396,13 +350,7 @@ void SDPSolver::init(
         this->cpu_negative_ranks.allocate(this->sizes.large_mat_num);
     }
 
-    /* others */
-    this->prim_win = 0;
-    this->dual_win = 0;
-    this->ratioconst = 1e0;
-    // sigmin / sigmax: set by solve() from the sigma policy (sigma_policy_parameters())
-
-    /* Main elements for the sGS-ADMM algorithm */
+    /* the best iterate */
     this->X_best.allocate(GPU0, this->vec_len);
     this->y_best.allocate(GPU0, this->con_num);
     this->S_best.allocate(GPU0, this->vec_len);
@@ -424,64 +372,28 @@ void SDPSolver::init(
     return;
 }
 
-void SDPSolver::solve(
-    int max_iter, double stop_tol,
-    int sig_update_threshold,
-    int sig_update_stage_1,
-    int sig_update_stage_2,
-    int switch_admm,
-    int switch_proj_max_iter,
-    double switch_proj_tol,
-    double sigscale,
-    bool if_first)
+void SDPSolver::solve(int max_iter, double stop_tol, int switch_proj_max_iter, double switch_proj_tol, bool if_first)
 {
-    // Phase 4: the loop lives in cuadmm::admm::AdmmSolver on the components of the algorithm layer; this method keeps
-    // the signature of main for the copied tests and builds the components from the engine's fields.
     using namespace cuadmm;
     this->stop_tol = stop_tol;
-    this->sig_update_threshold = sig_update_threshold;
-    this->sig_update_stage_1 = sig_update_stage_1;
-    this->sig_update_stage_2 = sig_update_stage_2;
-    this->switch_admm = switch_admm;
-    this->sigscale = sigscale;
-    const SigmaPolicyParameters params = this->sigma_policy_parameters(); // validates the bounds and the factor
-    this->sigmin = params.sigma_min;
-    this->sigmax = params.sigma_max;
-
-    PenaltyOptions po;
-    po.policy = this->sigma_policy == SigmaPolicy::FIXED              ? PenaltyPolicyKind::Fixed
-                : this->sigma_policy == SigmaPolicy::LEGACY_ADAPTIVE ? PenaltyPolicyKind::LegacyAdaptive
-                                                                     : PenaltyPolicyKind::ResidualBalancing;
+    PenaltyOptions po = this->penalty;
     po.sigma0 = this->sig;
-    po.factor = this->penalty_factor;
-    po.sigma_min = this->penalty_sigma_min;
-    po.sigma_max = this->penalty_sigma_max;
-    po.sgs_update_threshold = sig_update_threshold;
-    po.sgs_update_stage_1 = sig_update_stage_1;
-    po.sgs_update_stage_2 = sig_update_stage_2;
-    po.sgs_factor = sigscale;
-    std::unique_ptr<admm::PenaltyPolicy> penalty = admm::make_penalty_policy(po);
+    std::unique_ptr<admm::PenaltyPolicy> policy = admm::make_penalty_policy(po);
 
-    // the PSD cone with the schedule of the C++ API of main: the warm-up (if the initial method is the composite
-    // filter) on every large block, and the low-rank analysis of every block from the switch (switch_proj_max_iter,
-    // switch_proj_tol), B3
-    cone::PsdConeConfig pc;
-    pc.policy.warmup = this->initial_proj_method == ProjectionMethod::COMPOSITE_FP16;
-    pc.policy.warmup_min_size = 1;
-    pc.policy.switch_tol = switch_proj_tol;
-    pc.policy.switch_iter = switch_proj_max_iter;
-    pc.policy.lowrank_enabled = this->use_lobpcg;
-    pc.policy.legacy_global_start = true;
-    pc.rank.ratio = this->lobpcg_ratio;
-    pc.rank.relaxation = this->lobpcg_relaxation;
-    pc.lobpcg.max_iter = this->lobpcg_maxit;
-    pc.lobpcg.tol = this->lobpcg_tol;
-    pc.composite.seed = this->lanczos_seed;
-    pc.medium_batch_min = this->medium_batch_min_count;
-    // the C++ API of main reproduces main's arithmetic: the final products of Milestone 1 (DECISIONS 50); the facade's
-    // defaults are the SYRK / scaled products of Phase 6b
-    pc.gemm_compat = true;
-    pc.batched_gemm_compat = true;
+    // the PSD cone with the settings of the options and the engine's own: the warm-up on every large block when the
+    // initial method is the composite filter
+    PsdOptions psd;
+    psd.warmup = this->initial_proj_method == ProjectionMethod::COMPOSITE_FP16 ? WarmupKind::CompositeFp16 : WarmupKind::None;
+    psd.warmup_min_size = 1;
+    psd.warmup_switch_tol = switch_proj_tol;
+    psd.warmup_switch_iter = switch_proj_max_iter;
+    psd.lowrank_enabled = this->use_lobpcg;
+    psd.lowrank_ratio = this->lobpcg_ratio;
+    psd.lowrank_relaxation = this->lobpcg_relaxation;
+    psd.lowrank_max_iter = this->lobpcg_maxit;
+    psd.lowrank_tol = this->lobpcg_tol;
+    psd.medium_batch_min = this->medium_batch_min_count;
+    const cone::PsdConeConfig pc = cone::PsdConeConfig::from_options(psd, this->lanczos_seed);
     core::StreamPoolConfig pool_config;
     pool_config.medium_streams = this->eig_stream_num_per_gpu;
     core::StreamPool pool(pool_config);
@@ -502,12 +414,9 @@ void SDPSolver::solve(
     admm::RunConfig cfg;
     cfg.max_iter = max_iter;
     cfg.tol = stop_tol;
-    cfg.switch_admm = switch_admm;
-    cfg.tau_admm = 1.618;
-    cfg.tau_sgs = 1.95;
-    cfg.legacy_sgs_tau_reduction = this->legacy_sgs_tau_reduction;
+    cfg.tau = 1.618;
     cfg.verbose = true;
-    admm::AdmmSolver loop(state, *penalty, *rule, tracker, observers, cfg);
+    admm::AdmmSolver loop(state, *policy, *rule, tracker, observers, cfg);
     loop.run(this->sig, !if_first);
 }
 

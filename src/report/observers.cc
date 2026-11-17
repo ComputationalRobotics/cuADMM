@@ -48,7 +48,6 @@ void HistoryObserver::on_iteration(const IterationEvent &e)
     row.eta_g = e.r.eta_g;
     row.sigma = e.sigma_next;
     row.tau = e.tau;
-    row.sgs = e.sgs;
     rows_.push_back(row);
 }
 

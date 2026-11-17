@@ -25,7 +25,7 @@ namespace report
 std::string json_number(double x);
 std::string json_string(const std::string &s);
 
-// iter,time_s,pobj,dobj,eta_p,eta_d,eta_g,sigma,tau,phase (17 significant digits)
+// iter,time_s,pobj,dobj,eta_p,eta_d,eta_g,sigma,tau (17 significant digits)
 void write_history_csv(const std::string &path, const SolveResult &result);
 
 // iter,old_sigma,new_sigma,rule,eta_p,eta_d,eta_g,feasratio,prim_win,dual_win

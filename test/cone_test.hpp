@@ -6,8 +6,8 @@
     PSD cones and of the product (idempotence, Moreau decomposition, orthogonality, nonexpansiveness, membership);
     the product's measures against the engine's cone_measures of main (bitwise); the host reference measures against
     the device measures; the free-variable tests of Section 9.3 through the facade (LP with free variables, free only
-    with non-unique X_u, free with a large block on the LOBPCG path, a warm start with S_u != 0, sGS-ADMM with free
-    blocks, the certificate with per-block bounds and with a missing bound).
+    with non-unique X_u, free with a large block on the LOBPCG path, a warm start with S_u != 0, the certificate
+    with per-block bounds and with a missing bound).
 
 */
 
@@ -267,7 +267,6 @@ static SolverOptions quiet_options()
 {
     SolverOptions o;
     o.output.verbosity = 0;
-    o.penalty.policy = PenaltyPolicyKind::ResidualBalancing;
     o.penalty.sigma0 = 100.0;
     o.algorithm.tol = 1e-6;
     o.algorithm.max_iter = 20000;
@@ -318,24 +317,9 @@ TEST(FreeVariables, WarmStartWithNonzeroDualOnFreeBlock)
     o.algorithm.tol = 1e-5;
     const SolveResult r = solve_generated("PSD_Free", o, &w);
     EXPECT_TRUE(r.converged) << r.stop_reason;
-    EXPECT_LT(r.admm_iterations, 200);
+    EXPECT_LT(r.iterations, 200);
     for (std::size_t i = off; i < r.best.S.size(); i++)
         EXPECT_EQ(r.best.S[i], 0.0);
-}
-
-TEST(FreeVariables, SgsAdmmWithFreeBlocks)
-{
-    const regression::RegressionProblem p = regression::generate("Nonneg_Free_PSD");
-    SolverOptions o = quiet_options();
-    o.algorithm.scheme = SchemeKind::SgsAdmm;
-    o.algorithm.tau = 1.95;
-    o.penalty.policy = PenaltyPolicyKind::Fixed;
-    o.penalty.sigma0 = 10.0;
-    o.algorithm.tol = 1e-5;
-    const SolveResult r = solve_generated("Nonneg_Free_PSD", o);
-    EXPECT_TRUE(r.converged) << r.stop_reason;
-    EXPECT_EQ(r.admm_iterations, 0);
-    EXPECT_NEAR(r.pobj, p.p_star, 1e-3 * (1.0 + std::abs(p.p_star)));
 }
 
 // free variables with a large PSD block on the LOBPCG path: RegressionSolver.Large_Free (regression_solver_test.hpp)

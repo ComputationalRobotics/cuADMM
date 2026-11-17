@@ -64,10 +64,10 @@ std::ofstream open_or_throw(const std::string &path, std::ios::openmode mode = s
 void write_history_csv(const std::string &path, const SolveResult &result)
 {
     std::ofstream f = open_or_throw(path);
-    f << std::setprecision(17) << "iter,time_s,pobj,dobj,eta_p,eta_d,eta_g,sigma,tau,phase\n";
+    f << std::setprecision(17) << "iter,time_s,pobj,dobj,eta_p,eta_d,eta_g,sigma,tau\n";
     for (const HistoryRow &r : result.history)
         f << r.iteration << "," << r.time_s << "," << r.pobj << "," << r.dobj << "," << r.eta_p << "," << r.eta_d << "," << r.eta_g << ","
-          << r.sigma << "," << r.tau << "," << (r.sgs ? "sgs" : "admm") << "\n";
+          << r.sigma << "," << r.tau << "\n";
 }
 
 void write_sigma_log_csv(const std::string &path, const SolveResult &result)
@@ -108,18 +108,7 @@ void append_summary_json(const std::string &path, const std::string &problem_pat
                          const SolverOptions &o, const SolveResult &r, double load_time_s, double cuda_init_time_s)
 {
     std::ofstream f = open_or_throw(path, std::ios::app);
-    const bool b = true;
     auto B = [](bool v) { return v ? "true" : "false"; };
-    (void)b;
-    const int switch_admm = o.algorithm.scheme == SchemeKind::SgsAdmm ? std::numeric_limits<int>::max() : o.algorithm.scheme_switch_iteration;
-    const int sgs_requested = o.algorithm.scheme_switch_iteration > 1 ? o.algorithm.scheme_switch_iteration - 1 : -1; // -1: not a hybrid (as today)
-    std::string algorithm_name;
-    if (o.algorithm.scheme == SchemeKind::SgsAdmm)
-        algorithm_name = "pure sGS-ADMM (Algorithm 1)";
-    else if (o.algorithm.scheme_switch_iteration <= 1)
-        algorithm_name = "plain ADMM";
-    else
-        algorithm_name = "hybrid: sGS-ADMM for iterations 1-" + std::to_string(o.algorithm.scheme_switch_iteration - 1) + ", then plain ADMM";
     const std::string status = r.converged ? "converged" : (r.status == Status::TimeLimit ? "time_limit" : (r.status == Status::NonFinite ? "non_finite" : "max_iter"));
     f << std::setprecision(17)
       << "{\"problem\": " << json_string(problem_path) << ", \"tag\": " << json_string(o.output.tag)
@@ -128,9 +117,7 @@ void append_summary_json(const std::string &path, const std::string &problem_pat
       << ", \"objective_offset\": " << json_number(problem.objective_offset)
       << ", \"vec_len\": " << problem.vec_len() << ", \"con_num\": " << problem.num_constraints() << ", \"blocks\": " << problem.cones.size()
       << ", \"stop_tol\": " << json_number(o.algorithm.tol) << ", \"max_iter\": " << o.algorithm.max_iter
-      << ", \"scheme\": " << json_string(name_of(o.algorithm.scheme)) << ", \"tau\": " << json_number(o.algorithm.tau)
-      << ", \"switch_admm\": " << switch_admm << ", \"sgs_iterations_requested\": " << sgs_requested
-      << ", \"algorithm\": " << json_string(algorithm_name)
+      << ", \"algorithm\": \"plain ADMM\", \"tau\": " << json_number(o.algorithm.tau)
       << ", \"sigma_policy\": " << json_string(r.penalty_policy) << ", \"sigma0\": " << json_number(r.sigma0)
       << ", \"sigma_policy_parameters\": " << r.penalty_parameters_json
       << ", \"sigma_final_scaled\": " << json_number(r.sigma_final) << ", \"sigma_final_original\": " << json_number(r.sigma_final_original)
@@ -139,8 +126,6 @@ void append_summary_json(const std::string &path, const std::string &problem_pat
       << ", \"sigma_total_variation_log2\": " << json_number(r.sigma_total_variation_log2)
       << ", \"freeze_iteration\": " << r.freeze_iteration << ", \"freeze_reason\": " << json_string(r.freeze_reason)
       << ", \"sigma_log_entries\": " << r.sigma_log.size()
-      << ", \"sgs_phase_iterations\": " << r.sgs_iterations << ", \"admm_phase_iterations\": " << r.admm_iterations
-      << ", \"switch_iteration\": " << r.switch_iteration
       << ", \"sig0\": " << json_number(o.penalty.sigma0) << ", \"use_lobpcg\": " << B(o.psd.lowrank_enabled)
       << ", \"warm_start\": " << B(o.io.warm_start || !o.io.warm_start_dir.empty())
       << ", \"status\": " << json_string(status) << ", \"converged\": " << B(r.converged)

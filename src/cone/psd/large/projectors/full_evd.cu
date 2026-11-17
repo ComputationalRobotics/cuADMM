@@ -42,18 +42,6 @@ void FullEvd::project(const LargeBlockJob &job, bool analyze_rank, const double 
     if (analyze_rank)
         analyzer_.analyze(job, tier_.engine_stop_tol());
 
-    if (tier_.config().gemm_compat)
-    {
-        // today's product: P = (Q max(W, 0)) Q^T with the n^2 temporary
-        double *tmp = tier_.W();
-        double *P = tmp + nn;
-        max_dense_vector_zero(eig, n, ctx.stream);
-        scale_columns(Q, tmp, n, 0, n, eig, SCALE_RELU, ctx.stream);
-        CUADMM_CHECK_CUBLAS(cublasDgemm(ctx.cublas, CUBLAS_OP_N, CUBLAS_OP_T, n, n, n, &one, tmp, n, Q, n, &zero, P, n));
-        tier_.pack(job.state.idx, P, s, nullptr);
-        return;
-    }
-
     // SYRK on the smaller eigen-side (plan Section 10.5): the signs of the eigenvalues on the host
     std::vector<double> lambda(n);
     CUADMM_CHECK_CUDA(cudaMemcpy(lambda.data(), eig, sizeof(double) * n, cudaMemcpyDeviceToHost));

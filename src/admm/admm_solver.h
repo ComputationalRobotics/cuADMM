@@ -7,13 +7,13 @@
         r = kkt.evaluate(s)                                   // starting point
         for k = 1, 2, ...:
             if (stop = stopping.check(k - 1, r)) return finish(stop)
-            scheme.iterate(s, sigma, tau)                     // y-step(s), cone step, multiplier step
+            y-step, cone step, multiplier step                // plain two-block ADMM
             r = kkt.evaluate(s)                               // post-step residuals
             sigma = penalty.update(k, r, sigma)
             observers.on_iteration(k, r, sigma)
 
-    on the components of Phases 4 (AdmmState, IterationScheme, PenaltyPolicy, StoppingRule, BestIterateTracker,
-    observers). The loop reproduces solve() of main bit for bit; the ported engine (SDPSolver) still holds the data.
+    on the components AdmmState, PenaltyPolicy, StoppingRule, BestIterateTracker and the observers; the ported
+    engine (SDPSolver) holds the data.
 
 */
 
@@ -24,7 +24,6 @@
 #include <string>
 
 #include "admm/admm_state.h"
-#include "admm/iteration_scheme.h"
 #include "admm/penalty_policy.h"
 #include "report/observers.h"
 #include "termination/best_iterate_tracker.h"
@@ -38,11 +37,8 @@ namespace admm
 struct RunConfig
 {
     int max_iter = 1000000;
-    double tol = 1e-4;                          // the internal tolerance (also read by the legacy tau reduction)
-    int switch_admm = 0;                        // sGS-ADMM for k < switch_admm, plain ADMM after (0: ADMM throughout)
-    double tau_admm = 1.618;
-    double tau_sgs = 1.95;
-    bool legacy_sgs_tau_reduction = false;      // today's hidden rule: tau = max(1.618, tau / 1.1) when eta_d < tol
+    double tol = 1e-4;  // the internal tolerance
+    double tau = 1.618; // multiplier step length
     bool verbose = true;
 };
 
@@ -70,7 +66,7 @@ public:
     RunOutcome run(double sigma0, bool rescale);
 
 private:
-    void finish(const termination::StopDecision &stop, double elapsed_s, bool nonfinite);
+    void finish(const termination::StopDecision &stop, double elapsed_s, bool nonfinite, int iterations);
 
     AdmmState &state_;
     PenaltyPolicy &penalty_;
@@ -78,8 +74,6 @@ private:
     termination::BestIterateTracker &tracker_;
     report::ObserverSet &observers_;
     RunConfig config_;
-    AdmmScheme admm_;
-    SgsAdmmScheme sgs_;
 };
 
 } // namespace admm

@@ -72,7 +72,6 @@ void dense_to_svec_batch(const BlockTable &table, const double *mats, double *s,
 
 enum ScaleMode
 {
-    SCALE_RELU = 0,      // B[:, j] = Q[:, j] * max(w_j, 0)      (today's product Q max(Lambda, 0))
     SCALE_SQRT_RELU = 1, // B[:, j] = Q[:, j] * sqrt(max(w_j, 0)) (the SYRK side of the positive eigenvalues)
     SCALE_SQRT_NEG = 2   // B[:, j] = Q[:, j] * sqrt(max(-w_j, 0)) (the SYRK side of the negative eigenvalues)
 };

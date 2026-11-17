@@ -37,8 +37,6 @@ public:
     void cone_step(double sigma, int k);
     // SmC = S - C (read by the next y-step)
     void update_smc();
-    // sGS-ADMM only: the second normal-equation solve y = (AA^T)^{-1} [Rp / sigma - A (S^{k+1} - C)], then Aty and Rd1
-    void second_y_step(double sigma);
     // (4): Rd = Rd1 + S; X += tau sigma Rd
     void multiplier_step(double sigma, double tau);
     // Rp = b - A X and the KKT residuals and objectives of the current iterate in original units (Rd is the one of

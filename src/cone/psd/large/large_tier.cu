@@ -72,7 +72,7 @@ LargeTier::LargeTier(SDPSolver &engine, const LargeTierConfig &config, core::Wor
         evd_host_bytes_ = std::max(evd_host_bytes_, host_bytes);
     }
     host_ws_.assign(std::max<std::size_t>(evd_host_bytes_, 8), 0);
-    std::size_t product_bytes = (config_.gemm_compat ? 2 : 1) * nn * sizeof(double);
+    std::size_t product_bytes = nn * sizeof(double);
     std::size_t lobpcg_bytes = 0;
     if (config_.lowrank && k_max_ > 0)
         lobpcg_bytes = (nn + static_cast<std::size_t>(n_max_) * k_max_ + k_max_ + lobpcg_workspace_doubles(ctx_.cusolver, n_max_, k_max_)) * sizeof(double);

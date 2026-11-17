@@ -11,9 +11,8 @@
         cuadmm::SolveResult result = solver.solve();   // resets the penalty-policy state
 
     Phase 2 drove the ported SDPSolver (src/legacy/) through its solve(); since Phase 4 the facade builds the
-    components of the algorithm layer (AdmmState, IterationScheme, PenaltyPolicy, StoppingRule, BestIterateTracker,
-    observers) and runs AdmmSolver on the engine's data; the iterates are bit for bit those of the references for
-    equivalent options.
+    components of the algorithm layer (AdmmState, PenaltyPolicy, StoppingRule, BestIterateTracker, observers) and
+    runs AdmmSolver, plain two-block ADMM, on the engine's data.
 
 */
 

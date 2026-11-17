@@ -2,11 +2,10 @@
 
     psd_memory_test.hpp
 
-    Phase 6b, the PSD memory model: the svec <-> dense conversions and the column scalings of the tiers; the SYRK
-    product of FullEvd and of Lobpcg against the host projection and against the gemm_compat product; the
-    memory plan of the facade (the measured peak within 5% of the plan, the budget check); the chunked batched EVD
-    and the single-stream mode reproducing the whole-group / many-stream runs; the compat products within
-    rounding of the defaults end to end. Uses the PsdStrategies fixture of psd_strategies_test.hpp (the engine of
+    The PSD memory model: the svec <-> dense conversions and the column scalings of the tiers; the SYRK product of
+    FullEvd and of Lobpcg against the host projection; the memory plan of the facade (the measured peak within 5% of
+    the plan, the budget check); the chunked batched EVD and the single-stream mode reproducing the whole-group /
+    many-stream runs. Uses the PsdStrategies fixture of psd_strategies_test.hpp (the engine of
     a generated problem, the cone on the arena) and the facade helpers of cone_test.hpp.
 
 */
@@ -104,7 +103,7 @@ TEST(PsdKernels, ColumnScalingsMatchTheHost)
     CUADMM_CHECK_CUDA(cudaMemcpy(dQ.data(), Q.data(), sizeof(double) * Q.size(), cudaMemcpyHostToDevice));
     CUADMM_CHECK_CUDA(cudaMemcpy(dw.data(), w.data(), sizeof(double) * w.size(), cudaMemcpyHostToDevice));
     std::vector<double> B(Q.size());
-    for (int mode : {SCALE_RELU, SCALE_SQRT_RELU, SCALE_SQRT_NEG})
+    for (int mode : {SCALE_SQRT_RELU, SCALE_SQRT_NEG})
     {
         scale_columns_batch(dQ.data(), dB.data(), n, count, dw.data(), mode, nullptr);
         CUADMM_CHECK_CUDA(cudaMemcpy(B.data(), dB.data(), sizeof(double) * B.size(), cudaMemcpyDeviceToHost));
@@ -112,7 +111,7 @@ TEST(PsdKernels, ColumnScalingsMatchTheHost)
             for (int j = 0; j < n; j++)
             {
                 const double wj = w[(std::size_t)k * n + j];
-                const double f = mode == SCALE_RELU ? std::max(wj, 0.0) : (mode == SCALE_SQRT_RELU ? std::sqrt(std::max(wj, 0.0)) : std::sqrt(std::max(-wj, 0.0)));
+                const double f = mode == SCALE_SQRT_RELU ? std::sqrt(std::max(wj, 0.0)) : std::sqrt(std::max(-wj, 0.0));
                 for (int i = 0; i < n; i++)
                 {
                     const std::size_t e = (std::size_t)k * n * n + (std::size_t)j * n + i;
@@ -148,7 +147,6 @@ TEST_F(PsdMemory, FullEvdSyrkMatchesTheHostOnBothEigenSides)
     const Spectral few_positive = make_spectral(n, spectrum(n, 300, 400.0, -2.0, -1.0, 31), 301);
     const Spectral few_negative = make_spectral(n, spectrum(n, 800, 900.0, -2.0, -1.0, 32), 302);
     cuadmm::cone::PsdCone &cone = make_cone(cuadmm::cone::PsdConeConfig{});
-    EXPECT_FALSE(cone.config().gemm_compat);
     for (const Spectral *sp : {&few_positive, &few_negative})
     {
         ASSERT_NO_FATAL_FAILURE(upload({sp}));
@@ -158,23 +156,6 @@ TEST_F(PsdMemory, FullEvdSyrkMatchesTheHostOnBothEigenSides)
     }
     // the memory text names the tiers
     EXPECT_NE(cone.memory_text().find("large tier: 1 block(s), n_max 1100"), std::string::npos) << cone.memory_text();
-}
-
-TEST_F(PsdMemory, CompatProductsReproduceTheMilestone1ArithmeticWithinRounding)
-{
-    using namespace psd_strategies;
-    ASSERT_NO_FATAL_FAILURE(init("Large_LowRankS", true, ProjectionMethod::EIG_FP64));
-    const int n = 1100;
-    const Spectral sp = make_spectral(n, spectrum(n, 300, 400.0, -2.0, -1.0, 33), 303);
-    ASSERT_NO_FATAL_FAILURE(upload({&sp}));
-    cuadmm::cone::PsdConeConfig cfg;
-    cfg.gemm_compat = true;
-    cfg.batched_gemm_compat = true;
-    cuadmm::cone::PsdCone &cone = make_cone(cfg);
-    EXPECT_TRUE(cone.large_tier().config().gemm_compat);
-    project(cone, 1, std::numeric_limits<double>::infinity());
-    const std::vector<double> compat = download(s);
-    EXPECT_LT(relative_error(compat, 0, svec(sp.P, n)), 1e-10);
 }
 
 TEST_F(PsdMemory, LobpcgSyrkOnBothModes)
@@ -269,25 +250,4 @@ TEST(PsdMemoryPlan, ChunkedBatchedEvdAndSingleStreamReproduceTheDefaults)
     EXPECT_EQ(s1.dobj, s7.dobj);
     // the streamed and the batched EVD agree within rounding (plan Section 10.5: both accurate to machine precision)
     EXPECT_NEAR(s1.pobj, reference.pobj, 1e-8 * (1.0 + std::abs(reference.pobj)));
-}
-
-TEST(PsdMemoryPlan, CompatProductsAgreeWithTheDefaultsWithinRounding)
-{
-    const regression::RegressionProblem p = regression::generate("Large_LowRankS");
-    cuadmm::SolverOptions o = quiet_options();
-    o.penalty.sigma0 = 1e-4;
-    o.algorithm.max_iter = 5000;
-    const cuadmm::SolveResult a = solve_generated("Large_LowRankS", o);
-    cuadmm::SolverOptions compat = o;
-    compat.psd.large_final_product = cuadmm::FinalProductKind::GemmCompat;
-    compat.psd.batched_final_product = cuadmm::BatchedProductKind::GemmCompat;
-    const cuadmm::SolveResult b = solve_generated("Large_LowRankS", compat);
-    EXPECT_TRUE(a.converged) << a.stop_reason;
-    EXPECT_TRUE(b.converged) << b.stop_reason;
-    EXPECT_NEAR(a.pobj, p.p_star, 1e-4 * (1.0 + std::abs(p.p_star)));
-    EXPECT_NEAR(b.pobj, p.p_star, 1e-4 * (1.0 + std::abs(p.p_star)));
-    EXPECT_NEAR(a.pobj, b.pobj, 1e-6 * (1.0 + std::abs(b.pobj)));
-    EXPECT_LE(std::abs(a.iterations - b.iterations), 2) << "the products differ by rounding only";
-    printf("[ PRODUCTS ] Large_LowRankS: syrk/scaled %d iterations, gemm_compat %d iterations, |pobj diff| = %.2e\n", a.iterations, b.iterations,
-           std::abs(a.pobj - b.pobj));
 }

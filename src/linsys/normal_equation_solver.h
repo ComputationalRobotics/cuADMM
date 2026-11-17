@@ -4,7 +4,7 @@
 
     NormalEquationSolver (plan Section 11.3): the backends of the y-step behind one interface, written for exact and
     inexact solves. analyze() and factorize() run once at setup (the system does not depend on sigma); solve() runs
-    once per plain-ADMM iteration (twice for sGS-ADMM) with device vectors on the solver's stream.
+    once per ADMM iteration with device vectors on the solver's stream.
 
     Backends (plan Section 11.4): CholmodSolver (always built; today's behavior moved out of SDPSolver, bitwise),
     CudssSolver (optional, CUADMM_WITH_CUDSS), DenseCusolverSolver (cuSOLVER dense), and the reserved PcgSolver.
