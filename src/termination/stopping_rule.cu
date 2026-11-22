@@ -9,6 +9,7 @@
 
 #include "termination/stopping_rule.h"
 
+#include <algorithm>
 #include <chrono>
 #include <cmath>
 #include <cstdio>
@@ -65,6 +66,10 @@ void ValidatedRule::on_start()
     SDPSolver &e = engine_;
     prev_internal_ok_ = false;
     last_validation_s_ = 0.0;
+    targets_ = e.validation.target_tols;
+    target_confirmed_.assign(targets_.size(), 0);
+    target_next_s_.assign(targets_.size(), 0.0);
+    target_backoff_s_.assign(targets_.size(), 15.0);
     if (!e.external_validator)
     {
         e.external_validator.reset(new ExternalValidator(
@@ -86,6 +91,14 @@ void ValidatedRule::on_start()
     }
 }
 
+int ValidatedRule::pending_target(double internal_kkt, double elapsed_s) const
+{
+    for (size_t i = 0; i < targets_.size(); ++i)
+        if (!target_confirmed_[i] && internal_kkt < targets_[i] && elapsed_s >= target_next_s_[i])
+            return (int)i;
+    return -1;
+}
+
 std::optional<StopDecision> ValidatedRule::check(int done, const admm::KktResiduals &r, double elapsed_s, bool at_cap)
 {
     SDPSolver &e = engine_;
@@ -95,6 +108,7 @@ std::optional<StopDecision> ValidatedRule::check(int done, const admm::KktResidu
     const bool internal_ok = internal_kkt < tol_;
     const bool at_time = elapsed_s > time_limit_;
     std::string trigger;
+    const int target_idx = (done > 0 && r.finite()) ? pending_target(internal_kkt, elapsed_s) : -1;
     if (!r.finite())
     {
         // the iterate is not usable: stop and return the best externally evaluated one
@@ -116,6 +130,12 @@ std::optional<StopDecision> ValidatedRule::check(int done, const admm::KktResidu
             trigger = "internal_crossing";
         else if (done > 0 && checkpoints_.count(done))
             trigger = "checkpoint";
+        else if (target_idx >= 0)
+        {
+            char buf[32];
+            snprintf(buf, sizeof(buf), "target_crossing_%.0e", targets_[target_idx]);
+            trigger = buf;
+        }
         else if (done > 0 && e.validation.interval > 0 && done % e.validation.interval == 0)
             trigger = "interval";
         else if (done > 0 && e.validation.time_interval > 0.0 && elapsed_s - last_validation_s_ >= e.validation.time_interval)
@@ -127,6 +147,17 @@ std::optional<StopDecision> ValidatedRule::check(int done, const admm::KktResidu
     {
         const ValidationRecord rec = validate_current_iterate(done, elapsed_s, trigger, done > 0 && checkpoints_.count(done) > 0);
         last_validation_s_ = elapsed_s;
+        // the targets: confirmed by any snapshot whose five external terms are all below them
+        const double ext_eta = std::max({rec.result.primal_res, rec.result.dual_res, rec.result.relgap,
+                                         rec.result.X_cone_violation_normb, rec.result.S_cone_violation});
+        for (size_t i = 0; i < targets_.size(); ++i)
+            if (!target_confirmed_[i] && std::isfinite(ext_eta) && ext_eta <= targets_[i])
+                target_confirmed_[i] = 1;
+        if (target_idx >= 0 && !target_confirmed_[target_idx])
+        {
+            target_next_s_[target_idx] = elapsed_s + target_backoff_s_[target_idx];
+            target_backoff_s_[target_idx] = std::min(60.0, 2.0 * target_backoff_s_[target_idx]);
+        }
         if (rec.result.validated)
         {
             const double strict_tol = e.validation.strict_dimacs_tol;

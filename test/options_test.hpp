@@ -111,6 +111,9 @@ TEST(Options, ValuesParseAndPrint)
     set_option(o, "validation.time_interval", "60");
     EXPECT_EQ(o.validation.time_interval, 60.0);
     EXPECT_EQ(get_option(o, "validation.time_interval"), "60");
+    set_option(o, "validation.target_tols", "1e-2,1e-3");
+    ASSERT_EQ(o.validation.target_tols.size(), 2u);
+    EXPECT_DOUBLE_EQ(o.validation.target_tols[1], 1e-3);
     set_option(o, "io.sense", "max");
     ASSERT_TRUE(o.io.sense.has_value());
     EXPECT_EQ(*o.io.sense, Sense::Maximize);
@@ -297,6 +300,7 @@ TEST(Options, ValidateRejectsInvalidValues)
     rejects("psd.composite.margin", "0.5");
     rejects("psd.lowrank.start_iter", "1");
     rejects("validation.time_interval", "-1");
+    rejects("validation.target_tols", "0,1e-3");
     rejects("psd.composite.dump_iterations", "0");
     rejects("psd.composite.dump_iterations", "100"); // needs a dump directory
     {

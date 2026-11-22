@@ -88,6 +88,13 @@ private:
     std::set<int> checkpoints_;
     bool prev_internal_ok_ = false;
     double last_validation_s_ = 0.0; // solve clock of the last validation (validation.time_interval)
+    // validation.target_tols: a validation at the first downward crossing of each target by the internal residual; a
+    // crossing whose snapshot does not confirm the target (every external criterion below it) is retried after a
+    // cooldown that doubles from 15 s up to 60 s of net solve time
+    std::vector<double> targets_;
+    std::vector<char> target_confirmed_;
+    std::vector<double> target_next_s_, target_backoff_s_;
+    int pending_target(double internal_kkt, double elapsed_s) const;
 };
 
 } // namespace termination

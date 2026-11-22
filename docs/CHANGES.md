@@ -435,6 +435,13 @@ Defaults of the facade and the CLI; the rest of the 2026-11 defaults is unchange
   FP16 composite warm-up (the exit rules are unchanged). The warm-up of 2026-11-07: `--psd-warmup-min-size 128`.
 - Unchanged: the `balance_freeze` policy with factor 1.35 and the freeze after iteration 10000, `psd.lowrank.ratio`
   0.05, the D1 LOBPCG fix and `psd.trace`.
+- **`validation.target_tols`** (`--validation-target-tols 1e-2,1e-3`, patch 2): an extra external validation at the
+  first downward crossing of each listed tolerance by the internal residual (trigger `target_crossing_<tol>` in
+  the validation history), so the time to a target is measured at the crossing instead of at the next 60 s
+  validation. A crossing whose snapshot does not confirm the target externally (primal, dual, gap, X cone and
+  S cone all below it) is retried after a cooldown that doubles from 15 s to 60 s of net solve time; any later
+  snapshot that confirms the target marks it done. The summary JSON lists `validation_target_tols`. The iterates
+  are unchanged (validations are outside the solve clock).
 
 ## 2.1.0 (2026-11-17): the final version
 

@@ -171,9 +171,10 @@ TEST(ValidationStopping, StopsOnValidatedAccuracyAndReturnsIt)
         EXPECT_EQ(r.relgap, last.result.relgap);
         EXPECT_EQ(r.X_cone_violation, last.result.X_cone_violation);
         EXPECT_EQ(r.dual_cone_violation, last.result.dual_cone_violation);
-        // the solve time includes every validation, the final one too
-        EXPECT_GE(s.solve_time, last.time_s + last.validation_s);
-        EXPECT_GE(s.solve_time, s.validation_time_s);
+        // the solve time is the net clock (branch siopt-rebuttal: validations excluded); with the validations added
+        // back it covers every validation, the final one too
+        EXPECT_GE(s.solve_time, last.time_s);
+        EXPECT_GE(s.solve_time + s.validation_time_s, last.time_s + last.validation_s);
         printf("[ VALID    ] %s: validated at iteration %d (internal KKT first below 1e-4 at %d), %zu validations, %.3f s\n",
                cuadmm::name_of(policy), s.first_validated_iteration, s.first_internal_below_tol,
                s.validation_history.size(), s.validation_time_s);
@@ -412,21 +413,21 @@ TEST(Cli, DefaultPolicyValidationAndRemovedOptions)
                   "--freeze-iteration 10000",
                   "explicit"),
               0);
-    // identical histories apart from the time column
+    // identical histories apart from the time columns (time_s, and the trailing cone_step_s of branch siopt-rebuttal)
     auto strip_time = [](const std::string &csv)
     {
         std::stringstream in(csv), out;
         std::string line;
         while (std::getline(in, line))
         {
-            const size_t a = line.find(','), b = line.find(',', a + 1);
-            out << line.substr(0, a) << line.substr(b) << "\n";
+            const size_t a = line.find(','), b = line.find(',', a + 1), c = line.rfind(',');
+            out << line.substr(0, a) << line.substr(b, c - b) << "\n";
         }
         return out.str();
     };
     EXPECT_EQ(strip_time(read("fixed_sigma_cli/default.csv")), strip_time(read("fixed_sigma_cli/explicit.csv")));
     const std::string history = read("fixed_sigma_cli/default.csv");
-    EXPECT_EQ(history.substr(0, history.find('\n')), "iter,time_s,pobj,dobj,eta_p,eta_d,eta_g,sigma,tau");
+    EXPECT_EQ(history.substr(0, history.find('\n')), "iter,time_s,pobj,dobj,eta_p,eta_d,eta_g,sigma,tau,cone_step_s");
     const std::string def = read("fixed_sigma_cli/default.json");
     EXPECT_NE(def.find("\"sigma_policy\": \"balance_freeze\""), std::string::npos);
     EXPECT_NE(def.find("\"sigma_policy_parameters\": {\"factor\": 1.35, \"sigma_min\": 0.001, \"sigma_max\": 1000, \"freeze_iteration\": 10000"),

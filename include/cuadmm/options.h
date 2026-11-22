@@ -68,6 +68,7 @@ struct ValidationOptions
 {
     int interval = 0;               // external validation every `interval` iterations (0: off)
     double time_interval = 0.0;     // and every this many seconds of net solve time (validation excluded; 0: off)
+    std::vector<double> target_tols; // extra validations at the first downward crossing of each of these tolerances by the internal residual
     double tol = -1.0;              // < 0: algorithm.tol
     int threads = 1;
     double strict_dimacs_tol = 0.0; // 0: off

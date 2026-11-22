@@ -33,6 +33,14 @@ std::string json_number(double x)
     return std::string(buf, r.ptr);
 }
 
+static std::string json_double_list(const std::vector<double> &v)
+{
+    std::string s = "[";
+    for (size_t i = 0; i < v.size(); ++i)
+        s += (i ? ", " : "") + json_number(v[i]);
+    return s + "]";
+}
+
 std::string json_string(const std::string &s)
 {
     std::string out = "\"";
@@ -162,6 +170,7 @@ void append_summary_json(const std::string &path, const std::string &problem_pat
       << ", \"cone_step_time_s\": " << json_number(r.cone_step_time_s)
       << ", \"psd_warmup\": " << json_string(name_of(o.psd.warmup)) << ", \"composite_on_reject\": " << json_string(name_of(o.psd.composite_on_reject))
       << ", \"validation_time_interval\": " << json_number(o.validation.time_interval)
+      << ", \"validation_target_tols\": " << json_double_list(o.validation.target_tols)
       << ", \"warmup_switch_iteration\": " << r.warmup_switch_iteration
       << ", \"final_sig\": " << json_number(r.sigma_final)
       << ", \"trace_bound\": " << json_number(o.certificate.trace_bound);

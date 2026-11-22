@@ -274,6 +274,7 @@ void Solver::setup(const ProblemData &problem)
     e.time_limit = o.algorithm.time_limit;
     e.validation.interval = o.validation.interval;
     e.validation.time_interval = o.validation.time_interval;
+    e.validation.target_tols = o.validation.target_tols;
     e.validation.tol = ValidationTolerances::all(o.validation.tol > 0 ? o.validation.tol : o.algorithm.tol);
     e.validation.threads = o.validation.threads;
     e.validation.checkpoint_iterations = o.validation.checkpoint_iterations;

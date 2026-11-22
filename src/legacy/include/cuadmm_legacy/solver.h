@@ -111,6 +111,7 @@ struct ValidationConfig
 {
     int interval = 0;                       // external validation every `interval` iterations (0: off)
     double time_interval = 0.0;             // and every this many seconds of net solve time (0: off)
+    std::vector<double> target_tols;        // extra validations at the first downward crossing of each tolerance by the internal residual
     ValidationTolerances tol;               // success criteria (1e-4 each by default)
     std::vector<int> checkpoint_iterations; // extra snapshots (recorded and passed to on_validation)
     // strict stage (0: off). With strict_dimacs_tol > 0, the first snapshot that passes the criteria above is recorded
