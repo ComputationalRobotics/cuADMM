@@ -64,6 +64,7 @@ void ValidatedRule::on_start()
 {
     SDPSolver &e = engine_;
     prev_internal_ok_ = false;
+    last_validation_s_ = 0.0;
     if (!e.external_validator)
     {
         e.external_validator.reset(new ExternalValidator(
@@ -115,14 +116,17 @@ std::optional<StopDecision> ValidatedRule::check(int done, const admm::KktResidu
             trigger = "internal_crossing";
         else if (done > 0 && checkpoints_.count(done))
             trigger = "checkpoint";
-        else if (done > 0 && done % e.validation.interval == 0)
+        else if (done > 0 && e.validation.interval > 0 && done % e.validation.interval == 0)
             trigger = "interval";
+        else if (done > 0 && e.validation.time_interval > 0.0 && elapsed_s - last_validation_s_ >= e.validation.time_interval)
+            trigger = "time_interval";
     }
     prev_internal_ok_ = internal_ok;
     bool stop = false;
     if (!trigger.empty())
     {
         const ValidationRecord rec = validate_current_iterate(done, elapsed_s, trigger, done > 0 && checkpoints_.count(done) > 0);
+        last_validation_s_ = elapsed_s;
         if (rec.result.validated)
         {
             const double strict_tol = e.validation.strict_dimacs_tol;

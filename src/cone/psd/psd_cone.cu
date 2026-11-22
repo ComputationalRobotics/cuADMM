@@ -139,7 +139,7 @@ psd::BatchedTierConfig batched_config(const PsdConeConfig &c)
 PsdConeConfig PsdConeConfig::from_options(const PsdOptions &o, unsigned long long seed)
 {
     PsdConeConfig c;
-    c.policy.warmup = o.warmup == WarmupKind::CompositeFp16;
+    c.policy.warmup = o.warmup != WarmupKind::None;
     c.policy.warmup_min_size = o.warmup_min_size;
     c.policy.switch_tol = o.warmup_switch_tol;
     c.policy.switch_iter = o.warmup_switch_iter;
@@ -156,6 +156,10 @@ PsdConeConfig PsdConeConfig::from_options(const PsdOptions &o, unsigned long lon
     c.composite.lanczos_steps = o.composite_lanczos_steps;
     c.composite.norm_slack = o.composite_norm_slack;
     c.composite.seed = seed;
+    c.composite.fp32 = o.warmup == WarmupKind::CompositeFp32;
+    c.composite.on_reject = static_cast<int>(o.composite_on_reject);
+    c.composite.dump_dir = o.composite_dump_dir;
+    c.composite.dump_iterations = o.composite_dump_iterations;
     c.medium_batch_min = o.medium_batch_min;
     c.medium_max_batch = o.medium_max_batch;
     c.trace_path = o.trace;
@@ -195,7 +199,8 @@ PsdCone::PsdCone(std::vector<BlockSlice> blocks, SDPSolver &engine, const PsdCon
     const psd::LargeBlockPolicyConfig &pc = policy_.config();
     std::ostringstream os;
     os << "{\"ev\": \"config\", \"small_max\": " << MatrixSizes::small_limit << ", \"medium_max\": " << MatrixSizes::medium_limit
-       << ", \"warmup\": " << (pc.warmup ? "true" : "false") << ", \"warmup_min_size\": " << pc.warmup_min_size
+       << ", \"warmup\": " << (pc.warmup ? "true" : "false") << ", \"warmup_kind\": \"" << (pc.warmup ? (config_.composite.fp32 ? "composite_fp32" : "composite_fp16") : "none")
+       << "\", \"composite_on_reject\": \"" << (config_.composite.on_reject == 0 ? "evd" : (config_.composite.on_reject == 1 ? "keep" : "abort")) << "\", \"warmup_min_size\": " << pc.warmup_min_size
        << ", \"warmup_switch_tol\": " << trace_num(pc.switch_tol) << ", \"warmup_switch_iter\": " << pc.switch_iter
        << ", \"lowrank\": " << (pc.lowrank_enabled ? "true" : "false") << ", \"lowrank_start_iter\": " << pc.lowrank_start_iter
        << ", \"lowrank_reevaluate\": " << pc.lowrank_reevaluate << ", \"lowrank_ratio\": " << trace_num(config_.rank.ratio)
@@ -237,7 +242,7 @@ PsdCone::~PsdCone()
             std::ostringstream o;
             o << "{\"ev\": \"block_totals\", \"block\": " << t.input_block << ", \"large\": " << idx << ", \"n\": " << large_.size(idx)
               << ", \"warm\": " << (policy_.warm(idx) ? "true" : "false") << ", \"warmup_exit\": " << (policy_.warm(idx) ? policy_.switch_iteration() : -1)
-              << ", \"composite_calls\": " << t.composite << ", \"composite_rejected\": " << t.composite_rejected
+              << ", \"composite_calls\": " << t.composite << ", \"composite_rejected\": " << t.composite_rejected << ", \"composite_kept\": " << t.composite_kept
               << ", \"full_evd_calls\": " << t.full_evd << ", \"rank_analyses\": " << t.analyses << ", \"lobpcg_calls\": " << t.lobpcg
               << ", \"lobpcg_accepted\": " << (t.lobpcg - t.lobpcg_rejected) << ", \"lobpcg_rejected\": " << t.lobpcg_rejected
               << ", \"first_composite\": " << t.first_composite << ", \"first_full_evd\": " << t.first_full_evd
@@ -382,14 +387,26 @@ void PsdCone::project_tiers(const double *z, double *s)
             t.composite++;
             if (t.first_composite < 0)
                 t.first_composite = k;
-            if (!composite_.project(jb, z, s))
+            composite_.set_iteration(k);
             {
-                t.composite_rejected++;
-                full_evd_counted();
-                if (trace_out_)
-                    trace_line("{\"k\": " + std::to_string(k) + ", \"ev\": \"composite_rejected\", \"block\": " + std::to_string(t.input_block) +
-                               ", \"large\": " + std::to_string(idx) + "}");
-                full_.project(jb, false, z, s); // the input is in M again
+                const int kept_before = e.composite_kept;
+                if (!composite_.project(jb, z, s))
+                {
+                    t.composite_rejected++;
+                    full_evd_counted();
+                    if (trace_out_)
+                        trace_line("{\"k\": " + std::to_string(k) + ", \"ev\": \"composite_rejected\", \"block\": " + std::to_string(t.input_block) +
+                                   ", \"large\": " + std::to_string(idx) + "}");
+                    full_.project(jb, false, z, s); // the input is in M again
+                }
+                else if (e.composite_kept > kept_before)
+                {
+                    t.composite_rejected++;
+                    t.composite_kept++;
+                    if (trace_out_)
+                        trace_line("{\"k\": " + std::to_string(k) + ", \"ev\": \"composite_kept\", \"block\": " + std::to_string(t.input_block) +
+                                   ", \"large\": " + std::to_string(idx) + "}");
+                }
             }
             break;
         case psd::LargeStrategy::FullEvd:

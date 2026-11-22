@@ -32,7 +32,8 @@ struct IterationEvent
     double sigma_used = 0.0;   // sigma of this iteration
     double sigma_next = 0.0;   // sigma of the next iteration (what the history records, as today)
     double tau = 0.0;          // step length of this iteration
-    double time_s = 0.0;       // seconds since the start of the iterations, after this iteration
+    double time_s = 0.0;       // net seconds of iterations (validation excluded) after this iteration
+    double cone_step_s = 0.0;  // cumulative seconds of the cone steps after this iteration
 };
 
 class IterationObserver

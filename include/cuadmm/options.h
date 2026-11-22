@@ -24,7 +24,8 @@ namespace cuadmm
 
 enum class PenaltyPolicyKind { Fixed, BalanceFreeze };
 enum class LinsysBackend { Auto, Cholmod, Cudss, Dense };
-enum class WarmupKind { None, CompositeFp16 };
+enum class WarmupKind { None, CompositeFp16, CompositeFp32 };
+enum class CompositeOnReject { Evd, Keep, Abort }; // a composite result failing the finiteness / norm test
 enum class IoFormat { Auto, H5, Sdpa, Sedumi, Sdpt3, Mosek, Txt };
 enum class Sense { Minimize, Maximize };
 
@@ -66,6 +67,7 @@ struct CertificateOptions
 struct ValidationOptions
 {
     int interval = 0;               // external validation every `interval` iterations (0: off)
+    double time_interval = 0.0;     // and every this many seconds of net solve time (validation excluded; 0: off)
     double tol = -1.0;              // < 0: algorithm.tol
     int threads = 1;
     double strict_dimacs_tol = 0.0; // 0: off
@@ -119,6 +121,9 @@ struct PsdOptions
     double composite_margin = 1.05;   // safety margin on the Lanczos estimate
     int composite_lanczos_steps = 20; // Lanczos steps of the norm estimate
     double composite_norm_slack = 1e-2; // norm test slack of the composite result
+    CompositeOnReject composite_on_reject = CompositeOnReject::Evd; // evd: exact fallback; keep: use it anyway (counted); abort: error
+    std::string composite_dump_dir;             // FP64 dumps of the composite input and output (empty: off)
+    std::vector<int> composite_dump_iterations; // the iterations dumped
     std::string trace;                  // per-block trace of the large blocks (JSON lines; empty: off)
 };
 
@@ -143,11 +148,13 @@ struct SolverOptions
 const char *name_of(PenaltyPolicyKind v);
 const char *name_of(LinsysBackend v);
 const char *name_of(WarmupKind v);
+const char *name_of(CompositeOnReject v);
 const char *name_of(IoFormat v);
 const char *name_of(Sense v);
 PenaltyPolicyKind parse_penalty_policy(const std::string &s);
 LinsysBackend parse_linsys_backend(const std::string &s);
 WarmupKind parse_warmup(const std::string &s);
+CompositeOnReject parse_composite_on_reject(const std::string &s);
 IoFormat parse_io_format(const std::string &s);
 Sense parse_sense(const std::string &s);
 

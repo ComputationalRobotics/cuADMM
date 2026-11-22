@@ -98,6 +98,19 @@ TEST(Options, ValuesParseAndPrint)
     EXPECT_THROW(set_option(o, "validation.checkpoint_iterations", "1e4"), std::invalid_argument);
     set_option(o, "psd.lowrank.enabled", "0");
     EXPECT_FALSE(o.psd.lowrank_enabled);
+    // siopt-rebuttal branch: the FP32 warm-up, the reject policy, the dumps and the time-based validation cadence
+    set_option(o, "psd.large.warmup", "composite_fp32");
+    EXPECT_EQ(o.psd.warmup, WarmupKind::CompositeFp32);
+    EXPECT_EQ(get_option(o, "psd.large.warmup"), "composite_fp32");
+    EXPECT_THROW(set_option(o, "psd.large.warmup", "composite_fp64"), std::invalid_argument);
+    set_option(o, "psd.composite.on_reject", "keep");
+    EXPECT_EQ(o.psd.composite_on_reject, CompositeOnReject::Keep);
+    EXPECT_EQ(get_option(o, "psd.composite.on_reject"), "keep");
+    set_option(o, "psd.composite.dump_iterations", "10,500");
+    EXPECT_EQ(o.psd.composite_dump_iterations, (std::vector<int>{10, 500}));
+    set_option(o, "validation.time_interval", "60");
+    EXPECT_EQ(o.validation.time_interval, 60.0);
+    EXPECT_EQ(get_option(o, "validation.time_interval"), "60");
     set_option(o, "io.sense", "max");
     ASSERT_TRUE(o.io.sense.has_value());
     EXPECT_EQ(*o.io.sense, Sense::Maximize);
@@ -283,6 +296,9 @@ TEST(Options, ValidateRejectsInvalidValues)
     rejects("psd.lowrank.ratio", "0");
     rejects("psd.composite.margin", "0.5");
     rejects("psd.lowrank.start_iter", "1");
+    rejects("validation.time_interval", "-1");
+    rejects("psd.composite.dump_iterations", "0");
+    rejects("psd.composite.dump_iterations", "100"); // needs a dump directory
     {
         SolverOptions o;
         set_option(o, "penalty.sigma_min", "10");
@@ -294,6 +310,13 @@ TEST(Options, ValidateRejectsInvalidValues)
         set_option(o, "validation.interval", "100");
         set_option(o, "validation.tol", "1e-4");
         set_option(o, "validation.checkpoint_iterations", "100");
+        EXPECT_NO_THROW(o.validate());
+    }
+    {
+        // the time-based cadence alone enables the validated stopping
+        SolverOptions o;
+        set_option(o, "validation.time_interval", "30");
+        set_option(o, "validation.tol", "1e-4");
         EXPECT_NO_THROW(o.validate());
     }
 }

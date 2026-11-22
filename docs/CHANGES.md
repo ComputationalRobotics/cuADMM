@@ -1,3 +1,30 @@
+# Branch siopt-rebuttal (2026-11, on 2.1.0 b8c91e9): the solver experiments of the SIOPT rebuttal
+
+Additions for the end-to-end comparison of the composite polynomial filters against the exact EVD (referee 1, M6).
+Defaults are unchanged: a run without the new options reproduces 2.1.0 except for the two clock changes below.
+
+- **`psd.large.warmup composite_fp32`**: the native FP32 composite filter (psd_projection b566590 `composite_FP32`:
+  ten odd quintic steps, 31 `cublasSgemm` under the default math mode, damping 1.001 on the input of the first eight
+  steps, symmetrized) as the warm-up projector. Workspace: the FP32 region the FP16 filter already reserves.
+- **`psd.composite.on_reject evd|keep|abort`** (default `evd`, today's fallback): a result that is not finite or fails
+  the norm test is replaced by the exact EVD, used anyway, or ends the solve with an error. `composite_rejections`
+  counts every failed test, `composite_kept` the ones used anyway (summary JSON, `psd.trace` events
+  `composite_kept` and the block totals). With `keep` and `switch_tol 0`, `switch_iter > max_iter` a run never calls
+  the EVD: the "pure composite" arms.
+- **`psd.composite.dump_dir`, `psd.composite.dump_iterations`**: at those iterations the FP64 input and output of
+  every large block's composite projection are written (column-major binaries and a JSON line of metadata) for the
+  offline comparison with the exact projection of the same input.
+- **The solve clock is net of validation.** The stopping rule's elapsed time, `algorithm.time_limit`, the history
+  `time_s`, the validation CSV `time_s` and `solve_time_s` exclude the time spent in external validations and
+  callbacks (previously included). Runs with and without validation of the same arm now share the clock. The console
+  table's time column (the CUDA event clock) is unchanged.
+- **`validation.time_interval`** (seconds of net solve time, default 0): a validation cadence in time, alone or with
+  `validation.interval`; either enables the validated stopping. Trigger name `time_interval` in the validation CSV.
+- **The cone step is timed**: history column `cone_step_s` (cumulative) and summary `cone_step_time_s`; both ends
+  of the cone step are synchronized, which adds two `cudaDeviceSynchronize` per iteration.
+- Summary JSON: `psd_warmup`, `composite_on_reject`, `validation_time_interval`, `composite_rejections`,
+  `composite_kept`, `cone_step_time_s`; `warmup_switch_iteration` is set for both composite kinds.
+
 # Behavior changes relative to cuADMM `main` (c23e67e)
 
 Plan principle 4 and the developer prompt: no silent behavior change. Every change of results, option meaning or

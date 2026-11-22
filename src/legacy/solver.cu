@@ -329,6 +329,9 @@ void SDPSolver::init(
     this->lobpcg_calls = 0;
     this->lobpcg_fallbacks = 0;
     this->composite_fallbacks = 0;
+    this->composite_rejections = 0;
+    this->composite_kept = 0;
+    this->cone_step_time_s = 0.0;
     this->jacobi_not_converged = 0;
 
     /* For the computation of y, X, S */
@@ -383,7 +386,9 @@ void SDPSolver::solve(int max_iter, double stop_tol, int switch_proj_max_iter, d
     // the PSD cone with the settings of the options and the engine's own: the warm-up on every large block when the
     // initial method is the composite filter
     PsdOptions psd;
-    psd.warmup = this->initial_proj_method == ProjectionMethod::COMPOSITE_FP16 ? WarmupKind::CompositeFp16 : WarmupKind::None;
+    psd.warmup = this->initial_proj_method == ProjectionMethod::COMPOSITE_FP16   ? WarmupKind::CompositeFp16
+                 : this->initial_proj_method == ProjectionMethod::COMPOSITE_FP32 ? WarmupKind::CompositeFp32
+                                                                                  : WarmupKind::None;
     psd.warmup_min_size = 1;
     psd.warmup_switch_tol = switch_proj_tol;
     psd.warmup_switch_iter = switch_proj_max_iter;

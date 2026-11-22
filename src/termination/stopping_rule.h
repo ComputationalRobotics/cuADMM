@@ -87,6 +87,7 @@ private:
     bool strict_;
     std::set<int> checkpoints_;
     bool prev_internal_ok_ = false;
+    double last_validation_s_ = 0.0; // solve clock of the last validation (validation.time_interval)
 };
 
 } // namespace termination

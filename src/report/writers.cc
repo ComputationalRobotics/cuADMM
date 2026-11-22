@@ -64,10 +64,10 @@ std::ofstream open_or_throw(const std::string &path, std::ios::openmode mode = s
 void write_history_csv(const std::string &path, const SolveResult &result)
 {
     std::ofstream f = open_or_throw(path);
-    f << std::setprecision(17) << "iter,time_s,pobj,dobj,eta_p,eta_d,eta_g,sigma,tau\n";
+    f << std::setprecision(17) << "iter,time_s,pobj,dobj,eta_p,eta_d,eta_g,sigma,tau,cone_step_s\n";
     for (const HistoryRow &r : result.history)
         f << r.iteration << "," << r.time_s << "," << r.pobj << "," << r.dobj << "," << r.eta_p << "," << r.eta_d << "," << r.eta_g << ","
-          << r.sigma << "," << r.tau << "\n";
+          << r.sigma << "," << r.tau << "," << r.cone_step_s << "\n";
 }
 
 void write_sigma_log_csv(const std::string &path, const SolveResult &result)
@@ -158,6 +158,10 @@ void append_summary_json(const std::string &path, const std::string &problem_pat
       << ", \"errPSD_X\": " << json_number(r.cone_violation_X) << ", \"errPSD_S\": " << json_number(r.cone_violation_S)
       << ", \"lobpcg_calls\": " << r.lobpcg_calls << ", \"lobpcg_fallbacks\": " << r.lobpcg_fallbacks
       << ", \"composite_fallbacks\": " << r.composite_fallbacks << ", \"jacobi_not_converged\": " << r.jacobi_not_converged
+      << ", \"composite_rejections\": " << r.composite_rejections << ", \"composite_kept\": " << r.composite_kept
+      << ", \"cone_step_time_s\": " << json_number(r.cone_step_time_s)
+      << ", \"psd_warmup\": " << json_string(name_of(o.psd.warmup)) << ", \"composite_on_reject\": " << json_string(name_of(o.psd.composite_on_reject))
+      << ", \"validation_time_interval\": " << json_number(o.validation.time_interval)
       << ", \"warmup_switch_iteration\": " << r.warmup_switch_iteration
       << ", \"final_sig\": " << json_number(r.sigma_final)
       << ", \"trace_bound\": " << json_number(o.certificate.trace_bound);

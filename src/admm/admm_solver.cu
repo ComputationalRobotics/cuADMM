@@ -48,6 +48,9 @@ RunOutcome AdmmSolver::run(double sigma0, bool rescale)
     e.best_validation = ValidationRecord();
     e.returned_best_external = false;
     e.validation_time_s = 0.0;
+    e.cone_step_time_s = 0.0;
+    e.composite_rejections = 0;
+    e.composite_kept = 0;
     e.y_solves = 0;
     e.sigma_log.clear();
     e.practical_validated = e.strict_validated = false;
@@ -89,8 +92,8 @@ RunOutcome AdmmSolver::run(double sigma0, bool rescale)
         if (validating)
         {
             const ValidationTolerances &t = e.validation.tol;
-            std::cout << " External validation: every " << e.validation.interval
-                      << " iterations and at each crossing of the internal tolerance; stop only when eta_p <= " << t.primal << ", eta_d <= " << t.dual
+            std::cout << " External validation: every " << e.validation.interval << " iterations / " << e.validation.time_interval
+                      << " s of net solve time (0: off) and at each crossing of the internal tolerance; stop only when eta_p <= " << t.primal << ", eta_d <= " << t.dual
                       << ", eta_g <= " << t.gap << ", X cone <= " << t.cone << ", dual cone <= " << t.dual_cone << " (recomputed on the CPU, all finite)"
                       << std::endl;
         }
@@ -122,6 +125,11 @@ RunOutcome AdmmSolver::run(double sigma0, bool rescale)
     const auto solve_start = std::chrono::steady_clock::now();
     auto seconds_since_start = [&solve_start]()
     { return std::chrono::duration<double>(std::chrono::steady_clock::now() - solve_start).count(); };
+    // the solve clock of the stopping rule, the time limit and the history: the time spent in the external validations
+    // (CPU eigendecompositions, snapshots, callbacks) is excluded, so that validating and non-validating runs of the same
+    // arm share the clock (siopt-rebuttal branch)
+    auto net_seconds = [&seconds_since_start, &e]()
+    { return seconds_since_start() - e.validation_time_s - e.callback_time_s; };
     bool nonfinite = false;
 
     for (int k = 1; k <= c.max_iter + 1; k++)
@@ -133,7 +141,7 @@ RunOutcome AdmmSolver::run(double sigma0, bool rescale)
             e.first_internal_below_1e_3 = done;
         if (done > 0 && internal_kkt < c.tol && e.first_internal_below_tol < 0)
             e.first_internal_below_tol = done;
-        const double elapsed = seconds_since_start();
+        const double elapsed = net_seconds();
         const std::optional<termination::StopDecision> stop = stopping_.check(done, r, elapsed, k > c.max_iter);
         {
             // the console table (the time column: the engine's event clock, as today)
@@ -152,7 +160,7 @@ RunOutcome AdmmSolver::run(double sigma0, bool rescale)
             out.converged = stop->converged;
             out.time_limit_reached = stop->time_limit;
             out.nonfinite = nonfinite;
-            finish(*stop, validating ? seconds_since_start() : elapsed, nonfinite, done);
+            finish(*stop, net_seconds(), nonfinite, done);
             break;
         }
 
@@ -162,7 +170,12 @@ RunOutcome AdmmSolver::run(double sigma0, bool rescale)
         /* Steps 1-4: y-step, cone step (with S - C), multiplier step */
         const double tau = c.tau;
         state_.y_step(sigma);
+        // the cone step timed on its own (both ends synchronized: the projection dominates it for large blocks)
+        CHECK_CUDA(cudaDeviceSynchronize());
+        const auto cone_start = std::chrono::steady_clock::now();
         state_.cone_step(sigma, k);
+        CHECK_CUDA(cudaDeviceSynchronize());
+        e.cone_step_time_s += std::chrono::duration<double>(std::chrono::steady_clock::now() - cone_start).count();
         state_.update_smc();
         state_.multiplier_step(sigma, tau);
         e.iterations = k;
@@ -193,7 +206,8 @@ RunOutcome AdmmSolver::run(double sigma0, bool rescale)
         event.sigma_used = sigma;
         event.sigma_next = sigma_next;
         event.tau = tau;
-        event.time_s = seconds_since_start();
+        event.time_s = net_seconds();
+        event.cone_step_s = e.cone_step_time_s;
         observers_.on_iteration(event);
         sigma = sigma_next;
     }
@@ -265,8 +279,8 @@ void AdmmSolver::finish(const termination::StopDecision &stop, double solve_time
         printf("\n\n LOBPCG calls = %d, certificate fallbacks to cuSOLVER = %d", e.lobpcg_calls, e.lobpcg_fallbacks);
     if (e.jacobi_not_converged > 0)
         printf("\n batched Jacobi EVDs below their tolerance (warning only) = %d", e.jacobi_not_converged);
-    if (e.composite_fallbacks > 0)
-        printf("\n non-finite or norm-test composite projections replaced by cuSOLVER = %d", e.composite_fallbacks);
+    if (e.composite_rejections > 0)
+        printf("\n non-finite or norm-test composite projections = %d (replaced by cuSOLVER: %d, kept: %d)", e.composite_rejections, e.composite_fallbacks, e.composite_kept);
     printf("\n\n primal objective = %- 9.8e \n dual   objective = %- 9.8e", e.pobj, e.dobj);
     printf("\n\n algorithm: plain ADMM, iterations = %d\n sigma policy: %s, initial sigma %.6e, final sigma %.6e, %d change(s)", iterations,
            std::string(penalty_.name()).c_str(), e.sigma0, e.sig, e.sigma_changes);
@@ -285,8 +299,8 @@ void AdmmSolver::finish(const termination::StopDecision &stop, double solve_time
         if (e.callback_failures > 0)
             printf("\n WARNING: %d validation callback(s) failed (see above)", e.callback_failures);
     }
-    printf("\n\n time per iteration = %2.4fs \n total time         = %2.1fs (init %2.1fs, iterations %2.1fs)", e.solve_time / std::max(1, iterations),
-           e.total_time, e.init_time, e.solve_time);
+    printf("\n\n time per iteration = %2.4fs \n total time         = %2.1fs (init %2.1fs, iterations %2.1fs net of validation, cone steps %2.1fs)",
+           e.solve_time / std::max(1, iterations), e.total_time, e.init_time, e.solve_time, e.cone_step_time_s);
     printf("\n -------------------------------------------------------------------------------\n\n");
 }
 

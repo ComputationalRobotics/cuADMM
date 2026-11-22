@@ -10,12 +10,18 @@
 
 #include "cone/psd/large/projectors/composite_filter.h"
 
+#include <algorithm>
 #include <cmath>
 #include <cstddef>
+#include <fstream>
+#include <stdexcept>
+#include <string>
+#include <vector>
 
 #include <cuda_fp16.h>
 
 #include "cone/psd/kernels/composite_fp16.h"
+#include "cone/psd/kernels/composite_fp32.h"
 #include "cone/psd/kernels/lanczos.h"
 #include "cone/psd/large/large_tier.h"
 #include "core/check.h"
@@ -55,6 +61,24 @@ bool CompositeFilter::project(const LargeBlockJob &job, const double *z, double 
     double norm_in;
     CHECK_CUBLAS(cublasDnrm2(cublasH, nn, A, 1, &norm_in));
 
+    // the dumps (siopt-rebuttal branch): the FP64 input W of this block before any scaling, then the output, as raw
+    // column-major binaries with a JSON line of metadata; an offline tool computes the exact projection of the same input
+    const bool dump = !config_.dump_dir.empty() &&
+                      std::find(config_.dump_iterations.begin(), config_.dump_iterations.end(), k_) != config_.dump_iterations.end();
+    const std::string dump_base = dump ? config_.dump_dir + "/iter" + std::to_string(k_) + "_block" + std::to_string(job.state.idx) : std::string();
+    auto dump_matrix = [&](const std::string &path)
+    {
+        std::vector<double> h(static_cast<std::size_t>(nn));
+        CHECK_CUDA(cudaStreamSynchronize(ctx.stream));
+        CHECK_CUDA(cudaMemcpy(h.data(), A, sizeof(double) * h.size(), cudaMemcpyDeviceToHost));
+        std::ofstream f(path, std::ios::binary);
+        f.write(reinterpret_cast<const char *>(h.data()), static_cast<std::streamsize>(sizeof(double) * h.size()));
+        if (!f.good())
+            throw std::runtime_error("psd.composite.dump_dir: cannot write " + path);
+    };
+    if (dump)
+        dump_matrix(dump_base + "_input.bin");
+
     // scale the spectrum into [-1, 1]: the Lanczos estimate 'up' is not a certified upper bound on
     // ||A||_2, and the filter overflows if ||A||/scale > ~1.02 (FP16), hence the margin
     double lo, up;
@@ -63,7 +87,10 @@ bool CompositeFilter::project(const LargeBlockJob &job, const double *z, double 
     const double inv_scale = 1.0 / scale;
     CHECK_CUBLAS(cublasDscal(cublasH, nn, &inv_scale, A, 1));
 
-    composite_fp16(cublasH, A, n, fws, hws);
+    if (config_.fp32)
+        composite_fp32(cublasH, A, n, fws);
+    else
+        composite_fp16(cublasH, A, n, fws, hws);
 
     // rescale the result back to the original scale
     CHECK_CUBLAS(cublasDscal(cublasH, nn, &scale, A, 1));
@@ -73,11 +100,30 @@ bool CompositeFilter::project(const LargeBlockJob &job, const double *z, double 
     // finite but wrong result from an underestimated scale fails this free necessary condition
     double norm;
     CHECK_CUBLAS(cublasDnrm2(cublasH, nn, A, 1, &norm));
-    if (!std::isfinite(norm) || !std::isfinite(norm_in) || norm > (1.0 + config_.norm_slack) * norm_in)
+    const bool rejected = !std::isfinite(norm) || !std::isfinite(norm_in) || norm > (1.0 + config_.norm_slack) * norm_in;
+    if (dump)
     {
-        tier_.unpack(job.state.idx, z); // the input again, for the exact fallback
-        e.composite_fallbacks++;
-        return false;
+        dump_matrix(dump_base + "_output.bin");
+        std::ofstream meta(dump_base + ".json");
+        meta.precision(17);
+        meta << "{\"k\": " << k_ << ", \"large\": " << job.state.idx << ", \"n\": " << n << ", \"kind\": \"" << (config_.fp32 ? "composite_fp32" : "composite_fp16")
+             << "\", \"lanczos_lo\": " << lo << ", \"lanczos_up\": " << up << ", \"margin\": " << config_.margin << ", \"scale\": " << scale
+             << ", \"norm_in_F\": " << norm_in << ", \"norm_out_F\": " << norm << ", \"rejected\": " << (rejected ? "true" : "false")
+             << ", \"layout\": \"column-major float64, n x n\"}\n";
+    }
+    if (rejected)
+    {
+        e.composite_rejections++;
+        if (config_.on_reject == 2)
+            throw std::runtime_error("composite projection rejected at iteration " + std::to_string(k_) + " (block " + std::to_string(job.state.idx) +
+                                     ": ||P||_F = " + std::to_string(norm) + ", ||Z||_F = " + std::to_string(norm_in) + "; psd.composite.on_reject abort)");
+        if (config_.on_reject == 0)
+        {
+            tier_.unpack(job.state.idx, z); // the input again, for the exact fallback
+            e.composite_fallbacks++;
+            return false;
+        }
+        e.composite_kept++; // keep: the result is used as it is (a pure composite run never calls the EVD)
     }
 
     tier_.pack(job.state.idx, A, s, nullptr);

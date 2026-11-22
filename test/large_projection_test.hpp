@@ -33,6 +33,7 @@
 
 #include "cuadmm_legacy/solver.h"
 #include "cone/psd/kernels/composite_fp16.h"
+#include "cone/psd/kernels/composite_fp32.h"
 #include "cone/psd/kernels/lanczos.h"
 #include "cone/psd/kernels/lobpcg.h"
 #include "cone/psd/kernels/precision.h"
@@ -358,10 +359,9 @@ protected:
 
     /// @brief FP16 composite projection of a full-rank matrix with the solver's scaling (margin * Lanczos estimate).
     /// (The FP32 filter is not ported: plan Q3.)
-    void composite_projection(const double margin, const double err_tol)
+    void composite_projection(const double margin, const double err_tol, const bool fp16 = true)
     {
         using namespace large_projection;
-        const bool fp16 = true;
         const size_t nn = (size_t)n * n;
         const size_t stride = (nn + 3) / 4 * 4; // workspace alignment used by the solver
 
@@ -391,7 +391,10 @@ protected:
         const double scale = up > 0.0 ? margin * up : 1.0;
         const double inv_scale = 1.0 / scale;
         ASSERT_CUBLAS_SUCCESS(cublasDscal(tensor_op_H.handle, (int)nn, &inv_scale, A.ptr, 1));
-        composite_fp16(tensor_op_H.handle, A.ptr, n, float_ws.ptr, half_ws.ptr);
+        if (fp16)
+            composite_fp16(tensor_op_H.handle, A.ptr, n, float_ws.ptr, half_ws.ptr);
+        else
+            composite_fp32(tensor_op_H.handle, A.ptr, n, float_ws.ptr);
         ASSERT_CUBLAS_SUCCESS(cublasDscal(tensor_op_H.handle, (int)nn, &scale, A.ptr, 1));
         ASSERT_CUDA_SUCCESS(cudaDeviceSynchronize());
         ASSERT_CUDA_SUCCESS(cudaGetLastError());
@@ -625,4 +628,10 @@ TEST_F(LargeProjection, LOBPCG_ClusteredAndTinyEigenvalues)
 TEST_F(LargeProjection, Composite_FP16_SolverScaling)
 {
     composite_projection(COMPOSITE_FP16_SCALE_MARGIN, 2e-2);
+}
+
+// the native FP32 filter of the siopt-rebuttal branch: 31 GEMMs, relative error about 1e-5 on the paper's families
+TEST_F(LargeProjection, Composite_FP32_SolverScaling)
+{
+    composite_projection(COMPOSITE_FP16_SCALE_MARGIN, 1e-3, false);
 }

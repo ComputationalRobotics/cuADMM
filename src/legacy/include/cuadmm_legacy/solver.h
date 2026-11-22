@@ -39,7 +39,8 @@
 enum ProjectionMethod
 {
     EIG_FP64,
-    COMPOSITE_FP16
+    COMPOSITE_FP16,
+    COMPOSITE_FP32
 };
 
 inline const char *get_projection_method_name(ProjectionMethod method, bool dash = true)
@@ -51,6 +52,8 @@ inline const char *get_projection_method_name(ProjectionMethod method, bool dash
             return "EIG_FP64 ---------------";
         case ProjectionMethod::COMPOSITE_FP16:
             return "COMPOSITE_FP16 ---------";
+        case ProjectionMethod::COMPOSITE_FP32:
+            return "COMPOSITE_FP32 ---------";
         default:
             return "UNKNOWN ----------------";
         }
@@ -61,6 +64,8 @@ inline const char *get_projection_method_name(ProjectionMethod method, bool dash
             return "EIG_FP64";
         case ProjectionMethod::COMPOSITE_FP16:
             return "COMPOSITE_FP16";
+        case ProjectionMethod::COMPOSITE_FP32:
+            return "COMPOSITE_FP32";
         default:
             return "UNKNOWN";
         }
@@ -105,6 +110,7 @@ struct ValidationRecord
 struct ValidationConfig
 {
     int interval = 0;                       // external validation every `interval` iterations (0: off)
+    double time_interval = 0.0;             // and every this many seconds of net solve time (0: off)
     ValidationTolerances tol;               // success criteria (1e-4 each by default)
     std::vector<int> checkpoint_iterations; // extra snapshots (recorded and passed to on_validation)
     // strict stage (0: off). With strict_dimacs_tol > 0, the first snapshot that passes the criteria above is recorded
@@ -232,6 +238,8 @@ public:
     int lobpcg_calls;                                // number of LOBPCG projections in the last solve()
     int lobpcg_fallbacks;                            // number of LOBPCG results rejected by the certificate
     int composite_fallbacks;                         // number of non-finite composite projections in the last solve()
+    int composite_rejections = 0;                    // composite results that failed the finiteness / norm test (fallback or kept)
+    int composite_kept = 0;                          // of those, the ones used anyway (psd.composite.on_reject keep)
     int jacobi_not_converged;                        // number of batched Jacobi EVDs that did not reach their tolerance
 
     /* Small matrices eigen decomposition (batched Jacobi)  */
@@ -301,6 +309,7 @@ public:
     ValidationRecord best_validation;            // best externally evaluated iterate (smallest merit)
     bool returned_best_external = false;         // the returned iterate is best_validation, not the last iterate
     double validation_time_s = 0.0;              // seconds spent in snapshots and external validations
+    double cone_step_time_s = 0.0;               // seconds spent in the cone steps (A^T y, the input, the projections) of the last solve()
     double callback_time_s = 0.0;                // seconds spent in ValidationConfig::on_validation
     int callback_failures = 0;                   // exceptions thrown by ValidationConfig::on_validation
     size_t peak_gpu_mem_bytes = 0;               // largest (total - free) device memory seen at the start of the

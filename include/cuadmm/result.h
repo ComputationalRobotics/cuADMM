@@ -34,6 +34,7 @@ struct HistoryRow
 {
     int iteration;
     double time_s, pobj, dobj, eta_p, eta_d, eta_g, sigma, tau;
+    double cone_step_s = 0.0; // cumulative seconds of the cone steps (A^T y, the input, the projections) after this iteration
 };
 
 struct SigmaChange
@@ -94,6 +95,8 @@ struct SolveResult
     int presolve_removed_rows = 0;  // dependent constraint rows removed by the presolve (linsys.presolve)
     std::string presolve_message;   // the presolve's one-line report (empty when off)
     int lobpcg_calls = 0, lobpcg_fallbacks = 0, composite_fallbacks = 0, jacobi_not_converged = 0;
+    int composite_rejections = 0, composite_kept = 0; // composite results that failed the finiteness / norm test; of those, the ones used anyway
+    double cone_step_time_s = 0.0;                    // seconds of the cone steps (the projections) within solve_time_s
     int warmup_switch_iteration = -1; // first iteration after the composite warm-up (-1: no warm-up, or it never ended)
     // history
     std::vector<HistoryRow> history;

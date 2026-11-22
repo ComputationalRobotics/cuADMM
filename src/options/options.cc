@@ -43,7 +43,8 @@ T enum_parse(const std::string &s, const char *const (&names)[N], const char *wh
 
 const char *const kPolicyNames[] = {"fixed", "balance_freeze"};
 const char *const kBackendNames[] = {"auto", "cholmod", "cudss", "dense"};
-const char *const kWarmupNames[] = {"none", "composite_fp16"};
+const char *const kWarmupNames[] = {"none", "composite_fp16", "composite_fp32"};
+const char *const kOnRejectNames[] = {"evd", "keep", "abort"};
 const char *const kFormatNames[] = {"auto", "h5", "sdpa", "sedumi", "sdpt3", "mosek", "txt"};
 const char *const kSenseNames[] = {"min", "max"};
 
@@ -147,11 +148,13 @@ std::string json_string(const std::string &s)
 const char *name_of(PenaltyPolicyKind v) { return enum_name(v, kPolicyNames); }
 const char *name_of(LinsysBackend v) { return enum_name(v, kBackendNames); }
 const char *name_of(WarmupKind v) { return enum_name(v, kWarmupNames); }
+const char *name_of(CompositeOnReject v) { return enum_name(v, kOnRejectNames); }
 const char *name_of(IoFormat v) { return enum_name(v, kFormatNames); }
 const char *name_of(Sense v) { return enum_name(v, kSenseNames); }
 PenaltyPolicyKind parse_penalty_policy(const std::string &s) { return enum_parse<PenaltyPolicyKind>(s, kPolicyNames, "penalty policy"); }
 LinsysBackend parse_linsys_backend(const std::string &s) { return enum_parse<LinsysBackend>(s, kBackendNames, "linear-system backend"); }
 WarmupKind parse_warmup(const std::string &s) { return enum_parse<WarmupKind>(s, kWarmupNames, "PSD warm-up"); }
+CompositeOnReject parse_composite_on_reject(const std::string &s) { return enum_parse<CompositeOnReject>(s, kOnRejectNames, "composite reject policy"); }
 IoFormat parse_io_format(const std::string &s) { return enum_parse<IoFormat>(s, kFormatNames, "input format"); }
 Sense parse_sense(const std::string &s)
 {
@@ -190,6 +193,7 @@ const std::vector<OptionSpec> &option_table()
         {"certificate.trace_bound_scale", "--trace-bound-scale", "double", "", "none", "R_b = f n_b for PSD blocks of size n_b, f for the entries of l and u blocks"},
         // validation
         {"validation.interval", "--validation-interval", "int", "", "0", "validation-aware stopping: validate every n iterations on the CPU with the original data and stop only on a validated snapshot (0: off)"},
+        {"validation.time_interval", "--validation-time-interval", "double", "", "0", "also validate every this many seconds of net solve time (the time spent in validations is excluded from the solve clock and the time limit; 0: off); alone it enables the validated stopping like validation.interval"},
         {"validation.tol", "--validation-tol", "double", "", "algorithm.tol", "tolerance of every external criterion"},
         {"validation.threads", "--validation-threads", "int", "", "1", "CPU threads of the external validation"},
         {"validation.strict_dimacs_tol", "--strict-dimacs-tol", "double", "", "0", "after the validated criteria, continue until max |DIMACS error| <= x (0: stop at the criteria)"},
@@ -217,7 +221,7 @@ const std::vector<OptionSpec> &option_table()
         {"psd.medium_batch_min", "--psd-medium-batch-min", "int", "", "2", "medium size groups with at least this many blocks use the batched EVD (0: never)"},
         {"psd.medium_streams", "--psd-medium-streams", "int", "", "15", "CUDA streams of the medium eigendecompositions (>= 1)"},
         {"psd.large.memory_budget", "--psd-large-memory-budget", "double", "", "0.9", "fraction of free memory for the large tier"},
-        {"psd.large.warmup", "--psd-warmup", "enum", "none, composite_fp16", "composite_fp16", "low-precision warm-up of the large blocks of at least warmup.min_size: the FP16 composite filter until eta < switch_tol"},
+        {"psd.large.warmup", "--psd-warmup", "enum", "none, composite_fp16, composite_fp32", "composite_fp16", "low-precision warm-up of the large blocks of at least warmup.min_size: the FP16 (22 GEMMs, Tensor Cores) or native FP32 (31 GEMMs) composite filter until eta < switch_tol"},
         {"psd.large.warmup.min_size", "--psd-warmup-min-size", "int", "", "5000", "smallest large block that gets the warm-up"},
         {"psd.large.warmup.switch_tol", "--psd-warmup-switch-tol", "double", "", "1e-2", "the warm-up ends at the first iteration with eta below this"},
         {"psd.large.warmup.switch_iter", "--psd-warmup-switch-iter", "int", "", "5000", "or after this many iterations"},
@@ -234,6 +238,9 @@ const std::vector<OptionSpec> &option_table()
         {"psd.composite.margin", "--psd-composite-margin", "double", "", "1.05", "safety margin on the Lanczos estimate of the composite filter"},
         {"psd.composite.lanczos_steps", "--psd-composite-lanczos-steps", "int", "", "20", "Lanczos steps of the norm estimate"},
         {"psd.composite.norm_slack", "--psd-composite-norm-slack", "double", "", "1e-2", "norm test slack of the composite result"},
+        {"psd.composite.on_reject", "--psd-composite-on-reject", "enum", "evd, keep, abort", "evd", "a composite result that is not finite or fails the norm test: evd replaces it by the exact EVD, keep uses it anyway (counted as a rejection), abort stops the solve with an error"},
+        {"psd.composite.dump_dir", "--psd-composite-dump-dir", "string", "", "none", "directory of FP64 dumps of the composite projection input and output of every large block (column-major binary, a JSON line of metadata) at psd.composite.dump_iterations"},
+        {"psd.composite.dump_iterations", "--psd-composite-dump-iterations", "int_list", "", "none", "the iterations whose composite projections are dumped"},
         {"psd.trace", "--psd-trace", "string", "", "none", "one JSON line per rank analysis of a large PSD block (eigenvalue counts of the projection input, mode), LOBPCG and composite rejection and warm-up switch, and per-block totals at the end"},
         // misc
         {"seed", "--seed", "int", "", "0", "seed of the deterministic generators (the Lanczos start vectors)"},
@@ -323,6 +330,7 @@ void set_option(SolverOptions &o, const std::string &path, const std::string &va
         else if (p == "certificate.trace_bound") o.certificate.trace_bound = value == "none" ? -1.0 : parse_double(value);
         else if (p == "certificate.trace_bound_scale") o.certificate.trace_bound_scale = value == "none" ? -1.0 : parse_double(value);
         else if (p == "validation.interval") o.validation.interval = parse_int(value);
+        else if (p == "validation.time_interval") o.validation.time_interval = parse_double(value);
         else if (p == "validation.tol") o.validation.tol = value == "algorithm.tol" ? -1.0 : parse_double(value);
         else if (p == "validation.threads") o.validation.threads = parse_int(value);
         else if (p == "validation.strict_dimacs_tol") o.validation.strict_dimacs_tol = parse_double(value);
@@ -371,6 +379,9 @@ void set_option(SolverOptions &o, const std::string &path, const std::string &va
         else if (p == "psd.composite.margin") o.psd.composite_margin = parse_double(value);
         else if (p == "psd.composite.lanczos_steps") o.psd.composite_lanczos_steps = parse_int(value);
         else if (p == "psd.composite.norm_slack") o.psd.composite_norm_slack = parse_double(value);
+        else if (p == "psd.composite.on_reject") o.psd.composite_on_reject = parse_composite_on_reject(value);
+        else if (p == "psd.composite.dump_dir") o.psd.composite_dump_dir = value == "none" ? "" : value;
+        else if (p == "psd.composite.dump_iterations") o.psd.composite_dump_iterations = parse_int_list(value);
         else if (p == "seed")
         {
             const long long v = std::stoll(value);
@@ -410,6 +421,7 @@ std::string get_option(const SolverOptions &o, const std::string &p)
     if (p == "certificate.trace_bound") return fmt_optional_double(o.certificate.trace_bound);
     if (p == "certificate.trace_bound_scale") return fmt_optional_double(o.certificate.trace_bound_scale);
     if (p == "validation.interval") return fmt(o.validation.interval);
+    if (p == "validation.time_interval") return fmt(o.validation.time_interval);
     if (p == "validation.tol") return o.validation.tol < 0 ? "algorithm.tol" : fmt(o.validation.tol);
     if (p == "validation.threads") return fmt(o.validation.threads);
     if (p == "validation.strict_dimacs_tol") return fmt(o.validation.strict_dimacs_tol);
@@ -452,6 +464,9 @@ std::string get_option(const SolverOptions &o, const std::string &p)
     if (p == "psd.composite.margin") return fmt(o.psd.composite_margin);
     if (p == "psd.composite.lanczos_steps") return fmt(o.psd.composite_lanczos_steps);
     if (p == "psd.composite.norm_slack") return fmt(o.psd.composite_norm_slack);
+    if (p == "psd.composite.on_reject") return name_of(o.psd.composite_on_reject);
+    if (p == "psd.composite.dump_dir") return o.psd.composite_dump_dir.empty() ? "none" : o.psd.composite_dump_dir;
+    if (p == "psd.composite.dump_iterations") return fmt_list(o.psd.composite_dump_iterations);
     if (p == "seed") return std::to_string(o.seed);
     if (p == "gpu.device") return fmt(o.gpu_device);
     throw std::logic_error("option '" + p + "' is in the table but has no getter");
@@ -499,6 +514,8 @@ void SolverOptions::validate() const
 
     if (validation.interval < 0)
         fail("validation.interval", "must be non-negative");
+    if (!(validation.time_interval >= 0.0) || !std::isfinite(validation.time_interval))
+        fail("validation.time_interval", "must be a finite non-negative number of seconds (0: off)");
     if (validation.tol >= 0.0 && !(validation.tol > 0.0))
         fail("validation.tol", "must be positive");
     if (validation.threads < 1)
@@ -508,10 +525,10 @@ void SolverOptions::validate() const
     for (int c : validation.checkpoint_iterations)
         if (c <= 0)
             fail("validation.checkpoint_iterations", "iterations must be positive");
-    if (validation.interval == 0 &&
+    if (validation.interval == 0 && validation.time_interval <= 0.0 &&
         (validation.tol >= 0.0 || validation.threads != 1 || !validation.checkpoint_iterations.empty() || !validation.checkpoint_dir.empty() ||
          !validation.history_file.empty() || validation.strict_dimacs_tol != 0.0 || !validation.final_save_dir.empty()))
-        fail("validation.interval", "validation.tol, .threads, .strict_dimacs_tol, .checkpoint_iterations, .checkpoint_dir, .final_save_dir and .history_file need validation.interval > 0");
+        fail("validation.interval", "validation.tol, .threads, .strict_dimacs_tol, .checkpoint_iterations, .checkpoint_dir, .final_save_dir and .history_file need validation.interval > 0 or validation.time_interval > 0");
 
     if (!io.save_format.empty() && io.save_format != "txt" && io.save_format != "h5" && io.save_format != "sdpa" && io.save_format != "sedumi" &&
         io.save_format != "sdpt3" && io.save_format != "mosek")
@@ -558,6 +575,11 @@ void SolverOptions::validate() const
         fail("psd.composite.lanczos_steps", "must be at least 1");
     if (!(psd.composite_norm_slack >= 0.0))
         fail("psd.composite.norm_slack", "must be non-negative");
+    for (int c : psd.composite_dump_iterations)
+        if (c <= 0)
+            fail("psd.composite.dump_iterations", "iterations must be positive");
+    if (!psd.composite_dump_iterations.empty() && psd.composite_dump_dir.empty())
+        fail("psd.composite.dump_iterations", "needs psd.composite.dump_dir");
 
     if (gpu_device < 0)
         fail("gpu.device", "must be non-negative");

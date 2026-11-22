@@ -463,6 +463,41 @@ TEST_F(PsdStrategies, CompositeFilterIsAccurateAndDeterministic)
     EXPECT_LT(relative_error(download(s), 0, svec(sp.P, n)), 1e-10);
 }
 
+// siopt-rebuttal branch: with psd.composite.on_reject = keep a rejected result is used anyway and counted, never replaced
+TEST_F(PsdStrategies, CompositeFilterKeepsARejectedResultWhenAsked)
+{
+    using namespace psd_strategies;
+    ASSERT_NO_FATAL_FAILURE(init("Large_LowRankS", true, ProjectionMethod::COMPOSITE_FP16));
+    const int n = 1100;
+    const Spectral sp = make_spectral(n, gapped_spectrum(n, 18), 108);
+    ASSERT_NO_FATAL_FAILURE(upload({&sp}));
+    cuadmm::cone::PsdConeConfig cfg;
+    cfg.policy.warmup = true;
+    cfg.policy.warmup_min_size = 1000;
+    cuadmm::cone::PsdCone &cone = make_cone(cfg);
+    cone.large_tier().unpack(0, z.data());
+
+    cuadmm::cone::psd::CompositeFilterConfig strict;
+    strict.norm_slack = -1.0; // every result fails the norm test
+    strict.on_reject = 1;     // keep
+    cuadmm::cone::psd::CompositeFilter filter(strict, cone.large_tier());
+    EXPECT_TRUE(filter.project(cone.job(0), z.data(), s.data()));
+    EXPECT_EQ(engine.composite_fallbacks, 0);
+    EXPECT_EQ(engine.composite_rejections, 1);
+    EXPECT_EQ(engine.composite_kept, 1);
+    CUADMM_CHECK_CUDA(cudaDeviceSynchronize());
+    // the kept result is the filter's own projection (accurate here: only the slack made the test fail)
+    EXPECT_LT(relative_error(download(s), 0, svec(sp.P, n)), 2e-2);
+
+    // abort throws
+    strict.on_reject = 2;
+    cuadmm::cone::psd::CompositeFilter aborting(strict, cone.large_tier());
+    cone.large_tier().unpack(0, z.data());
+    EXPECT_THROW(aborting.project(cone.job(0), z.data(), s.data()), std::runtime_error);
+    EXPECT_EQ(engine.composite_rejections, 2);
+    EXPECT_EQ(engine.composite_kept, 1);
+}
+
 TEST_F(PsdStrategies, CompositeFilterRejectsByTheNormTestAndRestoresTheInput)
 {
     using namespace psd_strategies;

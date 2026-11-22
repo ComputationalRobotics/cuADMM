@@ -41,6 +41,7 @@ void HistoryObserver::on_iteration(const IterationEvent &e)
     HistoryRow row;
     row.iteration = e.k;
     row.time_s = e.time_s;
+    row.cone_step_s = e.cone_step_s;
     row.pobj = e.r.pobj;
     row.dobj = e.r.dobj;
     row.eta_p = e.r.eta_p;

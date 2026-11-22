@@ -22,6 +22,7 @@ Generated from the option table of `src/options/options.cc` (`cuadmm_exe --print
 | `certificate.trace_bound` | `--trace-bound` | double | `none` | the same bound R for every block (paper eq. 30) |
 | `certificate.trace_bound_scale` | `--trace-bound-scale` | double | `none` | R_b = f n_b for PSD blocks of size n_b, f for the entries of l and u blocks |
 | `validation.interval` | `--validation-interval` | int | `0` | validation-aware stopping: validate every n iterations on the CPU with the original data and stop only on a validated snapshot (0: off) |
+| `validation.time_interval` | `--validation-time-interval` | double | `0` | also validate every this many seconds of net solve time (the time spent in validations is excluded from the solve clock and the time limit; 0: off); alone it enables the validated stopping like validation.interval |
 | `validation.tol` | `--validation-tol` | double | `algorithm.tol` | tolerance of every external criterion |
 | `validation.threads` | `--validation-threads` | int | `1` | CPU threads of the external validation |
 | `validation.strict_dimacs_tol` | `--strict-dimacs-tol` | double | `0` | after the validated criteria, continue until max |DIMACS error| <= x (0: stop at the criteria) |
@@ -46,7 +47,7 @@ Generated from the option table of `src/options/options.cc` (`cuadmm_exe --print
 | `psd.medium_batch_min` | `--psd-medium-batch-min` | int | `2` | medium size groups with at least this many blocks use the batched EVD (0: never) |
 | `psd.medium_streams` | `--psd-medium-streams` | int | `15` | CUDA streams of the medium eigendecompositions (>= 1) |
 | `psd.large.memory_budget` | `--psd-large-memory-budget` | double | `0.9` | fraction of free memory for the large tier |
-| `psd.large.warmup` | `--psd-warmup` | enum (none, composite_fp16) | `composite_fp16` | low-precision warm-up of the large blocks of at least warmup.min_size: the FP16 composite filter until eta < switch_tol |
+| `psd.large.warmup` | `--psd-warmup` | enum (none, composite_fp16, composite_fp32) | `composite_fp16` | low-precision warm-up of the large blocks of at least warmup.min_size: the FP16 (22 GEMMs, Tensor Cores) or native FP32 (31 GEMMs) composite filter until eta < switch_tol |
 | `psd.large.warmup.min_size` | `--psd-warmup-min-size` | int | `5000` | smallest large block that gets the warm-up |
 | `psd.large.warmup.switch_tol` | `--psd-warmup-switch-tol` | double | `1e-2` | the warm-up ends at the first iteration with eta below this |
 | `psd.large.warmup.switch_iter` | `--psd-warmup-switch-iter` | int | `5000` | or after this many iterations |
@@ -63,6 +64,9 @@ Generated from the option table of `src/options/options.cc` (`cuadmm_exe --print
 | `psd.composite.margin` | `--psd-composite-margin` | double | `1.05` | safety margin on the Lanczos estimate of the composite filter |
 | `psd.composite.lanczos_steps` | `--psd-composite-lanczos-steps` | int | `20` | Lanczos steps of the norm estimate |
 | `psd.composite.norm_slack` | `--psd-composite-norm-slack` | double | `1e-2` | norm test slack of the composite result |
+| `psd.composite.on_reject` | `--psd-composite-on-reject` | enum (evd, keep, abort) | `evd` | a composite result that is not finite or fails the norm test: evd replaces it by the exact EVD, keep uses it anyway (counted as a rejection), abort stops the solve with an error |
+| `psd.composite.dump_dir` | `--psd-composite-dump-dir` | string | `none` | directory of FP64 dumps of the composite projection input and output of every large block (column-major binary, a JSON line of metadata) at psd.composite.dump_iterations |
+| `psd.composite.dump_iterations` | `--psd-composite-dump-iterations` | int_list | `none` | the iterations whose composite projections are dumped |
 | `psd.trace` | `--psd-trace` | string | `none` | one JSON line per rank analysis of a large PSD block (eigenvalue counts of the projection input, mode), LOBPCG and composite rejection and warm-up switch, and per-block totals at the end |
 | `seed` | `--seed` | int | `0` | seed of the deterministic generators (the Lanczos start vectors) |
 | `gpu.device` | `--device` | int | `0` | CUDA device of the solver |

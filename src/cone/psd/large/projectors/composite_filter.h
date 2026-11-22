@@ -16,6 +16,9 @@
 #ifndef CUADMM_CONE_PSD_LARGE_PROJECTORS_COMPOSITE_FILTER_H
 #define CUADMM_CONE_PSD_LARGE_PROJECTORS_COMPOSITE_FILTER_H
 
+#include <string>
+#include <vector>
+
 #include "cone/psd/large/large_block_state.h"
 
 namespace cuadmm
@@ -33,6 +36,10 @@ struct CompositeFilterConfig
     int lanczos_steps = 20;         // psd.composite.lanczos_steps
     double norm_slack = 1e-2;       // psd.composite.norm_slack
     unsigned long long seed = 0;    // options.seed (the Lanczos start vector, B8)
+    bool fp32 = false;              // psd.large.warmup composite_fp32: the native FP32 filter (31 GEMMs) instead of FP16
+    int on_reject = 0;              // psd.composite.on_reject: 0 evd (exact fallback), 1 keep (use it anyway), 2 abort (throw)
+    std::string dump_dir;           // psd.composite.dump_dir (empty: off)
+    std::vector<int> dump_iterations; // psd.composite.dump_iterations
 };
 
 class CompositeFilter
@@ -45,10 +52,13 @@ public:
     const CompositeFilterConfig &config() const { return config_; }
     /// The Lanczos seed of a block: the solver seed mixed with the block index (B8).
     static unsigned long long block_seed(unsigned long long seed, int idx);
+    /// The iteration of the next project (for the dumps).
+    void set_iteration(int k) { k_ = k; }
 
 private:
     CompositeFilterConfig config_;
     LargeTier &tier_;
+    int k_ = 0;
 };
 
 } // namespace psd

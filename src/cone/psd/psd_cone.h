@@ -108,7 +108,7 @@ private:
     struct BlockTrace
     {
         int input_block = -1;
-        long long composite = 0, composite_rejected = 0, full_evd = 0, analyses = 0, lobpcg = 0, lobpcg_rejected = 0, low_rank_analyses = 0;
+        long long composite = 0, composite_rejected = 0, composite_kept = 0, full_evd = 0, analyses = 0, lobpcg = 0, lobpcg_rejected = 0, low_rank_analyses = 0;
         int first_composite = -1, first_full_evd = -1, first_analysis = -1, first_lobpcg = -1, first_low_rank = -1;
         int mode = 0, mode_changes = 0, last_iteration = -1, last_analysis = -1, last_pos = -1, last_neg = -1, last_k_pairs = 0;
         double last_rank_tol = 0.0;

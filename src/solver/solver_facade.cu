@@ -218,7 +218,9 @@ void Solver::setup(const ProblemData &problem)
     bool any_warm_block = false;
     for (std::size_t b = 0; b < im.num_blocks; b++)
         any_warm_block = any_warm_block || (im.blk_types[b] == 's' && im.blk_sizes[b] > o.psd.medium_max && im.blk_sizes[b] >= o.psd.warmup_min_size);
-    const ProjectionMethod initial = (o.psd.warmup == WarmupKind::CompositeFp16 && any_warm_block) ? ProjectionMethod::COMPOSITE_FP16 : ProjectionMethod::EIG_FP64;
+    const ProjectionMethod initial = (o.psd.warmup != WarmupKind::None && any_warm_block)
+                                         ? (o.psd.warmup == WarmupKind::CompositeFp32 ? ProjectionMethod::COMPOSITE_FP32 : ProjectionMethod::COMPOSITE_FP16)
+                                         : ProjectionMethod::EIG_FP64;
     im.psd_config = cone::PsdConeConfig::from_options(o.psd, static_cast<unsigned long long>(o.seed));
 
     CHECK_CUDA(cudaSetDevice(o.gpu_device));
@@ -271,6 +273,7 @@ void Solver::setup(const ProblemData &problem)
     e.lobpcg_maxit = o.psd.lowrank_max_iter;
     e.time_limit = o.algorithm.time_limit;
     e.validation.interval = o.validation.interval;
+    e.validation.time_interval = o.validation.time_interval;
     e.validation.tol = ValidationTolerances::all(o.validation.tol > 0 ? o.validation.tol : o.algorithm.tol);
     e.validation.threads = o.validation.threads;
     e.validation.checkpoint_iterations = o.validation.checkpoint_iterations;
@@ -372,7 +375,7 @@ SolveResult Solver::solve(const WarmStart *warm_start)
     admm::AdmmState state(e, *im.cones);
     termination::BestIterateTracker tracker(e);
     std::unique_ptr<termination::StoppingRule> rule;
-    if (o.validation.interval > 0)
+    if (o.validation.interval > 0 || o.validation.time_interval > 0.0)
         rule.reset(new termination::ValidatedRule(e, o.algorithm.tol, o.algorithm.time_limit));
     else
         rule.reset(new termination::InternalKktRule(o.algorithm.tol, o.algorithm.time_limit));
@@ -486,7 +489,10 @@ SolveResult Solver::solve(const WarmStart *warm_start)
     r.lobpcg_calls = e.lobpcg_calls;
     r.lobpcg_fallbacks = e.lobpcg_fallbacks;
     r.composite_fallbacks = e.composite_fallbacks;
-    r.warmup_switch_iteration = e.switched_proj_method && e.initial_proj_method == ProjectionMethod::COMPOSITE_FP16 ? e.switched_proj_method_iter : -1;
+    r.composite_rejections = e.composite_rejections;
+    r.composite_kept = e.composite_kept;
+    r.cone_step_time_s = e.cone_step_time_s;
+    r.warmup_switch_iteration = e.switched_proj_method && e.initial_proj_method != ProjectionMethod::EIG_FP64 ? e.switched_proj_method_iter : -1;
     r.jacobi_not_converged = e.jacobi_not_converged;
     // history of this solve, from the observer
     r.history = history->take();
