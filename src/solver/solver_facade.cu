@@ -277,6 +277,7 @@ void Solver::setup(const ProblemData &problem)
     e.validation.target_tols = o.validation.target_tols;
     e.validation.tol = ValidationTolerances::all(o.validation.tol > 0 ? o.validation.tol : o.algorithm.tol);
     e.validation.threads = o.validation.threads;
+    e.validation.gpu_eigenvalues = o.validation.device == ValidationDevice::Gpu;
     e.validation.checkpoint_iterations = o.validation.checkpoint_iterations;
     e.validation.strict_dimacs_tol = o.validation.strict_dimacs_tol;
     e.dimacs_kinds = problem.source.dimacs_kinds;

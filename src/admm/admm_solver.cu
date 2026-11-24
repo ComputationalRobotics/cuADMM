@@ -94,7 +94,8 @@ RunOutcome AdmmSolver::run(double sigma0, bool rescale)
             const ValidationTolerances &t = e.validation.tol;
             std::cout << " External validation: every " << e.validation.interval << " iterations / " << e.validation.time_interval
                       << " s of net solve time (0: off) and at each crossing of the internal tolerance; stop only when eta_p <= " << t.primal << ", eta_d <= " << t.dual
-                      << ", eta_g <= " << t.gap << ", X cone <= " << t.cone << ", dual cone <= " << t.dual_cone << " (recomputed on the CPU, all finite)"
+                      << ", eta_g <= " << t.gap << ", X cone <= " << t.cone << ", dual cone <= " << t.dual_cone
+                      << " (recomputed in double precision from the original data, eigenvalues on the " << (e.validation.gpu_eigenvalues ? "GPU" : "CPU") << ", all finite)"
                       << std::endl;
         }
         else

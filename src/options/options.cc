@@ -45,6 +45,7 @@ const char *const kPolicyNames[] = {"fixed", "balance_freeze"};
 const char *const kBackendNames[] = {"auto", "cholmod", "cudss", "dense"};
 const char *const kWarmupNames[] = {"none", "composite_fp16", "composite_fp32"};
 const char *const kOnRejectNames[] = {"evd", "keep", "abort"};
+const char *const kValidationDeviceNames[] = {"gpu", "cpu"};
 const char *const kFormatNames[] = {"auto", "h5", "sdpa", "sedumi", "sdpt3", "mosek", "txt"};
 const char *const kSenseNames[] = {"min", "max"};
 
@@ -149,12 +150,14 @@ const char *name_of(PenaltyPolicyKind v) { return enum_name(v, kPolicyNames); }
 const char *name_of(LinsysBackend v) { return enum_name(v, kBackendNames); }
 const char *name_of(WarmupKind v) { return enum_name(v, kWarmupNames); }
 const char *name_of(CompositeOnReject v) { return enum_name(v, kOnRejectNames); }
+const char *name_of(ValidationDevice v) { return enum_name(v, kValidationDeviceNames); }
 const char *name_of(IoFormat v) { return enum_name(v, kFormatNames); }
 const char *name_of(Sense v) { return enum_name(v, kSenseNames); }
 PenaltyPolicyKind parse_penalty_policy(const std::string &s) { return enum_parse<PenaltyPolicyKind>(s, kPolicyNames, "penalty policy"); }
 LinsysBackend parse_linsys_backend(const std::string &s) { return enum_parse<LinsysBackend>(s, kBackendNames, "linear-system backend"); }
 WarmupKind parse_warmup(const std::string &s) { return enum_parse<WarmupKind>(s, kWarmupNames, "PSD warm-up"); }
 CompositeOnReject parse_composite_on_reject(const std::string &s) { return enum_parse<CompositeOnReject>(s, kOnRejectNames, "composite reject policy"); }
+ValidationDevice parse_validation_device(const std::string &s) { return enum_parse<ValidationDevice>(s, kValidationDeviceNames, "validation device"); }
 IoFormat parse_io_format(const std::string &s) { return enum_parse<IoFormat>(s, kFormatNames, "input format"); }
 Sense parse_sense(const std::string &s)
 {
@@ -192,11 +195,12 @@ const std::vector<OptionSpec> &option_table()
         {"certificate.trace_bound", "--trace-bound", "double", "", "none", "the same bound R for every block (paper eq. 30)"},
         {"certificate.trace_bound_scale", "--trace-bound-scale", "double", "", "none", "R_b = f n_b for PSD blocks of size n_b, f for the entries of l and u blocks"},
         // validation
-        {"validation.interval", "--validation-interval", "int", "", "0", "validation-aware stopping: validate every n iterations on the CPU with the original data and stop only on a validated snapshot (0: off)"},
+        {"validation.interval", "--validation-interval", "int", "", "0", "validation-aware stopping: validate every n iterations in double precision with the original data and stop only on a validated snapshot (0: off)"},
         {"validation.time_interval", "--validation-time-interval", "double", "", "0", "also validate every this many seconds of net solve time (the time spent in validations is excluded from the solve clock and the time limit; 0: off); alone it enables the validated stopping like validation.interval"},
         {"validation.target_tols", "--validation-target-tols", "double_list", "", "none", "extra validation at the first downward crossing of each of these tolerances by the internal residual (comma-separated); a crossing whose snapshot does not confirm the tolerance externally (every criterion below it) is retried with a doubling cooldown of 15 s to 60 s of net solve time"},
         {"validation.tol", "--validation-tol", "double", "", "algorithm.tol", "tolerance of every external criterion"},
-        {"validation.threads", "--validation-threads", "int", "", "1", "CPU threads of the external validation"},
+        {"validation.threads", "--validation-threads", "int", "", "1", "CPU threads of the external validation (the eigenvalues of validation.device cpu)"},
+        {"validation.device", "--validation-device", "enum", "gpu, cpu", "gpu", "eigenvalues of the PSD blocks in the external validation: gpu computes them with cuSOLVER in double precision on the device, block by block, and falls back to the CPU for a block that fails; cpu uses LAPACK dsyevd"},
         {"validation.strict_dimacs_tol", "--strict-dimacs-tol", "double", "", "0", "after the validated criteria, continue until max |DIMACS error| <= x (0: stop at the criteria)"},
         {"validation.checkpoint_iterations", "--checkpoint-iterations", "int_list", "", "none", "iterations with an extra validation snapshot"},
         {"validation.checkpoint_dir", "--checkpoint-dir", "string", "", "none", "save X.txt, y.txt, S.txt of those snapshots in <dir>/iter_<k>"},
@@ -335,6 +339,7 @@ void set_option(SolverOptions &o, const std::string &path, const std::string &va
         else if (p == "validation.target_tols") o.validation.target_tols = parse_double_list(value);
         else if (p == "validation.tol") o.validation.tol = value == "algorithm.tol" ? -1.0 : parse_double(value);
         else if (p == "validation.threads") o.validation.threads = parse_int(value);
+        else if (p == "validation.device") o.validation.device = parse_validation_device(value);
         else if (p == "validation.strict_dimacs_tol") o.validation.strict_dimacs_tol = parse_double(value);
         else if (p == "validation.checkpoint_iterations") o.validation.checkpoint_iterations = parse_int_list(value);
         else if (p == "validation.checkpoint_dir") o.validation.checkpoint_dir = value == "none" ? "" : value;
@@ -427,6 +432,7 @@ std::string get_option(const SolverOptions &o, const std::string &p)
     if (p == "validation.target_tols") return fmt_list(o.validation.target_tols);
     if (p == "validation.tol") return o.validation.tol < 0 ? "algorithm.tol" : fmt(o.validation.tol);
     if (p == "validation.threads") return fmt(o.validation.threads);
+    if (p == "validation.device") return name_of(o.validation.device);
     if (p == "validation.strict_dimacs_tol") return fmt(o.validation.strict_dimacs_tol);
     if (p == "validation.checkpoint_iterations") return fmt_list(o.validation.checkpoint_iterations);
     if (p == "validation.checkpoint_dir") return o.validation.checkpoint_dir.empty() ? "none" : o.validation.checkpoint_dir;

@@ -71,7 +71,7 @@ In MATLAB, `[X, y, S, info] = cuadmm.solve(At, b, C, K, opts)` (the `+cuadmm` pa
   (`auto`), the cuSOLVER dense Cholesky (`dense`), cuDSS (`cudss`); `linsys.presolve` removes dependent constraint
   rows.
 - **Stopping**: the internal KKT residual max(eta_p, eta_d, eta_g) below `algorithm.tol` (1e-4); with
-  `validation.interval` the residuals are recomputed on the CPU in the original units and the solve stops only on
+  `validation.interval` the residuals are recomputed in double precision in the original units and the solve stops only on
   them (external validation, the practical and strict DIMACS tolerances); `algorithm.time_limit` and
   `algorithm.max_iter` return the best iterate. The summary carries the cone violations of X and S and, with
   `certificate.block_bounds` (or the trace bound), a certified lower bound on the optimal value.

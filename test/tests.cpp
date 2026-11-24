@@ -39,6 +39,7 @@
 #include "regression_solver_test.hpp"
 #include "fixed_sigma_validation_test.hpp"
 #include "outputs_test.hpp"
+#include "validation_device_test.hpp"
 
 int main(int argc, char **argv)
 {

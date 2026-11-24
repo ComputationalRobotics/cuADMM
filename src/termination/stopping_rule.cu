@@ -89,6 +89,7 @@ void ValidatedRule::on_start()
         std::vector<int>().swap(e.host_C_idx);
         std::vector<double>().swap(e.host_C_vals);
     }
+    e.external_validator->set_eig_device(e.validation.gpu_eigenvalues ? ExternalValidator::EigDevice::Gpu : ExternalValidator::EigDevice::Cpu);
 }
 
 int ValidatedRule::pending_target(double internal_kkt, double elapsed_s) const

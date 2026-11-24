@@ -48,7 +48,7 @@ directories; `linsys.presolve` removes dependent constraint rows before the fact
 
 ## The external validation
 
-    cuadmm_exe <problem> --validation-interval 100 --tol 1e-6          # stop on the residuals recomputed on the CPU
+    cuadmm_exe <problem> --validation-interval 100 --tol 1e-6          # stop on the residuals recomputed from the original data
     cuadmm_exe <problem> --validation-interval 1000 --strict-dimacs-tol 1e-6 --final-save-dir final/
 
 ## The C++ API

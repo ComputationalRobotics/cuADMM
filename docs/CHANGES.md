@@ -24,6 +24,15 @@ Defaults are unchanged: a run without the new options reproduces 2.1.0 except fo
   of the cone step are synchronized, which adds two `cudaDeviceSynchronize` per iteration.
 - Summary JSON: `psd_warmup`, `composite_on_reject`, `validation_time_interval`, `composite_rejections`,
   `composite_kept`, `cone_step_time_s`; `warmup_switch_iteration` is set for both composite kinds.
+- **`validation.device gpu|cpu`** (default `gpu`; added 2026-11-24, after the runs of the rebuttal, which used the
+  CPU): the smallest eigenvalues of the external validation (X, S and C - A^T y of every PSD block) are computed on
+  the device with `cusolverDnXsyevd` in double precision, eigenvalues only, block by block, on a dense copy of the
+  unscaled block. The residuals, objectives and norms stay on the CPU with the original data. The buffers of a
+  validation are allocated for the call and released after it. A block whose device computation fails (not enough
+  device memory, a cuSOLVER error) falls back to LAPACK `dsyevd`; `cpu` is the previous behavior (LAPACK for every
+  block, `validation.threads` threads). External validation itself remains off unless `validation.interval` or
+  `validation.time_interval` is set. `ValidationResult::gpu_eigs` / `cpu_eigs` count the eigenvalue computations of
+  a validation by device; summary JSON `validation_device`.
 
 # Behavior changes relative to cuADMM `main` (c23e67e)
 

@@ -26,6 +26,7 @@ enum class PenaltyPolicyKind { Fixed, BalanceFreeze };
 enum class LinsysBackend { Auto, Cholmod, Cudss, Dense };
 enum class WarmupKind { None, CompositeFp16, CompositeFp32 };
 enum class CompositeOnReject { Evd, Keep, Abort }; // a composite result failing the finiteness / norm test
+enum class ValidationDevice { Gpu, Cpu };          // where the external validation computes the eigenvalues of the PSD blocks
 enum class IoFormat { Auto, H5, Sdpa, Sedumi, Sdpt3, Mosek, Txt };
 enum class Sense { Minimize, Maximize };
 
@@ -71,6 +72,7 @@ struct ValidationOptions
     std::vector<double> target_tols; // extra validations at the first downward crossing of each of these tolerances by the internal residual
     double tol = -1.0;              // < 0: algorithm.tol
     int threads = 1;
+    ValidationDevice device = ValidationDevice::Gpu; // lambda_min of the PSD blocks: cuSOLVER on the device (double precision) or LAPACK on the CPU
     double strict_dimacs_tol = 0.0; // 0: off
     std::vector<int> checkpoint_iterations;
     std::string checkpoint_dir;
@@ -150,12 +152,14 @@ const char *name_of(PenaltyPolicyKind v);
 const char *name_of(LinsysBackend v);
 const char *name_of(WarmupKind v);
 const char *name_of(CompositeOnReject v);
+const char *name_of(ValidationDevice v);
 const char *name_of(IoFormat v);
 const char *name_of(Sense v);
 PenaltyPolicyKind parse_penalty_policy(const std::string &s);
 LinsysBackend parse_linsys_backend(const std::string &s);
 WarmupKind parse_warmup(const std::string &s);
 CompositeOnReject parse_composite_on_reject(const std::string &s);
+ValidationDevice parse_validation_device(const std::string &s);
 IoFormat parse_io_format(const std::string &s);
 Sense parse_sense(const std::string &s);
 

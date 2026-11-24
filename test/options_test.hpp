@@ -114,6 +114,13 @@ TEST(Options, ValuesParseAndPrint)
     set_option(o, "validation.target_tols", "1e-2,1e-3");
     ASSERT_EQ(o.validation.target_tols.size(), 2u);
     EXPECT_DOUBLE_EQ(o.validation.target_tols[1], 1e-3);
+    // the eigenvalues of the external validation: on the device by default, LAPACK on request
+    EXPECT_EQ(SolverOptions().validation.device, ValidationDevice::Gpu);
+    EXPECT_EQ(get_option(SolverOptions(), "validation.device"), "gpu");
+    set_option(o, "validation.device", "cpu");
+    EXPECT_EQ(o.validation.device, ValidationDevice::Cpu);
+    EXPECT_EQ(get_option(o, "validation.device"), "cpu");
+    EXPECT_THROW(set_option(o, "validation.device", "fpga"), std::invalid_argument);
     set_option(o, "io.sense", "max");
     ASSERT_TRUE(o.io.sense.has_value());
     EXPECT_EQ(*o.io.sense, Sense::Maximize);

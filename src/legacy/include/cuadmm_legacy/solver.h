@@ -119,7 +119,10 @@ struct ValidationConfig
     // (stop_reason "strict_validated") or a safety limit; the returned iterate is then the validated snapshot with the
     // smallest max_abs_dimacs (or, if none validated, the smallest merit)
     double strict_dimacs_tol = 0.0;
-    int threads = 1;                        // CPU threads for the per-block eigendecompositions
+    int threads = 1;                        // CPU threads for the per-block eigendecompositions (gpu_eigenvalues = false)
+    // lambda_min of the PSD blocks with cuSOLVER on the device, in double precision (ExternalValidator::EigDevice::Gpu,
+    // LAPACK for a block whose device computation fails); false: LAPACK dsyevd on the CPU for every block
+    bool gpu_eigenvalues = true;
     // called after every validation with the record and the unscaled iterate (X, y, S), e.g. to save checkpoints;
     // an exception thrown by it is reported and counted (SDPSolver::callback_failures), and the solve continues
     std::function<void(const ValidationRecord &, const std::vector<double> &, const std::vector<double> &,

@@ -21,11 +21,12 @@ Generated from the option table of `src/options/options.cc` (`cuadmm_exe --print
 | `certificate.block_bounds` | `--block-bounds` | double_list | `none` | per-block bounds R_b of the certified lower bound (comma-separated, one per block; a negative entry: no bound for that block, the bound is then unavailable) |
 | `certificate.trace_bound` | `--trace-bound` | double | `none` | the same bound R for every block (paper eq. 30) |
 | `certificate.trace_bound_scale` | `--trace-bound-scale` | double | `none` | R_b = f n_b for PSD blocks of size n_b, f for the entries of l and u blocks |
-| `validation.interval` | `--validation-interval` | int | `0` | validation-aware stopping: validate every n iterations on the CPU with the original data and stop only on a validated snapshot (0: off) |
+| `validation.interval` | `--validation-interval` | int | `0` | validation-aware stopping: validate every n iterations in double precision with the original data and stop only on a validated snapshot (0: off) |
 | `validation.time_interval` | `--validation-time-interval` | double | `0` | also validate every this many seconds of net solve time (the time spent in validations is excluded from the solve clock and the time limit; 0: off); alone it enables the validated stopping like validation.interval |
 | `validation.target_tols` | `--validation-target-tols` | double_list | `none` | extra validation at the first downward crossing of each of these tolerances by the internal residual (comma-separated); a crossing whose snapshot does not confirm the tolerance externally (every criterion below it) is retried with a doubling cooldown of 15 s to 60 s of net solve time |
 | `validation.tol` | `--validation-tol` | double | `algorithm.tol` | tolerance of every external criterion |
-| `validation.threads` | `--validation-threads` | int | `1` | CPU threads of the external validation |
+| `validation.threads` | `--validation-threads` | int | `1` | CPU threads of the external validation (the eigenvalues of validation.device cpu) |
+| `validation.device` | `--validation-device` | enum (gpu, cpu) | `gpu` | eigenvalues of the PSD blocks in the external validation: gpu computes them with cuSOLVER in double precision on the device, block by block, and falls back to the CPU for a block that fails; cpu uses LAPACK dsyevd |
 | `validation.strict_dimacs_tol` | `--strict-dimacs-tol` | double | `0` | after the validated criteria, continue until max |DIMACS error| <= x (0: stop at the criteria) |
 | `validation.checkpoint_iterations` | `--checkpoint-iterations` | int_list | `none` | iterations with an extra validation snapshot |
 | `validation.checkpoint_dir` | `--checkpoint-dir` | string | `none` | save X.txt, y.txt, S.txt of those snapshots in <dir>/iter_<k> |

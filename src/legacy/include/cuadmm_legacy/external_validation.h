@@ -4,9 +4,11 @@
 
     Independent validation of an SDP iterate, used by solve() for validation-aware stopping.
 
-    The metrics are recomputed on the CPU, in double precision (long double accumulation), from the ORIGINAL problem
-    data given to SDPSolver::init() and the UNSCALED iterate. They use none of the solver's GPU residuals or
-    eigendecompositions. The definitions are those of the standalone validator
+    The residuals, objectives and norms are recomputed on the CPU, in double precision (long double accumulation),
+    from the ORIGINAL problem data given to SDPSolver::init() and the UNSCALED iterate. They use none of the solver's
+    residuals, projections or eigendecompositions: the eigenvalues of the cone criteria come from a separate
+    double-precision computation on the unscaled blocks (see "Eigenvalues" below). The definitions are those of the
+    standalone validator
     (validate.cpp of the paper-replication experiment of 2026-09-27, which was never committed), plus the per-block
     X-cone criterion:
 
@@ -29,9 +31,14 @@
     are those of the original data (set_dimacs_kinds(); by default 's' blocks are PSD and 'l'/'u' blocks linear).
     Also the variant with z = C - A^T y (err4_z, err6_z; its err3 is 0).
 
-    Eigenvalues come from LAPACK dsyevd on each PSD block. For 'l' blocks the smallest entry is used; 'u' blocks have
-    no cone. An iterate is validated only if all its entries are finite and every criterion is <= its tolerance. The
-    comparisons fail closed: a NaN metric never passes.
+    Eigenvalues: lambda_min of each PSD block is the smallest eigenvalue of a full symmetric eigenvalue computation
+    in double precision on a dense copy of the unscaled block. By default it runs on the device (cusolverDnXsyevd,
+    eigenvalues only), one block at a time, with buffers that are allocated for the call and released after it. A
+    block whose device computation fails (no device, not enough device memory, a cuSOLVER error) falls back to LAPACK
+    dsyevd on the CPU. set_eig_device(EigDevice::Cpu) selects LAPACK for every block (the behavior before the branch
+    siopt-rebuttal). For 'l' blocks the smallest entry is used; 'u' blocks have no cone. An iterate is validated only
+    if all its entries are finite and every criterion is <= its tolerance. The comparisons fail closed: a NaN metric
+    never passes.
 
 */
 
@@ -39,8 +46,11 @@
 #define CUADMM_EXTERNAL_VALIDATION_H
 
 #include <limits>
+#include <memory>
 #include <string>
 #include <vector>
+
+struct ValidationGpuEig; // device side of the eigenvalue computations (external_validation.cu)
 
 struct ValidationTolerances
 {
@@ -86,6 +96,8 @@ struct ValidationResult
     double err6_z = std::numeric_limits<double>::quiet_NaN();
     int X_worst_block = -1;
     int X_negative_blocks = 0;
+    int gpu_eigs = 0; // lambda_min computations of this evaluation done on the device (three per PSD block: X, Z, S)
+    int cpu_eigs = 0; // and with LAPACK on the CPU (EigDevice::Cpu, or the fallback of a failed device computation)
     double certificate_lower_bound_conditional = std::numeric_limits<double>::quiet_NaN();
     bool validated = false;
     std::string failed; // comma-separated names of the failed criteria ("" when validated)
@@ -117,6 +129,13 @@ public:
     // block kinds of the original data for the DIMACS norms ('s': PSD, 'l': linear), one per block
     void set_dimacs_kinds(const std::vector<char> &kinds);
 
+    // where lambda_min of the PSD blocks is computed. Gpu (default): cusolverDnXsyevd in double precision, eigenvalues
+    // only, blocks one after the other (the `threads` of evaluate() are then not used), LAPACK dsyevd for a block
+    // whose device computation fails. Cpu: LAPACK dsyevd for every block.
+    enum class EigDevice { Gpu, Cpu };
+    void set_eig_device(EigDevice device) { eig_device_ = device; }
+    EigDevice eig_device() const { return eig_device_; }
+
     int vec_len() const { return vec_len_; }
     int con_num() const { return con_num_; }
 
@@ -128,6 +147,8 @@ private:
     std::vector<int> blk_sizes_;
     std::vector<long> blk_offsets_;
     double norm_b_, norm_C_, norm_b_inf_, norm_C_inf_;
+    EigDevice eig_device_ = EigDevice::Gpu;
+    mutable std::shared_ptr<ValidationGpuEig> gpu_; // created by the first evaluate() that uses the device
 };
 
 #endif // CUADMM_EXTERNAL_VALIDATION_H

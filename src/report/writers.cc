@@ -145,7 +145,8 @@ void append_summary_json(const std::string &path, const std::string &problem_pat
       << ", \"stop_reason\": " << json_string(r.stop_reason)
       << ", \"validation_interval\": " << o.validation.interval
       << ", \"validation_tol\": " << json_number(o.validation.tol < 0 ? o.algorithm.tol : o.validation.tol)
-      << ", \"validation_threads\": " << o.validation.threads << ", \"validation_count\": " << r.validations
+      << ", \"validation_threads\": " << o.validation.threads << ", \"validation_device\": " << json_string(name_of(o.validation.device))
+      << ", \"validation_count\": " << r.validations
       << ", \"validation_time_s\": " << json_number(r.validation_time_s)
       << ", \"externally_validated_converged\": " << B(r.externally_validated)
       << ", \"practical_validated\": " << B(r.practical_validated) << ", \"first_practical_iteration\": " << r.first_practical_iteration

@@ -2,11 +2,14 @@
 
     external_validation.cu
 
-    CPU implementation of ExternalValidator (see include/cuadmm/external_validation.h). Host code only.
+    Implementation of ExternalValidator (see include/cuadmm/external_validation.h). The residuals, objectives and
+    norms are host code. The smallest eigenvalue of a PSD block comes from cusolverDnXsyevd on the device (double
+    precision, eigenvalues only; ValidationGpuEig below) or from LAPACK dsyevd (LP64) on the CPU.
 
-    The eigenvalues come from LAPACK dsyevd (LP64). Builds that must not reference LAPACK, such as the MATLAB MEX
-    binding (MATLAB's own LAPACK uses 64-bit integers and would interpose the symbol), define CUADMM_NO_LAPACK:
-    evaluate() then throws, and solve() without validation (the MEX interface) is unaffected.
+    Builds that must not reference LAPACK, such as the MATLAB MEX binding (MATLAB's own LAPACK uses 64-bit integers
+    and would interpose the symbol), define CUADMM_NO_LAPACK: with EigDevice::Cpu evaluate() then throws, with
+    EigDevice::Gpu a block whose device computation fails has no eigenvalue (NaN, the "eig" criterion fails closed).
+    solve() without validation (the MEX interface) is unaffected.
 
 */
 
@@ -14,9 +17,15 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstdint>
+#include <cstdio>
 #include <exception>
+#include <mutex>
 #include <stdexcept>
 #include <thread>
+
+#include <cuda_runtime.h>
+#include <cusolverDn.h>
 
 #ifndef CUADMM_NO_LAPACK
 extern "C" void dsyevd_(const char *jobz, const char *uplo, const int *n, double *a, const int *lda, double *w,
@@ -76,7 +85,153 @@ double svec_min_eig(const double *v, long offset, int n, std::vector<double> &A,
 
 bool le(double x, double tol) { return x <= tol; } // false for NaN: the comparisons fail closed
 
+// Dense n x n matrix (column-major, both triangles) of the svec block v (upper triangle column by column,
+// off-diagonal entries multiplied by sqrt(2)). One thread per matrix entry.
+__global__ void validation_unpack_svec(const double *v, double *A, int n)
+{
+    const size_t idx = (size_t)blockIdx.x * blockDim.x + threadIdx.x;
+    if (idx >= (size_t)n * n)
+        return;
+    const size_t r = idx % n, c = idx / n;
+    const size_t lo = r < c ? r : c, hi = r < c ? c : r;
+    const double x = v[hi * (hi + 1) / 2 + lo];
+    A[idx] = r == c ? x : x * 0.70710678118654752440;
+}
+
 } // namespace
+
+// Device side of ExternalValidator: lambda_min of one PSD block with cusolverDnXsyevd in double precision. The
+// handle lives as long as the validator; the buffers of a call (the svec block, the dense matrix, the eigenvalues,
+// the cuSOLVER workspace) are allocated for the call and released before it returns, so a validation leaves no
+// device memory in use between two calls. Every failure is reported to the caller, which falls back to the CPU.
+struct ValidationGpuEig
+{
+    std::mutex mutex;
+    cusolverDnHandle_t handle = nullptr;
+    cusolverDnParams_t params = nullptr;
+    bool unusable = false; // the handle could not be created: no further attempt
+    bool reported = false; // the fallback message is printed once
+
+    ~ValidationGpuEig()
+    {
+        if (params != nullptr)
+            cusolverDnDestroyParams(params);
+        if (handle != nullptr)
+            cusolverDnDestroy(handle);
+    }
+
+    // Smallest eigenvalue of the n x n block stored in svec form at v[0 .. n (n + 1) / 2). Returns false, with the
+    // reason in `why`, if the device computation could not be done.
+    bool min_eig(const double *v, int n, double &lmin, std::string &why)
+    {
+        std::lock_guard<std::mutex> lock(mutex);
+        if (unusable)
+        {
+            why = "no cuSOLVER handle";
+            return false;
+        }
+        if (handle == nullptr)
+        {
+            if (cusolverDnCreate(&handle) != CUSOLVER_STATUS_SUCCESS)
+                handle = nullptr;
+            if (handle != nullptr && cusolverDnCreateParams(&params) != CUSOLVER_STATUS_SUCCESS)
+                params = nullptr;
+            if (handle == nullptr || params == nullptr)
+            {
+                unusable = true;
+                cudaGetLastError(); // leave no pending error to the solver
+                why = "the cuSOLVER handle could not be created";
+                return false;
+            }
+        }
+        const size_t len = (size_t)n * (n + 1) / 2, nn = (size_t)n * n;
+        double *d_v = nullptr, *d_A = nullptr, *d_w = nullptr;
+        void *d_work = nullptr;
+        int *d_info = nullptr;
+        auto release = [&]()
+        {
+            cudaFree(d_v);
+            cudaFree(d_A);
+            cudaFree(d_w);
+            cudaFree(d_work);
+            cudaFree(d_info);
+        };
+        auto fail = [&](const char *what)
+        {
+            why = what;
+            release();
+            cudaGetLastError(); // leave no pending error to the solver
+            return false;
+        };
+        if (cudaMalloc(&d_A, nn * sizeof(double)) != cudaSuccess)
+        {
+            d_A = nullptr;
+            return fail("not enough device memory for the dense block");
+        }
+        if (cudaMalloc(&d_w, (size_t)n * sizeof(double)) != cudaSuccess)
+        {
+            d_w = nullptr;
+            return fail("not enough device memory for the eigenvalues");
+        }
+        if (cudaMalloc(&d_info, sizeof(int)) != cudaSuccess)
+        {
+            d_info = nullptr;
+            return fail("device allocation failed");
+        }
+        size_t device_bytes = 0, host_bytes = 0;
+        if (cusolverDnXsyevd_bufferSize(handle, params, CUSOLVER_EIG_MODE_NOVECTOR, CUBLAS_FILL_MODE_UPPER, (int64_t)n,
+                                        CUDA_R_64F, d_A, (int64_t)n, CUDA_R_64F, d_w, CUDA_R_64F, &device_bytes,
+                                        &host_bytes) != CUSOLVER_STATUS_SUCCESS)
+            return fail("cusolverDnXsyevd_bufferSize failed");
+        // the svec block is unpacked on the device and released before the eigensolver workspace is allocated
+        if (cudaMalloc(&d_v, len * sizeof(double)) != cudaSuccess)
+        {
+            d_v = nullptr;
+            return fail("not enough device memory for the svec block");
+        }
+        if (cudaMemcpy(d_v, v, len * sizeof(double), cudaMemcpyHostToDevice) != cudaSuccess)
+            return fail("host-to-device copy failed");
+        const unsigned threads = 256;
+        const size_t blocks = (nn + threads - 1) / threads;
+        validation_unpack_svec<<<(unsigned)blocks, threads>>>(d_v, d_A, n);
+        if (cudaGetLastError() != cudaSuccess || cudaDeviceSynchronize() != cudaSuccess)
+            return fail("the svec unpacking kernel failed");
+        cudaFree(d_v);
+        d_v = nullptr;
+        if (cudaMalloc(&d_work, std::max<size_t>(device_bytes, 8)) != cudaSuccess)
+        {
+            d_work = nullptr;
+            return fail("not enough device memory for the cuSOLVER workspace");
+        }
+        std::vector<char> h_work(std::max<size_t>(host_bytes, 8));
+        if (cusolverDnXsyevd(handle, params, CUSOLVER_EIG_MODE_NOVECTOR, CUBLAS_FILL_MODE_UPPER, (int64_t)n, CUDA_R_64F, d_A,
+                             (int64_t)n, CUDA_R_64F, d_w, CUDA_R_64F, d_work, device_bytes, h_work.data(), h_work.size(),
+                             d_info) != CUSOLVER_STATUS_SUCCESS)
+            return fail("cusolverDnXsyevd failed");
+        int info = -1;
+        double w0 = std::numeric_limits<double>::quiet_NaN();
+        if (cudaMemcpy(&info, d_info, sizeof(int), cudaMemcpyDeviceToHost) != cudaSuccess ||
+            cudaMemcpy(&w0, d_w, sizeof(double), cudaMemcpyDeviceToHost) != cudaSuccess)
+            return fail("device-to-host copy failed");
+        release();
+        if (info != 0 || !std::isfinite(w0))
+        {
+            why = "cusolverDnXsyevd did not converge";
+            return false;
+        }
+        lmin = w0; // eigenvalues in increasing order
+        return true;
+    }
+
+    void report_fallback(const std::string &why)
+    {
+        std::lock_guard<std::mutex> lock(mutex);
+        if (reported)
+            return;
+        reported = true;
+        fprintf(stderr, " [validation] eigenvalues on the device unavailable (%s): LAPACK on the CPU is used instead\n", why.c_str());
+    }
+};
 
 bool ValidationResult::better_than(const ValidationResult &o) const
 {
@@ -222,6 +377,10 @@ ValidationResult ExternalValidator::evaluate(const double *X, const double *y, c
     const size_t nb = blk_types_.size();
     std::vector<double> lmin_X(nb, 0.0), lmin_Z(nb, 0.0), lmin_S(nb, 0.0), frob_X(nb, 0.0);
     std::vector<char> eig_ok(nb, 1);
+    std::vector<int> eig_gpu(nb, 0), eig_cpu(nb, 0);
+    const bool use_gpu = eig_device_ == EigDevice::Gpu;
+    if (use_gpu && !gpu_)
+        gpu_ = std::make_shared<ValidationGpuEig>();
     auto work_range = [&](size_t first, size_t last)
     {
         std::vector<double> A, w, work;
@@ -235,9 +394,29 @@ ValidationResult ExternalValidator::evaluate(const double *X, const double *y, c
                 for (long i = off; i < off + n * (n + 1) / 2; i++)
                     f += (long double)X[i] * X[i];
                 frob_X[k] = std::sqrt((double)f);
-                lmin_X[k] = svec_min_eig(X, off, (int)n, A, w, work, iwork);
-                lmin_Z[k] = svec_min_eig(Z.data(), off, (int)n, A, w, work, iwork);
-                lmin_S[k] = svec_min_eig(S, off, (int)n, A, w, work, iwork);
+                // lambda_min of the block of v: on the device, or with LAPACK (EigDevice::Cpu, or the fallback)
+                auto min_eig = [&](const double *v) -> double
+                {
+                    if (use_gpu)
+                    {
+                        double lmin = std::numeric_limits<double>::quiet_NaN();
+                        std::string why;
+                        if (gpu_->min_eig(v + off, (int)n, lmin, why))
+                        {
+                            eig_gpu[k]++;
+                            return lmin;
+                        }
+                        gpu_->report_fallback(why);
+#ifdef CUADMM_NO_LAPACK
+                        return std::numeric_limits<double>::quiet_NaN(); // no CPU eigensolver in this build
+#endif
+                    }
+                    eig_cpu[k]++;
+                    return svec_min_eig(v, off, (int)n, A, w, work, iwork);
+                };
+                lmin_X[k] = min_eig(X);
+                lmin_Z[k] = min_eig(Z.data());
+                lmin_S[k] = min_eig(S);
                 eig_ok[k] = std::isfinite(lmin_X[k]) && std::isfinite(lmin_Z[k]) && std::isfinite(lmin_S[k]);
             }
             else if (blk_types_[k] == 'l')
@@ -259,6 +438,8 @@ ValidationResult ExternalValidator::evaluate(const double *X, const double *y, c
         }
     };
     threads = std::max(1, std::min<int>(threads, (int)nb));
+    if (use_gpu)
+        threads = 1; // the device computes one block at a time
     if (threads == 1)
         work_range(0, nb);
     else
@@ -298,6 +479,8 @@ ValidationResult ExternalValidator::evaluate(const double *X, const double *y, c
     bool all_eig_ok = true;
     for (size_t k = 0; k < nb; k++)
     {
+        r.gpu_eigs += eig_gpu[k];
+        r.cpu_eigs += eig_cpu[k];
         if (blk_types_[k] == 'u')
             continue;
         all_eig_ok = all_eig_ok && eig_ok[k];
